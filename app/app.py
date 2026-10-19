@@ -13,10 +13,9 @@ if str(RADICE) not in sys.path:
 import streamlit as st
 
 from src.chains.rag import costruisci_catena
-from src.pgstore import RecuperoPostgres
 from src.database.repertorio import stato_archivio
+from src.pgstore import RecuperoPostgres
 from src.verification.controllo import riassumi, verifica
-
 
 st.set_page_config(
     page_title="Assistente territoriale",

@@ -3,9 +3,9 @@
 Non chiama il modello: costruisce risposte finte e controlla che
 il verificatore reagisca come previsto. Gratuito e istantaneo.
 """
-import pytest
 from types import SimpleNamespace
 
+import pytest
 from langchain_core.documents import Document
 
 from src.verification.controllo import riassumi, verifica

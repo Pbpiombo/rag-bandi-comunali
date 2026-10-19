@@ -1,15 +1,14 @@
-import os
-import psycopg
-import numpy as np
 import json
+import os
 import re
 
-
-from pgvector.psycopg import register_vector
+import numpy as np
+import psycopg
 from dotenv import load_dotenv
+from langchain_core.documents import Document
+from pgvector.psycopg import register_vector
 
 from src.vectorstore import crea_embeddings
-from langchain_core.documents import Document
 
 load_dotenv()
 
