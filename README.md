@@ -35,9 +35,7 @@ Tre presidi sovrapposti, di cui l'ultimo non probabilistico.
 3. **Verifica meccanica** — ogni dato citato viene cercato nel testo della fonte
    dichiarata. O c'è, o non c'è.
 
-Il terzo strato ha un collaudo con 18 casi, positivi e negativi, che dimostra
-che il controllo intercetta davvero gli errori invece di limitarsi a non
-segnalare nulla.
+Il terzo strato è coperto da test automatici, con casi positivi e negativi, che dimostrano che il controllo intercetta davvero gli errori invece di limitarsi a non segnalare nulla.
 
 ## Come funziona
 
@@ -91,7 +89,7 @@ python -m venv .venv
 source .venv/bin/activate         # macOS e Linux
 
 pip install -r requirements.txt
-pip install -r requirements-dev.txt   # ruff, opzionale
+pip install -r requirements-dev.txt   # ruff e pytest, per lo sviluppo
 ```
 
 Crea un file `.env` nella radice:
@@ -241,14 +239,14 @@ Esegue le stesse domande su entrambe le versioni e stampa le risposte affiancate
 con l'esito della verifica, per controllare che la scelta del vector store non
 cambi i dati citati.
 
-### Collaudare il verificatore
+### Test
 
 ```bash
-python -m scripts.diagnostica.test_verifica
+python -m pytest
 ```
 
-18 casi, gratuiti e istantanei: non chiamano il modello. Da rilanciare dopo ogni
-modifica al verificatore.
+Test automatici su verificatore e pulizia del testo: gratuiti e istantanei,
+non chiamano il modello né il database. Da rilanciare dopo ogni modifica.
 
 ---
 
@@ -269,10 +267,11 @@ src/
 scripts/
 ├── ingestione/            popolamento degli archivi
 ├── interrogazione/        ricerche dirette sugli archivi
-├── diagnostica/           ispezione, confronto, collaudo
+├── diagnostica/           ispezione e confronto
 └── tutorial/              passaggi di costruzione, in ordine
 
 app/                       interfaccia Streamlit
+tests/                     test automatici (pytest)
 data/
 ├── raw/                   PDF originali (non versionati)
 ├── processed/             CSV dei dati strutturati

@@ -3,10 +3,12 @@
 Non chiama il modello: costruisce risposte finte e controlla che
 il verificatore reagisca come previsto. Gratuito e istantaneo.
 """
+import pytest
+from types import SimpleNamespace
 
 from langchain_core.documents import Document
 
-from src.verification.controllo import verifica
+from src.verification.controllo import riassumi, verifica
 
 FRAMMENTI = [
     Document(
@@ -35,6 +37,16 @@ FRAMMENTI = [
         metadata={"ente": "Regione Toscana", "pagina": 11},
     ),
 ]
+
+POPOLAZIONE = SimpleNamespace(
+    testo="Dato più recente: 1834 abitanti al 1 gennaio 2026.",
+    fonti=["ISTAT"],
+)
+
+BANDI= SimpleNamespace(
+    testo="progetto ammissibile da 25.000 a 35.000 euro",
+    fonti= ["Portale"],
+)
 
 CASI = [
     {
@@ -85,37 +97,13 @@ CASI = [
     {
         "nome": "dato numerico corretto",
         "risposta": "Il comune ha 1834 abitanti (fonte: [D1], ISTAT).",
-        "dati": [
-            (
-                "popolazione_ultima",
-                type(
-                    "R",
-                    (),
-                    {
-                        "testo": "Dato più recente: 1834 abitanti al 1 gennaio 2026.",
-                        "fonti": ["ISTAT"],
-                    },
-                )(),
-            )
-        ],
+        "dati": [("popolazione_ultima", POPOLAZIONE)],
         "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
     },
     {
         "nome": "dato numerico ALTERATO",
         "risposta": "Il comune ha 1900 abitanti (fonte: [D1], ISTAT).",
-        "dati": [
-            (
-                "popolazione_ultima",
-                type(
-                    "R",
-                    (),
-                    {
-                        "testo": "Dato più recente: 1834 abitanti al 1 gennaio 2026.",
-                        "fonti": ["ISTAT"],
-                    },
-                )(),
-            )
-        ],
+        "dati": [("popolazione_ultima", POPOLAZIONE)],
         "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
     },
     {
@@ -147,23 +135,11 @@ CASI = [
     {
         "nome": "separatore migliaia dentro una frase",
         "risposta": "Il progetto va da 25.000 a 35.000 euro (fonte: [D1], Regione).",
-        "dati": [
-            (
-                "bandi",
-                type(
-                    "R",
-                    (),
-                    {
-                        "testo": "progetto ammissibile da 25.000 a 35.000 euro",
-                        "fonti": ["Portale"],
-                    },
-                )(),
-            )
-        ],
+        "dati": [("bandi",BANDI)],
         "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
     },
     {
-        "nome": "data ISO e orario non sono quantita",
+        "nome": "data ISO e orario sono date",
         "risposta": "Scade il 2026-10-15 alle 12:00 (fonte: [1], Regione, pag. 11).",
         "atteso": {"verificato": 0, "non_trovato": 2, "non_citato": 0},
     },
@@ -178,33 +154,16 @@ CASI = [
 ]
 
 
-def conta(esiti) -> dict:
-    conteggio = {"verificato": 0, "non_trovato": 0, "non_citato": 0}
-    for e in esiti:
-        conteggio[e.stato] += 1
-    return conteggio
+@pytest.mark.parametrize("caso", CASI, ids=[caso["nome"] for caso in CASI])
+def test_verifica_conteggi(caso):
+    esiti = verifica(caso["risposta"], FRAMMENTI, caso.get("dati"))
+    assert riassumi(esiti) == caso["atteso"]
 
 
-def main() -> None:
-    passati = 0
-
-    for caso in CASI:
-        esiti = verifica(caso["risposta"], FRAMMENTI, caso.get("dati"))
-        ottenuto = conta(esiti)
-        ok = ottenuto == caso["atteso"]
-        passati += ok
-
-        print(f"\n{'PASS' if ok else 'FAIL'}  {caso['nome']}")
-
-        if not ok:
-            print(f"      atteso:   {caso['atteso']}")
-            print(f"      ottenuto: {ottenuto}")
-            for e in esiti:
-                print(f"        {e.stato:14} {e.tipo:12} {e.valore}")
-
-    print(f"\n{'=' * 60}")
-    print(f"Casi superati: {passati}/{len(CASI)}")
-
-
-if __name__ == "__main__":
-    main()
+def test_tipi_data_e_orario():
+    risposta = "Scade il 2026-10-15 alle 12:00 (fonte: [1], Regione, pag. 11)."
+    esiti = verifica(risposta, FRAMMENTI)
+    assert [(e.tipo, e.valore) for e in esiti] == [
+        ("data", "2026-10-15"),
+        ("data", "12:00"),
+    ]
