@@ -2,11 +2,10 @@
 
 from src.config import RAW_DIR
 from src.ingestion.pdf_ingest import (
-    applica_metadati,
     carica_pdf,
     salva_in_chroma,
-    spezza,
 )
+from src.ingestion.testo import applica_metadati, spezza
 
 INTESTAZIONE = (
     r"AVVISO PUBBLICO\s*"
