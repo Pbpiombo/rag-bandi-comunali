@@ -1,9 +1,9 @@
-anno,residenti,fonte,data_rilevazione
-2019,2019,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2019-01-01
-2020,2037,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2020-01-01
-2021,1973,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2021-01-01
-2022,1902,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2022-01-01
-2023,1836,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2023-01-01
-2024,1814,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2024-01-01
-2025,1829,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio),2025-01-01
-2026,1834,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio),2026-01-01
+codice_ente,anno,residenti,fonte,data_rilevazione
+90060100477,2019,2019,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2019-01-01
+90060100477,2020,2037,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2020-01-01
+90060100477,2021,1973,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2021-01-01
+90060100477,2022,1902,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2022-01-01
+90060100477,2023,1836,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2023-01-01
+90060100477,2024,1814,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2024-01-01
+90060100477,2025,1829,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio),2025-01-01
+90060100477,2026,1834,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio),2026-01-01

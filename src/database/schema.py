@@ -24,38 +24,45 @@ CREATE TABLE IF NOT EXISTS enti (
 );
 
 CREATE TABLE IF NOT EXISTS popolazione (
-    anno                INTEGER PRIMARY KEY,
+    codice_ente         TEXT NOT NULL REFERENCES enti(codice_fiscale),
+    anno                INTEGER NOT NULL,
     residenti           INTEGER NOT NULL,
     fonte               TEXT NOT NULL,
-    data_rilevazione    TEXT
+    data_rilevazione    TEXT,
+    PRIMARY KEY (codice_ente, anno)
 );
 
 CREATE TABLE IF NOT EXISTS bilancio (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    anno        INTEGER NOT NULL,
-    tipo        TEXT NOT NULL CHECK (tipo IN ('entrata', 'spesa')),
-    voce        TEXT NOT NULL,
-    importo     REAL NOT NULL,
-    fonte       TEXT NOT NULL,
-    UNIQUE (anno, tipo, voce)
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    codice_ente     TEXT NOT NULL REFERENCES enti(codice_fiscale),
+    anno            INTEGER NOT NULL,
+    tipo            TEXT NOT NULL CHECK (tipo IN ('entrata', 'spesa')),
+    voce            TEXT NOT NULL,
+    importo         REAL NOT NULL,
+    fonte           TEXT NOT NULL,
+    UNIQUE (codice_ente, anno, tipo, voce)
 );
 
 CREATE TABLE IF NOT EXISTS turismo (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    anno        INTEGER NOT NULL,
-    mese        INTEGER CHECK (mese BETWEEN 1 AND 12),
-    arrivi      INTEGER,
-    presenze    INTEGER,
-    fonte       TEXT NOT NULL,
-    UNIQUE (anno, mese)
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    codice_ente     TEXT NOT NULL REFERENCES enti(codice_fiscale),
+    anno            INTEGER NOT NULL,
+    mese            INTEGER CHECK (mese BETWEEN 1 AND 12),
+    arrivi          INTEGER,
+    presenze        INTEGER,
+    fonte           TEXT NOT NULL,
+    UNIQUE (codice_ente, anno, mese)
 );
 
 CREATE TABLE IF NOT EXISTS territorio (
-    chiave      TEXT PRIMARY KEY,
-    valore      REAL NOT NULL,
-    unita       TEXT,
-    fonte       TEXT NOT NULL
+    codice_ente     TEXT NOT NULL REFERENCES enti(codice_fiscale),
+    chiave          TEXT NOT NULL,
+    valore          REAL NOT NULL,
+    unita           TEXT,
+    fonte           TEXT NOT NULL,
+    PRIMARY KEY     (codice_ente, chiave)
 );
+
 CREATE TABLE IF NOT EXISTS bandi (
     id                  TEXT PRIMARY KEY,
     titolo              TEXT NOT NULL,
@@ -96,21 +103,23 @@ CREATE TABLE IF NOT EXISTS scansioni (
 """
 
 TABELLE_DA_CSV = {
-    "enti": ["codice_fiscale",
-             "nome",
-             "tipo",
-             "codice_istat",
-             "regione",
-             "provincia",
-             "area_interna",
-             "capofila_area",
-             "toscana_diffusa",
-             "fonte",
-             "verificato_il"],
-    "popolazione": ["anno", "residenti", "fonte", "data_rilevazione"],
-    "bilancio": ["anno", "tipo", "voce", "importo", "fonte"],
-    "turismo": ["anno", "mese", "arrivi", "presenze", "fonte"],
-    "territorio": ["chiave", "valore", "unita", "fonte"],
+    "enti": [
+        "codice_fiscale",
+        "nome",
+        "tipo",
+        "codice_istat",
+        "regione",
+        "provincia",
+        "area_interna",
+        "capofila_area",
+        "toscana_diffusa",
+        "fonte",
+        "verificato_il",
+    ],
+    "popolazione": ["codice_ente", "anno", "residenti", "fonte", "data_rilevazione"],
+    "bilancio": ["codice_ente", "anno", "tipo", "voce", "importo", "fonte"],
+    "turismo": ["codice_ente", "anno", "mese", "arrivi", "presenze", "fonte"],
+    "territorio": ["codice_ente", "chiave", "valore", "unita", "fonte"],
     "bandi": [
         "id",
         "titolo",
@@ -136,7 +145,7 @@ TABELLE_DA_CSV = {
         "fonte",
         "verificato_il",
     ],
-    "scansioni": ["slug", "esito", "motivo", "esaminato_il"]
+    "scansioni": ["slug", "esito", "motivo", "esaminato_il"],
 }
 
 
@@ -144,6 +153,7 @@ def connetti() -> sqlite3.Connection:
     """Apre la connessione, creando la cartella se serve."""
     SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(SQLITE_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -224,7 +234,7 @@ def aggiorna_csv(*tabelle: str) -> None:
             esporta_csv(conn, tabella, TABELLE_DA_CSV[tabella])
     finally:
         conn.close()
-        
+
 
 def riepilogo(conn: sqlite3.Connection) -> None:
     """Stampa quante righe contiene ogni tabella."""
