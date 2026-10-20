@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 from src.config import PROCESSED_DIR
+from src.database.schema import aggiorna_csv
 from src.estrazione.bandi import (
     costruisci_estrattore,
     da_rivedere,
@@ -161,6 +162,7 @@ def main() -> None:
 
         if salvare:
             salva(riga, url, FONTE)
+            aggiorna_csv("bandi")
             print(f"\nSALVATO: {id_bando} ({motivo})")
         else:
             print(f"\nSCARTATO: {id_bando} ({motivo})")
@@ -175,6 +177,7 @@ def main() -> None:
         return
 
     salva(riga, url, FONTE)
+    aggiorna_csv("bandi")
     print(f"Salvato: {riga['id']}")
 
 

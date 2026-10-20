@@ -136,6 +136,7 @@ TABELLE_DA_CSV = {
         "fonte",
         "verificato_il",
     ],
+    "scansioni": ["slug", "esito", "motivo", "esaminato_il"]
 }
 
 
@@ -214,6 +215,16 @@ def esporta_csv(conn: sqlite3.Connection, tabella: str, colonne: list[str]) -> i
     print(f"  {tabella}: {len(righe)} righe esportate in {percorso.name}")
     return len(righe)
 
+
+def aggiorna_csv(*tabelle: str) -> None:
+    """Riversa nei CSV il contenuto attuale delle tabelle indicate."""
+    conn = connetti()
+    try:
+        for tabella in tabelle:
+            esporta_csv(conn, tabella, TABELLE_DA_CSV[tabella])
+    finally:
+        conn.close()
+        
 
 def riepilogo(conn: sqlite3.Connection) -> None:
     """Stampa quante righe contiene ogni tabella."""

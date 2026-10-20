@@ -17,6 +17,7 @@ delle scansioni le ricorda.
 import sys
 import time
 
+from src.database.schema import aggiorna_csv
 from src.estrazione.bandi import (
     costruisci_estrattore,
     decidi_automatico,
@@ -167,6 +168,7 @@ def main() -> None:
 
     mostra_riepilogo(esiti)
     print(f"\n{riepilogo()}")
+    aggiorna_csv("bandi", "scansioni")
 
 
 if __name__ == "__main__":
