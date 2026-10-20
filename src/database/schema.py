@@ -6,6 +6,23 @@ import sqlite3
 from src.config import PROCESSED_DIR, SQLITE_PATH
 
 DDL = """
+CREATE TABLE IF NOT EXISTS enti (
+    codice_fiscale  TEXT PRIMARY KEY,
+    nome            TEXT NOT NULL,
+    tipo            TEXT NOT NULL 
+                    CHECK (tipo IN ('comune', 'unione')),
+    codice_istat    TEXT,
+    regione         TEXT NOT NULL,
+    provincia       TEXT NOT NULL,
+    area_interna    TEXT,
+    capofila_area   INTEGER NOT NULL DEFAULT 0
+                    CHECK(capofila_area IN (0,1)),
+    toscana_diffusa INTEGER
+                    CHECK(toscana_diffusa IN (0,1)),
+    fonte           TEXT NOT NULL,
+    verificato_il   TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS popolazione (
     anno                INTEGER PRIMARY KEY,
     residenti           INTEGER NOT NULL,
@@ -79,6 +96,17 @@ CREATE TABLE IF NOT EXISTS scansioni (
 """
 
 TABELLE_DA_CSV = {
+    "enti": ["codice_fiscale",
+             "nome",
+             "tipo",
+             "codice_istat",
+             "regione",
+             "provincia",
+             "area_interna",
+             "capofila_area",
+             "toscana_diffusa",
+             "fonte",
+             "verificato_il"],
     "popolazione": ["anno", "residenti", "fonte", "data_rilevazione"],
     "bilancio": ["anno", "tipo", "voce", "importo", "fonte"],
     "turismo": ["anno", "mese", "arrivi", "presenze", "fonte"],
@@ -160,6 +188,31 @@ def carica_csv(conn: sqlite3.Connection, tabella: str, colonne: list[str]) -> in
     print(messaggio + f" da {percorso.name}")
 
     return inserite
+
+
+def _per_csv(valore):
+    """Riporta a intero un decimale senza parte frazionaria: 1200.0 diventa 1200."""
+    if isinstance(valore, float) and valore.is_integer():
+        return int(valore)
+    return valore
+
+
+def esporta_csv(conn: sqlite3.Connection, tabella: str, colonne: list[str]) -> int:
+    """Riscrive il CSV di data/processed con il contenuto attuale della tabella."""
+    percorso = PROCESSED_DIR / f"{tabella}.csv"
+    elenco = ", ".join(colonne)
+    righe = conn.execute(
+        f"SELECT {elenco} FROM {tabella} ORDER BY {colonne[0]}"
+    ).fetchall()
+
+    with percorso.open("w", encoding="utf-8-sig", newline="") as f:
+        scrittore = csv.DictWriter(f, fieldnames=colonne)
+        scrittore.writeheader()
+        for riga in righe:
+            scrittore.writerow({c: _per_csv(riga[c]) for c in colonne})
+
+    print(f"  {tabella}: {len(righe)} righe esportate in {percorso.name}")
+    return len(righe)
 
 
 def riepilogo(conn: sqlite3.Connection) -> None:
