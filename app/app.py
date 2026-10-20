@@ -157,7 +157,7 @@ def main() -> None:
 
     st.markdown("###### Esempi")
     colonne = st.columns(len(ESEMPI))
-    for colonna, esempio in zip(colonne, ESEMPI):
+    for colonna, esempio in zip(colonne, ESEMPI, strict=True):
         with colonna:
             if st.button(esempio, use_container_width=True):
                 st.session_state.domanda = esempio

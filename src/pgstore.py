@@ -27,7 +27,7 @@ def salva_chunk_in_db(documenti: list[Document]) -> None:
         testi = [doc.page_content for doc in documenti]
         vettori = emb.embed_documents(testi)
 
-        for documento, vettore in zip(documenti, vettori):
+        for documento, vettore in zip(documenti, vettori, strict=True):
             cursor.execute(
                 "INSERT INTO chunk (testo, metadata, embedding) VALUES (%s, %s, %s)",
                 (

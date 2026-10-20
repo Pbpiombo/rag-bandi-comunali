@@ -45,7 +45,7 @@ class RecuperoIbrido:
         dati = self.store.get()
         self.documenti = [
             Document(page_content=testo, metadata=meta)
-            for testo, meta in zip(dati["documents"], dati["metadatas"])
+            for testo, meta in zip(dati["documents"], dati["metadatas"], strict=True)
         ]
 
         self.bm25 = BM25Okapi([tokenizza(d.page_content) for d in self.documenti])

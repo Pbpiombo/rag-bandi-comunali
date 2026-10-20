@@ -14,7 +14,7 @@ def main() -> None:
     dati = apri_store().get()
 
     trovati = 0
-    for testo, meta in zip(dati["documents"], dati["metadatas"]):
+    for testo, meta in zip(dati["documents"], dati["metadatas"], strict=True):
         compatto = " ".join(testo.split())
 
         if ago in compatto.lower():

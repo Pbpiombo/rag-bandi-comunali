@@ -22,7 +22,7 @@ def mostra(esito: dict) -> None:
 
     print("\nFRAMMENTI RECUPERATI")
     for numero, (documento, origine) in enumerate(
-        zip(esito["documenti"], esito["origini"]), start=1
+        zip(esito["documenti"], esito["origini"], strict=True), start=1
     ):
         meta = documento.metadata
         print(
