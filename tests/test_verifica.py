@@ -3,6 +3,7 @@
 Non chiama il modello: costruisce risposte finte e controlla che
 il verificatore reagisca come previsto. Gratuito e istantaneo.
 """
+
 from types import SimpleNamespace
 
 import pytest
@@ -43,9 +44,9 @@ POPOLAZIONE = SimpleNamespace(
     fonti=["ISTAT"],
 )
 
-BANDI= SimpleNamespace(
+BANDI = SimpleNamespace(
     testo="progetto ammissibile da 25.000 a 35.000 euro",
-    fonti= ["Portale"],
+    fonti=["Portale"],
 )
 
 CASI = [
@@ -135,7 +136,7 @@ CASI = [
     {
         "nome": "separatore migliaia dentro una frase",
         "risposta": "Il progetto va da 25.000 a 35.000 euro (fonte: [D1], Regione).",
-        "dati": [("bandi",BANDI)],
+        "dati": [("bandi", BANDI)],
         "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
     },
     {
