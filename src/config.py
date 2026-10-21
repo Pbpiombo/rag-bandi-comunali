@@ -35,15 +35,5 @@ CHUNK_SIZE = 1500
 CHUNK_OVERLAP = 250
 SOGLIA_CHUNK = 150
 
-# Profilo dell'ente per cui si cercano le opportunità di finanziamento
-PROFILO_ENTE = {
-    "nome": "Comune di Abetone Cutigliano",
-    "tipo": "comune",
-    "regione": "Toscana",
-    "provincia": "Pistoia",
-    "area_interna": "Garfagnana - Lunigiana - Media Valle del Serchio - Appennino Pistoiese",
-    "capofila_area": False,
-    "toscana_diffusa": None,  # da verificare sull'elenco della L.R. 11/2025
-}
-# Provvisorio: sostituito dalla scelta dell'utente nel menu, al sottopasso 6.
+# Ente selezionato all'apertura dell'app e usato dagli script da riga di comando.
 ENTE_PREDEFINITO = ("90060100477")
