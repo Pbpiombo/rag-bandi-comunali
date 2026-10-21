@@ -9,6 +9,7 @@ from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from src.chains.router import (
     costruisci_router,
     decidi,
+    descrivi_profilo,
     esegui_interrogazioni,
     formatta_dati,
 )
@@ -68,14 +69,24 @@ NON è una risposta.
 PERTINENZA
 Verifica che ogni frammento riguardi davvero la domanda. I frammenti sono \
 stati recuperati per somiglianza automatica e alcuni possono essere fuori \
-tema: quelli li ignori, senza citarli."""
+tema: quelli li ignori, senza citarli.
+
+ENTE PER CUI RISPONDI
+Ricevi il profilo dell'ente che pone la domanda: tipo, area interna, se è \
+capofila, se rientra in Toscana Diffusa. Usalo per valutare se l'ente \
+rientra tra i beneficiari di un bando. Quando lo usi, citalo nella forma \
+(fonte: profilo dell'ente). Un dato "non verificato" non è né sì né no: \
+dillo, invece di dedurlo."""
 
 MODELLO_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", ISTRUZIONI),
         (
             "human",
-            "FRAMMENTI:\n\n{contesto}\n\nDATI:\n\n{dati}\n\n---\n\nDOMANDA: {domanda}",
+            (
+                "ENTE PER CUI RISPONDI:\n\n{profilo}\n\n"
+                "FRAMMENTI:\n\n{contesto}\n\nDATI:\n\n{dati}\n\n---\n\nDOMANDA: {domanda}"
+            ),
         ),
     ]
 )
@@ -145,6 +156,7 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
             "esiti_dati": esiti,
             "contesto": contesto,
             "dati": dati,
+            "profilo": descrivi_profilo(profilo),
         }
 
     return RunnableLambda(prepara) | RunnablePassthrough.assign(
