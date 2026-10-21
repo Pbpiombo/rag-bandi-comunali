@@ -14,7 +14,9 @@ import streamlit as st
 
 from src.chains.rag import costruisci_catena
 from src.config import ENTE_PREDEFINITO
+from src.database.enti import elenco_enti
 from src.database.repertorio import stato_archivio
+from src.database.schema import connetti
 from src.pgstore import RecuperoPostgres
 from src.verification.controllo import riassumi, verifica
 
@@ -41,12 +43,18 @@ ESEMPI = [
 USA_POSTGRES = os.getenv("USA_POSTGRES", "1") == "1"
 
 
-@st.cache_resource(show_spinner="Costruzione degli indici in corso...")
-def carica_catena():
-    """Costruita una volta sola e riusata a ogni interazione."""
+@st.cache_resource(show_spinner="Caricamento del recupero documentale...")
+def carica_recupero():
+    """Un solo recupero, condiviso da tutti gli enti: i documenti sono gli stessi."""
+    return RecuperoPostgres()
+
+
+@st.cache_resource(show_spinner="Costruzione della catena per l'ente...")
+def carica_catena(codice_ente: str):
+    """Una catena per ente, costruita una volta sola."""
     if USA_POSTGRES:
-        return costruisci_catena(ENTE_PREDEFINITO, recupero=RecuperoPostgres())
-    return costruisci_catena(ENTE_PREDEFINITO)
+        return costruisci_catena(codice_ente, recupero=carica_recupero())
+    return costruisci_catena(codice_ente)
 
 
 def mostra_verifica(esito: dict) -> None:
@@ -143,10 +151,26 @@ def main() -> None:
     )
 
     with st.sidebar:
+        conn = connetti()
+        try:
+            elenco = elenco_enti(conn)
+        finally:
+            conn.close()
+
+        nomi_enti = dict(elenco)
+        codici = list(nomi_enti)
+
+        codice_ente = st.selectbox(
+            "Ente",
+            options=codici,
+            format_func=lambda codice: nomi_enti[codice],
+            index=codici.index(ENTE_PREDEFINITO),
+        )
+
         st.caption(f"Vector store: {'Postgres' if USA_POSTGRES else 'Chroma'}")
         st.header("Archivi")
         st.markdown("**Dati numerici**")
-        st.code(stato_archivio(ENTE_PREDEFINITO), language=None)
+        st.code(stato_archivio(codice_ente), language=None)
         st.divider()
         st.caption(
             "Il sistema rifiuta di rispondere quando i documenti non "
@@ -177,7 +201,7 @@ def main() -> None:
         st.warning("Scrivi una domanda.")
         return
 
-    catena = carica_catena()
+    catena = carica_catena(codice_ente)
 
     with st.spinner("Ricerca e generazione in corso..."):
         esito = catena.invoke(domanda.strip())
