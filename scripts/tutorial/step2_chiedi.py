@@ -3,6 +3,7 @@
 import sys
 
 from src.chains.rag import costruisci_catena
+from src.config import ENTE_PREDEFINITO
 
 DOMANDE = [
     "Qual è il costo massimo giornaliero per un incarico professionale?",
@@ -36,7 +37,7 @@ def mostra(esito: dict) -> None:
 
 
 def main() -> None:
-    catena = costruisci_catena()
+    catena = costruisci_catena(ENTE_PREDEFINITO)
 
     domande = [" ".join(sys.argv[1:])] if len(sys.argv) > 1 else DOMANDE
 

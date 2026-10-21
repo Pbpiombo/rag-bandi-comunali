@@ -6,7 +6,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from src.config import ENTE_PREDEFINITO, MODEL_NAME, PROFILO_ENTE
+from src.config import MODEL_NAME
 from src.database.repertorio import descrivi_repertorio, esegui, stato_archivio
 
 ISTRUZIONI_ROUTER = """Devi decidere dove cercare la risposta a una domanda \
@@ -103,14 +103,14 @@ def descrivi_profilo(profilo: dict) -> str:
     return "\n".join(righe)
 
 
-def decidi(router, domanda: str) -> dict:
+def decidi(router, domanda: str, codice_ente: str, profilo: dict) -> dict:
     """Restituisce la decisione, con un ripiego sicuro in caso di errore."""
     grezzo = router.invoke(
         {
             "domanda": domanda,
             "repertorio": descrivi_repertorio(),
-            "stato": stato_archivio(ENTE_PREDEFINITO),
-            "profilo": descrivi_profilo(PROFILO_ENTE),
+            "stato": stato_archivio(codice_ente),
+            "profilo": descrivi_profilo(profilo),
         }
     )
 
@@ -128,13 +128,13 @@ def decidi(router, domanda: str) -> dict:
     return decisione
 
 
-def esegui_interrogazioni(decisione: dict) -> list:
+def esegui_interrogazioni(decisione: dict, codice_ente: str) -> list:
     """Esegue le interrogazioni indicate dal router."""
     esiti = []
     for richiesta in decisione.get("interrogazioni", []):
         nome = richiesta.get("nome", "")
         parametri = richiesta.get("parametri") or {}
-        esiti.append((nome, esegui(nome, parametri, ENTE_PREDEFINITO)))
+        esiti.append((nome, esegui(nome, parametri, codice_ente)))
     return esiti
 
 

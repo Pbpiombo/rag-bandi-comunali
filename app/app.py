@@ -40,12 +40,13 @@ ESEMPI = [
 
 USA_POSTGRES = os.getenv("USA_POSTGRES", "1") == "1"
 
+
 @st.cache_resource(show_spinner="Costruzione degli indici in corso...")
 def carica_catena():
     """Costruita una volta sola e riusata a ogni interazione."""
     if USA_POSTGRES:
-        return costruisci_catena(recupero=RecuperoPostgres())
-    return costruisci_catena()
+        return costruisci_catena(ENTE_PREDEFINITO, recupero=RecuperoPostgres())
+    return costruisci_catena(ENTE_PREDEFINITO)
 
 
 def mostra_verifica(esito: dict) -> None:
@@ -81,7 +82,7 @@ def mostra_verifica(esito: dict) -> None:
     for e in problematici:
         riga = f"{SIMBOLI[e.stato]}  **{e.valore}**  ({e.tipo})"
         if e.contesto:
-            riga += f"  ·  _{e.contesto}_" 
+            riga += f"  ·  _{e.contesto}_"
         if e.frammenti:
             riga += f" → fonti {', '.join(e.frammenti)}"
         if e.stato == "non_trovato":
@@ -102,7 +103,7 @@ def mostra_verifica(esito: dict) -> None:
                 st.markdown(riga)
 
 
-def mostra_fonti(esito: dict) -> None:  
+def mostra_fonti(esito: dict) -> None:
     """I frammenti documentali e i dati numerici usati."""
     dati = esito.get("esiti_dati") or []
     documenti = esito["documenti"]
@@ -142,7 +143,6 @@ def main() -> None:
     )
 
     with st.sidebar:
-        
         st.caption(f"Vector store: {'Postgres' if USA_POSTGRES else 'Chroma'}")
         st.header("Archivi")
         st.markdown("**Dati numerici**")
@@ -214,4 +214,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

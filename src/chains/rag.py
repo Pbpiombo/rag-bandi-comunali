@@ -13,6 +13,8 @@ from src.chains.router import (
     formatta_dati,
 )
 from src.config import MODEL_NAME
+from src.database.enti import profilo_ente
+from src.database.schema import connetti
 from src.retrieval import RecuperoIbrido
 
 K_DEFAULT = 10
@@ -101,8 +103,14 @@ def formatta(documenti: list[Document]) -> str:
     return "\n\n".join(blocchi)
 
 
-def costruisci_catena(k: int = K_DEFAULT, recupero=None):
+def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
     """Assembla la chain LCEL: router, recupero ibrido, generazione."""
+    conn = connetti()
+    try:
+        profilo = profilo_ente(conn, codice_ente)
+    finally:
+        conn.close()
+
     if recupero is None:
         recupero = RecuperoIbrido()
     router = costruisci_router()
@@ -114,9 +122,9 @@ def costruisci_catena(k: int = K_DEFAULT, recupero=None):
     )
 
     def prepara(domanda: str) -> dict:
-        decisione = decidi(router, domanda)
+        decisione = decidi(router, domanda, codice_ente=codice_ente, profilo=profilo)
 
-        esiti = esegui_interrogazioni(decisione)
+        esiti = esegui_interrogazioni(decisione, codice_ente)
         dati = formatta_dati(esiti) or "(nessun dato numerico richiesto)"
 
         if decisione.get("documenti", True):

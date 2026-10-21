@@ -1,6 +1,7 @@
 """Confronta le risposte della catena con Chroma e con Postgres."""
 
 from src.chains.rag import costruisci_catena
+from src.config import ENTE_PREDEFINITO
 from src.pgstore import RecuperoPostgres
 from src.verification.controllo import riassumi, verifica
 
@@ -14,8 +15,8 @@ def main():
     # Esegue il confronto tra le due catene
 
     catene = {
-        "chroma": costruisci_catena(),
-        "postgres": costruisci_catena(recupero=RecuperoPostgres()),
+        "chroma": costruisci_catena(ENTE_PREDEFINITO),
+        "postgres": costruisci_catena(ENTE_PREDEFINITO, recupero=RecuperoPostgres()),
     }
 
     for domanda in DOMANDE:
