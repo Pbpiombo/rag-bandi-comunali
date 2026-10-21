@@ -90,10 +90,10 @@ def pulisci_json(testo: str) -> str:
     return testo.strip()
 
 
-def descrivi_profilo() -> str:
+def descrivi_profilo(profilo: dict) -> str:
     """Il profilo dell'ente in forma testuale, per il prompt."""
     righe = []
-    for chiave, valore in PROFILO_ENTE.items():
+    for chiave, valore in profilo.items():
         if valore is None:
             righe.append(f"- {chiave}: non verificato")
         elif isinstance(valore, bool):
@@ -110,7 +110,7 @@ def decidi(router, domanda: str) -> dict:
             "domanda": domanda,
             "repertorio": descrivi_repertorio(),
             "stato": stato_archivio(ENTE_PREDEFINITO),
-            "profilo": descrivi_profilo(),
+            "profilo": descrivi_profilo(PROFILO_ENTE),
         }
     )
 
