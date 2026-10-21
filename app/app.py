@@ -13,6 +13,7 @@ if str(RADICE) not in sys.path:
 import streamlit as st
 
 from src.chains.rag import costruisci_catena
+from src.config import ENTE_PREDEFINITO
 from src.database.repertorio import stato_archivio
 from src.pgstore import RecuperoPostgres
 from src.verification.controllo import riassumi, verifica
@@ -145,7 +146,7 @@ def main() -> None:
         st.caption(f"Vector store: {'Postgres' if USA_POSTGRES else 'Chroma'}")
         st.header("Archivi")
         st.markdown("**Dati numerici**")
-        st.code(stato_archivio(), language=None)
+        st.code(stato_archivio(ENTE_PREDEFINITO), language=None)
         st.divider()
         st.caption(
             "Il sistema rifiuta di rispondere quando i documenti non "

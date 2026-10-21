@@ -1,18 +1,27 @@
-"""Interrogazioni sui dati statistici del territorio."""
+"""Interrogazioni sui dati statistici del territorio, sempre riferite a un ente."""
 
 import sqlite3
 
 from src.database.modelli import Risultato, fonti_distinte
 
 
-def popolazione_anno(conn: sqlite3.Connection, anno: int) -> Risultato:
+def popolazione_anno(conn: sqlite3.Connection, codice_ente: str, anno: int) -> Risultato:
     """Residenti in un anno specifico."""
-    riga = conn.execute("SELECT * FROM popolazione WHERE anno = ?", (anno,)).fetchone()
+    riga = conn.execute(
+        "SELECT * FROM popolazione WHERE codice_ente = ? AND anno = ?",
+        (codice_ente, anno),
+    ).fetchone()
 
     if riga is None:
         disponibili = conn.execute(
-            "SELECT MIN(anno), MAX(anno) FROM popolazione"
+            "SELECT MIN(anno), MAX(anno) FROM popolazione WHERE codice_ente = ?",
+            (codice_ente,),
         ).fetchone()
+        if disponibili[0] is None:
+            return Risultato(
+                "Nessun dato di popolazione in archivio per questo ente.",
+                trovato=False,
+            )
         return Risultato(
             f"Nessun dato di popolazione per l'anno {anno}. "
             f"Anni disponibili: da {disponibili[0]} a {disponibili[1]}.",
@@ -26,14 +35,17 @@ def popolazione_anno(conn: sqlite3.Connection, anno: int) -> Risultato:
     )
 
 
-def popolazione_ultima(conn: sqlite3.Connection) -> Risultato:
+def popolazione_ultima(conn: sqlite3.Connection, codice_ente: str) -> Risultato:
     """Il dato di popolazione più recente disponibile."""
     riga = conn.execute(
-        "SELECT * FROM popolazione ORDER BY anno DESC LIMIT 1"
+        "SELECT * FROM popolazione WHERE codice_ente = ? ORDER BY anno DESC LIMIT 1",
+        (codice_ente,),
     ).fetchone()
 
     if riga is None:
-        return Risultato("Nessun dato di popolazione in archivio.", trovato=False)
+        return Risultato(
+            "Nessun dato di popolazione in archivio per questo ente.", trovato=False
+        )
 
     return Risultato(
         f"Dato più recente: {riga['residenti']} abitanti al 1 gennaio {riga['anno']}.",
@@ -41,12 +53,17 @@ def popolazione_ultima(conn: sqlite3.Connection) -> Risultato:
     )
 
 
-def popolazione_serie(conn: sqlite3.Connection) -> Risultato:
+def popolazione_serie(conn: sqlite3.Connection, codice_ente: str) -> Risultato:
     """L'intera serie storica, anno per anno."""
-    righe = conn.execute("SELECT * FROM popolazione ORDER BY anno").fetchall()
+    righe = conn.execute(
+        "SELECT * FROM popolazione WHERE codice_ente = ? ORDER BY anno",
+        (codice_ente,),
+    ).fetchall()
 
     if not righe:
-        return Risultato("Nessun dato di popolazione in archivio.", trovato=False)
+        return Risultato(
+            "Nessun dato di popolazione in archivio per questo ente.", trovato=False
+        )
 
     elenco = "; ".join(f"{r['anno']}: {r['residenti']}" for r in righe)
 
@@ -57,14 +74,20 @@ def popolazione_serie(conn: sqlite3.Connection) -> Risultato:
 
 
 def popolazione_variazione(
-    conn: sqlite3.Connection, da: int | None = None, a: int | None = None
+    conn: sqlite3.Connection,
+    codice_ente: str,
+    da: int | None = None,
+    a: int | None = None,
 ) -> Risultato:
     """Variazione della popolazione tra due anni."""
-    righe = conn.execute("SELECT * FROM popolazione ORDER BY anno").fetchall()
+    righe = conn.execute(
+        "SELECT * FROM popolazione WHERE codice_ente = ? ORDER BY anno",
+        (codice_ente,),
+    ).fetchall()
 
     if len(righe) < 2:
         return Risultato(
-            "Servono almeno due anni per calcolare una variazione.",
+            "Servono almeno due anni di dati per calcolare una variazione.",
             trovato=False,
         )
 
@@ -88,14 +111,20 @@ def popolazione_variazione(
     )
 
 
-def dato_territoriale(conn: sqlite3.Connection, chiave: str) -> Risultato:
+def dato_territoriale(
+    conn: sqlite3.Connection, codice_ente: str, chiave: str
+) -> Risultato:
     """Un dato stabile sul territorio, per chiave."""
     riga = conn.execute(
-        "SELECT * FROM territorio WHERE chiave = ?", (chiave.lower(),)
+        "SELECT * FROM territorio WHERE codice_ente = ? AND chiave = ?",
+        (codice_ente, chiave.lower()),
     ).fetchone()
 
     if riga is None:
-        chiavi = conn.execute("SELECT chiave FROM territorio").fetchall()
+        chiavi = conn.execute(
+            "SELECT chiave FROM territorio WHERE codice_ente = ?",
+            (codice_ente,),
+        ).fetchall()
         elenco = ", ".join(r["chiave"] for r in chiavi) or "nessuna"
         return Risultato(
             f"Nessun dato territoriale per '{chiave}'. Chiavi disponibili: {elenco}.",
@@ -107,13 +136,15 @@ def dato_territoriale(conn: sqlite3.Connection, chiave: str) -> Risultato:
     return Risultato(valore.strip() + ".", fonti=[riga["fonte"]])
 
 
-def densita_abitativa(conn: sqlite3.Connection) -> Risultato:
+def densita_abitativa(conn: sqlite3.Connection, codice_ente: str) -> Risultato:
     """Abitanti per chilometro quadrato, calcolata sui dati più recenti."""
     pop = conn.execute(
-        "SELECT * FROM popolazione ORDER BY anno DESC LIMIT 1"
+        "SELECT * FROM popolazione WHERE codice_ente = ? ORDER BY anno DESC LIMIT 1",
+        (codice_ente,),
     ).fetchone()
     sup = conn.execute(
-        "SELECT * FROM territorio WHERE chiave = 'superficie'"
+        "SELECT * FROM territorio WHERE codice_ente = ? AND chiave = 'superficie'",
+        (codice_ente,),
     ).fetchone()
 
     if pop is None or sup is None:

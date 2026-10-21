@@ -33,6 +33,7 @@ class Voce:
     descrizione: str
     parametri: dict
     funzione: Callable
+    per_ente: bool = False
 
 
 REPERTORIO = [
@@ -41,36 +42,42 @@ REPERTORIO = [
         "Numero di residenti in un anno specifico",
         {"anno": "intero, l'anno richiesto"},
         popolazione_anno,
+        per_ente=True,
     ),
     Voce(
         "popolazione_ultima",
         "Il dato di popolazione più recente disponibile",
         {},
         popolazione_ultima,
+        per_ente=True,
     ),
     Voce(
         "popolazione_serie",
         "L'intera serie storica della popolazione, anno per anno",
         {},
         popolazione_serie,
+        per_ente=True,
     ),
     Voce(
         "popolazione_variazione",
         "Variazione della popolazione tra due anni, in valore e percentuale",
         {"da": "intero opzionale", "a": "intero opzionale"},
         popolazione_variazione,
+        per_ente=True,
     ),
     Voce(
         "dato_territoriale",
         "Un dato stabile sul territorio (superficie, altitudine, ecc.)",
         {"chiave": "stringa, il nome del dato"},
         dato_territoriale,
+        per_ente=True,
     ),
     Voce(
         "densita_abitativa",
         "Abitanti per chilometro quadrato, calcolata sui dati più recenti",
         {},
         densita_abitativa,
+        per_ente=True,
     ),
     Voce(
         "bandi_aperti_per_comuni",
@@ -113,31 +120,39 @@ def descrivi_repertorio() -> str:
     return "\n".join(righe)
 
 
-def esegui(nome: str, parametri: dict) -> Risultato:
+def esegui(nome: str, parametri: dict, codice_ente: str) -> Risultato:
     """Esegue un'interrogazione del repertorio."""
     if nome not in PER_NOME:
         return Risultato(
             f"Interrogazione '{nome}' non presente nel repertorio.",
             trovato=False,
         )
-
+    voce = PER_NOME[nome]
+    parametri = {
+        chiave: valore
+        for chiave, valore in parametri.items()
+        if chiave != "codice_ente"
+    }
     conn = connetti()
     try:
-        return PER_NOME[nome].funzione(conn, **parametri)
+        if voce.per_ente:
+            return voce.funzione(conn, codice_ente, **parametri)
+        return voce.funzione(conn, **parametri)
     except TypeError as errore:
         return Risultato(f"Parametri non validi: {errore}", trovato=False)
     finally:
         conn.close()
 
 
-def stato_archivio() -> str:
+def stato_archivio(codice_ente: str) -> str:
     """Riepilogo di cosa contiene davvero il database, per il router."""
     conn = connetti()
     try:
         righe = []
 
         pop = conn.execute(
-            "SELECT COUNT(*), MIN(anno), MAX(anno) FROM popolazione"
+            "SELECT COUNT(*), MIN(anno), MAX(anno) FROM popolazione WHERE codice_ente = ?",
+            (codice_ente,),
         ).fetchone()
         righe.append(
             f"popolazione: {pop[0]} anni, dal {pop[1]} al {pop[2]}"
@@ -145,21 +160,27 @@ def stato_archivio() -> str:
             else "popolazione: VUOTA"
         )
 
-        bil = conn.execute("SELECT COUNT(*) FROM bilancio").fetchone()[0]
+        bil = conn.execute(
+            "SELECT COUNT(*) FROM bilancio WHERE codice_ente = ?", (codice_ente,)
+        ).fetchone()[0]
         righe.append(
             f"bilancio: {bil} voci"
             if bil
             else "bilancio: VUOTA, nessun dato disponibile"
         )
 
-        tur = conn.execute("SELECT COUNT(*) FROM turismo").fetchone()[0]
+        tur = conn.execute(
+            "SELECT COUNT(*) FROM turismo WHERE codice_ente = ?", (codice_ente,)
+        ).fetchone()[0]
         righe.append(
             f"turismo: {tur} rilevazioni"
             if tur
             else "turismo: VUOTA, nessun dato disponibile"
         )
 
-        chiavi = conn.execute("SELECT chiave FROM territorio").fetchall()
+        chiavi = conn.execute(
+            "SELECT chiave FROM territorio WHERE codice_ente = ?", (codice_ente,)
+        ).fetchall()
         elenco = ", ".join(r["chiave"] for r in chiavi) or "nessuna"
         righe.append(f"territorio: chiavi disponibili: {elenco}")
 

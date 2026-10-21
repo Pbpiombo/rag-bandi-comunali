@@ -1,5 +1,6 @@
 """Collaudo del repertorio, senza chiamare il modello."""
 
+from src.config import ENTE_PREDEFINITO
 from src.database.repertorio import descrivi_repertorio, esegui
 
 CASI = [
@@ -34,7 +35,7 @@ def main() -> None:
     print("=" * 74)
 
     for nome, parametri in CASI:
-        esito = esegui(nome, parametri)
+        esito = esegui(nome, parametri, ENTE_PREDEFINITO)
         segno = "OK " if esito.trovato else "-- "
         print(f"\n{segno}{nome}({parametri})")
         print(f"    {esito.testo}")

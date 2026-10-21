@@ -45,3 +45,4 @@ PROFILO_ENTE = {
     "capofila_area": False,
     "toscana_diffusa": None,  # da verificare sull'elenco della L.R. 11/2025
 }
+ENTE_PREDEFINITO = "90060100477"  # provvisorio: sostituito dalla scelta dell'utente al sottopasso 5

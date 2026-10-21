@@ -6,7 +6,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from src.config import MODEL_NAME, PROFILO_ENTE
+from src.config import ENTE_PREDEFINITO, MODEL_NAME, PROFILO_ENTE
 from src.database.repertorio import descrivi_repertorio, esegui, stato_archivio
 
 ISTRUZIONI_ROUTER = """Devi decidere dove cercare la risposta a una domanda \
@@ -109,7 +109,7 @@ def decidi(router, domanda: str) -> dict:
         {
             "domanda": domanda,
             "repertorio": descrivi_repertorio(),
-            "stato": stato_archivio(),
+            "stato": stato_archivio(ENTE_PREDEFINITO),
             "profilo": descrivi_profilo(),
         }
     )
@@ -134,7 +134,7 @@ def esegui_interrogazioni(decisione: dict) -> list:
     for richiesta in decisione.get("interrogazioni", []):
         nome = richiesta.get("nome", "")
         parametri = richiesta.get("parametri") or {}
-        esiti.append((nome, esegui(nome, parametri)))
+        esiti.append((nome, esegui(nome, parametri, ENTE_PREDEFINITO)))
     return esiti
 
 
