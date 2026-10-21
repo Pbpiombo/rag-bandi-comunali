@@ -51,7 +51,7 @@ def spezza(
     salta_pagine: list[int] | None = None,
 ) -> list[Document]:
     """Divide le pagine in chunk, saltando quelle indicate."""
-    #import all'interno della funzione, così il pacchetto si carica solo quando spezza viene chiamata.
+    # import all'interno della funzione, così il pacchetto si carica solo quando spezza viene chiamata.
     from langchain_text_splitters import RecursiveCharacterTextSplitter
 
     salta_pagine = salta_pagine or []

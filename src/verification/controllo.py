@@ -203,7 +203,7 @@ def verifica(
         contesto = contesto_di(risposta, posizione)
 
         if not etichette:
-            esiti.append(Esito(tipo, valore, [], "non_citato", contesto = contesto))
+            esiti.append(Esito(tipo, valore, [], "non_citato", contesto=contesto))
             continue
 
         ago = normalizza(valore)
@@ -213,7 +213,7 @@ def verifica(
         ]
 
         if dentro:
-            esiti.append(Esito(tipo, valore, dentro, "verificato", contesto = contesto))
+            esiti.append(Esito(tipo, valore, dentro, "verificato", contesto=contesto))
         else:
             altrove = [e for e, t in testi.items() if any(v in t for v in varianti)]
             dettaglio = (
@@ -221,7 +221,9 @@ def verifica(
                 if altrove
                 else "non presente in nessuna fonte recuperata"
             )
-            esiti.append(Esito(tipo, valore, etichette, "non_trovato", dettaglio, contesto))
+            esiti.append(
+                Esito(tipo, valore, etichette, "non_trovato", dettaglio, contesto)
+            )
 
     return esiti
 

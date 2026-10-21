@@ -5,7 +5,9 @@ import sqlite3
 from src.database.modelli import Risultato, fonti_distinte
 
 
-def popolazione_anno(conn: sqlite3.Connection, codice_ente: str, anno: int) -> Risultato:
+def popolazione_anno(
+    conn: sqlite3.Connection, codice_ente: str, anno: int
+) -> Risultato:
     """Residenti in un anno specifico."""
     riga = conn.execute(
         "SELECT * FROM popolazione WHERE codice_ente = ? AND anno = ?",
