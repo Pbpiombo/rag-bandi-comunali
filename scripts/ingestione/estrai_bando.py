@@ -1,8 +1,8 @@
 """Estrae i campi di un bando e li salva nel database dopo conferma.
 
 Uso:
-    python -m scripts.estrai_bando URL identificativo
-    python -m scripts.estrai_bando percorso/testo.txt URL identificativo
+    python -m scripts.ingestione.estrai_bando URL identificativo
+    python -m scripts.ingestione.estrai_bando percorso/testo.txt URL identificativo
 
 Nella prima forma la pagina viene scaricata; nella seconda si parte da un
 testo gia' salvato, utile per rileggere una pagina senza riscaricarla.
@@ -94,8 +94,10 @@ def leggi_argomenti() -> tuple[str, str, str] | None:
     argomenti = [a for a in sys.argv[1:] if not a.startswith("--")]
 
     if not argomenti:
-        print("Uso: python -m scripts.estrai_bando URL identificativo")
-        print("     python -m scripts.estrai_bando testo.txt URL identificativo")
+        print("Uso: python -m scripts.ingestione.estrai_bando URL identificativo")
+        print(
+            "     python -m scripts.ingestione.estrai_bando testo.txt URL identificativo"
+        )
         return None
 
     if argomenti[0].startswith("http"):
@@ -116,7 +118,9 @@ def leggi_argomenti() -> tuple[str, str, str] | None:
         return testo, url, id_bando
 
     if len(argomenti) < 3:
-        print("Uso: python -m scripts.estrai_bando testo.txt URL identificativo")
+        print(
+            "Uso: python -m scripts.ingestione.estrai_bando testo.txt URL identificativo"
+        )
         return None
 
     percorso = Path(argomenti[0])
@@ -141,7 +145,12 @@ def main() -> None:
 
     mostra(campi)
 
-    riga, problemi = valida(campi)
+    riga, problemi, avvisi = valida(campi)
+
+    if avvisi:
+        print("\nAVVISI: campi lasciati vuoti, da completare a mano se serve")
+        for a in avvisi:
+            print(f"  - {a}")
 
     if problemi:
         print("\nPROBLEMI DI VALIDAZIONE")

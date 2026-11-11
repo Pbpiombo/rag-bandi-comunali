@@ -10,25 +10,32 @@ DEFINITIVI = ("scaduto", "non ammette i Comuni")
 
 
 def registra(
-    url: str, codice_fonte: str, slug: str | None, esito: str, motivo: str = ""
+    url: str,
+    codice_fonte: str,
+    slug: str | None,
+    esito: str,
+    motivo: str = "",
+    avvisi: str = "",
 ) -> None:
     """Annota l'esito dell'esame di una pagina.
 
     La chiave e' l'URL in forma canonica: riesaminare la stessa pagina
-    aggiorna la riga invece di aggiungerne una.
+    aggiorna la riga invece di aggiungerne una. Motivo e avvisi si
+    registrano per intero, senza tagli.
     """
     conn = connetti()
     try:
         conn.execute(
             "INSERT OR REPLACE INTO scansioni "
-            "(url, codice_fonte, slug, esito, motivo, esaminato_il) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "(url, codice_fonte, slug, esito, motivo, avvisi, esaminato_il) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 url_canonico(url),
                 codice_fonte,
                 slug,
                 esito,
                 motivo,
+                avvisi or None,
                 date.today().isoformat(),
             ),
         )

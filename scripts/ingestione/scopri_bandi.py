@@ -1,16 +1,16 @@
 """Confronta l'elenco dei bandi del portale con quelli in archivio.
 
 Uso:
-    python -m scripts.scopri_bandi                 solo i nuovi
-    python -m scripts.scopri_bandi --tutti         anche quelli gia' noti
-    python -m scripts.scopri_bandi --promettenti   solo quelli con indizi
-                                                   di pertinenza per un Comune
-    python -m scripts.scopri_bandi --comandi       stampa i comandi di estrazione
+    python -m scripts.ingestione.scopri_bandi                 solo i nuovi
+    python -m scripts.ingestione.scopri_bandi --tutti         anche quelli gia' noti
+    python -m scripts.ingestione.scopri_bandi --promettenti   solo quelli con indizi
+                                                              di pertinenza per un Comune
+    python -m scripts.ingestione.scopri_bandi --comandi       stampa i comandi di estrazione
 """
 
 import sys
 
-from src.estrazione.elenco import gia_in_archivio, scopri
+from src.estrazione.elenco import gia_in_archivio, id_da_slug, scopri
 
 
 def mostra_spariti(voci: list) -> None:
@@ -63,7 +63,9 @@ def main() -> None:
         print("=" * 74)
         for v in mostrare:
             print(f"\n# {v.titolo}")
-            print(f"python -m scripts.estrai_bando {v.url} {v.slug[:40]}")
+            print(
+                f"python -m scripts.ingestione.estrai_bando {v.url} {id_da_slug(v.slug, v.url)}"
+            )
     else:
         print("=" * 74)
         for v in mostrare:

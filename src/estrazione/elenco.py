@@ -1,8 +1,11 @@
 """Scoperta dei bandi pubblicati sul portale della Regione Toscana."""
 
+import hashlib
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
+from urllib.parse import unquote
 
 from src.database.schema import connetti
 from src.estrazione.indirizzi import url_canonico
@@ -13,9 +16,15 @@ ELENCO = "https://www.regione.toscana.it/bandi-aperti?delta=200"
 BASE = "https://www.regione.toscana.it"
 
 # Lo slug di una pagina del portale, dopo "/-/". Puo' contenere "." e "/"
-# (es. "museo/ecomuseo", "a.s.-2025-26"): una regex che li escludesse
-# taglierebbe lo slug e confonderebbe pagine diverse.
-SLUG_NEL_LINK = re.compile(r"/-/([a-z0-9][a-z0-9./-]{10,})")
+# (es. "museo/ecomuseo", "a.s.-2025-26") e caratteri codificati come
+# %C3%A0 ("a" accentata) o %C2%A0 (spazio non separabile): una regex che
+# li escludesse taglierebbe lo slug e confonderebbe pagine diverse.
+SLUG_NEL_LINK = re.compile(r"/-/([a-z0-9](?:[a-z0-9./-]|%[0-9A-Fa-f]{2}){10,})")
+
+# Lunghezza massima dell'identificativo di un bando, e del codice che lo
+# chiude quando lo slug e' piu' lungo
+LUNGHEZZA_ID = 60
+LUNGHEZZA_CODICE = 6
 
 # Voci del portale che non sono bandi
 ESCLUSI = {
@@ -116,6 +125,28 @@ def leggi_elenco() -> list[str]:
 def url_da_slug(slug: str) -> str:
     """L'URL, in forma canonica, della pagina del portale con quello slug."""
     return url_canonico(f"{BASE}/-/{slug}")
+
+
+def id_da_slug(slug: str, url: str) -> str:
+    """L'identificativo di un bando, ricavato dal suo slug.
+
+    Decodifica le sequenze %XX, toglie gli accenti e sostituisce ogni
+    carattere fuori da a-z, 0-9 e "-" con un trattino, cosi' l'id e'
+    utilizzabile anche come nome di file. Se supera LUNGHEZZA_ID
+    caratteri, lo taglia e lo chiude con un codice ricavato dall'URL
+    canonico completo: due slug con lo stesso inizio danno id diversi.
+    """
+    testo = unicodedata.normalize("NFKD", unquote(slug))
+    testo = testo.encode("ascii", "ignore").decode().lower()
+    testo = re.sub(r"[^a-z0-9-]+", "-", testo)
+    testo = re.sub(r"-{2,}", "-", testo).strip("-")
+
+    if len(testo) <= LUNGHEZZA_ID:
+        return testo
+
+    codice = hashlib.sha1(url_canonico(url).encode("utf-8")).hexdigest()
+    inizio = testo[: LUNGHEZZA_ID - LUNGHEZZA_CODICE - 1].rstrip("-")
+    return f"{inizio}-{codice[:LUNGHEZZA_CODICE]}"
 
 
 def gia_in_archivio() -> set[str]:

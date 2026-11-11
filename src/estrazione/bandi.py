@@ -37,6 +37,50 @@ CAMPI = {
 
 CRITICI = [nome for nome, (_, critico) in CAMPI.items() if critico]
 
+# I campi senza i quali il bando non si salva, se mancano o non si
+# convertono. Diversi dai critici, che indicano cosa far confermare.
+# - titolo, ente: identificano il bando e compaiono nella citazione
+# - beneficiari: e' la prova da cui si decide chi puo' partecipare
+# - ammette_comuni: obbligatorio nello schema
+# - scadenza, a_sportello: da loro si calcola se il bando e' aperto
+# Gli altri campi, se non si convertono, restano vuoti con un avviso.
+BLOCCANTI = {
+    "titolo",
+    "ente",
+    "beneficiari",
+    "ammette_comuni",
+    "scadenza",
+    "a_sportello",
+}
+
+# I campi numerici per cui "fino a 50.000 euro" e' il valore cercato:
+# un tetto. Per un minimo, un tetto non ha senso.
+TETTO_AMMESSO = {"costo_max", "contributo_max", "contributo_perc", "dotazione"}
+
+# Un numero in formato italiano: punto ogni tre cifre e virgola
+# decimale (1.200.000,00), oppure senza separatori (300000, 1,2)
+NUMERO = r"\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?"
+
+IMPORTO = re.compile(
+    r"^(?:(?P<tetto>fino a|massimo|max\.?|non superiore a)\s+)?"
+    rf"(?P<numero>{NUMERO})"
+    r"(?:\s*(?P<moltiplicatore>mila|milion[ei]|mln|miliard[oi]))?$"
+)
+
+MOLTIPLICATORI = {
+    "mila": 1e3,
+    "milione": 1e6,
+    "milioni": 1e6,
+    "mln": 1e6,
+    "miliardo": 1e9,
+    "miliardi": 1e9,
+}
+
+# Qualunque sequenza di cifre e separatori: serve a contare gli importi
+CIFRE = re.compile(r"\d[\d.,]*\d|\d")
+
+NON_ESATTO = re.compile(r"\b(oltre|almeno|circa|più di|piu' di|a partire da)\b")
+
 ISTRUZIONI = """Estrai i dati strutturati di un bando pubblico dal testo \
 della sua pagina web.
 
@@ -183,53 +227,101 @@ def da_rivedere(campi: list[Campo]) -> list[Campo]:
     return [c for c in campi if c.critico or c.confidenza != "alta"]
 
 
-def normalizza_valore(nome: str, valore) -> object:
-    """Converte il valore estratto nel tipo che il database si aspetta."""
+def converti_importo(nome: str, valore) -> tuple[float | None, str | None]:
+    """Converte un importo in numero. Restituisce (numero, motivo).
+
+    Accetta un solo importo, in formato italiano, con "euro" o "€",
+    eventualmente con un moltiplicatore (mila, milioni, miliardi) e, per
+    i campi che indicano un tetto, preceduto da "fino a" o "massimo".
+    Tutto il resto non diventa un numero: due importi, un intervallo, un
+    importo approssimato ("oltre", "circa") o un punto che non separa le
+    migliaia. In quei casi il numero e' None e il motivo dice perche'.
+    """
+    if isinstance(valore, bool):
+        return None, "e' un vero/falso, non un importo"
+
+    if isinstance(valore, (int, float)):
+        return float(valore), None
+
+    testo = str(valore).lower().replace("€", " ")
+    testo = re.sub(r"\beur(o)?\b", " ", testo)
+    testo = re.sub(r"\s+", " ", testo).strip()
+    testo = re.sub(r"\s+di$", "", testo)
+
+    trovato = IMPORTO.match(testo)
+    if trovato:
+        if trovato["tetto"] and nome not in TETTO_AMMESSO:
+            return None, "indica un tetto, non un minimo"
+        numero = float(trovato["numero"].replace(".", "").replace(",", "."))
+        numero *= MOLTIPLICATORI.get(trovato["moltiplicatore"], 1)
+        return round(numero, 2), None
+
+    importi = CIFRE.findall(testo)
+    if len(importi) > 1:
+        return None, "contiene piu' di un importo"
+    if NON_ESATTO.search(testo):
+        return None, "importo non esatto"
+    if importi and not re.fullmatch(NUMERO, importi[0]):
+        return None, "separatori non riconosciuti"
+    return None, "formato non riconosciuto"
+
+
+def normalizza_valore(nome: str, valore) -> tuple[object, str | None]:
+    """Converte il valore estratto nel tipo che il database si aspetta.
+
+    Restituisce (valore, motivo): il motivo e' None se il valore e'
+    assente o convertito, altrimenti spiega perche' non si converte.
+    """
     tipo = CAMPI[nome][0]
 
     if valore is None or valore == "":
-        return None
+        return None, None
 
     if tipo == "bool":
         if isinstance(valore, bool):
-            return 1 if valore else 0
+            return (1 if valore else 0), None
         testo = str(valore).strip().lower()
         if testo in ("true", "si", "sì", "1"):
-            return 1
+            return 1, None
         if testo in ("false", "no", "0"):
-            return 0
-        return None
+            return 0, None
+        return None, "non e' vero o falso"
 
     if tipo == "num":
-        if isinstance(valore, (int, float)):
-            return float(valore)
-        testo = str(valore).replace("€", "").replace(" ", "")
-        testo = testo.replace(".", "").replace(",", ".")
-        try:
-            return float(testo)
-        except ValueError:
-            return None
+        return converti_importo(nome, valore)
 
     if tipo == "data":
         testo = str(valore).strip()
-        return testo if re.fullmatch(r"\d{4}-\d{2}-\d{2}", testo) else None
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", testo):
+            return testo, None
+        return None, "non e' nel formato AAAA-MM-GG"
 
-    return str(valore).strip()
+    return str(valore).strip(), None
 
 
-def valida(campi: list[Campo]) -> tuple[dict, list[str]]:
-    """Converte i campi in una riga per il database e segnala i problemi."""
+def valida(campi: list[Campo]) -> tuple[dict, list[str], list[str]]:
+    """Converte i campi in una riga per il database.
+
+    Restituisce (riga, problemi, avvisi). I problemi impediscono il
+    salvataggio: un campo bloccante mancante o non convertibile. Gli
+    avvisi no: un campo non bloccante che non si converte resta vuoto,
+    e l'avviso conserva il valore originale per chi lo rivede.
+    """
     riga = {}
     problemi = []
+    avvisi = []
 
     for c in campi:
-        riga[c.nome] = normalizza_valore(c.nome, c.valore)
+        riga[c.nome], motivo = normalizza_valore(c.nome, c.valore)
 
-        if c.valore is not None and riga[c.nome] is None:
-            problemi.append(
-                f"{c.nome}: valore '{c.valore}' non convertibile "
-                f"nel tipo {CAMPI[c.nome][0]}"
-            )
+        if motivo is None:
+            continue
+
+        messaggio = f"{c.nome}: valore '{c.valore}' non convertibile ({motivo})"
+        if c.nome in BLOCCANTI:
+            problemi.append(messaggio)
+        else:
+            avvisi.append(f"{messaggio}, lasciato vuoto")
 
     for obbligatorio in ("titolo", "ente", "beneficiari"):
         if not riga.get(obbligatorio):
@@ -241,7 +333,7 @@ def valida(campi: list[Campo]) -> tuple[dict, list[str]]:
     if riga.get("a_sportello") is None:
         riga["a_sportello"] = 0
 
-    return riga, problemi
+    return riga, problemi, avvisi
 
 
 def decidi_automatico(campi: list[Campo], riga: dict) -> tuple[bool, str]:

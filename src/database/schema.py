@@ -116,6 +116,8 @@ CREATE TABLE IF NOT EXISTS scansioni (
     slug            TEXT,
     esito          TEXT NOT NULL CHECK (esito IN ('salvato', 'scartato', 'fallito')),
     motivo          TEXT,
+    -- campi non bloccanti rimasti vuoti, con il valore originale
+    avvisi          TEXT,
     esaminato_il    TEXT NOT NULL
 );
 """
@@ -172,6 +174,7 @@ TABELLE_DA_CSV = {
         "slug",
         "esito",
         "motivo",
+        "avvisi",
         "esaminato_il",
     ],
 }

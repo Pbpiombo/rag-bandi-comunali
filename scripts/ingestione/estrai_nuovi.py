@@ -1,10 +1,10 @@
 """Estrae in sequenza i bandi nuovi trovati sul portale.
 
 Uso:
-    python -u -m scripts.estrai_nuovi --prova        mostra cosa farebbe
-    python -u -m scripts.estrai_nuovi --limite 10    estrae i primi 10
-    python -u -m scripts.estrai_nuovi --promettenti  solo quelli con indizi
-    python -u -m scripts.estrai_nuovi --recenti      esclude gli anni passati
+    python -u -m scripts.ingestione.estrai_nuovi --prova        mostra cosa farebbe
+    python -u -m scripts.ingestione.estrai_nuovi --limite 10    estrae i primi 10
+    python -u -m scripts.ingestione.estrai_nuovi --promettenti  solo quelli con indizi
+    python -u -m scripts.ingestione.estrai_nuovi --recenti      esclude gli anni passati
 
 L'opzione -u di Python disattiva l'accumulo dell'output, cosi' le righe
 compaiono man mano invece che tutte alla fine.
@@ -24,7 +24,7 @@ from src.estrazione.bandi import (
     estrai,
     valida,
 )
-from src.estrazione.elenco import scopri
+from src.estrazione.elenco import id_da_slug, scopri
 from src.estrazione.pagina import prendi
 from src.estrazione.registro import da_non_riesaminare, registra, riepilogo
 from src.estrazione.salva import salva
@@ -73,23 +73,28 @@ def scegli_candidati() -> list:
     return candidati[:limite]
 
 
-def esamina(estrattore, voce) -> tuple[str, str]:
-    """Estrae un bando e decide se salvarlo. Restituisce (esito, motivo)."""
+def esamina(estrattore, voce) -> tuple[str, str, str]:
+    """Estrae un bando e decide se salvarlo.
+
+    Restituisce (esito, motivo, avvisi). Il motivo di un fallimento
+    elenca tutti i problemi; gli avvisi i campi lasciati vuoti.
+    """
     testo = prendi(voce.url)
     campi = estrai(estrattore, testo)
-    riga, problemi = valida(campi)
+    riga, problemi, avvisi = valida(campi)
+    avvisi = "; ".join(avvisi)
 
     if problemi:
-        return "fallito", "; ".join(problemi[:2])
+        return "fallito", "; ".join(problemi), avvisi
 
-    riga["id"] = voce.slug[:60]
+    riga["id"] = id_da_slug(voce.slug, voce.url)
     salvare, motivo = decidi_automatico(campi, riga)
 
     if salvare:
         salva(riga, voce.url, FONTE, voce.codice_fonte)
-        return "salvato", motivo
+        return "salvato", motivo, avvisi
 
-    return "scartato", motivo
+    return "scartato", motivo, avvisi
 
 
 def mostra_riepilogo(esiti: dict) -> None:
@@ -148,17 +153,19 @@ def main() -> None:
         interrompi = False
 
         try:
-            esito, motivo = esamina(estrattore, v)
+            esito, motivo, avvisi = esamina(estrattore, v)
         except Exception as errore:
-            esito, motivo = "fallito", str(errore)[:100]
+            esito, motivo, avvisi = "fallito", str(errore), ""
             testo = str(errore).lower()
             interrompi = "credit balance" in testo or "authentication" in testo
 
         esiti[esito].append((v.slug, motivo))
-        registra(v.url, v.codice_fonte, v.slug, esito, motivo[:100])
+        registra(v.url, v.codice_fonte, v.slug, esito, motivo, avvisi)
 
         marca = "SALVATO" if esito == "salvato" else esito
         print(f"    {marca} ({motivo[:70]})")
+        if avvisi:
+            print(f"    avvisi: {avvisi[:70]}")
 
         if interrompi:
             print("\nINTERROTTO: problema di credito o autenticazione.")
