@@ -82,11 +82,29 @@ da cui viene, controllata sulla pagina.
     fedele alla pagina, che non nomina il titolare. Forma accettata; il
     soggetto tra parentesi dice di chi si parla. Nessuna deduzione di
     "titolare di".
-- **d. Contenimento del costo**: scadenza letta dalla pagina senza modello
-  (margine di un anno), filtro sull'anno nello slug. Prima della scansione
-  completa.
+- **d. Contenimento del costo**: fatta. Preselezione senza modello in
+  `src/estrazione/scadenza.py`, usata da `estrai_nuovi`: scarica ogni pagina
+  candidata e decide prima del modello.
+  - Campo "Data di scadenza presentazione domande" passato da più di un anno
+    (`MARGINE_GIORNI` = 365): la pagina si registra come scaduta, motivo
+    "scaduto il … (campo della pagina, senza modello)", scarto definitivo.
+    Lettura rigida: vale solo un valore che è per intero una data; altrimenti
+    decide il modello.
+  - Anno nello slug fino a due anni fa (`elenco.recente`): la pagina si salta
+    senza registrarla, **solo se il campo manca o non si legge**. Il campo vale
+    più dello slug: "…-il-bando-2023" con il campo a 31.12.2027 va al modello.
+    Filtro predefinito; `--tutti-gli-anni` lo disattiva. Tolta `--recenti`.
+  - Corretta la regex dell'anno nello slug: in "…-2023-2025" il secondo anno
+    andava perso (7 slug su 135 avevano l'anno sbagliato).
+  - `--prova` esegue la preselezione senza registrare e stima il costo.
+  - Misura dell'11 novembre 2026 sui 135 candidati: 52 con il campo, 50
+    leggibili (14 scaduti da oltre un anno, 2 da meno, 34 aperti); 69 con
+    l'anno nello slug, 38 fino al 2024. Esclusi: 14 dal campo, 31 dallo slug
+    senza campo leggibile. **Restano 90 per il modello**: tra 1,08 $ (nessun
+    bando) e 2,34 $ (tutti bandi).
 
 ## Dopo il piano
 
-Scansione completa: circa 135 candidati, più i 21 bandi in archivio da
-riclassificare.
+Scansione completa: 90 candidati per il modello (1,08–2,34 $), più i 21
+bandi in archivio da riclassificare (circa 0,55 $). In tutto, circa
+1,6–2,9 $.

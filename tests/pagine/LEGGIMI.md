@@ -15,3 +15,14 @@ scritta a mano: le frasi sono copiate dal testo. `tests/test_estrattore.py` la
 fa passare per `interpreta`, `valida` e `decidi_automatico` senza chiamare il
 modello. `tests/test_estrattore_reale.py` chiama il modello vero sulle stesse
 pagine; e' marcato `modello` e non parte con `python -m pytest`.
+
+## Pagine per la scadenza letta senza modello
+
+Due pagine salvate l'11 novembre 2026 con il solo `a_testo`, senza
+`ritaglia`: la preselezione di `src/estrazione/scadenza.py` legge il testo
+completo. Le usa `tests/test_scadenza.py`.
+
+| File | Pagina | Perche' |
+|---|---|---|
+| `estero.txt` | https://www.regione.toscana.it/-/lavorare-all-estero-borse-di-mobilit%C3%A0-professionale-per-disoccupati-o-inattivi-il-bando-2023 | "2023" nello slug, ma il campo dice 31.12.2027: va al modello |
+| `scuole-paritarie.txt` | https://www.regione.toscana.it/-/avviso-pubblico-individuazione-gestori-scuole-paritarie-private-pi%C3%B9-rappresentative-a-livello-regionale | il campo c'e' ma non e' una data ("15 giorni dalla pubblicazione...") |

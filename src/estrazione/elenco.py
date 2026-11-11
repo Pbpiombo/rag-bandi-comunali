@@ -52,8 +52,10 @@ INDIZI_COMUNE = re.compile(
     re.IGNORECASE,
 )
 
-# Un anno a quattro cifre dentro lo slug
-ANNO_NELLO_SLUG = re.compile(r"(?:^|-)(20[0-2]\d)(?:-|$)")
+# Un anno a quattro cifre dentro lo slug, tra trattini o agli estremi. I
+# trattini si controllano senza consumarli: in "annualita-2023-2025" il
+# trattino tra i due anni serve a entrambi, e il 2025 non va perso.
+ANNO_NELLO_SLUG = re.compile(r"(?<![^-])(20[0-2]\d)(?![^-])")
 
 
 @dataclass

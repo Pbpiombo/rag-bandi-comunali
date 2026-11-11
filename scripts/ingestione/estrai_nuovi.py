@@ -1,10 +1,10 @@
 """Estrae in sequenza i bandi nuovi trovati sul portale.
 
 Uso:
-    python -u -m scripts.ingestione.estrai_nuovi --prova        mostra cosa farebbe
-    python -u -m scripts.ingestione.estrai_nuovi --limite 10    estrae i primi 10
-    python -u -m scripts.ingestione.estrai_nuovi --promettenti  solo quelli con indizi
-    python -u -m scripts.ingestione.estrai_nuovi --recenti      esclude gli anni passati
+    python -u -m scripts.ingestione.estrai_nuovi --prova          mostra cosa farebbe
+    python -u -m scripts.ingestione.estrai_nuovi --limite 10      estrae i primi 10
+    python -u -m scripts.ingestione.estrai_nuovi --promettenti    solo quelli con indizi
+    python -u -m scripts.ingestione.estrai_nuovi --tutti-gli-anni senza filtro sull'anno
 
 L'opzione -u di Python disattiva l'accumulo dell'output, cosi' le righe
 compaiono man mano invece che tutte alla fine.
@@ -12,10 +12,23 @@ compaiono man mano invece che tutte alla fine.
 Ogni bando costa una chiamata all'API. Le pagine gia' esaminate con esito
 definitivo (scadute, o che non sono bandi) non vengono riproposte: il
 registro delle scansioni le ricorda.
+
+Prima del modello, una preselezione gratuita (src/estrazione/scadenza.py)
+scarica ogni pagina candidata:
+- se il campo "Data di scadenza presentazione domande" e' passato da piu'
+  di un anno, la pagina si registra come scaduta senza modello;
+- se il campo manca o non si legge e lo slug ha un anno passato, la
+  pagina si salta, senza registrarla. --tutti-gli-anni disattiva questo
+  filtro.
+Con --prova la preselezione si esegue ma non registra nulla, e si stima
+il costo delle estrazioni rimaste.
 """
 
 import sys
 import time
+from datetime import datetime
+from http.client import HTTPException
+from zoneinfo import ZoneInfo
 
 from src.database.schema import aggiorna_csv
 from src.estrazione.bandi import (
@@ -25,12 +38,26 @@ from src.estrazione.bandi import (
     valida,
 )
 from src.estrazione.elenco import id_da_slug, scopri
-from src.estrazione.pagina import prendi
+from src.estrazione.pagina import a_testo, ritaglia, scarica
 from src.estrazione.registro import da_non_riesaminare, registra, riepilogo
 from src.estrazione.salva import salva
+from src.estrazione.scadenza import (
+    ANNO_PASSATO,
+    SCADUTO,
+    motivo_scaduto,
+    preselezione,
+)
 
 FONTE = "Portale bandi Regione Toscana"
 PAUSA = 1.0
+# Pausa tra i download della preselezione, che non chiama il modello
+PAUSA_PAGINE = 0.5
+
+# Costo misurato di un'estrazione con claude-sonnet-5, in dollari
+# (piano-estrattore.md, tappa b): una pagina che e' un bando, e una che
+# non lo e'
+COSTO_BANDO = 0.026
+COSTO_NON_BANDO = 0.012
 
 
 def opzione(nome: str, predefinito: int) -> int:
@@ -65,21 +92,69 @@ def scegli_candidati() -> list:
         candidati = [v for v in candidati if v.promettente]
         print(f"  con indizi di pertinenza: {len(candidati)}")
 
-    if "--recenti" in sys.argv:
-        candidati = [v for v in candidati if v.recente]
-        print(f"  senza anni passati nel nome: {len(candidati)}")
-
-    limite = opzione("--limite", len(candidati))
-    return candidati[:limite]
+    return candidati
 
 
-def esamina(estrattore, voce) -> tuple[str, str, str]:
+def preseleziona(candidati: list, prova: bool) -> list[tuple]:
+    """Scarica le pagine e toglie, senza modello, quelle da non estrarre.
+
+    Restituisce (voce, testo ritagliato) per le pagine da mandare al
+    modello. Gli scaduti letti dal campo si registrano, salvo in prova.
+    Una pagina che non si scarica va al modello con testo None: esamina
+    riprova a scaricarla e, se fallisce ancora, la registra come fallita.
+    """
+    filtro_anni = "--tutti-gli-anni" not in sys.argv
+    oggi = datetime.now(ZoneInfo("Europe/Rome")).date()
+    al_modello, scaduti, anni_passati = [], 0, 0
+
+    print(f"\nPreselezione senza modello di {len(candidati)} pagine...")
+    for v in candidati:
+        try:
+            completo = a_testo(scarica(v.url))
+        except (OSError, HTTPException) as errore:
+            print(f"  {v.slug[:60]}: pagina non scaricata ({errore})")
+            al_modello.append((v, None))
+            continue
+
+        esito, scadenza = preselezione(completo, v.recente, oggi, filtro_anni)
+        if esito == SCADUTO:
+            scaduti += 1
+            print(f"  {v.slug[:60]}: {motivo_scaduto(scadenza)}")
+            if not prova:
+                registra(
+                    v.url, v.codice_fonte, v.slug, "scartato", motivo_scaduto(scadenza)
+                )
+        elif esito == ANNO_PASSATO:
+            anni_passati += 1
+        else:
+            al_modello.append((v, ritaglia(completo)))
+        time.sleep(PAUSA_PAGINE)
+
+    print(f"  scaduti secondo il campo della pagina: {scaduti}")
+    if filtro_anni:
+        print(f"  saltati per l'anno nello slug, senza campo leggibile: {anni_passati}")
+    print(f"  da mandare al modello: {len(al_modello)}")
+    return al_modello
+
+
+def stima_costo(quanti: int) -> str:
+    """Il costo stimato di quanti estrazioni: tutte non bandi o tutte bandi."""
+    return (
+        f"tra {quanti * COSTO_NON_BANDO:.2f} $ (se nessuno fosse un bando) "
+        f"e {quanti * COSTO_BANDO:.2f} $ (se tutti lo fossero)"
+    )
+
+
+def esamina(estrattore, voce, testo: str | None) -> tuple[str, str, str]:
     """Estrae un bando e decide se salvarlo.
 
-    Restituisce (esito, motivo, avvisi). Il motivo di un fallimento
-    elenca tutti i problemi; gli avvisi i campi e le voci lasciati vuoti.
+    testo: il testo della pagina, gia' scaricato dalla preselezione; se
+    e' None la pagina si riscarica. Restituisce (esito, motivo, avvisi).
+    Il motivo di un fallimento elenca tutti i problemi; gli avvisi i
+    campi e le voci lasciati vuoti.
     """
-    testo = prendi(voce.url)
+    if testo is None:
+        testo = ritaglia(a_testo(scarica(voce.url)))
     estrazione = estrai(estrattore, testo)
     riga, problemi, avvisi = valida(estrazione, testo)
     avvisi = "; ".join(avvisi)
@@ -128,14 +203,17 @@ def mostra_riepilogo(esiti: dict) -> None:
 
 
 def main() -> None:
-    candidati = scegli_candidati()
+    prova = "--prova" in sys.argv
+    candidati = preseleziona(scegli_candidati(), prova)
+    candidati = candidati[: opzione("--limite", len(candidati))]
 
     print(f"\nCandidati da estrarre: {len(candidati)}")
+    print(f"Costo stimato: {stima_costo(len(candidati))}")
 
-    if "--prova" in sys.argv:
-        for v in candidati:
+    if prova:
+        for v, _ in candidati:
             print(f"  {v.slug}")
-        print("\nProva: nessuna estrazione eseguita.")
+        print("\nProva: nessuna estrazione eseguita, nulla registrato.")
         print(f"\n{riepilogo()}")
         return
 
@@ -147,13 +225,13 @@ def main() -> None:
     estrattore = costruisci_estrattore()
     esiti = {"salvato": [], "scartato": [], "fallito": []}
 
-    for numero, v in enumerate(candidati, start=1):
+    for numero, (v, testo) in enumerate(candidati, start=1):
         print(f"\n[{numero}/{len(candidati)}] {v.slug[:60]}")
 
         interrompi = False
 
         try:
-            esito, motivo, avvisi = esamina(estrattore, v)
+            esito, motivo, avvisi = esamina(estrattore, v, testo)
         except Exception as errore:
             esito, motivo, avvisi = "fallito", str(errore), ""
             testo = str(errore).lower()
