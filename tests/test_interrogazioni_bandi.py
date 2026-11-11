@@ -193,6 +193,73 @@ def test_sportello_in_un_gruppo_separato_dopo_le_scadenze(db):
     assert righe[gruppo + 1].endswith(BASE + "sportello")
 
 
+# --- scadenza non indicata ---
+
+
+def test_senza_scadenza_in_un_gruppo_separato_dopo_lo_sportello(db):
+    bando(db, "senza", [("comune", None, None)], scadenza=None)
+    bando(db, "sportello", [("comune", None, None)], a_sportello=1, scadenza=None)
+    bando(db, "scadenza", [("comune", None, None)])
+
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+    righe = testo.splitlines()
+
+    assert righe[0].endswith("2 in archivio:")
+    assert righe[1].endswith(BASE + "scadenza")
+    assert righe[2] == ib.GRUPPO_SPORTELLO
+    assert righe[3].endswith(BASE + "sportello")
+    assert righe[4] == "Scadenza non indicata, da verificare sul bando:"
+    assert righe[5].endswith(BASE + "senza")
+    assert "| scadenza non indicata, da verificare sul bando |" in righe[5]
+
+
+def test_solo_bandi_senza_scadenza(db):
+    bando(db, "senza", [("comune", None, None)], scadenza=None)
+
+    r = ib.bandi_aperti_per_ente(db, COMUNE)
+
+    assert r.trovato
+    assert r.testo.startswith(
+        "Nessun bando aperto di sicuro per i Comuni alla data del 2026-11-11"
+    )
+    assert righe_del_bando(r.testo, "senza")
+    assert len(r.fonti) == 1
+
+
+def test_per_beneficiario_con_i_tre_gruppi(db):
+    agricolo = [("impresa_agricola", None, None)]
+    bando(db, "senza", agricolo, scadenza=None)
+    bando(db, "sportello", agricolo, a_sportello=1, scadenza=None)
+    bando(db, "scadenza", agricolo)
+
+    righe = ib.bandi_per_beneficiario(db, "impresa_agricola").testo.splitlines()
+
+    assert righe[0] == (
+        "Bandi aperti per imprese agricole (alla data del 2026-11-11), 2 in archivio:"
+    )
+    assert righe[1].endswith(BASE + "scadenza")
+    assert righe[2] == ib.GRUPPO_SPORTELLO
+    assert righe[3].endswith(BASE + "sportello")
+    assert righe[4] == ib.GRUPPO_SENZA_SCADENZA
+    assert righe[5].endswith(BASE + "senza")
+
+
+def test_il_dettaglio_dice_che_la_scadenza_non_e_indicata(db):
+    bando(db, "senza", [("comune", None, None)], scadenza=None)
+    assert ib.SENZA_SCADENZA in ib.dettaglio_bando(db, "senza").testo
+
+
+def test_stato_bandi_conta_a_parte_i_senza_scadenza(db):
+    bando(db, "senza", [("comune", None, None)], scadenza=None)
+    bando(db, "sportello", [("comune", None, None)], a_sportello=1, scadenza=None)
+    bando(db, "scadenza", [("comune", None, None)])
+
+    assert _stato_bandi(db, COMUNE) == (
+        "bandi: 3 in archivio, di cui 2 aperti a cui un Comune può presentare "
+        "domanda, più 1 con scadenza non indicata, da verificare sul bando"
+    )
+
+
 VERIFICARE = "verificare la disponibilità delle risorse"
 
 

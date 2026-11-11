@@ -49,6 +49,11 @@ Ordine: 4, 1, 2, 3. Fermata dopo ogni punto, con `ruff check`,
   `bandi_aperti_per_ente` e `bandi_per_beneficiario`.
 - `formatta_bando` scrive lo stesso stato nella riga.
 - `stato_archivio` li conta a parte rispetto agli aperti.
+- Fatto. In piu' del previsto: `bandi_per_beneficiario` ha ora anche il
+  gruppo dei bandi a sportello, come `bandi_aperti_per_ente` (i gruppi
+  sono scritti da una funzione comune); se ci sono solo bandi senza
+  scadenza, l'intestazione dice che nessun bando e' aperto di sicuro e il
+  gruppo segue. Riferimento del test di equivalenza invariato.
 
 ## 3. Un'etichetta per bando e controllo del decreto citato
 

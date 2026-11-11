@@ -49,6 +49,12 @@ NOMI_TIPI = {
 NON_CLASSIFICATI = "altri beneficiari non ancora classificati"
 NOTA_UNIONE = "beneficiari non ancora classificati: verificare se ammette le Unioni"
 
+# Un bando senza scadenza e non a sportello: la pagina non dice fino a
+# quando si puo' presentare domanda, e non si sa se e' ancora aperto
+SENZA_SCADENZA = "scadenza non indicata, da verificare sul bando"
+GRUPPO_SPORTELLO = "A sportello, finché ci sono risorse:"
+GRUPPO_SENZA_SCADENZA = "Scadenza non indicata, da verificare sul bando:"
+
 # Le pagine in archivio che non sono bandi (natura 'non_bando') restano
 # nel database ma non compaiono negli elenchi ne' nei conteggi
 SOLO_BANDI = "bandi.natura = 'bando'"
@@ -189,6 +195,8 @@ def formatta_bando(riga, oggi: str, nota: str | None = None) -> str:
         else:
             stato += f" (SCADUTO da {abs(giorni)} giorni)"
         pezzi.append(stato)
+    else:
+        pezzi.append(SENZA_SCADENZA)
 
     if riga["scadenza_nota"]:
         pezzi.append(f"nota: {riga['scadenza_nota']}")
@@ -242,6 +250,40 @@ def _elenco(conn, righe, oggi: str, tipo: str) -> str:
     )
 
 
+def senza_scadenza(riga) -> bool:
+    """Un bando che non e' a sportello e non ha scadenza."""
+    return not riga["a_sportello"] and not riga["scadenza"]
+
+
+def gruppi_aperti(righe: list) -> tuple[list, list, list]:
+    """Divide i bandi non scaduti: con scadenza, a sportello, senza scadenza.
+
+    Solo i primi due sono aperti di sicuro; per i bandi senza scadenza la
+    pagina non dice fino a quando si puo' presentare domanda.
+    """
+    a_scadenza = [r for r in righe if not r["a_sportello"] and r["scadenza"]]
+    a_sportello = [r for r in righe if r["a_sportello"]]
+    da_verificare = [r for r in righe if senza_scadenza(r)]
+    return a_scadenza, a_sportello, da_verificare
+
+
+def testo_gruppi(intestazione: str, gruppi: tuple, elenco) -> str:
+    """L'elenco dei bandi non scaduti, in tre gruppi.
+
+    intestazione: la prima riga, per i bandi aperti di sicuro (con scadenza
+    o a sportello); elenco: la funzione che scrive le righe di un gruppo.
+    """
+    a_scadenza, a_sportello, da_verificare = gruppi
+    testo = intestazione
+    if a_scadenza:
+        testo += f"\n{elenco(a_scadenza)}"
+    if a_sportello:
+        testo += f"\n{GRUPPO_SPORTELLO}\n{elenco(a_sportello)}"
+    if da_verificare:
+        testo += f"\n{GRUPPO_SENZA_SCADENZA}\n{elenco(da_verificare)}"
+    return testo
+
+
 def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risultato:
     """I bandi ancora aperti a cui l'ente può presentare domanda."""
     tipo = tipo_ente(conn, codice_ente)
@@ -273,20 +315,18 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
             trovato=False,
         )
 
-    a_scadenza = [r for r in righe if not r["a_sportello"]]
-    a_sportello = [r for r in righe if r["a_sportello"]]
-
-    testo = (
+    gruppi = gruppi_aperti(righe)
+    aperti = len(gruppi[0]) + len(gruppi[1])
+    intestazione = (
         f"Bandi aperti a cui {nomi['uno']} può presentare domanda "
-        f"(alla data del {oggi}), {len(righe)} in archivio:"
+        f"(alla data del {oggi}), {aperti} in archivio:"
+        if aperti
+        else f"Nessun bando aperto di sicuro per {nomi['tutti']} alla data del "
+        f"{oggi}: nessuno ha una scadenza futura o e' a sportello."
     )
-    if a_scadenza:
-        testo += f"\n{_elenco(conn, a_scadenza, oggi, tipo)}"
-    if a_sportello:
-        testo += (
-            "\nA sportello, finché ci sono risorse:\n"
-            f"{_elenco(conn, a_sportello, oggi, tipo)}"
-        )
+    testo = testo_gruppi(
+        intestazione, gruppi, lambda gruppo: _elenco(conn, gruppo, oggi, tipo)
+    )
 
     return Risultato(testo, fonti=[fonte_bando(r) for r in righe])
 
@@ -423,13 +463,22 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
             trovato=False,
         )
 
-    elenco = "\n".join(
-        f"- {formatta_bando(r, oggi, ammissione(beneficiari_di(conn, r['id']), tipo))}"
-        for r in righe
+    def elenco(gruppo):
+        return "\n".join(
+            f"- {formatta_bando(r, oggi, ammissione(beneficiari_di(conn, r['id']), tipo))}"
+            for r in gruppo
+        )
+
+    gruppi = gruppi_aperti(righe)
+    aperti = len(gruppi[0]) + len(gruppi[1])
+    intestazione = (
+        f"Bandi aperti per {nome} (alla data del {oggi}), {aperti} in archivio:"
+        if aperti
+        else f"Nessun bando aperto di sicuro per {nome} alla data del {oggi}: "
+        "nessuno ha una scadenza futura o e' a sportello."
     )
     return Risultato(
-        f"Bandi aperti per {nome} (alla data del {oggi}), {len(righe)} in "
-        f"archivio:\n{elenco}{avvertenza}",
+        testo_gruppi(intestazione, gruppi, elenco) + avvertenza,
         fonti=[fonte_bando(r) for r in righe],
     )
 

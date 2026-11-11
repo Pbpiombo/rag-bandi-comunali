@@ -221,15 +221,28 @@ def _stato_bandi(conn, codice_ente: str) -> str:
 
     oggi = data_di_oggi().isoformat()
     filtro, parametri = filtro_ente(tipo)
-    aperti, da_verificare = conn.execute(
-        f"SELECT COUNT(*), SUM(classificato_il IS NULL) FROM bandi "
-        f"WHERE {filtro} AND {SOLO_BANDI} AND (scadenza IS NULL OR scadenza >= ?)",
+    # Aperti di sicuro: scadenza futura o a sportello. Senza scadenza e non
+    # a sportello: non si sa, si contano a parte
+    aperti, non_classificati, senza_scadenza = conn.execute(
+        f"""
+        SELECT
+          COALESCE(SUM(scadenza IS NOT NULL OR a_sportello = 1), 0),
+          COALESCE(SUM((scadenza IS NOT NULL OR a_sportello = 1)
+                       AND classificato_il IS NULL), 0),
+          COALESCE(SUM(scadenza IS NULL AND a_sportello = 0), 0)
+        FROM bandi
+        WHERE {filtro} AND {SOLO_BANDI} AND (scadenza IS NULL OR scadenza >= ?)
+        """,
         (*parametri, oggi),
     ).fetchone()
     testo = (
         f"bandi: {totale} in archivio, di cui {aperti} aperti a cui "
         f"{NOMI_ENTE[tipo]['uno']} può presentare domanda"
     )
-    if tipo == "unione_comuni" and da_verificare:
-        testo += f" ({da_verificare} con beneficiari non ancora classificati)"
+    if tipo == "unione_comuni" and non_classificati:
+        testo += f" ({non_classificati} con beneficiari non ancora classificati)"
+    if senza_scadenza:
+        testo += (
+            f", più {senza_scadenza} con scadenza non indicata, da verificare sul bando"
+        )
     return testo
