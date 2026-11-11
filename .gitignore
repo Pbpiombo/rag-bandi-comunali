@@ -4,6 +4,7 @@ __pycache__/
 data/db/chroma/
 data/raw/
 data/processed/pagina_*.txt
+data/processed/*.bak
 supabase_conn.py
 prove.py
 *.log

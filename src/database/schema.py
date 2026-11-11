@@ -63,6 +63,18 @@ CREATE TABLE IF NOT EXISTS territorio (
     PRIMARY KEY     (codice_ente, chiave)
 );
 
+-- I siti da cui si acquisiscono i bandi. nome e' il testo citato come
+-- fonte del bando; fonte e verificato_il dicono da dove sappiamo che il
+-- sito e' quello ufficiale.
+CREATE TABLE IF NOT EXISTS fonti (
+    codice          TEXT PRIMARY KEY,
+    nome            TEXT NOT NULL,
+    url_elenco      TEXT NOT NULL,
+    url_base        TEXT NOT NULL,
+    fonte           TEXT NOT NULL,
+    verificato_il   TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS bandi (
     id                  TEXT PRIMARY KEY,
     titolo              TEXT NOT NULL,
@@ -89,14 +101,20 @@ CREATE TABLE IF NOT EXISTS bandi (
     contributo_max      REAL,
     dotazione           REAL,
 
-    url                 TEXT NOT NULL,
+    url                 TEXT NOT NULL UNIQUE,
     riferimento_atto    TEXT,
     fonte               TEXT NOT NULL,
+    codice_fonte        TEXT NOT NULL REFERENCES fonti(codice),
     verificato_il       TEXT NOT NULL
 );
+
+-- Le pagine gia' esaminate. La chiave e' l'URL in forma canonica, unico
+-- tra tutte le fonti; lo slug resta solo come informazione leggibile.
 CREATE TABLE IF NOT EXISTS scansioni (
-    slug            TEXT PRIMARY KEY,
-    esito           TEXT NOT NULL CHECK (esito IN ('salvato', 'scartato', 'fallito')),
+    url             TEXT PRIMARY KEY,
+    codice_fonte    TEXT NOT NULL REFERENCES fonti(codice),
+    slug            TEXT,
+    esito          TEXT NOT NULL CHECK (esito IN ('salvato', 'scartato', 'fallito')),
     motivo          TEXT,
     esaminato_il    TEXT NOT NULL
 );
@@ -120,6 +138,8 @@ TABELLE_DA_CSV = {
     "bilancio": ["codice_ente", "anno", "tipo", "voce", "importo", "fonte"],
     "turismo": ["codice_ente", "anno", "mese", "arrivi", "presenze", "fonte"],
     "territorio": ["codice_ente", "chiave", "valore", "unita", "fonte"],
+    # fonti va caricata prima di bandi e scansioni, che vi fanno riferimento
+    "fonti": ["codice", "nome", "url_elenco", "url_base", "fonte", "verificato_il"],
     "bandi": [
         "id",
         "titolo",
@@ -143,9 +163,17 @@ TABELLE_DA_CSV = {
         "url",
         "riferimento_atto",
         "fonte",
+        "codice_fonte",
         "verificato_il",
     ],
-    "scansioni": ["slug", "esito", "motivo", "esaminato_il"],
+    "scansioni": [
+        "url",
+        "codice_fonte",
+        "slug",
+        "esito",
+        "motivo",
+        "esaminato_il",
+    ],
 }
 
 
