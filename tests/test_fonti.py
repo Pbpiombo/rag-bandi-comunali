@@ -36,9 +36,9 @@ def con_fonti(conn):
 
 def _bando(conn, id_bando: str, url: str, codice_fonte: str = TOSCANA) -> None:
     conn.execute(
-        "INSERT INTO bandi (id, titolo, ente, ammette_comuni, beneficiari, "
+        "INSERT INTO bandi (id, titolo, ente, beneficiari, "
         "url, fonte, codice_fonte, verificato_il) "
-        "VALUES (?, 'titolo', 'ente', 1, 'Comuni', ?, 'prova', ?, '2026-11-11')",
+        "VALUES (?, 'titolo', 'ente', 'Comuni', ?, 'prova', ?, '2026-11-11')",
         (id_bando, url, codice_fonte),
     )
 
@@ -116,10 +116,13 @@ def test_fonti_caricata_prima_di_chi_la_usa():
     assert ordine.index("fonti") < ordine.index("scansioni")
 
 
-@pytest.mark.parametrize("tabella", ["fonti", "bandi", "scansioni"])
+ACQUISIZIONE = ["fonti", "bandi", "beneficiari_bando", "interventi_bando", "scansioni"]
+
+
+@pytest.mark.parametrize("tabella", ACQUISIZIONE)
 def test_i_csv_veri_si_caricano_senza_scarti(conn, tabella):
     """I CSV di data/processed entrano tutti nello schema, in memoria."""
-    for t in ("fonti", "bandi", "scansioni"):
+    for t in ACQUISIZIONE:
         if t == tabella:
             break
         carica_csv(conn, t, TABELLE_DA_CSV[t])

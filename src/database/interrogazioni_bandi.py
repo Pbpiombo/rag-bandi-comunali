@@ -5,6 +5,13 @@ from datetime import date
 
 from src.database.modelli import Risultato
 
+# Un Comune puo' presentare domanda: c'e' una riga di beneficiari_bando di
+# tipo 'comune'. Si calcola dai beneficiari, non si memorizza nel bando.
+AMMETTE_COMUNI = (
+    "EXISTS (SELECT 1 FROM beneficiari_bando AS b "
+    "WHERE b.id_bando = bandi.id AND b.tipo = 'comune')"
+)
+
 
 def euro(valore) -> str:
     """Formatta un importo con il separatore di migliaia italiano.
@@ -70,9 +77,9 @@ def bandi_aperti_per_comuni(conn: sqlite3.Connection) -> Risultato:
     oggi = date.today().isoformat()
 
     righe = conn.execute(
-        """
-        SELECT * FROM bandi
-        WHERE ammette_comuni = 1
+        f"""
+        SELECT bandi.*, {AMMETTE_COMUNI} AS ammette_comuni FROM bandi
+        WHERE {AMMETTE_COMUNI}
           AND (scadenza IS NULL OR scadenza >= ?)
         ORDER BY a_sportello, scadenza
         """,
@@ -81,7 +88,7 @@ def bandi_aperti_per_comuni(conn: sqlite3.Connection) -> Risultato:
 
     if not righe:
         totale = conn.execute(
-            "SELECT COUNT(*) FROM bandi WHERE ammette_comuni = 1"
+            f"SELECT COUNT(*) FROM bandi WHERE {AMMETTE_COMUNI}"
         ).fetchone()[0]
         return Risultato(
             f"Nessun bando aperto per i Comuni alla data del {oggi}. "
@@ -104,9 +111,9 @@ def bandi_in_scadenza(conn: sqlite3.Connection, giorni: int = 60) -> Risultato:
     limite = date.fromordinal(oggi.toordinal() + giorni).isoformat()
 
     righe = conn.execute(
-        """
-        SELECT * FROM bandi
-        WHERE ammette_comuni = 1
+        f"""
+        SELECT bandi.*, {AMMETTE_COMUNI} AS ammette_comuni FROM bandi
+        WHERE {AMMETTE_COMUNI}
           AND a_sportello = 0
           AND scadenza BETWEEN ? AND ?
         ORDER BY scadenza
@@ -133,7 +140,8 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
     oggi = date.today().isoformat()
 
     righe = conn.execute(
-        "SELECT * FROM bandi WHERE tema LIKE ? ORDER BY scadenza DESC",
+        f"SELECT bandi.*, {AMMETTE_COMUNI} AS ammette_comuni FROM bandi "
+        "WHERE tema LIKE ? ORDER BY scadenza DESC",
         (f"%{tema.lower()}%",),
     ).fetchall()
 
@@ -162,7 +170,8 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
 def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
     """Tutti i dati strutturati di un singolo bando."""
     riga = conn.execute(
-        "SELECT * FROM bandi WHERE id = ? OR titolo LIKE ?",
+        f"SELECT bandi.*, {AMMETTE_COMUNI} AS ammette_comuni FROM bandi "
+        "WHERE id = ? OR titolo LIKE ?",
         (id_bando, f"%{id_bando}%"),
     ).fetchone()
 

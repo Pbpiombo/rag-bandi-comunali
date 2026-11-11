@@ -1,0 +1,13 @@
+﻿id_bando,tipo,soggetto,condizioni,frase,confidenza,origine
+amianto-edifici-pubblici-2026,comune,,,Enti Locali con sede in Toscana: Comuni Unioni di Comuni Province Citta Metropolitana,,ammette_comuni
+avviso-fondo-di-garanzia-energie-rinnovabili,comune,,,"Piccole e medie imprese (Pmi), persone fisiche, associazioni, aziende sanitarie e ospedaliere, enti locali.",,ammette_comuni
+buoni-scuola-2026,comune,,,I Comuni aderiscono e raccolgono le domande delle famiglie residenti,,ammette_comuni
+celebrazioni-storiche-2026-sostegno-a-progetti-dedicati-a-sa,comune,,,"Enti locali della Toscana; Enti del Terzo settore iscritti al Registro unico nazionale del Terzo settore (RUNTS), con sede legale e operativa in Toscana.",,ammette_comuni
+immobili-emergenza-abitativa-2026,comune,,,Amministrazioni ed enti pubblici; Comuni con beni confiscati; Enti del Terzo Settore,,ammette_comuni
+mercati-rionali-2026,comune,,,Comuni della Toscana su cui insiste un mercato rionale,,ammette_comuni
+nidi-gratis-2026-2027,comune,,,Comuni singolarmente o in forma associata tramite Unioni di Comuni o convenzione art. 20 LR 68/2011,,ammette_comuni
+parcheggi-2026,comune,,,Comuni della Toscana con progetto di fattibilita approvato e schema di contratto di mutuo,,ammette_comuni
+rievocazione-storica-2025,comune,,,Enti Locali (Linea 1 e 2) e Associazioni di rievocazione storica iscritte all Elenco regionale (solo Linea 2),,ammette_comuni
+risorse-genetiche-forestali-2026,comune,,,Proprietari possessori pubblici o privati ed enti di diritto pubblico titolari di superficie agricola o forestale; soggetti della filiera vivaistica,,ammette_comuni
+toscana-diffusa-strutture-2026,comune,,,Comuni ricadenti nei territori della Toscana Diffusa individuati dalla LR 11/2025 e dall Allegato A alla Delibera CR 10/2025,,ammette_comuni
+toscanaincontemporanea-2026,comune,,,Soggetti pubblici e privati senza scopo di lucro operanti in ambito culturale in Toscana escluse le persone fisiche,,ammette_comuni

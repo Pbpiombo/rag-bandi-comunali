@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from src.database.interrogazioni_bandi import (
+    AMMETTE_COMUNI,
     bandi_aperti_per_comuni,
     bandi_in_scadenza,
     bandi_per_tema,
@@ -184,7 +185,9 @@ def stato_archivio(codice_ente: str) -> str:
         elenco = ", ".join(r["chiave"] for r in chiavi) or "nessuna"
         righe.append(f"territorio: chiavi disponibili: {elenco}")
 
-        ban = conn.execute("SELECT COUNT(*), SUM(ammette_comuni) FROM bandi").fetchone()
+        ban = conn.execute(
+            f"SELECT COUNT(*), SUM({AMMETTE_COMUNI}) FROM bandi"
+        ).fetchone()
         righe.append(
             f"bandi: {ban[0]} in archivio, di cui {ban[1] or 0} aperti ai Comuni"
             if ban[0]

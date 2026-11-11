@@ -16,7 +16,6 @@ COLONNE = [
     "scadenza",
     "scadenza_nota",
     "a_sportello",
-    "ammette_comuni",
     "beneficiari",
     "territorio",
     "premialita",
@@ -83,8 +82,15 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
 
     Un bando si aggiorna solo con lo stesso id e lo stesso URL. Se l'id
     appartiene a un altro URL, o l'URL a un altro id, solleva
-    ConflittoBando e non scrive nulla: INSERT OR REPLACE cancellerebbe
-    in silenzio la riga in conflitto.
+    ConflittoBando e non scrive nulla.
+
+    L'aggiornamento usa ON CONFLICT DO UPDATE, non INSERT OR REPLACE:
+    REPLACE cancellerebbe la riga, in silenzio, insieme ai riferimenti
+    delle tabelle beneficiari_bando e interventi_bando.
+
+    Finche' l'estrattore produce ammette_comuni (si'/no), il valore 1
+    diventa una riga di beneficiari_bando di tipo 'comune', con origine
+    'ammette_comuni', come nella migrazione dei bandi esistenti.
     """
     riga = dict(riga)
     riga["url"] = url_canonico(url)
@@ -95,6 +101,7 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
     valori = [riga.get(c) for c in COLONNE]
     segnaposto = ", ".join("?" for _ in COLONNE)
     elenco = ", ".join(COLONNE)
+    aggiorna = ", ".join(f"{c} = excluded.{c}" for c in COLONNE if c != "id")
 
     conn = connetti()
     try:
@@ -103,9 +110,21 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
             raise ConflittoBando(f"Non salvo: {problema}")
 
         conn.execute(
-            f"INSERT OR REPLACE INTO bandi ({elenco}) VALUES ({segnaposto})",
+            f"INSERT INTO bandi ({elenco}) VALUES ({segnaposto}) "
+            f"ON CONFLICT(id) DO UPDATE SET {aggiorna}",
             valori,
         )
+        conn.execute(
+            "DELETE FROM beneficiari_bando "
+            "WHERE id_bando = ? AND origine = 'ammette_comuni'",
+            (riga["id"],),
+        )
+        if riga.get("ammette_comuni") == 1:
+            conn.execute(
+                "INSERT INTO beneficiari_bando (id_bando, tipo, frase, origine) "
+                "VALUES (?, 'comune', ?, 'ammette_comuni')",
+                (riga["id"], riga["beneficiari"]),
+            )
         conn.commit()
     finally:
         conn.close()

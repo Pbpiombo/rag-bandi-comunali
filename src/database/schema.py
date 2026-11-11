@@ -4,7 +4,16 @@ import csv
 import sqlite3
 
 from src.config import PROCESSED_DIR, SQLITE_PATH
+from src.estrazione.beneficiari import ORIGINI, PER_REQUISITO, TIPI_BENEFICIARIO
 
+
+def _elenco_sql(valori) -> str:
+    """Un elenco di stringhe per una clausola IN: 'a', 'b', 'c'."""
+    return ", ".join(f"'{v}'" for v in valori)
+
+
+# I segnaposto {TIPI}, {ORIGINI} e {PER_REQUISITO} vengono riempiti
+# subito sotto con le liste chiuse di src/estrazione/beneficiari.py
 DDL = """
 CREATE TABLE IF NOT EXISTS enti (
     codice_fiscale  TEXT PRIMARY KEY,
@@ -88,8 +97,6 @@ CREATE TABLE IF NOT EXISTS bandi (
     a_sportello         INTEGER NOT NULL DEFAULT 0
                         CHECK (a_sportello IN (0, 1)),
 
-    ammette_comuni      INTEGER NOT NULL
-                        CHECK (ammette_comuni IN (0, 1)),
     beneficiari         TEXT NOT NULL,
     territorio          TEXT,
     premialita          TEXT,
@@ -105,7 +112,40 @@ CREATE TABLE IF NOT EXISTS bandi (
     riferimento_atto    TEXT,
     fonte               TEXT NOT NULL,
     codice_fonte        TEXT NOT NULL REFERENCES fonti(codice),
-    verificato_il       TEXT NOT NULL
+    verificato_il       TEXT NOT NULL,
+
+    -- clausola sul cumulo con altri finanziamenti, e la frase che la dice
+    cumulabilita        TEXT,
+    cumulabilita_frase  TEXT,
+    -- data in cui i beneficiari sono stati classificati per tipo;
+    -- vuota per i bandi che conoscono solo se ammettono i Comuni
+    classificato_il     TEXT
+);
+
+-- Chi puo' presentare domanda, per tipo di beneficiario (lista chiusa in
+-- src/estrazione/beneficiari.py), con le condizioni e la frase del bando.
+-- origine 'ammette_comuni': riga ricavata dal vecchio campo si'/no, che
+-- diceva solo se i Comuni erano ammessi.
+CREATE TABLE IF NOT EXISTS beneficiari_bando (
+    id_bando        TEXT NOT NULL REFERENCES bandi(id),
+    tipo            TEXT NOT NULL CHECK (tipo IN ({TIPI})),
+    soggetto        TEXT,
+    condizioni      TEXT,
+    frase           TEXT NOT NULL,
+    confidenza      TEXT CHECK (confidenza IN ('alta', 'media', 'bassa')),
+    origine         TEXT NOT NULL CHECK (origine IN ({ORIGINI})),
+    PRIMARY KEY (id_bando, tipo, frase),
+    CHECK (tipo <> '{PER_REQUISITO}' OR condizioni IS NOT NULL)
+);
+
+-- Interventi e spese ammissibili, ciascuno con la frase del bando
+CREATE TABLE IF NOT EXISTS interventi_bando (
+    id_bando        TEXT NOT NULL REFERENCES bandi(id),
+    numero          INTEGER NOT NULL,
+    genere          TEXT NOT NULL CHECK (genere IN ('intervento', 'spesa')),
+    descrizione     TEXT NOT NULL,
+    frase           TEXT NOT NULL,
+    PRIMARY KEY (id_bando, numero)
 );
 
 -- Le pagine gia' esaminate. La chiave e' l'URL in forma canonica, unico
@@ -121,6 +161,12 @@ CREATE TABLE IF NOT EXISTS scansioni (
     esaminato_il    TEXT NOT NULL
 );
 """
+
+DDL = (
+    DDL.replace("{TIPI}", _elenco_sql(TIPI_BENEFICIARIO))
+    .replace("{ORIGINI}", _elenco_sql(ORIGINI))
+    .replace("{PER_REQUISITO}", PER_REQUISITO)
+)
 
 TABELLE_DA_CSV = {
     "enti": [
@@ -152,7 +198,6 @@ TABELLE_DA_CSV = {
         "scadenza",
         "scadenza_nota",
         "a_sportello",
-        "ammette_comuni",
         "beneficiari",
         "territorio",
         "premialita",
@@ -167,7 +212,21 @@ TABELLE_DA_CSV = {
         "fonte",
         "codice_fonte",
         "verificato_il",
+        "cumulabilita",
+        "cumulabilita_frase",
+        "classificato_il",
     ],
+    # beneficiari_bando e interventi_bando dopo bandi, a cui fanno riferimento
+    "beneficiari_bando": [
+        "id_bando",
+        "tipo",
+        "soggetto",
+        "condizioni",
+        "frase",
+        "confidenza",
+        "origine",
+    ],
+    "interventi_bando": ["id_bando", "numero", "genere", "descrizione", "frase"],
     "scansioni": [
         "url",
         "codice_fonte",
