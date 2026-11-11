@@ -93,8 +93,18 @@ def test_fino_a_vale_solo_per_i_tetti():
 # --- valida: problemi e avvisi ---
 
 
-# La pagina da cui viene il bando di prova: contiene la frase dei beneficiari
-PAGINA = "Possono presentare domanda i Comuni della Toscana."
+# La pagina da cui viene il bando di prova: contiene le prove dei campi
+PAGINA = (
+    "Possono presentare domanda i Comuni della Toscana. "
+    "Le domande vanno presentate entro il 31 dicembre 2026. "
+    "La dotazione del bando e' di 300.000 euro."
+)
+
+# La prova di ogni campo, copiata da PAGINA
+PROVE = {
+    "scadenza": "Le domande vanno presentate entro il 31 dicembre 2026",
+    "dotazione": "La dotazione del bando e' di 300.000 euro",
+}
 
 
 def _valida(**valori):
@@ -109,7 +119,7 @@ def _valida(**valori):
     predefiniti.update(valori)
     estrazione = Estrazione(
         campi=[
-            Campo(nome, predefiniti.get(nome), "alta", "", critico)
+            Campo(nome, predefiniti.get(nome), "alta", PROVE.get(nome, ""), critico)
             for nome, (_, critico, _) in CAMPI.items()
         ],
         natura="bando",

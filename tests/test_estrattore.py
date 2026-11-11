@@ -37,10 +37,14 @@ def risposta(nome: str) -> dict:
     return json.loads((PAGINE / f"{nome}.risposta.json").read_text(encoding="utf-8"))
 
 
-def esegui(nome: str, dati: dict | None = None):
-    """interpreta + valida + decidi su una pagina salvata."""
+def esegui(nome: str, dati: dict | None = None, aggiunta: str = ""):
+    """interpreta + valida + decidi su una pagina salvata.
+
+    aggiunta e' testo accodato alla pagina, per i casi che la pagina reale
+    non contiene (es. un bando a sportello).
+    """
     estrazione = interpreta(dati if dati is not None else risposta(nome))
-    riga, problemi, avvisi = valida(estrazione, pagina_salvata(nome))
+    riga, problemi, avvisi = valida(estrazione, pagina_salvata(nome) + aggiunta)
     decisione = decidi_automatico(estrazione, riga) if not problemi else None
     return estrazione, riga, problemi, avvisi, decisione
 
@@ -219,27 +223,85 @@ def test_campi_semplici_come_valore_nudo_restano_ad_alta_confidenza():
 # --- bandi a sportello ---
 
 
+# La frase che rende a sportello la pagina del TPL, nei test che ne hanno bisogno
+SPORTELLO = "\nLe domande si presentano a sportello fino a esaurimento delle risorse."
+
+
 def _a_sportello(scadenza):
     dati = copy.deepcopy(risposta("tpl"))
-    dati["a_sportello"] = {"valore": True, "confidenza": "alta", "prova": "x"}
-    dati["scadenza"] = {"valore": scadenza, "confidenza": "alta", "prova": "x"}
+    dati["a_sportello"] = {
+        "valore": True,
+        "confidenza": "alta",
+        "prova": "Le domande si presentano a sportello fino a esaurimento delle risorse",
+    }
+    dati["scadenza"]["valore"] = scadenza
     return dati
 
 
 def test_a_sportello_senza_chiusura_si_salva():
-    *_, decisione = esegui("tpl", _a_sportello(None))
+    *_, decisione = esegui("tpl", _a_sportello(None), SPORTELLO)
     assert decisione == (True, "a sportello")
 
 
 def test_a_sportello_con_chiusura_passata_e_scaduto():
-    *_, decisione = esegui("tpl", _a_sportello("2021-10-21"))
+    *_, decisione = esegui("tpl", _a_sportello("2021-10-21"), SPORTELLO)
     assert decisione == (False, "scaduto il 2021-10-21")
 
 
 def test_a_sportello_con_chiusura_futura_si_salva(monkeypatch):
     monkeypatch.setattr(bandi, "date", DataFissa)
-    *_, decisione = esegui("tpl", _a_sportello("2021-10-21"))
+    *_, decisione = esegui("tpl", _a_sportello("2021-10-21"), SPORTELLO)
     assert decisione == (True, "a sportello fino al 2021-10-21")
+
+
+# --- prove dei campi cercate nella pagina ---
+
+
+def test_scadenza_con_prova_assente_dalla_pagina_e_un_problema():
+    dati = risposta("tpl")
+    dati["scadenza"]["prova"] = "Le domande vanno presentate entro il 21 ottobre 2021"
+    _, _, problemi, *_ = esegui("tpl", dati)
+    assert len(problemi) == 1
+    assert problemi[0].startswith(
+        "scadenza: prova del valore '2021-10-21' non trovata nella pagina"
+    )
+
+
+def test_a_sportello_con_prova_assente_dalla_pagina_e_un_problema():
+    _, _, problemi, *_ = esegui("tpl", _a_sportello(None))
+    assert len(problemi) == 1
+    assert problemi[0].startswith("a_sportello: prova del valore '1' non trovata")
+
+
+def test_a_sportello_falso_non_richiede_una_prova():
+    """La pagina dei musei non dice da nessuna parte che non e' a sportello."""
+    dati = risposta("musei")
+    assert dati["a_sportello"] == {"valore": False, "confidenza": "alta", "prova": ""}
+    _, riga, problemi, *_ = esegui("musei", dati)
+    assert (riga["a_sportello"], problemi) == (0, [])
+
+
+def test_importo_con_prova_assente_dalla_pagina_resta_vuoto():
+    dati = risposta("tpl")
+    dati["dotazione"]["prova"] = "la dotazione complessiva e' di 2 milioni"
+    _, riga, problemi, avvisi, _ = esegui("tpl", dati)
+    assert problemi == []
+    assert riga["dotazione"] is None
+    atteso = (
+        "dotazione: prova del valore '2000000.0' non trovata nella pagina "
+        "('la dotazione complessiva e' di 2 milioni'), lasciato vuoto"
+    )
+    assert avvisi == [atteso]
+
+
+def test_pubblicazione_con_prova_assente_dalla_pagina_resta_vuota():
+    dati = risposta("musei")
+    dati["pubblicato_il"]["prova"] = "pubblicato il 16 agosto 2023"
+    _, riga, problemi, avvisi, _ = esegui("musei", dati)
+    assert problemi == []
+    assert (riga["pubblicato_il"], riga["pubblicato_origine"]) == (None, None)
+    assert len(avvisi) == 1
+    assert avvisi[0].startswith("pubblicato_il: prova del valore '2023-08-16'")
 
 
 # --- frasi e prompt ---

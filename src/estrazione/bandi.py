@@ -55,6 +55,22 @@ CRITICI = [nome for nome, (_, critico, _) in CAMPI.items() if critico]
 # Gli altri campi, se non si convertono, restano vuoti con un avviso.
 BLOCCANTI = {"titolo", "ente", "beneficiari", "scadenza", "a_sportello"}
 
+# I campi la cui prova si cerca nella pagina. Per scadenza e a_sportello,
+# che decidono se il bando e' aperto, una prova che non si trova e' un
+# problema; per gli altri il valore resta vuoto con un avviso.
+PROVA_VERIFICATA = (
+    "scadenza",
+    "a_sportello",
+    "pubblicato_il",
+    "costo_min",
+    "costo_max",
+    "contributo_perc",
+    "contributo_min",
+    "contributo_max",
+    "dotazione",
+)
+PROVA_BLOCCANTE = {"scadenza", "a_sportello"}
+
 NATURE = ("bando", "non_bando")
 
 # Da dove viene la data di pubblicazione
@@ -488,6 +504,43 @@ def _valida_beneficiari(
     return list(righe.values())
 
 
+def _verifica_prove(
+    campi: list[Campo],
+    riga: dict,
+    testo: str,
+    problemi: list[str],
+    avvisi: list[str],
+) -> None:
+    """Cerca nella pagina la prova dei campi di PROVA_VERIFICATA.
+
+    Si controllano solo i valori presenti e convertiti. a_sportello solo
+    quando e' vero: che un bando non sia a sportello raramente ha una
+    frase che lo dica. Se la prova non si trova: per scadenza e
+    a_sportello e' un problema, per gli altri campi il valore si svuota
+    con un avviso.
+    """
+    prove = {c.nome: c.prova for c in campi}
+
+    for nome in PROVA_VERIFICATA:
+        valore = riga.get(nome)
+        if valore is None or (nome == "a_sportello" and valore != 1):
+            continue
+
+        prova = prove.get(nome) or ""
+        if frase_nel_testo(prova, testo):
+            continue
+
+        messaggio = (
+            f"{nome}: prova del valore '{valore}' non trovata nella pagina "
+            f"('{prova[:80]}')"
+        )
+        if nome in PROVA_BLOCCANTE:
+            problemi.append(messaggio)
+        else:
+            riga[nome] = None
+            avvisi.append(f"{messaggio}, lasciato vuoto")
+
+
 def _valida_interventi(voci: list, testo: str, avvisi: list[str]) -> list[dict]:
     """Gli interventi con genere valido e frase presente nella pagina."""
     validi = []
@@ -545,10 +598,11 @@ def valida(estrazione: Estrazione, testo: str) -> tuple[dict, list[str], list[st
 
     Restituisce (riga, problemi, avvisi). I problemi impediscono il
     salvataggio: natura non riconosciuta, un campo bloccante mancante o
-    non convertibile, un tipo fuori lista, nessun beneficiario verificato.
-    Gli avvisi no: un campo non bloccante che non si converte, o una voce
-    la cui frase non compare nella pagina, resta vuoto e l'avviso
-    conserva il valore originale per chi lo rivede.
+    non convertibile, una prova di scadenza o a_sportello che non compare
+    nella pagina, un tipo fuori lista, nessun beneficiario verificato.
+    Gli avvisi no: un campo non bloccante che non si converte o la cui
+    prova non compare nella pagina, o una voce la cui frase non compare,
+    resta vuoto e l'avviso conserva il valore originale per chi lo rivede.
 
     Le frasi si controllano su testo, la pagina da cui si e' estratto.
     La riga contiene anche beneficiari_ammessi e interventi, gia'
@@ -586,6 +640,8 @@ def valida(estrazione: Estrazione, testo: str) -> tuple[dict, list[str], list[st
     for obbligatorio in ("titolo", "ente", "beneficiari"):
         if not riga.get(obbligatorio):
             problemi.append(f"{obbligatorio}: campo obbligatorio mancante")
+
+    _verifica_prove(estrazione.campi, riga, testo, problemi, avvisi)
 
     if riga.get("a_sportello") is None:
         riga["a_sportello"] = 0
