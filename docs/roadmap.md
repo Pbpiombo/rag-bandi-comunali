@@ -14,13 +14,20 @@ Stato al 11 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
 - **Corsa controllata su 10 bandi**: verificate le correzioni; costo misurato,
   circa 4.150 token in ingresso e 1.940 in uscita per bando con l'estrattore
   vecchio.
-- **Passo 3, sottopasso estrattore, tappe a e b**: tabelle `beneficiari_bando`
-  e `interventi_bando`, estrattore nuovo. Piano in `docs/piano-estrattore.md`.
+- **Passo 3, sottopasso estrattore, tappe a-d**: tabelle `beneficiari_bando`
+  e `interventi_bando`, estrattore nuovo, interrogazioni per tipo di
+  beneficiario, preselezione senza modello. Piano in
+  `docs/piano-estrattore.md`.
+- **Scansione completa con l'estrattore nuovo** (11 novembre 2026): 135
+  pagine candidate, 28 bandi nuovi salvati; 18 dei 21 bandi in archivio
+  riclassificati. Il filtro sull'anno nello slug non ha perso nessun bando
+  aperto (0 su 31). Costo circa 5,1 $, contro 1,6–2,9 $ stimati. Corretti
+  durante la corsa lo sportello senza prova e gli importi con il punto
+  decimale. Misure in `docs/piano-estrattore.md`.
 
 ## In corso
 
-Sottopasso estrattore: controllo delle prove di scadenza e importi, test con il
-modello vero, tappe c e d. Poi la scansione completa.
+Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 
 ## Prossimi passi, in ordine
 
@@ -33,11 +40,26 @@ modello vero, tappe c e d. Poi la scansione completa.
 3. **Riepilogo**: bandi nuovi con le loro schede, filtrati sulle sue
    ricerche scritte in un file. Prima mandato a mano, poi automatico.
 4. **Aggiornamento ogni due settimane**: GitHub Actions lancia la scansione,
-   salva CSV e database, manda il riepilogo.
+   salva CSV e database, manda il riepilogo. Oltre ai bandi nuovi, si
+   ricontrollano i bandi aperti e quelli chiusi da poco, per le proroghe:
+   la riclassificazione dell'11 novembre 2026 ha trovato le risorse
+   genetiche forestali prorogate al 13 novembre, mentre l'archivio le dava
+   scadute il 30 settembre.
 5. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
    tra gli interventi ammissibili. Caso di prova: "devo rifare la piazza"
    → bando mercati rionali. Nei frammenti documentali, lo stato del bando
    (scaduto o aperto) arriva al modello.
+
+   **PDF dei bandi**: solo bandi aperti, o chiusi da poco se ricorrenti, e
+   rivolti ai tipi di beneficiari serviti. Per ogni bando solo il testo
+   del bando o dell'avviso; modulistica conservata come collegamento,
+   non indicizzata; decreti, graduatorie e rettifiche esclusi salvo
+   quelle che cambiano scadenze o requisiti. Scelta degli allegati prima
+   con le etichette della pagina. PDF scansionati riconosciuti con la
+   densità di testo e segnati "da OCR", non indicizzati in automatico:
+   l'OCR sbaglia i numeri, e il verificatore li darebbe per buoni. File
+   .pdf.p7m da aprire prima della lettura. Se pagina e testo del bando
+   non coincidono, vale il testo del bando.
 6. **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi.
 7. **Sezione riservata**: accesso, iscrizioni con mail e ricerche salvate su
@@ -62,7 +84,9 @@ modello vero, tappe c e d. Poi la scansione completa.
 - Colonna `montano` nel profilo: i tre comuni sono totalmente montani
   (Delib. CR 10/2025).
 - Verificare sulla pagina della Regione il fondo di garanzia energie
-  rinnovabili del 2014 (stato e "contributo fino all'80%").
+  rinnovabili del 2014 (stato e "contributo fino all'80%"). Dopo la
+  riclassificazione e' senza scadenza e non a sportello: la pagina non ne
+  parla.
 - Fuso orario: `date.today()` in 9 punti (DTZ011).
 - Segnalazioni ruff ISC004 e BLE001 negli script.
 - Due xfail di `pulisci`: numeri separati da virgola, intestazione con spazi.
@@ -75,7 +99,26 @@ modello vero, tappe c e d. Poi la scansione completa.
 - Supabase in pausa dopo inattività: tenerlo sveglio o cambiare piano.
 - Limite di spesa mensile nella console di Anthropic.
 - Bando microzonazione sismica (DGR 1081 del 7/9/2026, premialità Toscana
-  Diffusa): verificare che compaia dopo la scansione completa.
+  Diffusa): dopo la scansione completa non compare, e non e' nell'elenco
+  dei bandi aperti del portale. Cercarlo su un'altra pagina o fonte.
+- Dalla scansione completa dell'11 novembre 2026:
+  - stima del costo in `estrai_nuovi` da aggiornare: circa 0,031 $ a
+    pagina, bando o no (era 0,012–0,026 $);
+  - i bandi in archivio che il modello giudica non bandi restano senza
+    `classificato_il` e `riclassifica_bandi` li riesamina a ogni lancio:
+    decidere se segnarli o toglierli;
+  - le pagine a "scadenza non determinata" (es. ricerca finalizzata 2021 e
+    2024) tornano candidate a ogni scansione e si pagano ogni volta;
+  - `qualsiasi_soggetto` usato per "soggetti ospitanti privati" (tirocini
+    per donne in uscita dalla violenza): le interrogazioni lo mostrano
+    anche ai Comuni;
+  - assegno formazione GOL: la pagina riporta due scadenze per la Misura 1
+    (31 luglio 2026 e 31 luglio 2027); l'estrattore ha preso la prima e
+    il bando risulta scaduto;
+  - 16 valori vecchi mantenuti nella riclassificazione, da controllare a
+    mano (elenco nel rapporto della scansione);
+  - i 9 bandi salvati nella prima corsa, prima della correzione degli
+    importi con il punto decimale, possono avere importi vuoti.
 
 ## Decisioni prese
 

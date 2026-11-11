@@ -85,8 +85,13 @@ NON_BANDO = "non e' un bando"
 TETTO_AMMESSO = {"costo_max", "contributo_max", "contributo_perc", "dotazione"}
 
 # Un numero in formato italiano: punto ogni tre cifre e virgola
-# decimale (1.200.000,00), oppure senza separatori (300000, 1,2)
-NUMERO = r"\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?"
+# decimale (1.200.000,00), oppure senza separatori (300000, 1,2).
+# Il modello a volte scrive il decimale con il punto (343423.56, 19.5
+# milioni): un punto seguito da una o due cifre, e da nient'altro, e'
+# decimale; seguito da tre cifre resta il separatore delle migliaia
+# (12.500 = 12500).
+DECIMALE_COL_PUNTO = r"\d+\.\d{1,2}"
+NUMERO = rf"{DECIMALE_COL_PUNTO}|\d{{1,3}}(?:\.\d{{3}})+(?:,\d+)?|\d+(?:,\d+)?"
 
 IMPORTO = re.compile(
     r"^(?:(?P<tetto>fino a|massimo|max\.?|non superiore a)\s+)?"
@@ -144,7 +149,11 @@ Per questi campi produci un oggetto con tre chiavi:
 25 parole
 - scadenza: data ULTIMA per presentare DOMANDA, formato AAAA-MM-GG
 - a_sportello: true se non c'e' una scadenza competitiva ma si presenta \
-fino a esaurimento risorse
+fino a esaurimento risorse. Anche a_sportello e' un oggetto con la prova, \
+mai true o false da solo:
+  {{"valore": true, "confidenza": "alta", "prova": "la frase della pagina \
+che dice che si presenta fino a esaurimento delle risorse, copiata"}}
+  {{"valore": false, "confidenza": "alta", "prova": ""}} se non e' a sportello
 - pubblicato_il: data di pubblicazione del bando, formato AAAA-MM-GG. \
 Aggiungi la chiave "origine": "pubblicazione" se il testo indica la \
 pubblicazione (es. sul BURT), "atto" se usi la data dell'atto che approva \
@@ -288,6 +297,11 @@ def _confidenza(valore) -> str:
     return valore if valore in ("alta", "media", "bassa") else "bassa"
 
 
+def _falso(voce) -> bool:
+    """Il valore nudo dice "falso": False, oppure "false" o "no" come testo."""
+    return voce is False or str(voce).strip().lower() in ("false", "no")
+
+
 def interpreta(dati: dict) -> Estrazione:
     """Trasforma il JSON del modello in un'Estrazione, senza verificarla."""
     campi = []
@@ -300,6 +314,11 @@ def interpreta(dati: dict) -> Estrazione:
             prova = voce.get("prova") or ""
         elif voce is None:
             valore, confidenza, prova = None, "bassa", "campo assente"
+        elif nome == "a_sportello" and _falso(voce):
+            # Un false nudo non ha bisogno di prova: che un bando non sia
+            # a sportello raramente ha una frase che lo dica. Un true nudo
+            # invece cade nel caso sotto, e senza la frase non passa.
+            valore, confidenza, prova = False, "alta", ""
         elif con_prova:
             # Il modello ha restituito il valore nudo invece dell'oggetto:
             # lo accettiamo ma abbassiamo la confidenza.
@@ -361,9 +380,10 @@ def converti_importo(nome: str, valore) -> tuple[float | None, str | None]:
     Accetta un solo importo, in formato italiano, con "euro" o "€",
     eventualmente con un moltiplicatore (mila, milioni, miliardi) e, per
     i campi che indicano un tetto, preceduto da "fino a" o "massimo".
+    Il punto seguito da una o due cifre finali e' decimale ("19.5
+    milioni"), seguito da tre e' delle migliaia ("12.500").
     Tutto il resto non diventa un numero: due importi, un intervallo, un
-    importo approssimato ("oltre", "circa") o un punto che non separa le
-    migliaia. In quei casi il numero e' None e il motivo dice perche'.
+    importo approssimato ("oltre", "circa") o separatori mescolati. In quei casi il numero e' None e il motivo dice perche'.
     """
     if isinstance(valore, bool):
         return None, "e' un vero/falso, non un importo"
@@ -380,7 +400,11 @@ def converti_importo(nome: str, valore) -> tuple[float | None, str | None]:
     if trovato:
         if trovato["tetto"] and nome not in TETTO_AMMESSO:
             return None, "indica un tetto, non un minimo"
-        numero = float(trovato["numero"].replace(".", "").replace(",", "."))
+        cifre = trovato["numero"]
+        if re.fullmatch(DECIMALE_COL_PUNTO, cifre):
+            numero = float(cifre)
+        else:
+            numero = float(cifre.replace(".", "").replace(",", "."))
         numero *= MOLTIPLICATORI.get(trovato["moltiplicatore"], 1)
         return round(numero, 2), None
 

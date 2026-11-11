@@ -40,6 +40,16 @@ CONVERTIBILI = [
     ("fino a 50.000 euro", 50000),
     ("€ 300.000", 300000),
     ("300.000,00 €", 300000),
+    # punto decimale scritto dal modello: valori reali della scansione
+    # dell'11 novembre 2026
+    ("19.5 milioni di euro", 19_500_000),
+    ("343423.56", 343423.56),
+    ("84552097.68", 84552097.68),
+    # punto seguito da tre cifre: resta delle migliaia
+    ("12.500", 12500),
+    ("12.500 euro", 12500),
+    # un punto seguito da una cifra sola e' decimale
+    ("12.5", 12.5),
 ]
 
 # (valore reale o richiesto, motivo atteso)
@@ -58,7 +68,8 @@ NON_CONVERTIBILI = [
     ("da 10.000 a 50.000 euro", "contiene piu' di un importo"),
     ("oltre 310 milioni di euro", "importo non esatto"),
     ("circa 200.000 euro", "importo non esatto"),
-    ("12.5", "separatori non riconosciuti"),
+    ("1.234.5", "separatori non riconosciuti"),
+    ("12.5000", "separatori non riconosciuti"),
     ("a seconda della graduatoria", "formato non riconosciuto"),
 ]
 

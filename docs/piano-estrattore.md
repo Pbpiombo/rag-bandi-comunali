@@ -108,3 +108,93 @@ da cui viene, controllata sulla pagina.
 Scansione completa: 90 candidati per il modello (1,08–2,34 $), più i 21
 bandi in archivio da riclassificare (circa 0,55 $). In tutto, circa
 1,6–2,9 $.
+
+## Scansione completa dell'11 novembre 2026
+
+Eseguita con `--tutti-gli-anni`, per misurare cosa perde il filtro
+sull'anno. Strumenti aggiunti:
+- `scripts/manutenzione/riclassifica_bandi.py`: riestrae i bandi in
+  archivio non ancora classificati. Non scrive nulla se la pagina non si
+  scarica, se la validazione fallisce o se il modello dice `non_bando`;
+  un campo pieno che torna vuoto conserva il valore vecchio e si elenca a
+  parte con il motivo, da controllare a mano.
+- `estrai_nuovi`: segna le pagine che il filtro sull'anno avrebbe saltato
+  e ne riporta gli esiti; conta i token e il costo; si ferma su credito
+  esaurito o autenticazione senza registrare la pagina come fallita.
+
+### Correzioni fatte durante la scansione
+
+La prima corsa si e' fermata dopo 36 pagine: tutti i falliti (11, piu' 2
+nella riclassificazione) erano bandi a sportello. Il modello scriveva
+`a_sportello` come `true` nudo, senza la frase, e il controllo della prova
+lo bloccava. Corretti:
+- prompt: anche `a_sportello` e' un oggetto con la prova, con due esempi;
+- codice: un `false` nudo si accetta senza prova; un `true` resta
+  bloccante senza la frase verificata;
+- importi: un punto seguito da 1 o 2 cifre finali e' decimale ("19.5
+  milioni", "343423.56"), seguito da 3 resta delle migliaia ("12.500").
+
+Verifica su tre pagine prima di rilanciare: voucher just in time e
+biotrituratori con lo sportello provato dalla frase; fondo di garanzia
+energie rinnovabili `false`, perche' la pagina non nomina sportello ne'
+scadenza (accettato: il valore vecchio non aveva prova).
+
+### Esiti
+
+Pagine candidate 135: 14 scadute secondo il campo della pagina, senza
+modello; 121 esaminate dal modello.
+
+| esito | pagine |
+|---|---|
+| salvati | 28 (16 a sportello, 12 con scadenza) |
+| scaduti | 52 (38 dal modello, 14 dal campo) |
+| non bandi | 45 |
+| scadenza non determinata | 3 |
+| scadenza a bassa confidenza | 1 |
+| falliti | 6 |
+
+Falliti: 5 senza beneficiari con frase verificata (in 3 anche il campo
+`beneficiari` vuoto), 1 con la prova della scadenza non trovata.
+
+Riclassificazione dei 21 bandi in archivio (due corse): 18 classificati,
+3 che il modello giudica non bandi (lasciati come erano: una
+manifestazione di interesse e due pagine diventate graduatorie), 1 di
+questi fallito alla seconda corsa sulla prova della scadenza. Valori
+vecchi mantenuti perche' il nuovo e' vuoto: 16, in 11 bandi.
+
+### Filtro sull'anno nello slug
+
+Le 31 pagine che il filtro avrebbe saltato (anno passato nello slug,
+campo della scadenza assente o illeggibile): **nessuna aperta**. 18
+scadute, 11 non bandi, 2 a scadenza non determinata. Esaminarle e' costato
+circa 0,94 $. Il filtro resta attivo per impostazione predefinita.
+
+### Costo reale
+
+| corsa | estrazioni | token ingresso | token uscita | costo | stima |
+|---|---|---|---|---|---|
+| riclassificazione 1 | 21 | 138.290 | 50.795 | 0,785 $ | 0,55 $ |
+| riclassificazione 2 | 5 | 27.952 | 9.935 | 0,155 $ | 0,13 $ |
+| scansione 1, interrotta | 36 | non misurati | | circa 1,1 $ | |
+| scansione 2 | 97 | 566.775 | 179.813 | 2,932 $ | 1,16–2,52 $ |
+| verifica su 3 pagine | 3 | non misurati | | circa 0,1 $ | |
+
+Misurato 3,87 $; con le due corse non misurate, circa 5,1 $ contro i
+1,6–2,9 $ previsti. Per estrazione 0,030–0,037 $, con 5.600–6.600 token
+in ingresso contro i 4.230 della tappa b: il prompt e' cresciuto con le
+tappe c e d, e le pagine reali sono piu' lunghe di quelle di prova. Una
+pagina che non e' un bando non costa sensibilmente meno: la stima
+"tra non bando e bando" va sostituita con circa 0,031 $ a pagina.
+
+### Bandi classificati
+
+46 bandi classificati, 31 aperti (compresi gli sportelli). Per tipo di
+beneficiario, bandi in tutto e aperti: altra_impresa 13/10,
+ricerca_formazione 11/7, comune 10/2, cittadini_famiglie 10/8,
+altro_ente_pubblico 9/4, terzo_settore 9/4, impresa_agricola 8/7,
+unione_comuni 7/1, impresa_turistica 5/4, qualsiasi_soggetto 4/3,
+impresa_artigiana_commerciale 4/3. Aperti per almeno un tipo di ente
+pubblico: 5.
+
+Verifica a mano di 20 bandi scelti a caso (seme 20261111): risultato da
+aggiungere.

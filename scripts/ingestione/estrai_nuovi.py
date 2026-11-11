@@ -19,9 +19,12 @@ scarica ogni pagina candidata:
   di un anno, la pagina si registra come scaduta senza modello;
 - se il campo manca o non si legge e lo slug ha un anno passato, la
   pagina si salta, senza registrarla. --tutti-gli-anni disattiva questo
-  filtro.
+  filtro, e segna le pagine che avrebbe saltato: il riepilogo finale ne
+  mostra gli esiti, per misurare quanti bandi aperti il filtro perde.
 Con --prova la preselezione si esegue ma non registra nulla, e si stima
 il costo delle estrazioni rimaste.
+
+Alla fine si stampano i token consumati e il loro costo.
 """
 
 import sys
@@ -29,6 +32,9 @@ import time
 from datetime import datetime
 from http.client import HTTPException
 from zoneinfo import ZoneInfo
+
+from anthropic import AuthenticationError, PermissionDeniedError
+from langchain_core.callbacks import get_usage_metadata_callback
 
 from src.database.schema import aggiorna_csv
 from src.estrazione.bandi import (
@@ -42,6 +48,7 @@ from src.estrazione.pagina import a_testo, ritaglia, scarica
 from src.estrazione.registro import da_non_riesaminare, registra, riepilogo
 from src.estrazione.salva import salva
 from src.estrazione.scadenza import (
+    AL_MODELLO,
     ANNO_PASSATO,
     SCADUTO,
     motivo_scaduto,
@@ -58,6 +65,11 @@ PAUSA_PAGINE = 0.5
 # non lo e'
 COSTO_BANDO = 0.026
 COSTO_NON_BANDO = 0.012
+
+# Prezzi di claude-sonnet-5 in dollari per milione di token (listino
+# Anthropic, controllato l'11 novembre 2026)
+PREZZO_INGRESSO = 2.0
+PREZZO_USCITA = 10.0
 
 
 def opzione(nome: str, predefinito: int) -> int:
@@ -95,17 +107,34 @@ def scegli_candidati() -> list:
     return candidati
 
 
-def preseleziona(candidati: list, prova: bool) -> list[tuple]:
+def avrebbe_saltato(voce, esito: str, scadenza, filtro_anni: bool) -> bool:
+    """La pagina va al modello solo perche' il filtro sull'anno e' spento.
+
+    Vero se, con il filtro attivo, la preselezione l'avrebbe saltata:
+    campo della scadenza assente o illeggibile e anno passato nello slug.
+    """
+    return (
+        not filtro_anni
+        and esito == AL_MODELLO
+        and scadenza is None
+        and not voce.recente
+    )
+
+
+def preseleziona(candidati: list, prova: bool) -> tuple[list[tuple], set[str]]:
     """Scarica le pagine e toglie, senza modello, quelle da non estrarre.
 
     Restituisce (voce, testo ritagliato) per le pagine da mandare al
-    modello. Gli scaduti letti dal campo si registrano, salvo in prova.
-    Una pagina che non si scarica va al modello con testo None: esamina
-    riprova a scaricarla e, se fallisce ancora, la registra come fallita.
+    modello, e gli slug di quelle che il filtro sull'anno avrebbe
+    saltato (vuoto se il filtro e' attivo). Gli scaduti letti dal campo
+    si registrano, salvo in prova. Una pagina che non si scarica va al
+    modello con testo None: esamina riprova a scaricarla e, se fallisce
+    ancora, la registra come fallita.
     """
     filtro_anni = "--tutti-gli-anni" not in sys.argv
     oggi = datetime.now(ZoneInfo("Europe/Rome")).date()
     al_modello, scaduti, anni_passati = [], 0, 0
+    dal_filtro = set()
 
     print(f"\nPreselezione senza modello di {len(candidati)} pagine...")
     for v in candidati:
@@ -128,13 +157,20 @@ def preseleziona(candidati: list, prova: bool) -> list[tuple]:
             anni_passati += 1
         else:
             al_modello.append((v, ritaglia(completo)))
+            if avrebbe_saltato(v, esito, scadenza, filtro_anni):
+                dal_filtro.add(v.slug)
         time.sleep(PAUSA_PAGINE)
 
     print(f"  scaduti secondo il campo della pagina: {scaduti}")
     if filtro_anni:
         print(f"  saltati per l'anno nello slug, senza campo leggibile: {anni_passati}")
+    else:
+        print(
+            "  con l'anno passato nello slug e senza campo leggibile, "
+            f"che il filtro avrebbe saltato: {len(dal_filtro)}"
+        )
     print(f"  da mandare al modello: {len(al_modello)}")
-    return al_modello
+    return al_modello, dal_filtro
 
 
 def stima_costo(quanti: int) -> str:
@@ -143,6 +179,42 @@ def stima_costo(quanti: int) -> str:
         f"tra {quanti * COSTO_NON_BANDO:.2f} $ (se nessuno fosse un bando) "
         f"e {quanti * COSTO_BANDO:.2f} $ (se tutti lo fossero)"
     )
+
+
+def errore_bloccante(errore: Exception) -> bool:
+    """Credito esaurito o autenticazione rifiutata: inutile proseguire.
+
+    Ogni estrazione successiva fallirebbe allo stesso modo, e registrare
+    le pagine come fallite confonderebbe un problema dell'account con un
+    problema della pagina.
+    """
+    if isinstance(errore, (AuthenticationError, PermissionDeniedError)):
+        return True
+    testo = str(errore).lower()
+    return "credit balance" in testo or "authentication" in testo
+
+
+def costo_reale(uso: dict) -> tuple[int, int, float]:
+    """Token in ingresso, in uscita e costo in dollari.
+
+    uso: il dizionario usage_metadata del contatore di LangChain, una
+    voce per modello.
+    """
+    ingresso = sum(u.get("input_tokens", 0) for u in uso.values())
+    uscita = sum(u.get("output_tokens", 0) for u in uso.values())
+    costo = (ingresso * PREZZO_INGRESSO + uscita * PREZZO_USCITA) / 1_000_000
+    return ingresso, uscita, costo
+
+
+def mostra_costo(uso: dict, estrazioni: int) -> None:
+    """Stampa i token consumati e il costo, in tutto e per estrazione."""
+    ingresso, uscita, costo = costo_reale(uso)
+    print(f"\nTOKEN: ingresso {ingresso}, uscita {uscita}; costo {costo:.3f} $")
+    if estrazioni:
+        print(
+            f"  per estrazione ({estrazioni}): ingresso {ingresso // estrazioni}, "
+            f"uscita {uscita // estrazioni}, costo {costo / estrazioni:.4f} $"
+        )
 
 
 def esamina(estrattore, voce, testo: str | None) -> tuple[str, str, str]:
@@ -170,6 +242,28 @@ def esamina(estrattore, voce, testo: str | None) -> tuple[str, str, str]:
         return "salvato", motivo, avvisi
 
     return "scartato", motivo, avvisi
+
+
+def mostra_dal_filtro(esiti: dict, dal_filtro: set[str]) -> None:
+    """Gli esiti delle pagine che il filtro sull'anno avrebbe saltato."""
+    if not dal_filtro:
+        return
+
+    righe = [
+        (esito, slug, motivo)
+        for esito, voci in esiti.items()
+        for slug, motivo in voci
+        if slug in dal_filtro
+    ]
+    print(
+        f"\nPAGINE CHE IL FILTRO SULL'ANNO AVREBBE SALTATO: {len(dal_filtro)}, "
+        f"esaminate {len(righe)}"
+    )
+    for esito in ("salvato", "scartato", "fallito"):
+        scelte = [r for r in righe if r[0] == esito]
+        print(f"  {esito}: {len(scelte)}")
+        for _, slug, motivo in scelte:
+            print(f"    {slug[:55]:55} {motivo[:60]}")
 
 
 def mostra_riepilogo(esiti: dict) -> None:
@@ -204,7 +298,7 @@ def mostra_riepilogo(esiti: dict) -> None:
 
 def main() -> None:
     prova = "--prova" in sys.argv
-    candidati = preseleziona(scegli_candidati(), prova)
+    candidati, dal_filtro = preseleziona(scegli_candidati(), prova)
     candidati = candidati[: opzione("--limite", len(candidati))]
 
     print(f"\nCandidati da estrarre: {len(candidati)}")
@@ -212,7 +306,8 @@ def main() -> None:
 
     if prova:
         for v, _ in candidati:
-            print(f"  {v.slug}")
+            marca = "  [anno passato, senza campo]" if v.slug in dal_filtro else ""
+            print(f"  {v.slug}{marca}")
         print("\nProva: nessuna estrazione eseguita, nulla registrato.")
         print(f"\n{riepilogo()}")
         return
@@ -225,33 +320,37 @@ def main() -> None:
     estrattore = costruisci_estrattore()
     esiti = {"salvato": [], "scartato": [], "fallito": []}
 
-    for numero, (v, testo) in enumerate(candidati, start=1):
-        print(f"\n[{numero}/{len(candidati)}] {v.slug[:60]}")
+    with get_usage_metadata_callback() as contatore:
+        for numero, (v, testo) in enumerate(candidati, start=1):
+            print(f"\n[{numero}/{len(candidati)}] {v.slug[:60]}")
 
-        interrompi = False
+            try:
+                esito, motivo, avvisi = esamina(estrattore, v, testo)
+            except Exception as errore:
+                if errore_bloccante(errore):
+                    # La pagina non e' fallita: non si registra, e alla
+                    # prossima scansione torna candidata
+                    print(
+                        f"\nINTERROTTO: problema di credito o autenticazione ({errore})"
+                    )
+                    break
+                esito, motivo, avvisi = "fallito", str(errore), ""
 
-        try:
-            esito, motivo, avvisi = esamina(estrattore, v, testo)
-        except Exception as errore:
-            esito, motivo, avvisi = "fallito", str(errore), ""
-            testo = str(errore).lower()
-            interrompi = "credit balance" in testo or "authentication" in testo
+            esiti[esito].append((v.slug, motivo))
+            registra(v.url, v.codice_fonte, v.slug, esito, motivo, avvisi)
 
-        esiti[esito].append((v.slug, motivo))
-        registra(v.url, v.codice_fonte, v.slug, esito, motivo, avvisi)
+            marca = "SALVATO" if esito == "salvato" else esito
+            if v.slug in dal_filtro:
+                marca += " [anno passato, senza campo]"
+            print(f"    {marca} ({motivo[:70]})")
+            if avvisi:
+                print(f"    avvisi: {avvisi[:70]}")
 
-        marca = "SALVATO" if esito == "salvato" else esito
-        print(f"    {marca} ({motivo[:70]})")
-        if avvisi:
-            print(f"    avvisi: {avvisi[:70]}")
-
-        if interrompi:
-            print("\nINTERROTTO: problema di credito o autenticazione.")
-            break
-
-        time.sleep(PAUSA)
+            time.sleep(PAUSA)
 
     mostra_riepilogo(esiti)
+    mostra_dal_filtro(esiti, dal_filtro)
+    mostra_costo(contatore.usage_metadata, sum(len(e) for e in esiti.values()))
     print(f"\n{riepilogo()}")
     aggiorna_csv("bandi", "beneficiari_bando", "interventi_bando", "scansioni")
 

@@ -282,6 +282,33 @@ def test_a_sportello_falso_non_richiede_una_prova():
     assert (riga["a_sportello"], problemi) == (0, [])
 
 
+@pytest.mark.parametrize("nudo", [False, "false", "no"])
+def test_a_sportello_falso_nudo_si_accetta_senza_prova(nudo):
+    """Il modello a volte scrive false invece dell'oggetto con la prova."""
+    dati = risposta("musei")
+    dati["a_sportello"] = nudo
+    estrazione, riga, problemi, *_ = esegui("musei", dati)
+    campo = next(c for c in estrazione.campi if c.nome == "a_sportello")
+    assert (campo.valore, campo.confidenza, campo.prova) == (False, "alta", "")
+    assert (riga["a_sportello"], problemi) == (0, [])
+
+
+def test_a_sportello_vero_nudo_senza_frase_e_un_problema():
+    """Il caso delle 13 pagine fallite nella scansione dell'11 novembre 2026.
+
+    Anche se la pagina dice che e' a sportello, un true senza la frase
+    non si accetta: la prova deve sempre essere verificata.
+    """
+    dati = risposta("tpl")
+    dati["a_sportello"] = True
+    _, _, problemi, *_ = esegui("tpl", dati, SPORTELLO)
+    atteso = (
+        "a_sportello: prova del valore '1' non trovata nella pagina "
+        "('formato non conforme')"
+    )
+    assert problemi == [atteso]
+
+
 def test_importo_con_prova_assente_dalla_pagina_resta_vuoto():
     dati = risposta("tpl")
     dati["dotazione"]["prova"] = "la dotazione complessiva e' di 2 milioni"
