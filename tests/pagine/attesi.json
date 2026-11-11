@@ -12,7 +12,7 @@
       "pubblicato_origine": "pubblicazione"
     },
     "tipi": ["altro_ente_pubblico", "comune", "unione_comuni"],
-    "condizioni_contengono": {"comune": "competent"},
+    "condizioni_contengono": {"comune": ["competent"]},
     "interventi_almeno": 3,
     "cumulabilita": null
   },
@@ -28,7 +28,7 @@
       "pubblicato_origine": "pubblicazione"
     },
     "tipi": ["qualsiasi_soggetto"],
-    "condizioni_contengono": {"qualsiasi_soggetto": "accreditat"},
+    "condizioni_contengono": {"qualsiasi_soggetto": ["accreditat"]},
     "interventi_almeno": 0,
     "cumulabilita": null
   },

@@ -1,16 +1,104 @@
-"""Interrogazioni sui bandi: filtri per apertura, beneficiari e tema."""
+"""Interrogazioni sui bandi: filtri per apertura, beneficiari e tema.
+
+Chi puo' presentare domanda si ricava da beneficiari_bando, non si
+memorizza nel bando. I bandi non ancora riclassificati con l'estrattore
+nuovo (classificato_il vuoto) hanno solo la riga 'comune' migrata dal
+vecchio campo si'/no: per loro si sa se ammettono i Comuni, non gli altri
+tipi di beneficiari.
+"""
 
 import sqlite3
 from datetime import date
 
 from src.database.modelli import Risultato
+from src.estrazione.beneficiari import PER_REQUISITO, TIPI_BENEFICIARIO
 
-# Un Comune puo' presentare domanda: c'e' una riga di beneficiari_bando di
-# tipo 'comune'. Si calcola dai beneficiari, non si memorizza nel bando.
-AMMETTE_COMUNI = (
+# Anni dalla pubblicazione oltre i quali un bando a sportello e' segnalato
+# come probabilmente esaurito. Non si esclude: fondi di garanzia e rotativi
+# restano attivi anche per anni.
+SOGLIA_SPORTELLO_ANNI = 2
+
+# Tipo di ente (tabella enti) -> tipo di beneficiario
+TIPO_PER_ENTE = {"comune": "comune", "unione": "unione_comuni"}
+
+# Come si nomina un tipo di ente nei testi
+NOMI_ENTE = {
+    "comune": {"uno": "un Comune", "tutti": "i Comuni", "plurale": "Comuni"},
+    "unione_comuni": {
+        "uno": "un'Unione di Comuni",
+        "tutti": "le Unioni di Comuni",
+        "plurale": "Unioni di Comuni",
+    },
+}
+
+# Nome breve di ogni tipo di beneficiario, per le etichette
+NOMI_TIPI = {
+    "comune": "Comuni",
+    "unione_comuni": "Unioni di comuni",
+    "altro_ente_pubblico": "altri enti pubblici",
+    "impresa_agricola": "imprese agricole",
+    "impresa_turistica": "imprese turistiche",
+    "impresa_artigiana_commerciale": "imprese artigiane e commerciali",
+    "altra_impresa": "altre imprese",
+    "terzo_settore": "terzo settore",
+    "cittadini_famiglie": "cittadini e famiglie",
+    "ricerca_formazione": "ricerca e formazione",
+    "qualsiasi_soggetto": "chi ha i requisiti indicati",
+}
+
+NON_CLASSIFICATI = "altri beneficiari non ancora classificati"
+NOTA_UNIONE = "beneficiari non ancora classificati: verificare se ammette le Unioni"
+
+# Un bando ammette un tipo di beneficiario: ha una riga di quel tipo.
+# Il tipo e' il parametro.
+HA_TIPO = (
     "EXISTS (SELECT 1 FROM beneficiari_bando AS b "
-    "WHERE b.id_bando = bandi.id AND b.tipo = 'comune')"
+    "WHERE b.id_bando = bandi.id AND b.tipo = ?)"
 )
+
+
+def filtro_ente(tipo: str) -> tuple[str, list]:
+    """La condizione SQL dei bandi a cui un tipo di ente puo' partecipare.
+
+    Ammette il bando una riga del suo tipo o di qualsiasi_soggetto. Per
+    l'Unione valgono anche i bandi non ancora classificati che ammettono
+    i Comuni: prima della migrazione li vedeva, e la nota li segnala.
+    """
+    sql = f"({HA_TIPO} OR {HA_TIPO})"
+    parametri = [tipo, PER_REQUISITO]
+    if tipo == "unione_comuni":
+        sql = f"({sql} OR (bandi.classificato_il IS NULL AND {HA_TIPO}))"
+        parametri.append("comune")
+    return sql, parametri
+
+
+def data_di_oggi() -> date:
+    """La data di oggi: l'unico punto in cui le interrogazioni la leggono."""
+    return date.today()
+
+
+def tipo_ente(conn: sqlite3.Connection, codice_ente: str) -> str | None:
+    """Il tipo di beneficiario corrispondente all'ente, se gestito."""
+    riga = conn.execute(
+        "SELECT tipo FROM enti WHERE codice_fiscale = ?", (codice_ente,)
+    ).fetchone()
+    return TIPO_PER_ENTE.get(riga["tipo"]) if riga else None
+
+
+def _ente_non_gestito(codice_ente: str) -> Risultato:
+    return Risultato(
+        f"L'ente {codice_ente} non e' un Comune ne' un'Unione di Comuni in "
+        "archivio: non so a quali bandi possa partecipare.",
+        trovato=False,
+    )
+
+
+def beneficiari_di(conn: sqlite3.Connection, id_bando: str) -> list:
+    """Le righe di beneficiari_bando di un bando, in ordine di tipo."""
+    return conn.execute(
+        "SELECT * FROM beneficiari_bando WHERE id_bando = ? ORDER BY tipo, frase",
+        (id_bando,),
+    ).fetchall()
 
 
 def euro(valore) -> str:
@@ -23,12 +111,72 @@ def euro(valore) -> str:
     return f"{valore:,.0f}".replace(",", ".")
 
 
-def formatta_bando(riga, oggi: str) -> str:
-    """Una riga di bando in forma leggibile."""
+def _anni_fa(oggi: str, anni: int) -> str:
+    """La data di oggi spostata indietro di alcuni anni."""
+    giorno = date.fromisoformat(oggi)
+    try:
+        return giorno.replace(year=giorno.year - anni).isoformat()
+    except ValueError:  # 29 febbraio
+        return giorno.replace(year=giorno.year - anni, day=28).isoformat()
+
+
+def stato_sportello(riga, oggi: str) -> str:
+    """Lo stato di un bando a sportello, con l'invito a verificare le risorse."""
+    pubblicato = riga["pubblicato_il"]
+    if riga["scadenza"]:
+        testo = (
+            f"a sportello fino al {riga['scadenza']}, "
+            "verificare la disponibilità delle risorse"
+        )
+    else:
+        quando = (
+            f"pubblicato il {pubblicato}"
+            if pubblicato
+            else "data di pubblicazione non indicata"
+        )
+        testo = f"a sportello, verificare la disponibilità delle risorse ({quando})"
+
+    if pubblicato and pubblicato < _anni_fa(oggi, SOGLIA_SPORTELLO_ANNI):
+        testo += (
+            f" | pubblicato da oltre {SOGLIA_SPORTELLO_ANNI} anni: "
+            "probabilmente esaurito"
+        )
+    return testo
+
+
+def ammissione(beneficiari: list, tipo: str) -> str | None:
+    """Come e' ammesso un tipo di ente, se ci sono condizioni.
+
+    Senza condizioni restituisce None: il bando e' nell'elenco perche'
+    l'ente e' ammesso, e non serve dirlo. Con piu' righe, le condizioni
+    si uniscono con "oppure". Per qualsiasi_soggetto si aggiunge, tra
+    parentesi, il soggetto come lo chiama il bando.
+    """
+    pertinenti = [b for b in beneficiari if b["tipo"] in (tipo, PER_REQUISITO)]
+    if not pertinenti or any(
+        b["tipo"] == tipo and not b["condizioni"] for b in pertinenti
+    ):
+        return None
+
+    casi = []
+    for b in pertinenti:
+        caso = f"ammesso se {b['condizioni']}"
+        if b["tipo"] == PER_REQUISITO and b["soggetto"]:
+            caso += f" (nel bando: «{b['soggetto']}»)"
+        casi.append(caso)
+    return " oppure ".join(casi)
+
+
+def formatta_bando(riga, oggi: str, nota: str | None = None) -> str:
+    """Una riga di bando in forma leggibile.
+
+    nota: come e' ammesso l'ente, o perche' va verificato; si aggiunge
+    dopo i beneficiari.
+    """
     pezzi = [f"«{riga['titolo']}» ({riga['ente']})"]
 
     if riga["a_sportello"]:
-        pezzi.append(f"a sportello fino al {riga['scadenza']}")
+        pezzi.append(stato_sportello(riga, oggi))
     elif riga["scadenza"]:
         giorni = (date.fromisoformat(riga["scadenza"]) - date.fromisoformat(oggi)).days
         stato = f"scade il {riga['scadenza']}"
@@ -42,6 +190,9 @@ def formatta_bando(riga, oggi: str) -> str:
         pezzi.append(f"nota: {riga['scadenza_nota']}")
 
     pezzi.append(f"beneficiari: {riga['beneficiari']}")
+
+    if nota:
+        pezzi.append(nota)
 
     if riga["contributo_perc"]:
         pezzi.append(f"contributo fino al {riga['contributo_perc']:.0f}%")
@@ -72,76 +223,132 @@ def fonte_bando(riga) -> str:
     )
 
 
-def bandi_aperti_per_comuni(conn: sqlite3.Connection) -> Risultato:
-    """I bandi ancora aperti a cui un Comune può presentare domanda."""
-    oggi = date.today().isoformat()
+def nota_per_ente(conn: sqlite3.Connection, riga, tipo: str) -> str | None:
+    """La nota di un bando nell'elenco di un tipo di ente."""
+    beneficiari = beneficiari_di(conn, riga["id"])
+    if tipo == "unione_comuni" and riga["classificato_il"] is None:
+        if not any(b["tipo"] in (tipo, PER_REQUISITO) for b in beneficiari):
+            return NOTA_UNIONE
+    return ammissione(beneficiari, tipo)
+
+
+def _elenco(conn, righe, oggi: str, tipo: str) -> str:
+    return "\n".join(
+        f"- {formatta_bando(r, oggi, nota_per_ente(conn, r, tipo))}" for r in righe
+    )
+
+
+def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risultato:
+    """I bandi ancora aperti a cui l'ente può presentare domanda."""
+    tipo = tipo_ente(conn, codice_ente)
+    if tipo is None:
+        return _ente_non_gestito(codice_ente)
+    nomi = NOMI_ENTE[tipo]
+    oggi = data_di_oggi().isoformat()
+    filtro, parametri = filtro_ente(tipo)
 
     righe = conn.execute(
         f"""
-        SELECT bandi.*, {AMMETTE_COMUNI} AS ammette_comuni FROM bandi
-        WHERE {AMMETTE_COMUNI}
+        SELECT * FROM bandi
+        WHERE {filtro}
           AND (scadenza IS NULL OR scadenza >= ?)
         ORDER BY a_sportello, scadenza
         """,
-        (oggi,),
+        (*parametri, oggi),
     ).fetchall()
 
     if not righe:
         totale = conn.execute(
-            f"SELECT COUNT(*) FROM bandi WHERE {AMMETTE_COMUNI}"
+            f"SELECT COUNT(*) FROM bandi WHERE {filtro}", parametri
         ).fetchone()[0]
         return Risultato(
-            f"Nessun bando aperto per i Comuni alla data del {oggi}. "
-            f"In archivio ce ne sono {totale} rivolti ai Comuni, tutti scaduti.",
+            f"Nessun bando aperto per {nomi['tutti']} alla data del {oggi}. "
+            f"In archivio ce ne sono {totale} rivolti a {nomi['tutti']}, "
+            "tutti scaduti.",
             trovato=False,
         )
 
-    elenco = "\n".join(f"- {formatta_bando(r, oggi)}" for r in righe)
+    a_scadenza = [r for r in righe if not r["a_sportello"]]
+    a_sportello = [r for r in righe if r["a_sportello"]]
 
-    return Risultato(
-        f"Bandi aperti a cui un Comune può presentare domanda "
-        f"(alla data del {oggi}), {len(righe)} in archivio:\n{elenco}",
-        fonti=[fonte_bando(r) for r in righe],
+    testo = (
+        f"Bandi aperti a cui {nomi['uno']} può presentare domanda "
+        f"(alla data del {oggi}), {len(righe)} in archivio:"
     )
+    if a_scadenza:
+        testo += f"\n{_elenco(conn, a_scadenza, oggi, tipo)}"
+    if a_sportello:
+        testo += (
+            "\nA sportello, finché ci sono risorse:\n"
+            f"{_elenco(conn, a_sportello, oggi, tipo)}"
+        )
+
+    return Risultato(testo, fonti=[fonte_bando(r) for r in righe])
 
 
-def bandi_in_scadenza(conn: sqlite3.Connection, giorni: int = 60) -> Risultato:
-    """I bandi per Comuni che scadono entro un certo numero di giorni."""
-    oggi = date.today()
+def bandi_in_scadenza(
+    conn: sqlite3.Connection, codice_ente: str, giorni: int = 60
+) -> Risultato:
+    """I bandi per l'ente che scadono entro un certo numero di giorni."""
+    tipo = tipo_ente(conn, codice_ente)
+    if tipo is None:
+        return _ente_non_gestito(codice_ente)
+    plurale = NOMI_ENTE[tipo]["plurale"]
+    oggi = data_di_oggi()
     limite = date.fromordinal(oggi.toordinal() + giorni).isoformat()
+    filtro, parametri = filtro_ente(tipo)
 
     righe = conn.execute(
         f"""
-        SELECT bandi.*, {AMMETTE_COMUNI} AS ammette_comuni FROM bandi
-        WHERE {AMMETTE_COMUNI}
+        SELECT * FROM bandi
+        WHERE {filtro}
           AND a_sportello = 0
           AND scadenza BETWEEN ? AND ?
         ORDER BY scadenza
         """,
-        (oggi.isoformat(), limite),
+        (*parametri, oggi.isoformat(), limite),
     ).fetchall()
 
     if not righe:
         return Risultato(
-            f"Nessun bando per Comuni in scadenza nei prossimi {giorni} giorni.",
+            f"Nessun bando per {plurale} in scadenza nei prossimi {giorni} giorni.",
             trovato=False,
         )
 
-    elenco = "\n".join(f"- {formatta_bando(r, oggi.isoformat())}" for r in righe)
+    elenco = _elenco(conn, righe, oggi.isoformat(), tipo)
 
     return Risultato(
-        f"Bandi per Comuni in scadenza entro {giorni} giorni:\n{elenco}",
+        f"Bandi per {plurale} in scadenza entro {giorni} giorni:\n{elenco}",
         fonti=[fonte_bando(r) for r in righe],
     )
 
 
+def etichetta_tipi(riga, beneficiari: list) -> str:
+    """I tipi ammessi da un bando, per gli elenchi non legati a un ente.
+
+    Un tipo con tutte le righe condizionate e' segnato "a condizione".
+    Per i bandi non ancora classificati si sa solo se ammettono i Comuni.
+    """
+    if riga["classificato_il"] is None:
+        if any(b["tipo"] == "comune" for b in beneficiari):
+            return f"[ammessi: Comuni; {NON_CLASSIFICATI}]"
+        return f"[NON per i Comuni; {NON_CLASSIFICATI}]"
+
+    nomi = []
+    for tipo in TIPI_BENEFICIARIO:
+        righe = [b for b in beneficiari if b["tipo"] == tipo]
+        if righe:
+            condizionato = all(b["condizioni"] for b in righe)
+            nomi.append(NOMI_TIPI[tipo] + (" (a condizione)" if condizionato else ""))
+    return f"[ammessi: {', '.join(nomi)}]"
+
+
 def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
     """I bandi di un certo tema, con l'indicazione se aperti e per chi."""
-    oggi = date.today().isoformat()
+    oggi = data_di_oggi().isoformat()
 
     righe = conn.execute(
-        f"SELECT bandi.*, {AMMETTE_COMUNI} AS ammette_comuni FROM bandi "
-        "WHERE tema LIKE ? ORDER BY scadenza DESC",
+        "SELECT * FROM bandi WHERE tema LIKE ? ORDER BY scadenza DESC",
         (f"%{tema.lower()}%",),
     ).fetchall()
 
@@ -156,7 +363,7 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
         )
 
     elenco = "\n".join(
-        f"- {'[COMUNI AMMESSI] ' if r['ammette_comuni'] else '[NON per i Comuni] '}"
+        f"- {etichetta_tipi(r, beneficiari_di(conn, r['id']))} "
         f"{formatta_bando(r, oggi)}"
         for r in righe
     )
@@ -167,11 +374,84 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
     )
 
 
+def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
+    """I bandi aperti che ammettono un tipo di beneficiario della lista chiusa."""
+    if tipo not in TIPI_BENEFICIARIO:
+        validi = ", ".join(f"{t} ({n})" for t, n in NOMI_TIPI.items())
+        return Risultato(
+            f"Tipo di beneficiario '{tipo}' sconosciuto. Tipi validi: {validi}.",
+            trovato=False,
+        )
+    oggi = data_di_oggi().isoformat()
+
+    righe = conn.execute(
+        f"""
+        SELECT * FROM bandi
+        WHERE {HA_TIPO}
+          AND (scadenza IS NULL OR scadenza >= ?)
+        ORDER BY a_sportello, scadenza
+        """,
+        (tipo, oggi),
+    ).fetchall()
+
+    # I bandi aperti non classificati: se ammettono questo tipo non si sa,
+    # salvo per i Comuni, che hanno la riga migrata
+    da_classificare = conn.execute(
+        "SELECT COUNT(*) FROM bandi WHERE classificato_il IS NULL "
+        "AND (scadenza IS NULL OR scadenza >= ?)",
+        (oggi,),
+    ).fetchone()[0]
+    avvertenza = (
+        f"\n{da_classificare} bandi aperti in archivio hanno beneficiari non "
+        "ancora classificati: potrebbero ammettere anche questo tipo."
+        if da_classificare and tipo != "comune"
+        else ""
+    )
+
+    nome = NOMI_TIPI[tipo]
+    if not righe:
+        return Risultato(
+            f"Nessun bando aperto per {nome} alla data del {oggi}.{avvertenza}",
+            trovato=False,
+        )
+
+    elenco = "\n".join(
+        f"- {formatta_bando(r, oggi, ammissione(beneficiari_di(conn, r['id']), tipo))}"
+        for r in righe
+    )
+    return Risultato(
+        f"Bandi aperti per {nome} (alla data del {oggi}), {len(righe)} in "
+        f"archivio:\n{elenco}{avvertenza}",
+        fonti=[fonte_bando(r) for r in righe],
+    )
+
+
+def descrivi_beneficiari(riga, beneficiari: list) -> str:
+    """I beneficiari di un bando, ciascuno con condizioni e frase del bando."""
+    voci = []
+    for b in beneficiari:
+        voce = NOMI_TIPI[b["tipo"]]
+        if b["condizioni"]:
+            voce += f", ammesso se {b['condizioni']}"
+        if b["tipo"] == PER_REQUISITO and b["soggetto"]:
+            voce += f" (nel bando: «{b['soggetto']}»)"
+        # Le righe migrate hanno come frase il testo di beneficiari, che il
+        # dettaglio mostra gia'
+        if b["origine"] != "ammette_comuni":
+            voce += f" (frase del bando: «{b['frase']}»)"
+        voci.append(voce)
+
+    if riga["classificato_il"] is None:
+        if not voci:
+            voci.append("non i Comuni")
+        voci.append(NON_CLASSIFICATI)
+    return "; ".join(voci)
+
+
 def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
     """Tutti i dati strutturati di un singolo bando."""
     riga = conn.execute(
-        f"SELECT bandi.*, {AMMETTE_COMUNI} AS ammette_comuni FROM bandi "
-        "WHERE id = ? OR titolo LIKE ?",
+        "SELECT * FROM bandi WHERE id = ? OR titolo LIKE ?",
         (id_bando, f"%{id_bando}%"),
     ).fetchone()
 
@@ -183,17 +463,33 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
             trovato=False,
         )
 
-    oggi = date.today().isoformat()
-    ammessi = "SÌ" if riga["ammette_comuni"] else "NO"
+    oggi = data_di_oggi().isoformat()
+    pezzi = [
+        formatta_bando(riga, oggi),
+        "beneficiari ammessi: "
+        + descrivi_beneficiari(riga, beneficiari_di(conn, riga["id"])),
+    ]
+
+    interventi = conn.execute(
+        "SELECT * FROM interventi_bando WHERE id_bando = ? ORDER BY numero",
+        (riga["id"],),
+    ).fetchall()
+    if interventi:
+        pezzi.append(
+            "interventi e spese ammissibili: "
+            + "; ".join(f"{i['genere']}: {i['descrizione']}" for i in interventi)
+        )
+
+    if riga["cumulabilita"]:
+        pezzi.append(
+            f"cumulabilità: {riga['cumulabilita']} "
+            f"(frase del bando: «{riga['cumulabilita_frase']}»)"
+        )
 
     dotazione = (
         f"{euro(riga['dotazione'])} euro" if riga["dotazione"] else "non indicata"
     )
+    pezzi.append(f"dotazione complessiva: {dotazione}")
+    pezzi.append(f"atto: {riga['riferimento_atto']}")
 
-    return Risultato(
-        f"{formatta_bando(riga, oggi)} | "
-        f"Comuni ammessi: {ammessi} | "
-        f"dotazione complessiva: {dotazione} | "
-        f"atto: {riga['riferimento_atto']}",
-        fonti=[fonte_bando(riga)],
-    )
+    return Risultato(" | ".join(pezzi), fonti=[fonte_bando(riga)])

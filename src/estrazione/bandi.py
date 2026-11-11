@@ -188,9 +188,13 @@ Se il bando definisce chi partecipa con un requisito e non con un tipo di \
 soggetto (es. "i musei accreditati", "i titolari di"), usa \
 {PER_REQUISITO} e scrivi il requisito nelle condizioni. Non dedurre un \
 tipo che il bando non nomina.
-Condizioni: tutto cio' che restringe l'ammissione di quel soggetto \
-(es. "fino a 5.000 abitanti", "in forma associata", "titolare di museo \
-accreditato", "competente per il servizio").
+Condizioni: tutto cio' che restringe l'ammissione di quel soggetto, \
+scritto come requisito di chi presenta domanda, in modo che completi la \
+frase "ammesso se ...". Non descrivere l'oggetto del bando, ma cosa deve \
+essere o avere il richiedente: "titolare di un museo o ecomuseo di \
+rilevanza regionale accreditato", non "musei accreditati"; "competente per \
+il servizio di trasporto pubblico locale"; "con meno di 5.000 abitanti"; \
+"in forma associata".
 
 INTERVENTI E SPESE AMMISSIBILI
 "interventi": un elenco, un elemento per ogni intervento o spesa ammessa:

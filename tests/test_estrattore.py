@@ -78,9 +78,10 @@ def test_risposta_corretta_da_il_risultato_atteso(nome):
     tipi = sorted(b["tipo"] for b in riga.get("beneficiari_ammessi", []))
     assert tipi == atteso["tipi"]
 
-    for tipo, parola in atteso["condizioni_contengono"].items():
+    for tipo, parole in atteso["condizioni_contengono"].items():
         (b,) = [b for b in riga["beneficiari_ammessi"] if b["tipo"] == tipo]
-        assert parola in b["condizioni"].lower()
+        for parola in parole:
+            assert parola in b["condizioni"].lower(), (tipo, parola)
 
     assert len(riga.get("interventi", [])) >= atteso["interventi_almeno"]
     assert riga.get("cumulabilita") == atteso["cumulabilita"]

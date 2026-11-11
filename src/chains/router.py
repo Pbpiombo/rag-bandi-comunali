@@ -51,11 +51,17 @@ PER CHI STAI CERCANDO
 
 Quando la domanda riguarda opportunità di finanziamento, bandi aperti, \
 scadenze o ammissibilità, usa le interrogazioni sui bandi. Una domanda \
-come "possiamo partecipare a qualche bando?" richiede bandi_aperti_per_comuni.
+come "possiamo partecipare a qualche bando?" richiede bandi_aperti_per_ente: \
+l'ente lo conosce il programma, non va indicato nei parametri. Per i bandi \
+rivolti ad altri soggetti del territorio (imprese, associazioni, cittadini) \
+usa bandi_per_beneficiario con il codice del tipo.
 
 ESEMPI
 "Quanti abitanti ha il comune?"
 {{"documenti": false, "interrogazioni": [{{"nome": "popolazione_ultima", "parametri": {{}}}}]}}
+
+"Ci sono bandi aperti per le aziende agricole del territorio?"
+{{"documenti": false, "interrogazioni": [{{"nome": "bandi_per_beneficiario", "parametri": {{"tipo": "impresa_agricola"}}}}]}}
 
 "Quali sono i requisiti per accedere al bando?"
 {{"documenti": true, "interrogazioni": []}}

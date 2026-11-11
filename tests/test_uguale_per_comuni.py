@@ -1,13 +1,27 @@
-"""Per i comuni, le interrogazioni sui bandi danno lo stesso testo di prima.
+"""Per i comuni, le interrogazioni sui bandi danno il testo atteso.
 
-Il riferimento (dati/interrogazioni_comuni_prima.json) e' stato catturato
-con il codice e lo schema precedenti alla tabella beneficiari_bando, quando
-i bandi avevano la colonna ammette_comuni, sui 21 bandi di allora
-(dati/bandi_prima.csv) e con la data fissata al 2026-11-11.
+Il primo riferimento era stato catturato con il codice e lo schema
+precedenti alla tabella beneficiari_bando, quando i bandi avevano la
+colonna ammette_comuni, sui 21 bandi di allora (dati/bandi_prima.csv) e
+con la data fissata al 2026-11-11. Nella tappa a il testo per i comuni era
+identico a quello.
+
+Il riferimento attuale (dati/interrogazioni_comuni_dopo.json) e' quello
+della tappa c delle interrogazioni (piano-estrattore.md), sugli stessi
+bandi e con la stessa data. Rispetto al primo cambia solo dove il testo
+cambia di proposito, differenze approvate una per una:
+- bandi_aperti_per_comuni diventa bandi_aperti_per_ente, con l'ente;
+- i bandi a sportello sono in un gruppo separato, con l'invito a
+  verificare le risorse ("a sportello fino al None" non c'e' piu');
+- bandi_per_tema: [COMUNI AMMESSI] e [NON per i Comuni] diventano
+  l'elenco dei tipi, con "altri beneficiari non ancora classificati";
+- dettaglio_bando: "Comuni ammessi: SI'/NO" diventa "beneficiari
+  ammessi: ...";
+- stato_archivio conta i bandi aperti per l'ente, non tutti.
 
 Il test migra quei bandi con lo script di migrazione, li carica nello
 schema attuale ed esegue le stesse interrogazioni: il testo, le fonti e
-l'esito devono coincidere.
+l'esito devono coincidere con il riferimento.
 """
 
 import csv
@@ -21,7 +35,7 @@ import pytest
 from scripts.manutenzione.migra_beneficiari import migra
 from src.database import interrogazioni_bandi, repertorio, schema
 from src.database.interrogazioni_bandi import (
-    bandi_aperti_per_comuni,
+    bandi_aperti_per_ente,
     bandi_in_scadenza,
     bandi_per_tema,
     dettaglio_bando,
@@ -29,7 +43,7 @@ from src.database.interrogazioni_bandi import (
 
 DATI = Path(__file__).parent / "dati"
 BANDI_PRIMA = DATI / "bandi_prima.csv"
-RIFERIMENTO = DATI / "interrogazioni_comuni_prima.json"
+RIFERIMENTO = DATI / "interrogazioni_comuni_dopo.json"
 
 OGGI = date(2026, 11, 11)
 COMUNE = "90060100477"
@@ -65,9 +79,13 @@ def risultati_per_comuni(percorso_db: Path) -> dict:
         ]
         ids = [r["id"] for r in conn.execute("SELECT id FROM bandi ORDER BY id")]
 
-        chiamate = {"bandi_aperti_per_comuni": lambda: bandi_aperti_per_comuni(conn)}
-        chiamate["bandi_in_scadenza(60)"] = lambda: bandi_in_scadenza(conn)
-        chiamate["bandi_in_scadenza(400)"] = lambda: bandi_in_scadenza(conn, 400)
+        chiamate = {
+            "bandi_aperti_per_ente": lambda: bandi_aperti_per_ente(conn, COMUNE)
+        }
+        chiamate["bandi_in_scadenza(60)"] = lambda: bandi_in_scadenza(conn, COMUNE)
+        chiamate["bandi_in_scadenza(400)"] = lambda: bandi_in_scadenza(
+            conn, COMUNE, 400
+        )
         for tema in [*temi, "pesca"]:
             chiamate[f"bandi_per_tema({tema})"] = lambda t=tema: bandi_per_tema(conn, t)
         for id_bando in [*ids, "inesistente"]:
@@ -105,6 +123,12 @@ def test_interrogazioni_uguali_per_i_comuni(tmp_path, monkeypatch, data_fissa):
         "INSERT INTO fonti VALUES ('regione-toscana', 'Portale bandi Regione Toscana', "
         "'https://www.regione.toscana.it/bandi-aperti?delta=200', "
         "'https://www.regione.toscana.it', 'prova', '2026-11-11')"
+    )
+    conn.execute(
+        "INSERT INTO enti (codice_fiscale, nome, tipo, regione, provincia, fonte, "
+        "verificato_il) VALUES (?, 'Comune di prova', 'comune', 'Toscana', "
+        "'Pistoia', 'prova', '2026-11-11')",
+        (COMUNE,),
     )
     for tabella, righe in (("bandi", bandi), ("beneficiari_bando", beneficiari)):
         colonne = schema.TABELLE_DA_CSV[tabella]

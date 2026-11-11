@@ -76,7 +76,14 @@ Ricevi il profilo dell'ente che pone la domanda: tipo, area interna, se è \
 capofila, se rientra in Toscana Diffusa. Usalo per valutare se l'ente \
 rientra tra i beneficiari di un bando. Quando lo usi, citalo nella forma \
 (fonte: profilo dell'ente). Un dato "non verificato" non è né sì né no: \
-dillo, invece di dedurlo."""
+dillo, invece di dedurlo.
+
+BENEFICIARI DEI BANDI
+Se un bando indica "ammesso se ...", l'ente è ammesso a condizione: \
+riporta la condizione, non rispondere con un semplice sì. Se indica \
+"beneficiari non ancora classificati", non sai se l'ente è ammesso: dillo \
+e invita a verificare sul bando. Un bando "a sportello" resta aperto \
+finché ci sono risorse: riporta l'invito a verificarne la disponibilità."""
 
 MODELLO_PROMPT = ChatPromptTemplate.from_messages(
     [

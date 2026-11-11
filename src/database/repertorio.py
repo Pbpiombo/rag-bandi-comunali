@@ -8,11 +8,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from src.database.interrogazioni_bandi import (
-    AMMETTE_COMUNI,
-    bandi_aperti_per_comuni,
+    NOMI_ENTE,
+    bandi_aperti_per_ente,
     bandi_in_scadenza,
+    bandi_per_beneficiario,
     bandi_per_tema,
+    data_di_oggi,
     dettaglio_bando,
+    filtro_ente,
+    tipo_ente,
 )
 from src.database.interrogazioni_dati import (
     dato_territoriale,
@@ -24,6 +28,7 @@ from src.database.interrogazioni_dati import (
 )
 from src.database.modelli import Risultato
 from src.database.schema import connetti
+from src.estrazione.beneficiari import TIPI_BENEFICIARIO
 
 
 @dataclass
@@ -81,16 +86,25 @@ REPERTORIO = [
         per_ente=True,
     ),
     Voce(
-        "bandi_aperti_per_comuni",
-        "I bandi ancora aperti a cui un Comune può presentare domanda",
+        "bandi_aperti_per_ente",
+        "I bandi ancora aperti a cui l'ente può presentare domanda",
         {},
-        bandi_aperti_per_comuni,
+        bandi_aperti_per_ente,
+        per_ente=True,
     ),
     Voce(
         "bandi_in_scadenza",
-        "I bandi per Comuni che scadono entro un certo numero di giorni",
+        "I bandi per l'ente che scadono entro un certo numero di giorni",
         {"giorni": "intero opzionale, predefinito 60"},
         bandi_in_scadenza,
+        per_ente=True,
+    ),
+    Voce(
+        "bandi_per_beneficiario",
+        "I bandi aperti per un tipo di beneficiario diverso dall'ente "
+        "(imprese, associazioni, cittadini...)",
+        {"tipo": "stringa, uno dei codici: " + ", ".join(TIPI_BENEFICIARIO)},
+        bandi_per_beneficiario,
     ),
     Voce(
         "bandi_per_tema",
@@ -185,15 +199,34 @@ def stato_archivio(codice_ente: str) -> str:
         elenco = ", ".join(r["chiave"] for r in chiavi) or "nessuna"
         righe.append(f"territorio: chiavi disponibili: {elenco}")
 
-        ban = conn.execute(
-            f"SELECT COUNT(*), SUM({AMMETTE_COMUNI}) FROM bandi"
-        ).fetchone()
-        righe.append(
-            f"bandi: {ban[0]} in archivio, di cui {ban[1] or 0} aperti ai Comuni"
-            if ban[0]
-            else "bandi: VUOTA, nessun dato disponibile"
-        )
+        righe.append(_stato_bandi(conn, codice_ente))
 
         return "\n".join(f"- {r}" for r in righe)
     finally:
         conn.close()
+
+
+def _stato_bandi(conn, codice_ente: str) -> str:
+    """La riga dei bandi nel riepilogo: quanti, e quanti aperti per l'ente."""
+    totale = conn.execute("SELECT COUNT(*) FROM bandi").fetchone()[0]
+    if not totale:
+        return "bandi: VUOTA, nessun dato disponibile"
+
+    tipo = tipo_ente(conn, codice_ente)
+    if tipo is None:
+        return f"bandi: {totale} in archivio"
+
+    oggi = data_di_oggi().isoformat()
+    filtro, parametri = filtro_ente(tipo)
+    aperti, da_verificare = conn.execute(
+        f"SELECT COUNT(*), SUM(classificato_il IS NULL) FROM bandi "
+        f"WHERE {filtro} AND (scadenza IS NULL OR scadenza >= ?)",
+        (*parametri, oggi),
+    ).fetchone()
+    testo = (
+        f"bandi: {totale} in archivio, di cui {aperti} aperti a cui "
+        f"{NOMI_ENTE[tipo]['uno']} può presentare domanda"
+    )
+    if tipo == "unione_comuni" and da_verificare:
+        testo += f" ({da_verificare} con beneficiari non ancora classificati)"
+    return testo

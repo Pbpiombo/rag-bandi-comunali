@@ -32,9 +32,10 @@ da cui viene, controllata sulla pagina.
   "a sportello, verificare la disponibilità delle risorse"; oltre 2 anni
   dalla pubblicazione, avviso "probabilmente esaurito". Mostrati con l'avviso,
   non esclusi. La soglia è una costante.
-- **Frasi controllate sulla pagina**: beneficiari, interventi, cumulabilità; da
-  estendere a scadenza e sportello (bloccanti se la frase non si trova) e a
-  data di pubblicazione e importi (vuoti con avviso).
+- **Frasi controllate sulla pagina**: beneficiari, interventi, cumulabilità,
+  scadenza e sportello (bloccanti se la frase non si trova), data di
+  pubblicazione e importi (vuoti con avviso). Lo sportello si controlla solo
+  quando è vero.
 - **`ammette_comuni` tolto** da `bandi`: si ricava da `beneficiari_bando`.
 - **Smistamento con un modello più economico**: rimandato.
 - **Test con il modello vero**: marcati `modello`, esclusi per impostazione
@@ -44,14 +45,43 @@ da cui viene, controllata sulla pagina.
 
 - **a. Schema e migrazione**: fatta. Test di equivalenza per i comuni su 35
   interrogazioni.
-- **b. Estrattore**: fatta. Da completare il controllo delle frasi di
-  scadenza, sportello, pubblicazione e importi; da lanciare i 3 test con il
-  modello vero.
-- **c. Interrogazioni**: `bandi_aperti_per_ente` per tipo di ente, etichette
-  con le condizioni, `bandi_per_beneficiario`, gruppo "a sportello",
-  `dettaglio_bando` con beneficiari, interventi e cumulabilità. Togliere
-  l'alias provvisorio `AMMETTE_COMUNI`. Aggiornare il test di equivalenza dove
-  il testo cambia di proposito.
+- **b. Estrattore**: fatta, con il controllo delle prove esteso a scadenza,
+  sportello, pubblicazione e importi. I 3 test con il modello vero passano.
+  Costo misurato (`claude-sonnet-5`): circa 0,026 $ per bando (4.230 token in
+  ingresso, 1.760 in uscita), circa 0,012 $ per una pagina che non è un bando.
+- **c. Interrogazioni**: fatta. Test di equivalenza aggiornato: 31
+  interrogazioni su 35 cambiano testo, tutte per modifiche volute e
+  approvate una per una; riferimento in
+  `tests/dati/interrogazioni_comuni_dopo.json`.
+  - `bandi_aperti_per_ente` e `bandi_in_scadenza` per ente (`per_ente=True`):
+    il tipo viene da `enti.tipo`; valgono le righe del tipo e di
+    `qualsiasi_soggetto`.
+  - Condizioni scritte come requisito del richiedente e mostrate come
+    "ammesso se …"; per `qualsiasi_soggetto` il soggetto del bando tra
+    parentesi. Regola aggiunta al prompt dell'estrattore.
+  - Unione: vede anche i bandi non classificati con la riga `comune`
+    migrata, con la nota "beneficiari non ancora classificati: verificare se
+    ammette le Unioni".
+  - `bandi_per_tema`: "[ammessi: …]" per i classificati; per i non
+    classificati "[ammessi: Comuni; altri beneficiari non ancora
+    classificati]" o "[NON per i Comuni; altri beneficiari non ancora
+    classificati]".
+  - Sportello in un gruppo separato: "a sportello, verificare la
+    disponibilità delle risorse (pubblicato il … / data di pubblicazione non
+    indicata)", oppure "a sportello fino al …, verificare la disponibilità
+    delle risorse"; oltre `SOGLIA_SPORTELLO_ANNI` (2) "probabilmente
+    esaurito".
+  - `bandi_per_beneficiario(tipo)` nuova; `dettaglio_bando` con beneficiari,
+    interventi e cumulabilità (per le righe migrate senza la frase, che
+    ripeterebbe il testo di `beneficiari`); `stato_archivio` conta gli aperti
+    per l'ente.
+  - Alias `AMMETTE_COMUNI` tolto; la data di oggi si legge solo in
+    `data_di_oggi()`.
+  - Musei: il modello scrive la condizione come accreditamento del museo
+    ("validamente accreditato e non decaduto, elencato nell'Allegato A…"),
+    fedele alla pagina, che non nomina il titolare. Forma accettata; il
+    soggetto tra parentesi dice di chi si parla. Nessuna deduzione di
+    "titolare di".
 - **d. Contenimento del costo**: scadenza letta dalla pagina senza modello
   (margine di un anno), filtro sull'anno nello slug. Prima della scansione
   completa.

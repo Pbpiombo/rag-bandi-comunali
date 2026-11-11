@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 
 from scripts.manutenzione.migra_beneficiari import MigrazioneFermata, migra
-from src.database.interrogazioni_bandi import AMMETTE_COMUNI
+from src.database.interrogazioni_bandi import filtro_ente
 from src.estrazione.beneficiari import TIPI_BENEFICIARIO
 from src.estrazione.salva import salva
 
@@ -87,17 +87,18 @@ def test_intervento_con_genere_fuori_lista_e_rifiutato(con_bando):
         )
 
 
-def test_ammette_comuni_si_calcola_dai_beneficiari(con_bando):
-    def ammette():
+def test_chi_e_ammesso_si_calcola_dai_beneficiari(con_bando):
+    def ammette(tipo):
+        filtro, parametri = filtro_ente(tipo)
         return con_bando.execute(
-            f"SELECT {AMMETTE_COMUNI} FROM bandi WHERE id = 'tpl'"
+            f"SELECT {filtro} FROM bandi WHERE id = 'tpl'", parametri
         ).fetchone()[0]
 
-    assert ammette() == 0
+    assert ammette("comune") == 0
     _beneficiario(con_bando, "unione_comuni")
-    assert ammette() == 0
+    assert (ammette("comune"), ammette("unione_comuni")) == (0, 1)
     _beneficiario(con_bando, "comune")
-    assert ammette() == 1
+    assert ammette("comune") == 1
 
 
 # --- migrazione ---

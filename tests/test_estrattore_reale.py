@@ -76,12 +76,13 @@ def test_modello_vero_sulle_pagine_salvate(estrattore, nome):
     tipi = sorted({b["tipo"] for b in riga.get("beneficiari_ammessi", [])})
     assert tipi == atteso["tipi"]
 
-    for tipo, parola in atteso["condizioni_contengono"].items():
+    for tipo, parole in atteso["condizioni_contengono"].items():
         condizioni = " ".join(
             b["condizioni"] or ""
             for b in riga["beneficiari_ammessi"]
             if b["tipo"] == tipo
         )
-        assert parola in condizioni.lower(), tipo
+        for parola in parole:
+            assert parola in condizioni.lower(), (tipo, parola)
 
     assert len(riga.get("interventi", [])) >= atteso["interventi_almeno"]
