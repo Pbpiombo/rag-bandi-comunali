@@ -30,7 +30,7 @@ modello vero, tappe c e d. Poi la scansione completa.
 2. **Scheda per bando**: per chi è e per cosa si può usare, divisa per tipo di
    beneficiario, con le clausole citate. Quello che il bando dice e i possibili
    usi proposti dal sistema restano visibilmente separati.
-3. **Riepilogo per Cosimo**: bandi nuovi con le loro schede, filtrati sulle sue
+3. **Riepilogo**: bandi nuovi con le loro schede, filtrati sulle sue
    ricerche scritte in un file. Prima mandato a mano, poi automatico.
 4. **Aggiornamento ogni due settimane**: GitHub Actions lancia la scansione,
    salva CSV e database, manda il riepilogo.

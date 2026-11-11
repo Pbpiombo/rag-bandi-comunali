@@ -81,3 +81,5 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
 - Usare `--unsafe-fixes` di ruff.
 - Modificare i CSV in `data/processed/` a mano senza dirlo: sono dati
   verificati.
+- - Il repository è pubblico: niente nomi di persone, email o dati
+  personali nei file. Per le persone si usa il ruolo.
