@@ -99,8 +99,17 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 - Supabase in pausa dopo inattività: tenerlo sveglio o cambiare piano.
 - Limite di spesa mensile nella console di Anthropic.
 - Bando microzonazione sismica (DGR 1081 del 7/9/2026, premialità Toscana
-  Diffusa): dopo la scansione completa non compare, e non e' nell'elenco
-  dei bandi aperti del portale. Cercarlo su un'altra pagina o fonte.
+  Diffusa): fuori dall'elenco dei bandi aperti del portale, quindi la
+  scansione non lo vede. Cercarlo su un'altra pagina o fonte.
+- Scadenze multiple nello stesso bando (es. assegno formazione GOL, Misura
+  1 al 31 luglio 2026 o 2027, Misura 2 al 30 giugno 2027): oggi
+  l'estrattore ne tiene una sola.
+- Tirocini per donne in uscita dalla violenza classificati
+  `qualsiasi_soggetto` per "soggetti ospitanti privati": li vedono anche
+  i Comuni.
+- Categoria per professionisti e lavoratori autonomi: oggi finiscono in
+  `altra_impresa` o in `cittadini_famiglie`.
+- Appartenenza dei comuni all'Unione nel profilo dell'ente.
 - Dalla scansione completa dell'11 novembre 2026:
   - stima del costo in `estrai_nuovi` da aggiornare: circa 0,031 $ a
     pagina, bando o no (era 0,012–0,026 $);
@@ -109,12 +118,6 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
     decidere se segnarli o toglierli;
   - le pagine a "scadenza non determinata" (es. ricerca finalizzata 2021 e
     2024) tornano candidate a ogni scansione e si pagano ogni volta;
-  - `qualsiasi_soggetto` usato per "soggetti ospitanti privati" (tirocini
-    per donne in uscita dalla violenza): le interrogazioni lo mostrano
-    anche ai Comuni;
-  - assegno formazione GOL: la pagina riporta due scadenze per la Misura 1
-    (31 luglio 2026 e 31 luglio 2027); l'estrattore ha preso la prima e
-    il bando risulta scaduto;
   - 16 valori vecchi mantenuti nella riclassificazione, da controllare a
     mano (elenco nel rapporto della scansione);
   - i 9 bandi salvati nella prima corsa, prima della correzione degli
