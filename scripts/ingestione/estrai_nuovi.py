@@ -10,8 +10,8 @@ L'opzione -u di Python disattiva l'accumulo dell'output, cosi' le righe
 compaiono man mano invece che tutte alla fine.
 
 Ogni bando costa una chiamata all'API. Le pagine gia' esaminate con esito
-definitivo (scadute, non pertinenti) non vengono riproposte: il registro
-delle scansioni le ricorda.
+definitivo (scadute, o che non sono bandi) non vengono riproposte: il
+registro delle scansioni le ricorda.
 """
 
 import sys
@@ -77,18 +77,18 @@ def esamina(estrattore, voce) -> tuple[str, str, str]:
     """Estrae un bando e decide se salvarlo.
 
     Restituisce (esito, motivo, avvisi). Il motivo di un fallimento
-    elenca tutti i problemi; gli avvisi i campi lasciati vuoti.
+    elenca tutti i problemi; gli avvisi i campi e le voci lasciati vuoti.
     """
     testo = prendi(voce.url)
-    campi = estrai(estrattore, testo)
-    riga, problemi, avvisi = valida(campi)
+    estrazione = estrai(estrattore, testo)
+    riga, problemi, avvisi = valida(estrazione, testo)
     avvisi = "; ".join(avvisi)
 
     if problemi:
         return "fallito", "; ".join(problemi), avvisi
 
     riga["id"] = id_da_slug(voce.slug, voce.url)
-    salvare, motivo = decidi_automatico(campi, riga)
+    salvare, motivo = decidi_automatico(estrazione, riga)
 
     if salvare:
         salva(riga, voce.url, FONTE, voce.codice_fonte)
@@ -175,7 +175,7 @@ def main() -> None:
 
     mostra_riepilogo(esiti)
     print(f"\n{riepilogo()}")
-    aggiorna_csv("bandi", "scansioni")
+    aggiorna_csv("bandi", "beneficiari_bando", "interventi_bando", "scansioni")
 
 
 if __name__ == "__main__":

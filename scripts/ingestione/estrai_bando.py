@@ -36,19 +36,43 @@ from src.estrazione.salva import ConflittoBando, conflitto, esiste, salva
 SEGNI = {"alta": "  ", "media": "~ ", "bassa": "! "}
 FONTE = "Portale bandi Regione Toscana"
 
+# Le tabelle che un salvataggio modifica, da riversare nei CSV
+TABELLE_BANDO = ("bandi", "beneficiari_bando", "interventi_bando")
 
-def mostra(campi) -> None:
-    """Stampa i campi estratti, con la prova per quelli da verificare."""
+
+def mostra(estrazione) -> None:
+    """Stampa cio' che il modello ha estratto, prima della verifica."""
+    print("=" * 74)
+    print(f"NATURA: {estrazione.natura}  {estrazione.natura_motivo}")
     print("=" * 74)
     print("CAMPI ESTRATTI")
     print("=" * 74)
 
-    for c in campi:
+    for c in estrazione.campi:
         marca = "CRITICO" if c.critico else "       "
         valore = c.valore if c.valore is not None else "(vuoto)"
         print(f"{SEGNI[c.confidenza]}{marca} {c.nome:20} {valore}")
         if c.prova and (c.critico or c.confidenza != "alta"):
             print(f"                            prova: {c.prova}")
+
+    print("\nBENEFICIARI AMMESSI")
+    for b in estrazione.beneficiari:
+        if not isinstance(b, dict):
+            print(f"  (formato non conforme) {b}")
+            continue
+        tipi = ", ".join(map(str, b.get("tipi") or []))
+        print(f"  - {b.get('soggetto')}  ->  {tipi}  [{b.get('confidenza')}]")
+        if b.get("condizioni"):
+            print(f"      condizioni: {b['condizioni']}")
+        print(f"      frase: {b.get('frase')}")
+
+    print("\nINTERVENTI E SPESE")
+    for i in estrazione.interventi:
+        if isinstance(i, dict):
+            print(f"  - [{i.get('genere')}] {i.get('descrizione')}")
+
+    clausola = (estrazione.cumulabilita or {}).get("clausola")
+    print(f"\nCUMULABILITA': {clausola or '(non indicata)'}")
 
 
 def mostra_confronto(precedente: dict, riga: dict) -> None:
@@ -62,8 +86,8 @@ def mostra_confronto(precedente: dict, riga: dict) -> None:
         (c, precedente.get(c), riga.get(c))
         for c in (
             "scadenza",
-            "ammette_comuni",
             "a_sportello",
+            "pubblicato_il",
             "contributo_perc",
             "dotazione",
         )
@@ -141,16 +165,20 @@ def main() -> None:
     print(f"Testo utile: {len(testo)} caratteri\n")
 
     estrattore = costruisci_estrattore()
-    campi = estrai(estrattore, testo, debug="--debug" in sys.argv)
+    estrazione = estrai(estrattore, testo, debug="--debug" in sys.argv)
 
-    mostra(campi)
+    mostra(estrazione)
 
-    riga, problemi, avvisi = valida(campi)
+    riga, problemi, avvisi = valida(estrazione, testo)
 
     if avvisi:
-        print("\nAVVISI: campi lasciati vuoti, da completare a mano se serve")
+        print("\nAVVISI: campi e voci lasciati vuoti, da completare a mano se serve")
         for a in avvisi:
             print(f"  - {a}")
+
+    if riga["natura"] == "non_bando":
+        print(f"\nNon e' un bando ({riga['natura_motivo']}). Non salvo.")
+        return
 
     if problemi:
         print("\nPROBLEMI DI VALIDAZIONE")
@@ -162,8 +190,8 @@ def main() -> None:
         )
         return
 
-    rivedere = da_rivedere(campi)
-    print(f"\n{len(rivedere)} campi da confermare su {len(campi)}.")
+    rivedere = da_rivedere(estrazione.campi)
+    print(f"\n{len(rivedere)} campi da confermare su {len(estrazione.campi)}.")
 
     riga["id"] = id_bando
 
@@ -174,11 +202,11 @@ def main() -> None:
         return
 
     if "--auto" in sys.argv:
-        salvare, motivo = decidi_automatico(campi, riga)
+        salvare, motivo = decidi_automatico(estrazione, riga)
 
         if salvare:
             salva(riga, url, FONTE, CODICE_FONTE)
-            aggiorna_csv("bandi")
+            aggiorna_csv(*TABELLE_BANDO)
             print(f"\nSALVATO: {id_bando} ({motivo})")
         else:
             print(f"\nSCARTATO: {id_bando} ({motivo})")
@@ -198,7 +226,7 @@ def main() -> None:
         print(errore)
         return
 
-    aggiorna_csv("bandi")
+    aggiorna_csv(*TABELLE_BANDO)
     print(f"Salvato: {riga['id']}")
 
 

@@ -3,10 +3,13 @@
 from datetime import date
 
 from src.database.schema import connetti
+from src.estrazione.bandi import NON_BANDO
 from src.estrazione.indirizzi import url_canonico
 
-# Motivi di scarto definitivi: non ha senso riesaminarli
-DEFINITIVI = ("scaduto", "non ammette i Comuni")
+# Motivi di scarto definitivi: non ha senso riesaminarli. "non ammette i
+# Comuni" non c'e' piu': i bandi si acquisiscono per qualunque tipo di
+# beneficiario, e quelli scartati con quel motivo tornano candidati.
+DEFINITIVI = ("scaduto", NON_BANDO)
 
 
 def registra(
@@ -47,8 +50,8 @@ def registra(
 def da_non_riesaminare() -> set[str]:
     """Gli URL, in forma canonica, gia' esaminati con esito definitivo.
 
-    Uno scaduto o non pertinente non cambia: riesaminarlo costa una
-    chiamata e produce lo stesso risultato. Gli scarti per incertezza
+    Uno scaduto, o una pagina che non e' un bando, non cambia:
+    riesaminarlo costa una chiamata e produce lo stesso risultato. Gli scarti per incertezza
     (scadenza non determinata, bassa confidenza) restano invece
     candidati, perche' la pagina o il prompt possono essere migliorati.
     """

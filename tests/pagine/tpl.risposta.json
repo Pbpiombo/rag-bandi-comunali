@@ -1,0 +1,88 @@
+{
+  "natura": {
+    "valore": "bando",
+    "motivo": "contributo per l'acquisto di mezzi",
+    "prova": "la Regione ha approvato l'avviso pubblico per sostenere l'acquisto di mezzi destinati al servizio di trasporto pubblico locale nelle aree deboli"
+  },
+  "titolo": "Contributi per sostenere il trasporto pubblico locale nelle aree deboli",
+  "ente": "Regione Toscana",
+  "tema": "mobilita",
+  "programma": null,
+  "apertura": null,
+  "scadenza": {
+    "valore": "2021-10-21",
+    "confidenza": "alta",
+    "prova": "deve essere inviata entro e non oltre il 21 ottobre 2021 alla Regione Toscana tramite PEC o InterPRo"
+  },
+  "scadenza_nota": "in precedenza era stato erroneamente indicato il 22 ottobre 2021",
+  "a_sportello": {
+    "valore": false,
+    "confidenza": "alta",
+    "prova": "Scadenza presentazione domande: 21 ottobre 2021"
+  },
+  "pubblicato_il": {
+    "valore": "2021-09-22",
+    "confidenza": "alta",
+    "prova": "il bando pubblicato sul BURT n. 38 del 22 settembre 2021",
+    "origine": "pubblicazione"
+  },
+  "beneficiari": {
+    "valore": "Enti locali competenti.",
+    "confidenza": "alta",
+    "prova": "Destinatari del bando Enti locali competenti."
+  },
+  "territorio": "aree deboli della Toscana",
+  "premialita": null,
+  "costo_min": {"valore": null, "confidenza": "alta", "prova": ""},
+  "costo_max": {"valore": null, "confidenza": "alta", "prova": ""},
+  "contributo_perc": {
+    "valore": 100,
+    "confidenza": "alta",
+    "prova": "L'acquisto del mezzo è sostenuto con un contributo pari al 100% delle spese ammissibili"
+  },
+  "contributo_min": {"valore": null, "confidenza": "alta", "prova": ""},
+  "contributo_max": {"valore": null, "confidenza": "alta", "prova": ""},
+  "dotazione": {
+    "valore": "2 milioni di euro",
+    "confidenza": "alta",
+    "prova": "2 milioni di euro le risorse finanziarie disponibili"
+  },
+  "riferimento_atto": "Decreto dirigenziale 15538 del 7 settembre 2021",
+  "beneficiari_ammessi": [
+    {
+      "soggetto": "Enti locali competenti",
+      "tipi": ["comune", "unione_comuni", "altro_ente_pubblico"],
+      "condizioni": "ente locale competente per il servizio di trasporto pubblico locale",
+      "frase": "Enti locali competenti.",
+      "confidenza": "alta"
+    }
+  ],
+  "interventi": [
+    {
+      "genere": "intervento",
+      "descrizione": "acquisto di mezzi per il trasporto pubblico locale nelle aree deboli",
+      "frase": "sostenere l'acquisto di mezzi destinati al servizio di trasporto pubblico locale nelle aree deboli"
+    },
+    {
+      "genere": "spesa",
+      "descrizione": "costo dell'autobus al netto dei ribassi di gara",
+      "frase": "il costo effettivo dell'autobus, al netto dei ribassi di gara;"
+    },
+    {
+      "genere": "spesa",
+      "descrizione": "forniture della dotazione obbligatoria",
+      "frase": "il costo delle forniture relative alla dotazione obbligatoria rispondente alle caratteristiche richieste"
+    },
+    {
+      "genere": "spesa",
+      "descrizione": "attrezzaggi migliorativi, comprese le strutture porta biciclette",
+      "frase": "eventuali ulteriori attrezzaggi migliorativi del servizio di cui al paragrafo 5.2, ivi comprese le strutture porta biciclette;"
+    },
+    {
+      "genere": "spesa",
+      "descrizione": "IVA se non recuperabile",
+      "frase": "L'IVA costituisce una spesa ammissibile solo se realmente e definitivamente sostenuta e non recuperabile."
+    }
+  ],
+  "cumulabilita": {"clausola": null, "frase": null}
+}

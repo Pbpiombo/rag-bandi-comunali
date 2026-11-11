@@ -162,14 +162,14 @@ def test_migra_si_ferma_su_bando_che_ammette_senza_beneficiari():
 # --- salvataggio ---
 
 
-def _riga(ammette: int) -> dict:
+def _riga(**altro) -> dict:
     return {
         "id": "tpl",
         "titolo": "TPL",
         "ente": "Regione",
         "a_sportello": 0,
-        "ammette_comuni": ammette,
         "beneficiari": "Enti locali competenti.",
+        **altro,
     }
 
 
@@ -181,16 +181,32 @@ def _leggi(percorso, sql):
         c.close()
 
 
-def test_salva_ricava_la_riga_comune_da_ammette_comuni(db_su_file):
-    salva(_riga(1), f"{BASE}/-/tpl", "prova", "regione-toscana")
+def test_salva_con_beneficiari_li_scrive_e_segna_la_classificazione(db_su_file):
+    beneficiari = [
+        {
+            "tipo": "comune",
+            "soggetto": "Enti locali competenti",
+            "condizioni": "competenti",
+            "frase": "Enti locali competenti.",
+            "confidenza": "alta",
+            "origine": "estrazione",
+        }
+    ]
+    salva(
+        _riga(beneficiari_ammessi=beneficiari, interventi=[]),
+        f"{BASE}/-/tpl",
+        "prova",
+        "regione-toscana",
+    )
 
     assert _leggi(
-        db_su_file, "SELECT id_bando, tipo, frase, origine FROM beneficiari_bando"
-    ) == [("tpl", "comune", "Enti locali competenti.", "ammette_comuni")]
+        db_su_file, "SELECT id_bando, tipo, condizioni, origine FROM beneficiari_bando"
+    ) == [("tpl", "comune", "competenti", "estrazione")]
+    assert _leggi(db_su_file, "SELECT classificato_il IS NOT NULL FROM bandi") == [(1,)]
 
 
-def test_salva_aggiorna_senza_cancellare_le_righe_estratte(db_su_file):
-    salva(_riga(1), f"{BASE}/-/tpl", "prova", "regione-toscana")
+def test_salva_senza_beneficiari_non_tocca_le_tabelle_collegate(db_su_file):
+    salva(_riga(), f"{BASE}/-/tpl", "prova", "regione-toscana")
     c = sqlite3.connect(db_su_file)
     c.execute(
         "INSERT INTO beneficiari_bando (id_bando, tipo, frase, origine) "
@@ -201,7 +217,7 @@ def test_salva_aggiorna_senza_cancellare_le_righe_estratte(db_su_file):
     c.commit()
     c.close()
 
-    salva(_riga(0), f"{BASE}/-/tpl", "prova", "regione-toscana")
+    salva(_riga(titolo="TPL aggiornato"), f"{BASE}/-/tpl", "prova", "regione-toscana")
 
     assert _leggi(db_su_file, "SELECT tipo, origine FROM beneficiari_bando") == [
         ("unione_comuni", "estrazione")

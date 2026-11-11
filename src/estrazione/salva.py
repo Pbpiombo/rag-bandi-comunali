@@ -30,7 +30,21 @@ COLONNE = [
     "fonte",
     "codice_fonte",
     "verificato_il",
+    "cumulabilita",
+    "cumulabilita_frase",
+    "pubblicato_il",
+    "pubblicato_origine",
 ]
+
+COLONNE_BENEFICIARI = [
+    "tipo",
+    "soggetto",
+    "condizioni",
+    "frase",
+    "confidenza",
+    "origine",
+]
+COLONNE_INTERVENTI = ["numero", "genere", "descrizione", "frase"]
 
 
 class ConflittoBando(Exception):
@@ -77,6 +91,23 @@ def conflitto(id_bando: str, url: str) -> str | None:
         conn.close()
 
 
+def _sostituisci(
+    conn: sqlite3.Connection,
+    tabella: str,
+    colonne: list[str],
+    id_bando: str,
+    righe: list[dict],
+) -> None:
+    """Sostituisce le righe di una tabella collegata a un bando."""
+    conn.execute(f"DELETE FROM {tabella} WHERE id_bando = ?", (id_bando,))
+    elenco = ", ".join(["id_bando", *colonne])
+    segnaposto = ", ".join("?" for _ in range(len(colonne) + 1))
+    conn.executemany(
+        f"INSERT INTO {tabella} ({elenco}) VALUES ({segnaposto})",
+        [[id_bando, *(r.get(c) for c in colonne)] for r in righe],
+    )
+
+
 def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
     """Scrive o aggiorna la riga del bando nel database.
 
@@ -88,15 +119,18 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
     REPLACE cancellerebbe la riga, in silenzio, insieme ai riferimenti
     delle tabelle beneficiari_bando e interventi_bando.
 
-    Finche' l'estrattore produce ammette_comuni (si'/no), il valore 1
-    diventa una riga di beneficiari_bando di tipo 'comune', con origine
-    'ammette_comuni', come nella migrazione dei bandi esistenti.
+    Se la riga contiene beneficiari_ammessi (prodotti e verificati da
+    valida), sostituiscono tutti i beneficiari del bando, comprese le
+    righe migrate da ammette_comuni, e classificato_il diventa oggi.
+    Lo stesso per interventi. Senza quelle chiavi, le tabelle collegate
+    restano come sono.
     """
+    oggi = date.today().isoformat()
     riga = dict(riga)
     riga["url"] = url_canonico(url)
     riga["fonte"] = fonte
     riga["codice_fonte"] = codice_fonte
-    riga["verificato_il"] = date.today().isoformat()
+    riga["verificato_il"] = oggi
 
     valori = [riga.get(c) for c in COLONNE]
     segnaposto = ", ".join("?" for _ in COLONNE)
@@ -114,17 +148,27 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
             f"ON CONFLICT(id) DO UPDATE SET {aggiorna}",
             valori,
         )
-        conn.execute(
-            "DELETE FROM beneficiari_bando "
-            "WHERE id_bando = ? AND origine = 'ammette_comuni'",
-            (riga["id"],),
-        )
-        if riga.get("ammette_comuni") == 1:
-            conn.execute(
-                "INSERT INTO beneficiari_bando (id_bando, tipo, frase, origine) "
-                "VALUES (?, 'comune', ?, 'ammette_comuni')",
-                (riga["id"], riga["beneficiari"]),
+        if "beneficiari_ammessi" in riga:
+            _sostituisci(
+                conn,
+                "beneficiari_bando",
+                COLONNE_BENEFICIARI,
+                riga["id"],
+                riga["beneficiari_ammessi"],
             )
+            conn.execute(
+                "UPDATE bandi SET classificato_il = ? WHERE id = ?", (oggi, riga["id"])
+            )
+
+        if "interventi" in riga:
+            _sostituisci(
+                conn,
+                "interventi_bando",
+                COLONNE_INTERVENTI,
+                riga["id"],
+                riga["interventi"],
+            )
+
         conn.commit()
     finally:
         conn.close()

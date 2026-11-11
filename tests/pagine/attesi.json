@@ -1,0 +1,45 @@
+{
+  "tpl": {
+    "natura": "bando",
+    "salvare": false,
+    "motivo": "scaduto il 2021-10-21",
+    "campi": {
+      "scadenza": "2021-10-21",
+      "a_sportello": 0,
+      "dotazione": 2000000.0,
+      "contributo_perc": 100.0,
+      "pubblicato_il": "2021-09-22",
+      "pubblicato_origine": "pubblicazione"
+    },
+    "tipi": ["altro_ente_pubblico", "comune", "unione_comuni"],
+    "condizioni_contengono": {"comune": "competent"},
+    "interventi_almeno": 3,
+    "cumulabilita": null
+  },
+  "musei": {
+    "natura": "bando",
+    "salvare": false,
+    "motivo": "scaduto il 2023-09-22",
+    "campi": {
+      "scadenza": "2023-09-22",
+      "a_sportello": 0,
+      "dotazione": 1200000.0,
+      "pubblicato_il": "2023-08-16",
+      "pubblicato_origine": "pubblicazione"
+    },
+    "tipi": ["qualsiasi_soggetto"],
+    "condizioni_contengono": {"qualsiasi_soggetto": "accreditat"},
+    "interventi_almeno": 0,
+    "cumulabilita": null
+  },
+  "qualifica": {
+    "natura": "non_bando",
+    "salvare": false,
+    "motivo": "non e' un bando",
+    "campi": {},
+    "tipi": [],
+    "condizioni_contengono": {},
+    "interventi_almeno": 0,
+    "cumulabilita": null
+  }
+}

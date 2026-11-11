@@ -119,7 +119,13 @@ CREATE TABLE IF NOT EXISTS bandi (
     cumulabilita_frase  TEXT,
     -- data in cui i beneficiari sono stati classificati per tipo;
     -- vuota per i bandi che conoscono solo se ammettono i Comuni
-    classificato_il     TEXT
+    classificato_il     TEXT,
+    -- data di pubblicazione del bando: per i bandi a sportello senza
+    -- chiusura e' l'unico indizio di quanto siano vecchi. L'origine dice se
+    -- e' la pubblicazione vera o la data dell'atto che approva il bando.
+    pubblicato_il       TEXT,
+    pubblicato_origine  TEXT
+                        CHECK (pubblicato_origine IN ('pubblicazione', 'atto'))
 );
 
 -- Chi puo' presentare domanda, per tipo di beneficiario (lista chiusa in
@@ -215,6 +221,8 @@ TABELLE_DA_CSV = {
         "cumulabilita",
         "cumulabilita_frase",
         "classificato_il",
+        "pubblicato_il",
+        "pubblicato_origine",
     ],
     # beneficiari_bando e interventi_bando dopo bandi, a cui fanno riferimento
     "beneficiari_bando": [

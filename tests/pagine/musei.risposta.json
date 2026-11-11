@@ -1,0 +1,54 @@
+{
+  "natura": {
+    "valore": "bando",
+    "motivo": "contributo ordinario ai musei",
+    "prova": "il bando per l’erogazione del contributo ordinario 2023 ai musei ed ecomusei di rilevanza regionale"
+  },
+  "titolo": "Bando per contributo ordinario ai musei ed ecomusei di rilevanza regionale",
+  "ente": "Regione Toscana",
+  "tema": "cultura",
+  "programma": null,
+  "apertura": null,
+  "scadenza": {
+    "valore": "2023-09-22",
+    "confidenza": "alta",
+    "prova": "La scadenza prevista di presentazione è fissata entro le ore 23.59 del 22 settembre 2023"
+  },
+  "scadenza_nota": "entro le ore 23.59",
+  "a_sportello": {"valore": false, "confidenza": "alta", "prova": ""},
+  "pubblicato_il": {
+    "valore": "2023-08-16",
+    "confidenza": "alta",
+    "prova": "È pubblicato sul BURT parte terza del 16 agosto 2023 il bando",
+    "origine": "pubblicazione"
+  },
+  "beneficiari": {
+    "valore": "rivolto a tutti musei ed ecomusei di rilevanza regionale validamente accreditati e non decaduti elencati nell’ Allegato A della Delibera Giunta Regionale n. 810/2023",
+    "confidenza": "alta",
+    "prova": "rivolto a tutti musei ed ecomusei di rilevanza regionale validamente accreditati e non decaduti"
+  },
+  "territorio": null,
+  "premialita": null,
+  "costo_min": {"valore": null, "confidenza": "alta", "prova": ""},
+  "costo_max": {"valore": null, "confidenza": "alta", "prova": ""},
+  "contributo_perc": {"valore": null, "confidenza": "alta", "prova": ""},
+  "contributo_min": {"valore": null, "confidenza": "alta", "prova": ""},
+  "contributo_max": {"valore": null, "confidenza": "alta", "prova": ""},
+  "dotazione": {
+    "valore": "euro 1.200.000,00",
+    "confidenza": "alta",
+    "prova": "Le risorse finanziarie previste per l’annualità 2023 ammontano a euro 1.200.000,00 complessivi"
+  },
+  "riferimento_atto": "Decreto n. 17388 del 10 agosto 2023",
+  "beneficiari_ammessi": [
+    {
+      "soggetto": "musei ed ecomusei di rilevanza regionale validamente accreditati e non decaduti",
+      "tipi": ["qualsiasi_soggetto"],
+      "condizioni": "titolare di un museo o ecomuseo di rilevanza regionale accreditato e non decaduto, elencato nell'Allegato A della DGR 810/2023",
+      "frase": "rivolto a tutti musei ed ecomusei di rilevanza regionale validamente accreditati e non decaduti elencati nell’ Allegato A della Delibera Giunta Regionale n. 810/2023",
+      "confidenza": "alta"
+    }
+  ],
+  "interventi": [],
+  "cumulabilita": {"clausola": null, "frase": null}
+}

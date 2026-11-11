@@ -1,0 +1,29 @@
+{
+  "natura": {
+    "valore": "non_bando",
+    "motivo": "procedura amministrativa: riconoscimento della qualifica di museo/ecomuseo, senza finanziamento",
+    "prova": "sono aperti i termini per la presentazione delle istanze preliminari per il riconoscimento della qualifica di museo/ecomuseo di rilevanza regionale"
+  },
+  "titolo": null,
+  "ente": null,
+  "tema": null,
+  "programma": null,
+  "apertura": null,
+  "scadenza": null,
+  "scadenza_nota": null,
+  "a_sportello": null,
+  "pubblicato_il": null,
+  "beneficiari": null,
+  "territorio": null,
+  "premialita": null,
+  "costo_min": null,
+  "costo_max": null,
+  "contributo_perc": null,
+  "contributo_min": null,
+  "contributo_max": null,
+  "dotazione": null,
+  "riferimento_atto": null,
+  "beneficiari_ammessi": [],
+  "interventi": [],
+  "cumulabilita": null
+}

@@ -7,7 +7,7 @@ come li ha registrati il motivo, compresi i due troncati a 100 caratteri.
 
 import pytest
 
-from src.estrazione.bandi import CAMPI, Campo, converti_importo, valida
+from src.estrazione.bandi import CAMPI, Campo, Estrazione, converti_importo, valida
 
 # (valore reale, numero atteso)
 CONVERTIBILI = [
@@ -93,25 +93,40 @@ def test_fino_a_vale_solo_per_i_tetti():
 # --- valida: problemi e avvisi ---
 
 
-def _campi(**valori) -> list[Campo]:
-    """Un bando completo e valido, con i valori indicati al posto dei predefiniti."""
+# La pagina da cui viene il bando di prova: contiene la frase dei beneficiari
+PAGINA = "Possono presentare domanda i Comuni della Toscana."
+
+
+def _valida(**valori):
+    """valida() su un bando completo e valido, con i valori indicati."""
     predefiniti = {
         "titolo": "Bando di prova",
         "ente": "Regione Toscana",
         "beneficiari": "Comuni della Toscana",
-        "ammette_comuni": True,
         "a_sportello": False,
         "scadenza": "2026-12-31",
     }
     predefiniti.update(valori)
-    return [
-        Campo(nome, predefiniti.get(nome), "alta", "", critico)
-        for nome, (_, critico) in CAMPI.items()
-    ]
+    estrazione = Estrazione(
+        campi=[
+            Campo(nome, predefiniti.get(nome), "alta", "", critico)
+            for nome, (_, critico, _) in CAMPI.items()
+        ],
+        natura="bando",
+        beneficiari=[
+            {
+                "soggetto": "Comuni della Toscana",
+                "tipi": ["comune"],
+                "frase": "i Comuni della Toscana",
+                "confidenza": "alta",
+            }
+        ],
+    )
+    return valida(estrazione, PAGINA)
 
 
 def test_bando_valido_senza_problemi_ne_avvisi():
-    riga, problemi, avvisi = valida(_campi(dotazione="300.000 euro"))
+    riga, problemi, avvisi = _valida(dotazione="300.000 euro")
     assert (problemi, avvisi) == ([], [])
     assert riga["dotazione"] == 300000
 
@@ -126,7 +141,7 @@ def test_bando_valido_senza_problemi_ne_avvisi():
     ],
 )
 def test_campo_non_bloccante_resta_vuoto_con_avviso(campo, valore):
-    riga, problemi, avvisi = valida(_campi(**{campo: valore}))
+    riga, problemi, avvisi = _valida(**{campo: valore})
 
     assert problemi == []
     assert riga[campo] is None
@@ -140,28 +155,27 @@ def test_campo_non_bloccante_resta_vuoto_con_avviso(campo, valore):
     [
         ("scadenza", "31 marzo 2026"),
         ("a_sportello", "forse"),
-        ("ammette_comuni", "dipende"),
     ],
 )
 def test_campo_bloccante_non_convertibile_e_un_problema(campo, valore):
-    _, problemi, avvisi = valida(_campi(**{campo: valore}))
+    _, problemi, avvisi = _valida(**{campo: valore})
 
     assert any(p.startswith(f"{campo}: valore '{valore}'") for p in problemi)
     assert avvisi == []
 
 
-@pytest.mark.parametrize("campo", ["titolo", "ente", "beneficiari", "ammette_comuni"])
+@pytest.mark.parametrize("campo", ["titolo", "ente", "beneficiari"])
 def test_campo_bloccante_mancante_e_un_problema(campo):
-    _, problemi, _ = valida(_campi(**{campo: None}))
+    _, problemi, _ = _valida(**{campo: None})
     assert any(p.startswith(campo) for p in problemi)
 
 
 def test_scadenza_assente_non_e_un_problema_di_validazione():
     """Senza scadenza decide decidi_automatico, non valida."""
-    _, problemi, _ = valida(_campi(scadenza=None))
+    _, problemi, _ = _valida(scadenza=None)
     assert problemi == []
 
 
 def test_a_sportello_assente_vale_zero():
-    riga, problemi, _ = valida(_campi(a_sportello=None))
+    riga, problemi, _ = _valida(a_sportello=None)
     assert (riga["a_sportello"], problemi) == (0, [])

@@ -137,14 +137,35 @@ def test_da_non_riesaminare_restituisce_url_con_esito_definitivo(db_su_file):
         f"{BASE}/-/scaduto", TOSCANA, "scaduto", "scartato", "scaduto il 2025-01-01"
     )
     registra(
-        f"{BASE}/-/privati", TOSCANA, "privati", "scartato", "non ammette i Comuni"
+        f"{BASE}/-/graduatoria",
+        TOSCANA,
+        "graduatoria",
+        "scartato",
+        "non e' un bando: graduatoria",
     )
     registra(
         f"{BASE}/-/incerto", TOSCANA, "incerto", "scartato", "scadenza non determinata"
     )
     registra(f"{BASE}/-/rotto", TOSCANA, "rotto", "fallito", "scaduto il 2025-01-01")
 
-    assert da_non_riesaminare() == {f"{BASE}/-/scaduto", f"{BASE}/-/privati"}
+    assert da_non_riesaminare() == {f"{BASE}/-/scaduto", f"{BASE}/-/graduatoria"}
+
+
+def test_gli_scarti_per_tipo_di_beneficiario_tornano_candidati(db_su_file):
+    """I bandi si acquisiscono per ogni tipo di beneficiario: questi scarti
+    delle scansioni passate non sono piu' definitivi."""
+    registra(
+        f"{BASE}/-/privati", TOSCANA, "privati", "scartato", "non ammette i Comuni"
+    )
+    registra(
+        f"{BASE}/-/incerto",
+        TOSCANA,
+        "incerto",
+        "scartato",
+        "ammette_comuni a bassa confidenza",
+    )
+
+    assert da_non_riesaminare() == set()
 
 
 def test_registra_conserva_motivo_e_avvisi_per_intero(db_su_file):
