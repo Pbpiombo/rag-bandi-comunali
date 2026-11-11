@@ -449,6 +449,15 @@ Vale la pena elencarli con la stessa precisione di ciò che il sistema fa.
 - **Nessuna memoria conversazionale.** Ogni domanda è indipendente: un seguito
   come "e quanto possono chiedere?" non eredita il soggetto da quella prima.
 
+Verifica dell'11 novembre 2026 su 23 bandi (20 scelti a caso e 3
+aperti per enti pubblici), confrontando i dati estratti con la pagina
+ufficiale di ciascun bando; le righe con errori sono state
+ricontrollate dall'autore sulle pagine e sui testi dei bandi. Scadenza
+corretta in 21, sportello e atto in 23, beneficiari corretti in 17,
+parzialmente in 3, errati in 3. Gli errori si concentrano sui bandi a
+più scadenze e sulla classificazione dei beneficiari privati e dei
+soggetti pubblici generici.
+
 ## Dove va
 
 Trovare i bandi non è il collo di bottiglia degli enti piccoli: lo è avere chi segue la redazione della domanda. L’obiettivo è un sistema che, scelto un bando, guidi la costruzione della domanda passo per passo: quali documenti servono, quali si possono compilare in autonomia, quando serve un tecnico e di che tipo. Intorno a questo, un aggiornamento periodico delle fonti con avviso via mail quando compare un bando pertinente, e un calendario delle scadenze con promemoria sugli step preliminari.

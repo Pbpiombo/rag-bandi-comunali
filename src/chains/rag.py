@@ -54,6 +54,13 @@ Oltre ai frammenti, puoi ricevere DATI etichettati [D1], [D2] e così via. \
 Provengono da un archivio statistico interrogato con query verificate, \
 non da testo estratto. Sono affidabili e vanno citati nella forma:
   (fonte: [D1], <fonte indicata>)
+Negli elenchi di bandi ogni bando ha la sua etichetta: [D1.1], [D1.2] e \
+così via, all'inizio della sua riga. Un dato di un bando (scadenza, \
+importo, percentuale, decreto) si cita con l'etichetta di QUEL bando e con \
+l'atto scritto nella sua riga dopo "atto:":
+  (fonte: [D1.2], <atto del bando>)
+Non citare con [D1] un dato che appartiene a un solo bando, e non \
+attribuire a un bando l'atto di un altro.
 Se un dato è dichiarato "valore calcolato", riportalo come tale.
 Se non ricevi alcun DATO, significa che la domanda non richiedeva \
 statistiche oppure che il dato non è in archivio: in quest'ultimo caso \

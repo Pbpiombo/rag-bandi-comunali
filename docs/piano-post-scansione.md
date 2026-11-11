@@ -82,6 +82,135 @@ prima di cercare i dati.
   uno cambia, ci si ferma e si spiega perche'.
 - Test di equivalenza: le differenze del riferimento si approvano una per
   una prima di aggiornarlo.
+- Fatto. Le tre differenze del riferimento di equivalenza (segnaposto
+  [#k], "atto:" nella riga del bando, atto spostato nel dettaglio) sono
+  state approvate e il riferimento rigenerato.
+  I 18 casi di test_verifica.py passano senza modifiche; i casi nuovi
+  sono in test_verifica_bandi.py. Scelte: la classe si chiama VoceBando
+  (Voce esiste gia' nel repertorio); un numero d'atto si controlla solo
+  nelle citazioni a [Dn.k]; riassumi conta citazione_generica solo quando
+  c'e'; gli anni non danno mai "citazione generica".
+
+## 5. Qualita' dell'estrattore, dalla verifica a mano
+
+Approvato come proposto, dopo il punto 3. Viene dalla colonna note del foglio
+`verifica-manuale-2026-11-11.csv` compilato. Sette righe hanno un "no" o
+un "parziale": internazionalizzazione, conciliazione per lavoratrici,
+dopo la laurea, welfare aziendale, tirocini per donne, assegno GOL,
+risorse genetiche forestali.
+
+Ordine interno, con una fermata dopo ogni passo: 5a (punti 4 e 5),
+5b (punti 2 e 3), 5c (punto 1), 5d (nuova estrazione).
+
+### 5a.1 "Probabilmente esaurito" solo senza data di chiusura (punto 4)
+
+- `stato_sportello`: l'avviso si aggiunge solo se `scadenza` e' vuota.
+  Uno sportello con data di chiusura futura e' aperto fino a quella data,
+  salvo esaurimento delle risorse, che l'invito a verificare dice gia'.
+- Test: uno sportello con scadenza e pubblicato da oltre due anni non ha
+  l'avviso. Il riferimento di equivalenza non cambia: i bandi del test non
+  hanno pubblicato_il.
+
+### 5a.2 contributo_perc del fondo di garanzia (punto 5)
+
+- Script una tantum, come segna_non_bandi: svuota `contributo_perc` di
+  avviso-fondo-di-garanzia-energie-rinnovabili ed esporta bandi.csv. E'
+  una modifica ai dati verificati, motivata dalla verifica a mano: 80 e'
+  la quota garantita del prestito.
+- Il valore veniva dall'estrattore vecchio ed era stato mantenuto dalla
+  fusione di riclassifica_bandi, perche' il nuovo lo lasciava vuoto.
+- Prompt, regola IMPORTI: contributo_perc e' la quota del costo coperta
+  dal contributo, non la quota garantita di un prestito o di una garanzia.
+
+### 5b.1 Tipo nuovo: professionisti e lavoratori autonomi (punto 2)
+
+- `professionista_autonomo`: "liberi professionisti, lavoratori autonomi,
+  titolari di impresa individuale", dopo altra_impresa nella lista; nome
+  breve "professionisti e autonomi". `cittadini_famiglie` diventa
+  "persone fisiche, famiglie, studenti, lavoratori dipendenti".
+- Regole di corrispondenza: liberi professionisti, lavoratori autonomi,
+  titolari di impresa individuale. Le pagine usano anche le forme
+  "libere/i professioniste/i", "lavoratrici/lavoratori autonome/i",
+  "titolari d'impresa individuale": le regole diventano espressioni
+  regolari con i confini di parola, che coprono queste forme. Il prompt
+  continua a mostrarle come espressioni leggibili.
+- Il vincolo sui tipi nello schema viene dalla lista: il database si
+  ricrea dai CSV, che non cambiano.
+- Decisione: "titolari di impresa individuale" solo in
+  professionista_autonomo. Da ricordare quando si progetta il selettore
+  dei privati: la ditta individuale va trattata anche nelle categorie di
+  impresa (es. un B&B a ditta individuale cerca come impresa_turistica).
+
+### 5b.2 qualsiasi_soggetto solo per i requisiti (punto 3)
+
+- Regole nuove:
+  - "privati", "soggetti privati", "datori di lavoro": i tipi privati,
+    cioe' le quattro imprese, professionista_autonomo, terzo_settore,
+    cittadini_famiglie;
+  - "soggetti pubblici": comune, unione_comuni, altro_ente_pubblico;
+  - "pubblici o privati", "pubblici e/o privati", "pubblici e privati",
+    "pubblico o privato": tutti i tipi tranne qualsiasi_soggetto.
+- Nel codice: se le regole trovano dei tipi per un soggetto classificato
+  qualsiasi_soggetto, quel tipo si sostituisce con i tipi trovati, con un
+  avviso; le condizioni passano alle righe nuove. Cosi' "soggetti
+  ospitanti privati" non compare piu' ai Comuni, e "pubblici o privati"
+  compare anche a comune e unione_comuni.
+- Prompt: qualsiasi_soggetto solo se il bando definisce chi partecipa con
+  un requisito e non nomina nessun tipo di soggetto, neanche generico
+  (privati, soggetti pubblici, datori di lavoro).
+- Regola aggiunta per GOL: "organismi formativi" e "enti di formazione"
+  comprendono ricerca_formazione.
+
+### 5c. Bandi a finestre o con piu' scadenze (punto 1)
+
+- Tabella nuova `scadenze_bando`: id_bando, numero, genere ('domanda' o
+  'fase_successiva'), descrizione, apertura, scadenza, frase. In
+  `TABELLE_DA_CSV`, esportata. Righe solo per i bandi con piu' date: gli
+  altri restano come sono.
+  - 'domanda': un periodo in cui si presenta domanda (una finestra, o una
+    misura con la sua scadenza, come GOL).
+  - 'fase_successiva': una scadenza per chi ha gia' superato una fase
+    (la proposta completa dopo la pre-proposta, JTC 2027); non apre il
+    bando a nuove domande e si mostra solo come informazione.
+- `bandi.scadenza` resta "la data ultima per presentare domanda": l'ultima
+  scadenza 'domanda'. Il codice la calcola dalle righe e segnala con un
+  avviso se il modello ne ha indicata un'altra.
+- Lo stato si calcola dalle righe, non si memorizza:
+  - aperto: c'e' una finestra con apertura passata o vuota e scadenza
+    futura; la riga dice "finestra aperta fino al X" e, se c'e',
+    "prossima finestra dal A al B";
+  - tra due finestre: gruppo nuovo "Chiusi ora, con una prossima
+    finestra", e `stato_archivio` li conta a parte;
+  - `bandi_in_scadenza` usa la scadenza della finestra aperta.
+- Estrattore: chiave nuova "scadenze", un elenco con genere, descrizione,
+  apertura, scadenza e la frase copiata; solo se la pagina ha piu' date.
+  Ogni frase si cerca nella pagina, come per i beneficiari; due date in
+  contraddizione (GOL, 31/07/2026 e 31/07/2027 per la stessa misura) vanno
+  in scadenza_nota con confidenza bassa.
+- Il test di equivalenza non cambia: i bandi del test non hanno righe in
+  `scadenze_bando`.
+
+### 5d. Nuova estrazione delle righe con "no" o "parziale"
+
+- `riclassifica_bandi --id ID` (ripetibile): riestrae i bandi indicati
+  anche se gia' classificati; `--prova` con la stima del costo. La fusione
+  resta com'e': i valori vecchi mantenuti si elencano.
+- Prima, senza modello: applicare le regole nuove ai soggetti gia' in
+  archivio per trovare gli altri bandi la cui classificazione
+  cambierebbe (es. "Altri soggetti pubblici e/o privati" in risorse
+  genetiche agrarie). L'elenco si approva prima di riestrarli.
+- Dopo: un foglio nuovo con le sole righe riestratte, nello stesso
+  formato, per ricontrollarle.
+
+### Per quando l'estrattore leggera' i PDF dei bandi
+
+- Nei bandi dei fondi europei la voce "Beneficiari" puo' indicare chi
+  gestisce l'operazione (es. ARTI), non chi presenta la domanda: chi
+  presenta la domanda e' nell'articolo "Soggetti ammessi alla
+  presentazione delle domande".
+- Pagina web e testo del bando possono non coincidere (es. dotazione 2026
+  dei tirocini: 147.523,40 nel PDF, 147.532,40 sulla pagina): vale il
+  testo del bando.
 
 ## Roadmap
 

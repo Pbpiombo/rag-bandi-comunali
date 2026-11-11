@@ -7,6 +7,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from src.config import MODEL_NAME
+from src.database.modelli import con_etichette
 from src.database.repertorio import descrivi_repertorio, esegui, stato_archivio
 
 ISTRUZIONI_ROUTER = """Devi decidere dove cercare la risposta a una domanda \
@@ -152,8 +153,9 @@ def formatta_dati(esiti: list) -> str:
     blocchi = []
     for numero, (nome, risultato) in enumerate(esiti, start=1):
         fonti = "; ".join(risultato.fonti) if risultato.fonti else "nessuna"
-        blocchi.append(
-            f"[D{numero}] interrogazione: {nome} | fonte: {fonti}\n{risultato.testo}"
-        )
+        # Le righe dei bandi prendono l'etichetta [Dn.k]: il modello cita
+        # ogni dato con il bando a cui appartiene
+        testo = con_etichette(risultato.testo, numero)
+        blocchi.append(f"[D{numero}] interrogazione: {nome} | fonte: {fonti}\n{testo}")
 
     return "\n\n".join(blocchi)

@@ -19,6 +19,13 @@ cambia di proposito, differenze approvate una per una:
   ammessi: ...";
 - stato_archivio conta i bandi aperti per l'ente, non tutti.
 
+Aggiornato l'11 novembre 2026 (punto 3 di piano-post-scansione.md), con
+tre differenze approvate una per una:
+- ogni riga di bando comincia con il segnaposto [#k], che diventa [Dn.k]
+  nel blocco dei dati dato al modello;
+- ogni riga di bando contiene "atto: <riferimento_atto>" prima dell'url;
+- nel dettaglio l'atto passa dalla fine del testo alla riga del bando.
+
 Il test migra quei bandi con lo script di migrazione, li carica nello
 schema attuale ed esegue le stesse interrogazioni: il testo, le fonti e
 l'esito devono coincidere con il riferimento.

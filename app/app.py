@@ -15,6 +15,7 @@ import streamlit as st
 from src.chains.rag import costruisci_catena
 from src.config import ENTE_PREDEFINITO
 from src.database.enti import elenco_enti
+from src.database.modelli import con_etichette
 from src.database.repertorio import stato_archivio
 from src.database.schema import connetti
 from src.pgstore import RecuperoPostgres
@@ -30,6 +31,7 @@ SIMBOLI = {
     "verificato": "✓",
     "non_trovato": "✗",
     "non_citato": "?",
+    "citazione_generica": "≈",
 }
 
 ESEMPI = [
@@ -95,10 +97,11 @@ def mostra_verifica(esito: dict) -> None:
             riga += f" → fonti {', '.join(e.frammenti)}"
         if e.stato == "non_trovato":
             st.markdown(f":red[{riga}]")
-            if e.dettaglio:
-                st.caption(f"    {e.dettaglio}")
         else:
             st.markdown(f":orange[{riga}]")
+        # Per una citazione generica il dettaglio indica il bando giusto
+        if e.dettaglio:
+            st.caption(f"    {e.dettaglio}")
 
     if verificati:
         with st.expander(f"{len(verificati)} dati verificati", expanded=False):
@@ -121,7 +124,8 @@ def mostra_fonti(esito: dict) -> None:
         st.markdown("##### Dati numerici certificati")
         for numero, (nome, risultato) in enumerate(dati, start=1):
             with st.expander(f"[D{numero}]  {nome}", expanded=False):
-                st.write(risultato.testo)
+                # Le righe dei bandi con le etichette [Dn.k] citate nella risposta
+                st.write(con_etichette(risultato.testo, numero))
                 for f in risultato.fonti:
                     st.caption(f"fonte: {f}")
 

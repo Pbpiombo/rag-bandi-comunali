@@ -10,7 +10,7 @@ tipi di beneficiari.
 import sqlite3
 from datetime import date
 
-from src.database.modelli import Risultato
+from src.database.modelli import Risultato, VoceBando
 from src.estrazione.beneficiari import PER_REQUISITO, TIPI_BENEFICIARIO
 
 # Anni dalla pubblicazione oltre i quali un bando a sportello e' segnalato
@@ -222,6 +222,9 @@ def formatta_bando(riga, oggi: str, nota: str | None = None) -> str:
     if riga["premialita"]:
         pezzi.append(f"premialità: {riga['premialita']}")
 
+    # L'atto sta nella riga del bando: il modello lo cita insieme
+    # all'etichetta di quel bando, non lo prende dall'intestazione del blocco
+    pezzi.append(f"atto: {riga['riferimento_atto'] or 'non indicato'}")
     pezzi.append(f"url: {riga['url']}")
 
     return " | ".join(pezzi)
@@ -244,9 +247,26 @@ def nota_per_ente(conn: sqlite3.Connection, riga, tipo: str) -> str | None:
     return ammissione(beneficiari, tipo)
 
 
-def _elenco(conn, righe, oggi: str, tipo: str) -> str:
+class RigheBandi:
+    """Le righe di bandi di un risultato, ciascuna con la fonte del suo bando.
+
+    Ogni riga riceve nel testo il segnaposto [#k], nell'ordine in cui si
+    scrive; la voce k di Risultato.voci e' la stessa riga.
+    """
+
+    def __init__(self) -> None:
+        self.voci: list[VoceBando] = []
+
+    def numera(self, riga, testo: str) -> str:
+        """Il testo della riga preceduto dal suo segnaposto."""
+        self.voci.append(VoceBando(testo, fonte_bando(riga)))
+        return f"[#{len(self.voci)}] {testo}"
+
+
+def _elenco(conn, righe, oggi: str, tipo: str, numerate: RigheBandi) -> str:
     return "\n".join(
-        f"- {formatta_bando(r, oggi, nota_per_ente(conn, r, tipo))}" for r in righe
+        f"- {numerate.numera(r, formatta_bando(r, oggi, nota_per_ente(conn, r, tipo)))}"
+        for r in righe
     )
 
 
@@ -324,11 +344,14 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
         else f"Nessun bando aperto di sicuro per {nomi['tutti']} alla data del "
         f"{oggi}: nessuno ha una scadenza futura o e' a sportello."
     )
+    numerate = RigheBandi()
     testo = testo_gruppi(
-        intestazione, gruppi, lambda gruppo: _elenco(conn, gruppo, oggi, tipo)
+        intestazione,
+        gruppi,
+        lambda gruppo: _elenco(conn, gruppo, oggi, tipo, numerate),
     )
 
-    return Risultato(testo, fonti=[fonte_bando(r) for r in righe])
+    return Risultato(testo, fonti=[fonte_bando(r) for r in righe], voci=numerate.voci)
 
 
 def bandi_in_scadenza(
@@ -361,11 +384,13 @@ def bandi_in_scadenza(
             trovato=False,
         )
 
-    elenco = _elenco(conn, righe, oggi.isoformat(), tipo)
+    numerate = RigheBandi()
+    elenco = _elenco(conn, righe, oggi.isoformat(), tipo, numerate)
 
     return Risultato(
         f"Bandi per {plurale} in scadenza entro {giorni} giorni:\n{elenco}",
         fonti=[fonte_bando(r) for r in righe],
+        voci=numerate.voci,
     )
 
 
@@ -409,15 +434,21 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
             trovato=False,
         )
 
+    numerate = RigheBandi()
     elenco = "\n".join(
-        f"- {etichetta_tipi(r, beneficiari_di(conn, r['id']))} "
-        f"{formatta_bando(r, oggi)}"
+        "- "
+        + numerate.numera(
+            r,
+            f"{etichetta_tipi(r, beneficiari_di(conn, r['id']))} "
+            f"{formatta_bando(r, oggi)}",
+        )
         for r in righe
     )
 
     return Risultato(
         f"Bandi sul tema '{tema}' in archivio:\n{elenco}",
         fonti=[fonte_bando(r) for r in righe],
+        voci=numerate.voci,
     )
 
 
@@ -463,9 +494,17 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
             trovato=False,
         )
 
+    numerate = RigheBandi()
+
     def elenco(gruppo):
         return "\n".join(
-            f"- {formatta_bando(r, oggi, ammissione(beneficiari_di(conn, r['id']), tipo))}"
+            "- "
+            + numerate.numera(
+                r,
+                formatta_bando(
+                    r, oggi, ammissione(beneficiari_di(conn, r["id"]), tipo)
+                ),
+            )
             for r in gruppo
         )
 
@@ -480,6 +519,7 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
     return Risultato(
         testo_gruppi(intestazione, gruppi, elenco) + avvertenza,
         fonti=[fonte_bando(r) for r in righe],
+        voci=numerate.voci,
     )
 
 
@@ -524,11 +564,13 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
     if riga["natura"] == "non_bando":
         # La pagina e' in archivio ma non e' un'opportunita': si dice
         # perche', senza i dati del bando
-        return Risultato(
+        numerate = RigheBandi()
+        testo = numerate.numera(
+            riga,
             f"«{riga['titolo']}» non e' un bando: {riga['natura_motivo']} "
             f"| url: {riga['url']}",
-            fonti=[fonte_bando(riga)],
         )
+        return Risultato(testo, fonti=[fonte_bando(riga)], voci=numerate.voci)
 
     pezzi = [
         formatta_bando(riga, oggi),
@@ -556,6 +598,8 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
         f"{euro(riga['dotazione'])} euro" if riga["dotazione"] else "non indicata"
     )
     pezzi.append(f"dotazione complessiva: {dotazione}")
-    pezzi.append(f"atto: {riga['riferimento_atto']}")
 
-    return Risultato(" | ".join(pezzi), fonti=[fonte_bando(riga)])
+    # Un solo bando, una sola voce: l'atto e' gia' nella riga del bando
+    numerate = RigheBandi()
+    testo = numerate.numera(riga, " | ".join(pezzi))
+    return Risultato(testo, fonti=[fonte_bando(riga)], voci=numerate.voci)

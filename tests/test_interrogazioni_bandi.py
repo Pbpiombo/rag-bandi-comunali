@@ -1,5 +1,6 @@
 """Interrogazioni sui bandi per tipo di ente, condizioni, sportello e dettaglio."""
 
+import re
 from datetime import date
 
 import pytest
@@ -79,6 +80,11 @@ def bando(conn, id_bando, beneficiari=(), classificato=True, **campi):
 def righe_del_bando(testo: str, id_bando: str) -> list[str]:
     """Le righe dell'elenco di un bando: l'URL chiude la riga."""
     return [r for r in testo.splitlines() if r.endswith(f"url: {BASE}{id_bando}")]
+
+
+def senza_segnaposto(righe: list[str]) -> list[str]:
+    """Le righe senza il segnaposto [#k] iniziale."""
+    return [re.sub(r"^- \[#\d+\] ", "- ", r) for r in righe]
 
 
 def test_ogni_tipo_ha_un_nome_breve():
@@ -303,13 +309,13 @@ def test_etichetta_tipi(db):
     bando(db, "migrato-no", classificato=False, tema="agricoltura")
     testo = ib.bandi_per_tema(db, "agricoltura").testo
 
-    (b,) = righe_del_bando(testo, "b")
+    (b,) = senza_segnaposto(righe_del_bando(testo, "b"))
     assert b.startswith("- [ammessi: Comuni (a condizione), imprese agricole]")
-    (m,) = righe_del_bando(testo, "migrato")
+    (m,) = senza_segnaposto(righe_del_bando(testo, "migrato"))
     assert m.startswith(
         "- [ammessi: Comuni; altri beneficiari non ancora classificati]"
     )
-    (n,) = righe_del_bando(testo, "migrato-no")
+    (n,) = senza_segnaposto(righe_del_bando(testo, "migrato-no"))
     assert n.startswith(
         "- [NON per i Comuni; altri beneficiari non ancora classificati]"
     )
@@ -434,6 +440,45 @@ def test_il_dettaglio_di_un_non_bando_dice_perche(db):
     r = ib.dettaglio_bando(db, "graduatoria")
 
     assert r.testo == (
-        "«Bando graduatoria» non e' un bando: graduatoria di un bando chiuso "
+        "[#1] «Bando graduatoria» non e' un bando: graduatoria di un bando chiuso "
         f"| url: {BASE}graduatoria"
     )
+
+
+# --- un'etichetta per bando ---
+
+
+def test_ogni_riga_ha_il_suo_segnaposto_e_la_sua_voce(db):
+    """La numerazione segue l'ordine delle righe, anche attraverso i gruppi."""
+    bando(db, "sportello", [("comune", None, None)], a_sportello=1, scadenza=None)
+    bando(db, "senza", [("comune", None, None)], scadenza=None)
+    bando(db, "scadenza", [("comune", None, None)], riferimento_atto="decreto n. 1")
+
+    r = ib.bandi_aperti_per_ente(db, COMUNE)
+
+    ordine = ["scadenza", "sportello", "senza"]
+    for k, id_bando in enumerate(ordine, start=1):
+        (riga,) = righe_del_bando(r.testo, id_bando)
+        assert riga.startswith(f"- [#{k}] «Bando {id_bando}»")
+        assert r.voci[k - 1].testo == riga.removeprefix(f"- [#{k}] ")
+        assert r.voci[k - 1].fonte.startswith("prova, ")
+    assert len(r.voci) == 3
+
+
+def test_la_riga_del_bando_contiene_il_suo_atto(db):
+    bando(db, "con-atto", [("comune", None, None)], riferimento_atto="decreto n. 18191")
+    bando(db, "senza-atto", [("comune", None, None)])
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+
+    (con,) = righe_del_bando(testo, "con-atto")
+    assert con.endswith(f"| atto: decreto n. 18191 | url: {BASE}con-atto")
+    (senza,) = righe_del_bando(testo, "senza-atto")
+    assert f"| atto: non indicato | url: {BASE}senza-atto" in senza
+
+
+def test_il_dettaglio_e_una_sola_voce_con_l_atto_una_volta(db):
+    bando(db, "b", [("comune", None, None)], riferimento_atto="decreto n. 7")
+    r = ib.dettaglio_bando(db, "b")
+    assert r.testo.startswith("[#1] «Bando b»")
+    assert r.testo.count("atto: decreto n. 7") == 1
+    assert [v.testo for v in r.voci] == [r.testo.removeprefix("[#1] ")]
