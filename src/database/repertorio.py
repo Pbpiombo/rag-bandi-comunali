@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from src.database.interrogazioni_bandi import (
     NOMI_ENTE,
+    SOLO_BANDI,
     bandi_aperti_per_ente,
     bandi_in_scadenza,
     bandi_per_beneficiario,
@@ -208,7 +209,9 @@ def stato_archivio(codice_ente: str) -> str:
 
 def _stato_bandi(conn, codice_ente: str) -> str:
     """La riga dei bandi nel riepilogo: quanti, e quanti aperti per l'ente."""
-    totale = conn.execute("SELECT COUNT(*) FROM bandi").fetchone()[0]
+    totale = conn.execute(f"SELECT COUNT(*) FROM bandi WHERE {SOLO_BANDI}").fetchone()[
+        0
+    ]
     if not totale:
         return "bandi: VUOTA, nessun dato disponibile"
 
@@ -220,7 +223,7 @@ def _stato_bandi(conn, codice_ente: str) -> str:
     filtro, parametri = filtro_ente(tipo)
     aperti, da_verificare = conn.execute(
         f"SELECT COUNT(*), SUM(classificato_il IS NULL) FROM bandi "
-        f"WHERE {filtro} AND (scadenza IS NULL OR scadenza >= ?)",
+        f"WHERE {filtro} AND {SOLO_BANDI} AND (scadenza IS NULL OR scadenza >= ?)",
         (*parametri, oggi),
     ).fetchone()
     testo = (

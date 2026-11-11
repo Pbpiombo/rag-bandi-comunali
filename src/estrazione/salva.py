@@ -1,7 +1,8 @@
 """Scrittura di un bando estratto nel database."""
 
 import sqlite3
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from src.database.schema import connetti
 from src.estrazione.indirizzi import url_canonico
@@ -34,6 +35,8 @@ COLONNE = [
     "cumulabilita_frase",
     "pubblicato_il",
     "pubblicato_origine",
+    "natura",
+    "natura_motivo",
 ]
 
 COLONNE_BENEFICIARI = [
@@ -108,6 +111,31 @@ def _sostituisci(
     )
 
 
+def segna_non_bando(id_bando: str, motivo: str) -> bool:
+    """Segna un bando in archivio come pagina che non e' un bando.
+
+    La riga resta, con i suoi dati, ma le interrogazioni non la mostrano
+    tra le opportunita'. classificato_il diventa oggi: la riga e' stata
+    esaminata con l'estrattore nuovo e non va riesaminata. Restituisce
+    False se l'id non e' in archivio.
+    """
+    conn = connetti()
+    try:
+        cursore = conn.execute(
+            "UPDATE bandi SET natura = 'non_bando', natura_motivo = ?, "
+            "classificato_il = ? WHERE id = ?",
+            (
+                motivo,
+                datetime.now(ZoneInfo("Europe/Rome")).date().isoformat(),
+                id_bando,
+            ),
+        )
+        conn.commit()
+        return cursore.rowcount == 1
+    finally:
+        conn.close()
+
+
 def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
     """Scrive o aggiorna la riga del bando nel database.
 
@@ -131,6 +159,10 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
     riga["fonte"] = fonte
     riga["codice_fonte"] = codice_fonte
     riga["verificato_il"] = oggi
+    # Si salva solo cio' che e' un bando: una riga segnata prima come non
+    # bando e poi estratta come bando torna tra le opportunita'
+    riga["natura"] = "bando"
+    riga["natura_motivo"] = None
 
     valori = [riga.get(c) for c in COLONNE]
     segnaposto = ", ".join("?" for _ in COLONNE)

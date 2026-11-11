@@ -36,6 +36,12 @@ Ordine: 4, 1, 2, 3. Fermata dopo ogni punto, con `ruff check`,
 - Le tre righe attuali (immobili-emergenza-abitativa-2026,
   sistemi-museali-2026, spettacolo-dal-vivo-2026) si segnano con uno script
   una tantum, con i motivi registrati nel log della riclassificazione.
+- Fatto. In piu' del previsto: `salva` rimette `natura = 'bando'` quando
+  una pagina viene salvata come bando; `carica_csv` e il test di
+  equivalenza inseriscono solo le colonne presenti nei dati, cosi' una
+  colonna nuova prende il valore predefinito invece di un NULL esplicito.
+  Database ricreato dai CSV con gli stessi conteggi; riferimento del test
+  di equivalenza invariato.
 
 ## 2. Scadenza non indicata e non a sportello
 

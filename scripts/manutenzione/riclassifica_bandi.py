@@ -12,8 +12,9 @@ tipo, interventi e cumulabilita'.
 Nessun dato attuale si perde:
 - se la pagina non si scarica, l'estrazione fallisce o la validazione
   trova problemi, la riga resta com'e';
-- se il modello dice che la pagina non e' un bando, la riga resta com'e'
-  e il caso si segnala: la decisione spetta a chi rivede;
+- se il modello dice che la pagina non e' un bando, i dati della riga
+  restano com'erano, ma la riga si segna come non bando (segna_non_bando):
+  non compare piu' tra le opportunita' e non si riesamina;
 - un campo pieno che torna vuoto conserva il valore vecchio, e il caso
   si elenca a parte con il motivo, perche' un valore che l'estrattore
   nuovo non riesce a provare e' sospetto e va controllato a mano.
@@ -43,12 +44,20 @@ from src.estrazione.bandi import (
     valida,
 )
 from src.estrazione.pagina import prendi
-from src.estrazione.salva import COLONNE, salva
+from src.estrazione.salva import COLONNE, salva, segna_non_bando
 
 PAUSA = 1.0
 
 # Le colonne che l'estrazione non decide: le scrive salva()
-NON_ESTRATTE = {"id", "url", "fonte", "codice_fonte", "verificato_il"}
+NON_ESTRATTE = {
+    "id",
+    "url",
+    "fonte",
+    "codice_fonte",
+    "verificato_il",
+    "natura",
+    "natura_motivo",
+}
 COLONNE_FUSE = [c for c in COLONNE if c not in NON_ESTRATTE]
 
 # Il motivo di un valore vuoto quando nessun avviso lo spiega
@@ -137,6 +146,7 @@ def riclassifica(estrattore, precedente: dict) -> dict:
     esito["avvisi"] = avvisi
 
     if estrazione.natura == "non_bando":
+        segna_non_bando(precedente["id"], estrazione.natura_motivo)
         return {**esito, "esito": "non_bando", "motivo": estrazione.natura_motivo}
     if problemi:
         return {**esito, "esito": "fallito", "motivo": "; ".join(problemi)}

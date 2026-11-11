@@ -125,7 +125,12 @@ CREATE TABLE IF NOT EXISTS bandi (
     -- e' la pubblicazione vera o la data dell'atto che approva il bando.
     pubblicato_il       TEXT,
     pubblicato_origine  TEXT
-                        CHECK (pubblicato_origine IN ('pubblicazione', 'atto'))
+                        CHECK (pubblicato_origine IN ('pubblicazione', 'atto')),
+    -- una pagina in archivio che il modello giudica non un bando (es. una
+    -- graduatoria): resta in archivio, ma non compare tra le opportunita'
+    natura              TEXT NOT NULL DEFAULT 'bando'
+                        CHECK (natura IN ('bando', 'non_bando')),
+    natura_motivo       TEXT
 );
 
 -- Chi puo' presentare domanda, per tipo di beneficiario (lista chiusa in
@@ -223,6 +228,8 @@ TABELLE_DA_CSV = {
         "classificato_il",
         "pubblicato_il",
         "pubblicato_origine",
+        "natura",
+        "natura_motivo",
     ],
     # beneficiari_bando e interventi_bando dopo bandi, a cui fanno riferimento
     "beneficiari_bando": [
@@ -271,15 +278,20 @@ def carica_csv(conn: sqlite3.Connection, tabella: str, colonne: list[str]) -> in
         print(f"  [saltato] {percorso.name} non presente")
         return 0
 
-    segnaposto = ", ".join("?" for _ in colonne)
-    elenco = ", ".join(colonne)
-    sql = f"INSERT OR REPLACE INTO {tabella} ({elenco}) VALUES ({segnaposto})"
-
     inserite = 0
     scartate = 0
 
     with percorso.open(encoding="utf-8-sig", newline="") as f:
-        for numero, riga in enumerate(csv.DictReader(f), start=2):
+        lettore = csv.DictReader(f)
+        # Una colonna aggiunta allo schema dopo il CSV non c'e' nel file:
+        # si lascia fuori dall'inserimento, cosi' prende il valore
+        # predefinito invece di un NULL esplicito
+        colonne = [c for c in colonne if c in (lettore.fieldnames or [])]
+        segnaposto = ", ".join("?" for _ in colonne)
+        elenco = ", ".join(colonne)
+        sql = f"INSERT OR REPLACE INTO {tabella} ({elenco}) VALUES ({segnaposto})"
+
+        for numero, riga in enumerate(lettore, start=2):
             valori = [riga.get(c) or None for c in colonne]
 
             try:

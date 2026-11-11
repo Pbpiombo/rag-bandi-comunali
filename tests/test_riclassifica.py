@@ -1,5 +1,7 @@
 """Riclassificazione dei bandi in archivio: fusione con i valori vecchi."""
 
+import sqlite3
+
 from scripts.ingestione.estrai_nuovi import errore_bloccante
 from scripts.manutenzione.riclassifica_bandi import (
     SENZA_AVVISO,
@@ -7,7 +9,7 @@ from scripts.manutenzione.riclassifica_bandi import (
     differenze,
     fondi,
 )
-from src.estrazione.salva import salva
+from src.estrazione.salva import salva, segna_non_bando
 
 PRECEDENTE = {
     "id": "bando-prova",
@@ -108,3 +110,54 @@ def test_credito_esaurito_e_autenticazione_fermano_la_corsa():
 def test_un_errore_della_pagina_non_ferma_la_corsa():
     assert not errore_bloccante(ValueError("Risposta non interpretabile come JSON"))
     assert not errore_bloccante(OSError("HTTP Error 404: Not Found"))
+
+
+def _leggi(percorso, sql):
+    c = sqlite3.connect(percorso)
+    try:
+        return c.execute(sql).fetchall()
+    finally:
+        c.close()
+
+
+def test_segna_non_bando_lo_toglie_dai_da_riclassificare(db_su_file):
+    base = {
+        "titolo": "Bando",
+        "ente": "Regione Toscana",
+        "beneficiari": "Comuni",
+        "a_sportello": 0,
+    }
+    salva(
+        {**base, "id": "graduatoria"},
+        "https://www.regione.toscana.it/-/graduatoria",
+        "x",
+        "regione-toscana",
+    )
+
+    assert segna_non_bando("graduatoria", "graduatoria di un bando chiuso")
+    assert not segna_non_bando("inesistente", "motivo")
+
+    righe = _leggi(
+        db_su_file,
+        "SELECT natura, natura_motivo, classificato_il IS NOT NULL FROM bandi",
+    )
+    assert righe == [("non_bando", "graduatoria di un bando chiuso", 1)]
+    assert da_riclassificare() == []
+
+
+def test_salvare_come_bando_toglie_il_segno_di_non_bando(db_su_file):
+    riga = {
+        "id": "pagina",
+        "titolo": "Bando",
+        "ente": "Regione Toscana",
+        "beneficiari": "Comuni",
+        "a_sportello": 0,
+    }
+    url = "https://www.regione.toscana.it/-/pagina"
+    salva(riga, url, "x", "regione-toscana")
+    segna_non_bando("pagina", "graduatoria")
+
+    salva(riga, url, "x", "regione-toscana")
+
+    righe = _leggi(db_su_file, "SELECT natura, natura_motivo FROM bandi")
+    assert righe == [("bando", None)]

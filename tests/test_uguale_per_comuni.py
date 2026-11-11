@@ -131,7 +131,11 @@ def test_interrogazioni_uguali_per_i_comuni(tmp_path, monkeypatch, data_fissa):
         (COMUNE,),
     )
     for tabella, righe in (("bandi", bandi), ("beneficiari_bando", beneficiari)):
-        colonne = schema.TABELLE_DA_CSV[tabella]
+        # Solo le colonne che i dati di allora hanno: quelle aggiunte dopo
+        # (es. natura) prendono il valore predefinito dello schema
+        colonne = [
+            c for c in schema.TABELLE_DA_CSV[tabella] if any(c in r for r in righe)
+        ]
         conn.executemany(
             f"INSERT INTO {tabella} ({', '.join(colonne)}) "
             f"VALUES ({', '.join('?' for _ in colonne)})",

@@ -49,6 +49,10 @@ NOMI_TIPI = {
 NON_CLASSIFICATI = "altri beneficiari non ancora classificati"
 NOTA_UNIONE = "beneficiari non ancora classificati: verificare se ammette le Unioni"
 
+# Le pagine in archivio che non sono bandi (natura 'non_bando') restano
+# nel database ma non compaiono negli elenchi ne' nei conteggi
+SOLO_BANDI = "bandi.natura = 'bando'"
+
 # Un bando ammette un tipo di beneficiario: ha una riga di quel tipo.
 # Il tipo e' il parametro.
 HA_TIPO = (
@@ -251,6 +255,7 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
         f"""
         SELECT * FROM bandi
         WHERE {filtro}
+          AND {SOLO_BANDI}
           AND (scadenza IS NULL OR scadenza >= ?)
         ORDER BY a_sportello, scadenza
         """,
@@ -259,7 +264,7 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
 
     if not righe:
         totale = conn.execute(
-            f"SELECT COUNT(*) FROM bandi WHERE {filtro}", parametri
+            f"SELECT COUNT(*) FROM bandi WHERE {filtro} AND {SOLO_BANDI}", parametri
         ).fetchone()[0]
         return Risultato(
             f"Nessun bando aperto per {nomi['tutti']} alla data del {oggi}. "
@@ -302,6 +307,7 @@ def bandi_in_scadenza(
         f"""
         SELECT * FROM bandi
         WHERE {filtro}
+          AND {SOLO_BANDI}
           AND a_sportello = 0
           AND scadenza BETWEEN ? AND ?
         ORDER BY scadenza
@@ -348,13 +354,14 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
     oggi = data_di_oggi().isoformat()
 
     righe = conn.execute(
-        "SELECT * FROM bandi WHERE tema LIKE ? ORDER BY scadenza DESC",
+        f"SELECT * FROM bandi WHERE tema LIKE ? AND {SOLO_BANDI} "
+        "ORDER BY scadenza DESC",
         (f"%{tema.lower()}%",),
     ).fetchall()
 
     if not righe:
         temi = conn.execute(
-            "SELECT DISTINCT tema FROM bandi WHERE tema IS NOT NULL"
+            f"SELECT DISTINCT tema FROM bandi WHERE tema IS NOT NULL AND {SOLO_BANDI}"
         ).fetchall()
         elenco = ", ".join(r["tema"] for r in temi) or "nessuno"
         return Risultato(
@@ -388,6 +395,7 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
         f"""
         SELECT * FROM bandi
         WHERE {HA_TIPO}
+          AND {SOLO_BANDI}
           AND (scadenza IS NULL OR scadenza >= ?)
         ORDER BY a_sportello, scadenza
         """,
@@ -398,7 +406,7 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
     # salvo per i Comuni, che hanno la riga migrata
     da_classificare = conn.execute(
         "SELECT COUNT(*) FROM bandi WHERE classificato_il IS NULL "
-        "AND (scadenza IS NULL OR scadenza >= ?)",
+        f"AND {SOLO_BANDI} AND (scadenza IS NULL OR scadenza >= ?)",
         (oggi,),
     ).fetchone()[0]
     avvertenza = (
@@ -464,6 +472,15 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
         )
 
     oggi = data_di_oggi().isoformat()
+    if riga["natura"] == "non_bando":
+        # La pagina e' in archivio ma non e' un'opportunita': si dice
+        # perche', senza i dati del bando
+        return Risultato(
+            f"«{riga['titolo']}» non e' un bando: {riga['natura_motivo']} "
+            f"| url: {riga['url']}",
+            fonti=[fonte_bando(riga)],
+        )
+
     pezzi = [
         formatta_bando(riga, oggi),
         "beneficiari ammessi: "

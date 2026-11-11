@@ -321,3 +321,52 @@ def test_dettaglio_dei_migrati_senza_la_frase_ripetuta(db):
         "| beneficiari ammessi: non i Comuni; altri beneficiari non ancora "
         "classificati |" in ib.dettaglio_bando(db, "migrato-no").testo
     )
+
+
+# --- pagine in archivio che non sono bandi ---
+
+NON_BANDO = {"natura": "non_bando", "natura_motivo": "graduatoria di un bando chiuso"}
+
+
+def test_un_non_bando_non_compare_negli_elenchi(db):
+    bando(db, "vero", [("comune", None, None)], tema="cultura")
+    bando(db, "graduatoria", [("comune", None, None)], tema="cultura", **NON_BANDO)
+
+    elenchi = [
+        ib.bandi_aperti_per_ente(db, COMUNE).testo,
+        ib.bandi_in_scadenza(db, COMUNE, 60).testo,
+        ib.bandi_per_tema(db, "cultura").testo,
+        ib.bandi_per_beneficiario(db, "comune").testo,
+    ]
+    for testo in elenchi:
+        assert righe_del_bando(testo, "vero")
+        assert not righe_del_bando(testo, "graduatoria")
+
+
+def test_un_non_bando_non_si_conta(db):
+    bando(db, "vero", [("comune", None, None)])
+    bando(db, "graduatoria", [("comune", None, None)], **NON_BANDO)
+
+    assert _stato_bandi(db, COMUNE) == (
+        "bandi: 1 in archivio, di cui 1 aperti a cui un Comune può presentare domanda"
+    )
+
+
+def test_solo_non_bandi_aperti_vuol_dire_nessun_bando(db):
+    bando(db, "graduatoria", [("comune", None, None)], **NON_BANDO)
+
+    r = ib.bandi_aperti_per_ente(db, COMUNE)
+
+    assert not r.trovato
+    assert "ce ne sono 0 rivolti" in r.testo
+
+
+def test_il_dettaglio_di_un_non_bando_dice_perche(db):
+    bando(db, "graduatoria", [("comune", None, None)], **NON_BANDO)
+
+    r = ib.dettaglio_bando(db, "graduatoria")
+
+    assert r.testo == (
+        "«Bando graduatoria» non e' un bando: graduatoria di un bando chiuso "
+        f"| url: {BASE}graduatoria"
+    )
