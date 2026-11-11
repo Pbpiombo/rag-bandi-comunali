@@ -21,7 +21,7 @@ nella fonte dichiarata. L'utente sceglie l'ente da un menu nell'app.
     pagine già esaminate.
 
 Lingua: codice, commenti, docstring e README in **italiano**, come il resto
-del progetto.
+del progetto. Rispondi sempre in italiano, anche dopo un /clear.
 
 ## Comandi
 

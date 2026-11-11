@@ -29,6 +29,16 @@ Stato al 11 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
 
 Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 
+## Prima della demo con il consulente pilota
+
+- **Tappa 5b del piano post-scansione**: tipi di beneficiari per i privati,
+  cioè il tipo nuovo `professionista_autonomo` (5b.1) e `qualsiasi_soggetto`
+  solo per i requisiti (5b.2). Dettagli in `docs/piano-post-scansione.md`.
+- **Domande d'esempio dell'app**: sostituite con domande sui bandi pensate
+  per il consulente.
+- **Dati ISTAT di Sambuca Pistoiese e San Marcello Piteglio** caricati
+  (prompt per Claude Code pronto). Tutti e tre i comuni dalla stessa tabella.
+
 ## Prossimi passi, in ordine
 
 1. **Fine del passo 3**: indirizzo dell'elenco e regole del portale lette dalla
@@ -77,8 +87,6 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 
 ## In coda
 
-- Popolazione di Sambuca Pistoiese e San Marcello Piteglio dalla tabella ISTAT
-  (prompt per Claude Code pronto). Tutti e tre i comuni dalla stessa tabella.
 - Zona sismica dei tre comuni: riferimento OPCM 3274/2003 aggiornata dalla DGRT
   421 del 26/05/2014, da verificare sull'allegato e su eventuali aggiornamenti.
 - Colonna `montano` nel profilo: i tre comuni sono totalmente montani
@@ -104,11 +112,6 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 - Scadenze multiple nello stesso bando (es. assegno formazione GOL, Misura
   1 al 31 luglio 2026 o 2027, Misura 2 al 30 giugno 2027): oggi
   l'estrattore ne tiene una sola.
-- Tirocini per donne in uscita dalla violenza classificati
-  `qualsiasi_soggetto` per "soggetti ospitanti privati": li vedono anche
-  i Comuni.
-- Categoria per professionisti e lavoratori autonomi: oggi finiscono in
-  `altra_impresa` o in `cittadini_famiglie`.
 - Appartenenza dei comuni all'Unione nel profilo dell'ente.
 - Dalla scansione completa dell'11 novembre 2026:
   - stima del costo in `estrai_nuovi` da aggiornare: circa 0,031 $ a
