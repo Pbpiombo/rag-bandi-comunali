@@ -10,16 +10,16 @@ Uso:
 
 import sys
 
-from src.estrazione.elenco import gia_in_archivio, leggi_elenco, scopri
+from src.estrazione.elenco import gia_in_archivio, scopri
 
 
-def mostra_spariti() -> None:
+def mostra_spariti(voci: list) -> None:
     """Segnala i bandi in archivio non piu' presenti nell'elenco.
 
     La sparizione e' un segnale: il bando puo' essere scaduto e archiviato,
     oppure chiuso in anticipo. In entrambi i casi merita un controllo.
     """
-    spariti = gia_in_archivio() - set(leggi_elenco())
+    spariti = gia_in_archivio() - {v.url for v in voci}
 
     if not spariti:
         return
@@ -72,7 +72,7 @@ def main() -> None:
             print(f"{marca}  #{v.posizione:<3} {v.titolo}{anno}")
             print(f"       {v.url}")
 
-    mostra_spariti()
+    mostra_spariti(voci)
 
 
 if __name__ == "__main__":

@@ -29,8 +29,9 @@ from src.estrazione.bandi import (
     estrai,
     valida,
 )
+from src.estrazione.elenco import CODICE_FONTE
 from src.estrazione.pagina import prendi
-from src.estrazione.salva import esiste, salva
+from src.estrazione.salva import ConflittoBando, conflitto, esiste, salva
 
 SEGNI = {"alta": "  ", "media": "~ ", "bassa": "! "}
 FONTE = "Portale bandi Regione Toscana"
@@ -157,11 +158,17 @@ def main() -> None:
 
     riga["id"] = id_bando
 
+    problema = conflitto(id_bando, url)
+    if problema:
+        print(f"\nNon salvo: {problema}")
+        print("Scegli un altro identificativo, o correggi la riga in archivio.")
+        return
+
     if "--auto" in sys.argv:
         salvare, motivo = decidi_automatico(campi, riga)
 
         if salvare:
-            salva(riga, url, FONTE)
+            salva(riga, url, FONTE, CODICE_FONTE)
             aggiorna_csv("bandi")
             print(f"\nSALVATO: {id_bando} ({motivo})")
         else:
@@ -176,7 +183,12 @@ def main() -> None:
         print("Non salvato.")
         return
 
-    salva(riga, url, FONTE)
+    try:
+        salva(riga, url, FONTE, CODICE_FONTE)
+    except ConflittoBando as errore:
+        print(errore)
+        return
+
     aggiorna_csv("bandi")
     print(f"Salvato: {riga['id']}")
 

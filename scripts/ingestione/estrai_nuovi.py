@@ -56,7 +56,7 @@ def scegli_candidati() -> list:
 
     esclusi = da_non_riesaminare()
     prima = len(candidati)
-    candidati = [v for v in candidati if v.slug not in esclusi]
+    candidati = [v for v in candidati if v.url not in esclusi]
 
     if prima != len(candidati):
         print(f"  gia' esaminati con esito definitivo: {prima - len(candidati)}")
@@ -86,7 +86,7 @@ def esamina(estrattore, voce) -> tuple[str, str]:
     salvare, motivo = decidi_automatico(campi, riga)
 
     if salvare:
-        salva(riga, voce.url, FONTE)
+        salva(riga, voce.url, FONTE, voce.codice_fonte)
         return "salvato", motivo
 
     return "scartato", motivo
@@ -155,7 +155,7 @@ def main() -> None:
             interrompi = "credit balance" in testo or "authentication" in testo
 
         esiti[esito].append((v.slug, motivo))
-        registra(v.slug, esito, motivo[:100])
+        registra(v.url, v.codice_fonte, v.slug, esito, motivo[:100])
 
         marca = "SALVATO" if esito == "salvato" else esito
         print(f"    {marca} ({motivo[:70]})")

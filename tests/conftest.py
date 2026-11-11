@@ -26,3 +26,26 @@ def conn():
     )
     yield c
     c.close()
+
+
+@pytest.fixture
+def db_su_file(tmp_path, monkeypatch):
+    """Un database su file temporaneo, al posto di quello vero.
+
+    Serve al codice che apre la connessione da se' con connetti(), come
+    registra() e salva(). Contiene lo schema e la fonte 'regione-toscana'.
+    """
+    percorso = tmp_path / "prova.sqlite"
+    monkeypatch.setattr("src.database.schema.SQLITE_PATH", percorso)
+
+    c = sqlite3.connect(percorso)
+    c.executescript(DDL)
+    c.execute(
+        "INSERT INTO fonti (codice, nome, url_elenco, url_base, fonte, verificato_il) "
+        "VALUES ('regione-toscana', 'Portale bandi Regione Toscana', "
+        "'https://www.regione.toscana.it/bandi-aperti', "
+        "'https://www.regione.toscana.it', 'prova', '2026-11-11')"
+    )
+    c.commit()
+    c.close()
+    return percorso

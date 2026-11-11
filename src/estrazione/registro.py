@@ -3,19 +3,34 @@
 from datetime import date
 
 from src.database.schema import connetti
+from src.estrazione.indirizzi import url_canonico
 
 # Motivi di scarto definitivi: non ha senso riesaminarli
 DEFINITIVI = ("scaduto", "non ammette i Comuni")
 
 
-def registra(slug: str, esito: str, motivo: str = "") -> None:
-    """Annota l'esito dell'esame di una pagina."""
+def registra(
+    url: str, codice_fonte: str, slug: str | None, esito: str, motivo: str = ""
+) -> None:
+    """Annota l'esito dell'esame di una pagina.
+
+    La chiave e' l'URL in forma canonica: riesaminare la stessa pagina
+    aggiorna la riga invece di aggiungerne una.
+    """
     conn = connetti()
     try:
         conn.execute(
             "INSERT OR REPLACE INTO scansioni "
-            "(slug, esito, motivo, esaminato_il) VALUES (?, ?, ?, ?)",
-            (slug, esito, motivo, date.today().isoformat()),
+            "(url, codice_fonte, slug, esito, motivo, esaminato_il) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                url_canonico(url),
+                codice_fonte,
+                slug,
+                esito,
+                motivo,
+                date.today().isoformat(),
+            ),
         )
         conn.commit()
     finally:
@@ -23,7 +38,7 @@ def registra(slug: str, esito: str, motivo: str = "") -> None:
 
 
 def da_non_riesaminare() -> set[str]:
-    """Gli slug gia' esaminati con esito definitivo.
+    """Gli URL, in forma canonica, gia' esaminati con esito definitivo.
 
     Uno scaduto o non pertinente non cambia: riesaminarlo costa una
     chiamata e produce lo stesso risultato. Gli scarti per incertezza
@@ -33,13 +48,15 @@ def da_non_riesaminare() -> set[str]:
     conn = connetti()
     try:
         righe = conn.execute(
-            "SELECT slug, motivo FROM scansioni WHERE esito = 'scartato'"
+            "SELECT url, motivo FROM scansioni WHERE esito = 'scartato'"
         ).fetchall()
     finally:
         conn.close()
 
     return {
-        r["slug"] for r in righe if any(r["motivo"].startswith(d) for d in DEFINITIVI)
+        r["url"]
+        for r in righe
+        if any((r["motivo"] or "").startswith(d) for d in DEFINITIVI)
     }
 
 

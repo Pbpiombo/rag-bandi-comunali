@@ -5,10 +5,17 @@ from dataclasses import dataclass
 from datetime import date
 
 from src.database.schema import connetti
+from src.estrazione.indirizzi import url_canonico
 from src.estrazione.pagina import scarica
 
+CODICE_FONTE = "regione-toscana"
 ELENCO = "https://www.regione.toscana.it/bandi-aperti?delta=200"
 BASE = "https://www.regione.toscana.it"
+
+# Lo slug di una pagina del portale, dopo "/-/". Puo' contenere "." e "/"
+# (es. "museo/ecomuseo", "a.s.-2025-26"): una regex che li escludesse
+# taglierebbe lo slug e confonderebbe pagine diverse.
+SLUG_NEL_LINK = re.compile(r"/-/([a-z0-9][a-z0-9./-]{10,})")
 
 # Voci del portale che non sono bandi
 ESCLUSI = {
@@ -46,6 +53,7 @@ class Voce:
 
     slug: str
     url: str
+    codice_fonte: str
     titolo: str
     nuovo: bool
     promettente: bool
@@ -94,7 +102,7 @@ def leggi_elenco() -> list[str]:
     """
     html = scarica(ELENCO, timeout=60)
 
-    trovati = re.findall(r"/-/([a-z0-9][a-z0-9-]{10,})", html)
+    trovati = [s.rstrip("./") for s in SLUG_NEL_LINK.findall(html)]
 
     ordinati = []
     for s in trovati:
@@ -105,20 +113,20 @@ def leggi_elenco() -> list[str]:
     return ordinati
 
 
+def url_da_slug(slug: str) -> str:
+    """L'URL, in forma canonica, della pagina del portale con quello slug."""
+    return url_canonico(f"{BASE}/-/{slug}")
+
+
 def gia_in_archivio() -> set[str]:
-    """Gli slug dei bandi gia' presenti nel database, ricavati dagli url."""
+    """Gli URL, in forma canonica, dei bandi gia' presenti nel database."""
     conn = connetti()
     try:
         righe = conn.execute("SELECT url FROM bandi").fetchall()
     finally:
         conn.close()
 
-    slug = set()
-    for riga in righe:
-        trovati = re.findall(r"/-/([a-z0-9][a-z0-9-]+)", riga["url"] or "")
-        slug.update(trovati)
-
-    return slug
+    return {url_canonico(r["url"]) for r in righe}
 
 
 def scopri() -> list[Voce]:
@@ -129,9 +137,10 @@ def scopri() -> list[Voce]:
     return [
         Voce(
             slug=s,
-            url=f"{BASE}/-/{s}",
+            url=url_da_slug(s),
+            codice_fonte=CODICE_FONTE,
             titolo=_titolo_da_slug(s),
-            nuovo=s not in noti,
+            nuovo=url_da_slug(s) not in noti,
             promettente=promettente(s),
             anno=anno_slug(s),
             recente=recente(s, anno_corrente),
