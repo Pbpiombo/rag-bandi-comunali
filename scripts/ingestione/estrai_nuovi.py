@@ -61,11 +61,13 @@ PAUSA = 1.0
 PAUSA_PAGINE = 0.5
 
 # Costo misurato di un'estrazione con claude-sonnet-5, in dollari: una
-# pagina che e' un bando, e una che non lo e'. Nella scansione completa
-# dell'11 novembre 2026 il costo e' stato circa 0,031 $ a pagina, bando o
-# no (roadmap, "In coda"). Prima erano 0,026 e 0,012 (piano-estrattore.md,
-# tappa b).
-COSTO_BANDO = 0.031
+# pagina che e' un bando, e una che non lo e'.
+# Bando: 0,061 $, misurato nella riestrazione di 10 bandi del 12 novembre
+# 2026 (0,608 $ in tutto), con beneficiari, interventi e date.
+# Non bando: provvisorio. 0,031 $ e' la media della scansione completa
+# dell'11 novembre 2026, bandi e non bandi insieme, quindi per eccesso; va
+# rimisurato su pagine che non sono bandi (roadmap, "In coda").
+COSTO_BANDO = 0.061
 COSTO_NON_BANDO = 0.031
 
 # Prezzi di claude-sonnet-5 in dollari per milione di token (listino

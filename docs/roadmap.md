@@ -54,7 +54,9 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
    ricontrollano i bandi aperti e quelli chiusi da poco, per le proroghe:
    la riclassificazione dell'11 novembre 2026 ha trovato le risorse
    genetiche forestali prorogate al 13 novembre, mentre l'archivio le dava
-   scadute il 30 settembre.
+   scadute il 30 settembre. Per ogni pagina si conserva un'impronta del
+   testo: un bando aperto si riestrae solo se la sua pagina è cambiata,
+   così il ricontrollo non costa una nuova estrazione a ogni giro.
 5. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
    tra gli interventi ammissibili. Caso di prova: "devo rifare la piazza"
    → bando mercati rionali. Nei frammenti documentali, lo stato del bando
@@ -114,8 +116,10 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   l'estrattore ne tiene una sola.
 - Appartenenza dei comuni all'Unione nel profilo dell'ente.
 - Dalla scansione completa dell'11 novembre 2026:
-  - stima del costo in `estrai_nuovi` da aggiornare: circa 0,031 $ a
-    pagina, bando o no (era 0,012–0,026 $);
+  - `COSTO_NON_BANDO` in `estrai_nuovi` da rimisurare su pagine che non
+    sono bandi: oggi vale 0,031 $, la media della scansione con bandi e non
+    bandi insieme, quindi per eccesso. `COSTO_BANDO` e' 0,061 $, misurato
+    sulla riestrazione di 10 bandi del 12 novembre 2026;
   - i bandi in archivio che il modello giudica non bandi restano senza
     `classificato_il` e `riclassifica_bandi` li riesamina a ogni lancio:
     decidere se segnarli o toglierli;
