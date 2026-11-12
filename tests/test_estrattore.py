@@ -611,3 +611,23 @@ def test_salva_scrive_e_sostituisce_le_scadenze(db_su_file):
     c = sqlite3.connect(db_su_file)
     assert c.execute("SELECT COUNT(*) FROM scadenze_bando").fetchone()[0] == 0
     c.close()
+
+
+def test_estrai_bando_mostra_le_scadenze(capsys):
+    from scripts.ingestione.estrai_bando import mostra
+
+    dati = risposta("tpl")
+    dati["scadenze"] = [PRIMA, COMPLETA]
+    mostra(interpreta(dati))
+
+    uscita = capsys.readouterr().out
+    assert "  - [domanda] prima finestra: dal 2021-09-01 al 2021-09-30" in uscita
+    assert "  - [fase_successiva] proposta completa: entro il 2022-01-15" in uscita
+    assert f"      frase: {PRIMA['frase']}" in uscita
+
+
+def test_estrai_bando_senza_scadenze_multiple(capsys):
+    from scripts.ingestione.estrai_bando import mostra
+
+    mostra(interpreta(risposta("tpl")))
+    assert "SCADENZE MULTIPLE\n  nessuna (una sola data)" in capsys.readouterr().out

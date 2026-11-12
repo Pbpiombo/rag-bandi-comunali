@@ -3,9 +3,12 @@
 Uso:
     python -u -m scripts.manutenzione.riclassifica_bandi --prova   elenca e stima il costo
     python -u -m scripts.manutenzione.riclassifica_bandi           riclassifica
+    python -u -m scripts.manutenzione.riclassifica_bandi --id A --id B [--prova]
 
 Si esaminano i bandi non ancora classificati (classificato_il vuoto):
-rilanciare lo script riprende quelli rimasti. Per ciascuno si riscarica
+rilanciare lo script riprende quelli rimasti. Con --id (ripetibile) si
+riestraggono i bandi indicati, anche se gia' classificati; un id che non
+e' in archivio si segnala e si salta. Per ciascuno si riscarica
 la pagina e si estrae con l'estrattore nuovo, che porta beneficiari per
 tipo, interventi e cumulabilita'.
 
@@ -17,7 +20,9 @@ Nessun dato attuale si perde:
   non compare piu' tra le opportunita' e non si riesamina;
 - un campo pieno che torna vuoto conserva il valore vecchio, e il caso
   si elenca a parte con il motivo, perche' un valore che l'estrattore
-  nuovo non riesce a provare e' sospetto e va controllato a mano.
+  nuovo non riesce a provare e' sospetto e va controllato a mano. Lo
+  stesso per le date di scadenze_bando: se la nuova estrazione non ne
+  trova, restano le vecchie.
 
 Un bando scaduto si riclassifica comunque: i bandi scaduti restano in
 archivio. Le pagine dei bandi in archivio non passano dal registro delle
@@ -41,10 +46,11 @@ from src.estrazione.bandi import (
     costruisci_estrattore,
     decidi_automatico,
     estrai,
+    scadenza_dalle_righe,
     valida,
 )
 from src.estrazione.pagina import prendi
-from src.estrazione.salva import COLONNE, salva, segna_non_bando
+from src.estrazione.salva import COLONNE, COLONNE_SCADENZE, salva, segna_non_bando
 
 PAUSA = 1.0
 
@@ -101,6 +107,42 @@ def fondi(precedente: dict, riga: dict, avvisi: list[str]) -> list[dict]:
     return mantenuti
 
 
+def scadenze_precedenti(id_bando: str) -> list[dict]:
+    """Le righe di scadenze_bando gia' in archivio per un bando."""
+    conn = connetti()
+    try:
+        righe = conn.execute(
+            f"SELECT {', '.join(COLONNE_SCADENZE)} FROM scadenze_bando "
+            "WHERE id_bando = ? ORDER BY numero",
+            (id_bando,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [dict(r) for r in righe]
+
+
+def mantieni_scadenze(
+    precedenti: list[dict], riga: dict, avvisi: list[str]
+) -> dict | None:
+    """Rimette nella riga nuova le date vecchie, se le nuove sono vuote.
+
+    salva() sostituisce le righe di scadenze_bando: senza questo, una nuova
+    estrazione che non ritrova le date le cancellerebbe, comprese quelle
+    inserite a mano. Con le date vecchie, la scadenza del bando torna
+    l'ultima scadenza 'domanda'. Restituisce il valore mantenuto, nella
+    forma di fondi(), o None se non c'era niente da mantenere.
+    """
+    if riga.get("scadenze") or not precedenti:
+        return None
+    riga["scadenze"] = [dict(p) for p in precedenti]
+    scadenza_dalle_righe(riga, avvisi)
+    return {
+        "colonna": "scadenze_bando",
+        "vecchio": "; ".join(f"{p['descrizione']} {p['scadenza']}" for p in precedenti),
+        "motivo": _motivo("scadenze", avvisi),
+    }
+
+
 def differenze(precedente: dict, riga: dict) -> list[tuple[str, object, object]]:
     """Le colonne piene in entrambe le righe con valori diversi."""
     return [
@@ -122,6 +164,36 @@ def da_riclassificare() -> list[dict]:
     finally:
         conn.close()
     return [dict(r) for r in righe]
+
+
+def da_riestrarre(ids: list[str]) -> tuple[list[dict], list[str]]:
+    """I bandi indicati, anche se gia' classificati, e gli id non trovati.
+
+    L'ordine e' quello degli id; un id ripetuto conta una volta.
+    """
+    conn = connetti()
+    try:
+        trovati, mancanti = [], []
+        for id_bando in dict.fromkeys(ids):
+            riga = conn.execute(
+                "SELECT * FROM bandi WHERE id = ?", (id_bando,)
+            ).fetchone()
+            if riga is None:
+                mancanti.append(id_bando)
+            else:
+                trovati.append(dict(riga))
+    finally:
+        conn.close()
+    return trovati, mancanti
+
+
+def ids_richiesti(argomenti: list[str]) -> list[str]:
+    """Gli id passati con --id, che si puo' ripetere."""
+    return [
+        argomenti[i + 1]
+        for i, a in enumerate(argomenti[:-1])
+        if a == "--id" and not argomenti[i + 1].startswith("--")
+    ]
 
 
 def riclassifica(estrattore, precedente: dict) -> dict:
@@ -153,6 +225,9 @@ def riclassifica(estrattore, precedente: dict) -> dict:
 
     riga["id"] = precedente["id"]
     esito["mantenuti"] = fondi(precedente, riga, avvisi)
+    date = mantieni_scadenze(scadenze_precedenti(precedente["id"]), riga, avvisi)
+    if date:
+        esito["mantenuti"].append(date)
     esito["cambiati"] = differenze(precedente, riga)
     _, stato = decidi_automatico(estrazione, riga)
 
@@ -197,7 +272,16 @@ def mostra_rapporto(esiti: list[dict]) -> None:
 
 
 def main() -> None:
-    bandi = da_riclassificare()
+    if "--id" in sys.argv:
+        ids = ids_richiesti(sys.argv)
+        if not ids:
+            print("--id senza identificativo: nulla da fare.")
+            return
+        bandi, mancanti = da_riestrarre(ids)
+        for id_bando in mancanti:
+            print(f"  NON IN ARCHIVIO, saltato: {id_bando}")
+    else:
+        bandi = da_riclassificare()
     print(f"Bandi da riclassificare: {len(bandi)}")
     print(f"Costo stimato: circa {len(bandi) * COSTO_BANDO:.2f} $")
 

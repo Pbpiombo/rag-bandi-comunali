@@ -345,13 +345,23 @@ def _per_csv(valore):
     return valore
 
 
+def chiave_primaria(conn: sqlite3.Connection, tabella: str) -> list[str]:
+    """Le colonne della chiave primaria di una tabella, nel loro ordine."""
+    # PRAGMA table_info: (cid, name, type, notnull, dflt_value, pk)
+    info = conn.execute(f"PRAGMA table_info({tabella})").fetchall()
+    return [r[1] for r in sorted((r for r in info if r[5]), key=lambda r: r[5])]
+
+
 def esporta_csv(conn: sqlite3.Connection, tabella: str, colonne: list[str]) -> int:
-    """Riscrive il CSV di data/processed con il contenuto attuale della tabella."""
+    """Riscrive il CSV di data/processed con il contenuto attuale della tabella.
+
+    Le righe sono in ordine di chiave primaria: lo stesso contenuto da' lo
+    stesso file, e i diff dei CSV mostrano solo i dati cambiati.
+    """
     percorso = PROCESSED_DIR / f"{tabella}.csv"
     elenco = ", ".join(colonne)
-    righe = conn.execute(
-        f"SELECT {elenco} FROM {tabella} ORDER BY {colonne[0]}"
-    ).fetchall()
+    ordine = ", ".join(chiave_primaria(conn, tabella)) or colonne[0]
+    righe = conn.execute(f"SELECT {elenco} FROM {tabella} ORDER BY {ordine}").fetchall()
 
     with percorso.open("w", encoding="utf-8-sig", newline="") as f:
         scrittore = csv.DictWriter(f, fieldnames=colonne)

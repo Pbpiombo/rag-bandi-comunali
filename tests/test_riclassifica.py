@@ -3,13 +3,17 @@
 import sqlite3
 
 from scripts.ingestione.estrai_nuovi import errore_bloccante
+from scripts.manutenzione import riclassifica_bandi as rb
 from scripts.manutenzione.riclassifica_bandi import (
     SENZA_AVVISO,
     da_riclassificare,
     differenze,
     fondi,
+    mantieni_scadenze,
 )
+from src.estrazione.bandi import interpreta
 from src.estrazione.salva import salva, segna_non_bando
+from tests.test_estrattore import pagina_salvata, risposta
 
 PRECEDENTE = {
     "id": "bando-prova",
@@ -161,3 +165,106 @@ def test_salvare_come_bando_toglie_il_segno_di_non_bando(db_su_file):
 
     righe = _leggi(db_su_file, "SELECT natura, natura_motivo FROM bandi")
     assert righe == [("bando", None)]
+
+
+# --- date di scadenze_bando ---
+
+DATE_VECCHIE = [
+    {
+        "numero": 1,
+        "genere": "domanda",
+        "descrizione": "prima finestra",
+        "apertura": None,
+        "scadenza": "2021-10-21",
+        "frase": "frase uno",
+    },
+    {
+        "numero": 2,
+        "genere": "domanda",
+        "descrizione": "seconda finestra",
+        "apertura": "2022-03-01",
+        "scadenza": "2022-03-31",
+        "frase": "frase due",
+    },
+]
+
+
+def test_date_nuove_presenti_le_vecchie_non_si_toccano():
+    nuove = [{**DATE_VECCHIE[0], "descrizione": "nuova"}]
+    riga = {"scadenza": "2021-10-21", "scadenze": nuove}
+
+    assert mantieni_scadenze(DATE_VECCHIE, riga, []) is None
+    assert riga["scadenze"] == nuove
+
+
+def test_riclassifica_tiene_le_date_vecchie_se_le_nuove_sono_vuote(
+    db_su_file, monkeypatch
+):
+    url = "https://www.regione.toscana.it/-/tpl"
+    salva(
+        {
+            "id": "tpl",
+            "titolo": "TPL",
+            "ente": "Regione Toscana",
+            "beneficiari": "Enti locali competenti.",
+            "a_sportello": 0,
+            "scadenza": "2022-03-31",
+            "scadenze": DATE_VECCHIE,
+        },
+        url,
+        "x",
+        "regione-toscana",
+    )
+    # la nuova estrazione e' quella della pagina salvata: una sola data
+    monkeypatch.setattr(rb, "prendi", lambda _: pagina_salvata("tpl"))
+    monkeypatch.setattr(rb, "estrai", lambda _e, _t: interpreta(risposta("tpl")))
+    (precedente,) = rb.da_riclassificare()
+
+    esito = rb.riclassifica(None, precedente)
+
+    assert esito["esito"] == "salvato"
+    assert _leggi(
+        db_su_file, "SELECT numero, scadenza FROM scadenze_bando ORDER BY numero"
+    ) == [(1, "2021-10-21"), (2, "2022-03-31")]
+    # la scadenza del bando resta l'ultima delle date mantenute
+    assert _leggi(db_su_file, "SELECT scadenza FROM bandi") == [("2022-03-31",)]
+    (date,) = [m for m in esito["mantenuti"] if m["colonna"] == "scadenze_bando"]
+    assert date["vecchio"] == "prima finestra 2021-10-21; seconda finestra 2022-03-31"
+    assert date["motivo"] == SENZA_AVVISO
+
+
+# --- riestrazione di bandi indicati ---
+
+
+def test_ids_richiesti_con_id_ripetibile():
+    argomenti = ["prog", "--id", "a", "--prova", "--id", "b", "--id"]
+    assert rb.ids_richiesti(argomenti) == ["a", "b"]
+    assert rb.ids_richiesti(["prog", "--id", "--prova"]) == []
+
+
+def test_da_riestrarre_prende_anche_i_classificati(db_su_file):
+    base = {
+        "titolo": "Bando",
+        "ente": "Regione Toscana",
+        "beneficiari": "Comuni",
+        "a_sportello": 0,
+    }
+    salva(
+        {**base, "id": "classificato", "beneficiari_ammessi": []},
+        "https://www.regione.toscana.it/-/classificato",
+        "x",
+        "regione-toscana",
+    )
+    salva(
+        {**base, "id": "vecchio"},
+        "https://www.regione.toscana.it/-/vecchio",
+        "x",
+        "regione-toscana",
+    )
+
+    trovati, mancanti = rb.da_riestrarre(
+        ["classificato", "inesistente", "classificato"]
+    )
+
+    assert [b["id"] for b in trovati] == ["classificato"]
+    assert mancanti == ["inesistente"]

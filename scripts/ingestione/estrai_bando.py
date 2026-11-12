@@ -74,6 +74,21 @@ def mostra(estrazione) -> None:
     clausola = (estrazione.cumulabilita or {}).get("clausola")
     print(f"\nCUMULABILITA': {clausola or '(non indicata)'}")
 
+    print("\nSCADENZE MULTIPLE")
+    if not estrazione.scadenze:
+        print("  nessuna (una sola data)")
+    for s in estrazione.scadenze:
+        if not isinstance(s, dict):
+            print(f"  (formato non conforme) {s}")
+            continue
+        periodo = (
+            f"dal {s.get('apertura')} al {s.get('scadenza')}"
+            if s.get("apertura")
+            else f"entro il {s.get('scadenza')}"
+        )
+        print(f"  - [{s.get('genere')}] {s.get('descrizione')}: {periodo}")
+        print(f"      frase: {s.get('frase')}")
+
 
 def mostra_confronto(precedente: dict, riga: dict) -> None:
     """Evidenzia le differenze rispetto alla riga gia' in archivio."""

@@ -735,7 +735,7 @@ def _valida_scadenze(voci: list, testo: str, avvisi: list[str]) -> list[dict]:
     return valide
 
 
-def _scadenza_dalle_righe(riga: dict, avvisi: list[str]) -> None:
+def scadenza_dalle_righe(riga: dict, avvisi: list[str]) -> None:
     """bandi.scadenza diventa l'ultima scadenza di genere 'domanda'.
 
     Se il modello ne ha indicata un'altra, si segnala con un avviso.
@@ -829,7 +829,7 @@ def valida(estrazione: Estrazione, testo: str) -> tuple[dict, list[str], list[st
     )
 
     riga["scadenze"] = _valida_scadenze(estrazione.scadenze, testo, avvisi)
-    _scadenza_dalle_righe(riga, avvisi)
+    scadenza_dalle_righe(riga, avvisi)
 
     return riga, problemi, avvisi
 

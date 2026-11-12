@@ -237,6 +237,22 @@ def _fra(scadenza: str, oggi: str) -> int:
     return (date.fromisoformat(scadenza) - date.fromisoformat(oggi)).days
 
 
+def _giorni(quanti: int) -> str:
+    return "1 giorno" if quanti == 1 else f"{quanti} giorni"
+
+
+def tra_quanto(giorni: int) -> str:
+    """Quanto manca a una scadenza, o da quanto e' passata.
+
+    "oggi", "fra 1 giorno", "fra 12 giorni", "SCADUTO da 3 giorni".
+    """
+    if giorni < 0:
+        return f"SCADUTO da {_giorni(-giorni)}"
+    if giorni == 0:
+        return "oggi"
+    return f"fra {_giorni(giorni)}"
+
+
 def stato_finestre(riga, scadenze: list, oggi: str) -> str | None:
     """Lo stato di un bando con piu' date, calcolato dalle righe.
 
@@ -258,7 +274,7 @@ def stato_finestre(riga, scadenze: list, oggi: str) -> str | None:
 
     stato = "; ".join(
         f"finestra aperta fino al {s['scadenza']} ({s['descrizione']}, "
-        f"fra {_fra(s['scadenza'], oggi)} giorni)"
+        f"{tra_quanto(_fra(s['scadenza'], oggi))})"
         for s in aperte
     )
     if riga["a_sportello"]:
@@ -312,13 +328,8 @@ def formatta_bando(
     elif riga["a_sportello"]:
         pezzi.append(stato_sportello(riga, oggi))
     elif riga["scadenza"]:
-        giorni = (date.fromisoformat(riga["scadenza"]) - date.fromisoformat(oggi)).days
-        stato = f"scade il {riga['scadenza']}"
-        if giorni >= 0:
-            stato += f" (fra {giorni} giorni)"
-        else:
-            stato += f" (SCADUTO da {abs(giorni)} giorni)"
-        pezzi.append(stato)
+        quando = tra_quanto(_fra(riga["scadenza"], oggi))
+        pezzi.append(f"scade il {riga['scadenza']} ({quando})")
     else:
         pezzi.append(SENZA_SCADENZA)
 

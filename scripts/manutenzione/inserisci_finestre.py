@@ -9,9 +9,16 @@ porta la frase della pagina da cui viene. La scadenza del bando in archivio
 deve gia' essere l'ultima scadenza 'domanda': se non lo e', il bando si
 salta e lo si dice.
 
+Fa eccezione GOL (decisione del 12 novembre 2026): la pagina da' per la
+Misura 1 sia il 31/07/2026 sia il 31/07/2027, e i decreti sulla stessa
+pagina approvano domande pervenute dopo il 31/07/2026. Vale il 2027, e
+bandi.scadenza passa da 2026-07-31 a 2027-07-31, solo se e' ancora il
+valore vecchio. La contraddizione resta nella descrizione della riga, che
+l'utente vede, oltre che in scadenza_nota.
+
 Crea la tabella scadenze_bando se il database e' precedente; alla fine
-riversa la tabella nel CSV. Rilanciarlo non cambia nulla: le righe di un
-bando si sostituiscono.
+riversa nei CSV bandi e scadenze_bando. Rilanciarlo non cambia nulla: le
+righe di un bando si sostituiscono.
 """
 
 from src.database.schema import aggiorna_csv, connetti, crea_schema
@@ -63,7 +70,74 @@ FINESTRE = {
             ),
         ),
     ],
+    # https://www.regione.toscana.it/-/assegno-formazione-gol
+    "assegno-formazione-gol": [
+        (
+            "domanda",
+            (
+                "Misura 1, assegno formazione: la pagina riporta anche il "
+                "31/07/2026, verificare sul bando"
+            ),
+            None,
+            "2027-07-31",
+            (
+                "La domanda di finanziamento per Assegno formazione Gol è presentata "
+                "dagli enti erogatori per nome e per conto dei beneficiari GOL che "
+                "hanno formalizzato con i centri per l'impiego l’adesione "
+                "all’Assegno formazione GOL e potrà essere presentata fino al 31 "
+                "luglio 2027"
+            ),
+        ),
+        (
+            "domanda",
+            "Misura 2, iscrizione al catalogo",
+            None,
+            "2027-06-30",
+            (
+                "L’Avviso è a sportello, la domanda di inserimento/cancellazione "
+                "nel/dal Catalogo può essere presentata fino al 30 giugno 2027"
+            ),
+        ),
+    ],
+    # https://www.regione.toscana.it/-/partenariato-europeo-per-la-medicina-
+    # personalizzata-jtc-2027
+    "partenariato-europeo-per-la-medicina-personalizzata-jtc-2027": [
+        (
+            "domanda",
+            "pre-proposta (Pre-Proposal)",
+            None,
+            "2027-01-20",
+            "Termine per la presentazione delle Pre-Proposal: 20 gennaio 2027 (14:00, CET)",
+        ),
+        (
+            "fase_successiva",
+            "proposta completa (Full Proposal)",
+            None,
+            "2027-05-25",
+            "Termine per la presentazione della Full Proposal: 25 maggio 2027 (14:00, CEST)",
+        ),
+    ],
 }
+
+# id del bando -> (scadenza attesa in archivio, scadenza corretta)
+CORREZIONI_SCADENZA = {
+    "assegno-formazione-gol": ("2026-07-31", "2027-07-31"),
+}
+
+
+def correggi_scadenza(conn, id_bando: str, attesa: str, corretta: str) -> str:
+    """Corregge bandi.scadenza solo se e' ancora il valore atteso."""
+    bando = conn.execute(
+        "SELECT scadenza FROM bandi WHERE id = ?", (id_bando,)
+    ).fetchone()
+    if bando is None:
+        return "NON TROVATO"
+    if bando["scadenza"] == corretta:
+        return f"scadenza gia' {corretta}"
+    if bando["scadenza"] != attesa:
+        return f"NON CORRETTA: in archivio c'e' {bando['scadenza']}, atteso {attesa}"
+    conn.execute("UPDATE bandi SET scadenza = ? WHERE id = ?", (corretta, id_bando))
+    return f"scadenza {attesa} -> {corretta}"
 
 
 def inserisci(conn, id_bando: str, righe: list[tuple]) -> str:
@@ -95,13 +169,16 @@ def main() -> None:
     conn = connetti()
     try:
         crea_schema(conn)
+        for id_bando, (attesa, corretta) in CORREZIONI_SCADENZA.items():
+            esito = correggi_scadenza(conn, id_bando, attesa, corretta)
+            print(f"  {id_bando}: {esito}")
         for id_bando, righe in FINESTRE.items():
             print(f"  {id_bando}: {inserisci(conn, id_bando, righe)}")
         conn.commit()
     finally:
         conn.close()
 
-    aggiorna_csv("scadenze_bando")
+    aggiorna_csv("bandi", "scadenze_bando")
 
 
 if __name__ == "__main__":

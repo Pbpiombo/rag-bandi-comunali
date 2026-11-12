@@ -678,3 +678,28 @@ def test_sportello_con_misure_a_scadenze_diverse(db):
         "| finestra aperta fino al 2027-06-30 (Misura 2, fra 231 giorni), "
         f"a sportello: {VERIFICARE} |"
     ) in riga
+
+
+@pytest.mark.parametrize(
+    ("giorni", "atteso"),
+    [
+        (0, "oggi"),
+        (1, "fra 1 giorno"),
+        (2, "fra 2 giorni"),
+        (-1, "SCADUTO da 1 giorno"),
+        (-5, "SCADUTO da 5 giorni"),
+    ],
+)
+def test_tra_quanto(giorni, atteso):
+    assert ib.tra_quanto(giorni) == atteso
+
+
+def test_scade_oggi_e_domani_nella_riga(db):
+    bando(db, "oggi", [("comune", None, None)], scadenza="2026-11-11")
+    bando(db, "domani", [("comune", None, None)], scadenza="2026-11-12")
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+
+    (oggi,) = righe_del_bando(testo, "oggi")
+    assert "| scade il 2026-11-11 (oggi) |" in oggi
+    (domani,) = righe_del_bando(testo, "domani")
+    assert "| scade il 2026-11-12 (fra 1 giorno) |" in domani
