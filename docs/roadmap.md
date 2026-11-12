@@ -185,6 +185,29 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   lessicale: BM25 in memoria contro `ts_rank_cd` con la domanda in OR e
   le radici delle parole in italiano. Una domanda va in senso opposto (i
   1.904 comuni: 2ª su Postgres, 4ª su Chroma).
+- P2, ricerca ristretta ai documenti nominati: scollegata dalla catena il
+  12 novembre 2026. Restano `src/recupero_documenti.py`, i suoi test e
+  `scripts/diagnostica/prova_recupero.py`. Misura su 15 domande, ognuna
+  in quattro forme (apostrofo dritto o tipografico, con o senza "?"),
+  con la domanda normalizzata. Fa entrare il costo giornaliero
+  nell'avviso nominato (assente → 6ª su Postgres, 2ª su Chroma) e, solo
+  su Chroma, la quota per Area interna (6ª). Fa però uscire su Postgres il
+  termine di presentazione (7ª → assente) e non rispetta la regola di
+  chiusura. Provate e scartate: ripulitura di tutte le parole del titolo
+  e fusione con RRF (dettagli nel modulo). Casi aperti nella prova: i
+  contributi dei mercati rionali e la domanda su due avvisi.
+- Indice HNSW su Postgres e ricerca ristretta a un documento. Su `chunk`
+  c'è `chunk_embedding_idx` (HNSW, `hnsw.ef_search` = 40). Con 316
+  frammenti il pianificatore sceglie la scansione sequenziale, quindi la
+  ricerca densa è esatta (misurato il 12 novembre 2026 con `EXPLAIN
+  ANALYZE`). Quando l'archivio crescerà con i PDF dei bandi, potrà passare
+  all'indice: il filtro sul documento si applica dopo i 40 candidati
+  dell'indice, e la ricerca ristretta di P2 resta con pochi frammenti o
+  nessuno. Forzando l'indice oggi, 6 ricerche ristrette su 25 restituiscono
+  meno righe (3 invece di 20 per la quota di ciascuna Area interna).
+  Rimedi da valutare allora: `hnsw.iterative_scan` di pgvector 0.8,
+  `ef_search` più alto per le ricerche ristrette, o ricerca esatta quando
+  c'è il filtro.
 
 ## Decisioni prese
 

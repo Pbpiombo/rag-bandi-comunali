@@ -16,10 +16,19 @@ from src.chains.router import (
 from src.config import MODEL_NAME
 from src.database.enti import profilo_ente
 from src.database.schema import connetti
-from src.recupero_documenti import avvolgi
-from src.retrieval import RecuperoIbrido
+from src.retrieval import RecuperoIbrido, normalizza_domanda
 
 K_DEFAULT = 10
+
+
+def recupera(recupero, domanda: str, k: int = K_DEFAULT) -> list:
+    """La ricerca dei frammenti come la fa la catena: domanda normalizzata.
+
+    È l'unico punto da cui la catena cerca; la usa anche
+    scripts/diagnostica/prova_recupero.py, per misurare lo stesso percorso.
+    """
+    return recupero.cerca(normalizza_domanda(domanda), k=k)
+
 
 ISTRUZIONI = """Sei un assistente tecnico per la programmazione territoriale \
 di piccoli comuni montani italiani. Rispondi in italiano.
@@ -139,8 +148,10 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
 
     if recupero is None:
         recupero = RecuperoIbrido()
-    # Se la domanda nomina un documento, si cerca anche dentro quel documento.
-    recupero = avvolgi(recupero)
+    # La ricerca ristretta ai documenti nominati (src/recupero_documenti.py,
+    # P2) non è collegata: con le domande in tutte le forme fa uscire dai
+    # primi 10 un frammento che oggi c'è (misura del 12 novembre 2026,
+    # scripts/diagnostica/prova_recupero.py).
     router = costruisci_router()
 
     modello = ChatAnthropic(
@@ -156,7 +167,7 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
         dati = formatta_dati(esiti) or "(nessun dato numerico richiesto)"
 
         if decisione.get("documenti", True):
-            risultati = recupero.cerca(domanda, k=k)
+            risultati = recupera(recupero, domanda, k=k)
             documenti = [doc for doc, _, _ in risultati]
             origini = [orig for _, _, orig in risultati]
         else:

@@ -13,12 +13,20 @@ diverso. Una frase vuota vale per qualunque frammento del documento: serve
 per i dati che arrivano dall'intestazione costruita con i metadati, come il
 numero dell'atto.
 
-Ogni domanda si misura due volte: con il motore nudo (prima di P2) e con
-il motore avvolto in `RecuperoPerDocumento` (dopo P2, come lo usa la
-catena). Il criterio di P2 (`docs/prova-verificatore.md`): tutti i
-frammenti attesi nei primi 10 su entrambi i motori, e nessuno di quelli
-che c'erano prima ne esce. Ogni spostamento è riportato; quelli di più di
-3 posizioni sono segnati a parte.
+Ogni domanda si misura in più forme (apostrofo dritto e tipografico, con e
+senza "?" finale) e conta la posizione peggiore: il 12 novembre 2026 la
+stessa domanda copiata con l'apostrofo tipografico ha perso nell'app un
+frammento che la prova trovava.
+
+Ogni domanda si misura con tre percorsi: il motore nudo con la domanda
+come arriva (prima), il motore nudo con la domanda normalizzata da
+`recupera` della catena (il percorso dell'app), e il motore avvolto in
+`RecuperoPerDocumento` attraverso `recupera` (P2, oggi non collegata alla
+catena). La regola di chiusura
+(`docs/prova-verificatore.md`, P2): nessun frammento atteso che era nei
+primi 10 prima, nella forma peggiore, ne esce, su nessuno dei due motori.
+Ogni spostamento è riportato; quelli di più di 3 posizioni sono segnati a
+parte.
 
 Uso: python -m scripts.diagnostica.prova_recupero
 """
@@ -28,6 +36,7 @@ from dataclasses import dataclass
 
 from langchain_core.documents import Document
 
+from src.chains.rag import recupera
 from src.pgstore import RecuperoPostgres
 from src.recupero_documenti import RecuperoPerDocumento, documenti_nominati
 from src.retrieval import RecuperoIbrido
@@ -223,37 +232,99 @@ def spostamento(prima: int | None, dopo: int | None) -> str:
     return f"{segno} di {abs(differenza)}{avviso}"
 
 
-def misura(motori: dict) -> list[dict]:
-    """Una riga per (domanda, frammento atteso, motore), prima e dopo P2.
+def forme(testo: str) -> dict[str, str]:
+    """La stessa domanda come può arrivare dall'utente.
 
-    Prima: il motore nudo. Dopo: lo stesso motore avvolto in
-    RecuperoPerDocumento, come lo usa la catena.
+    Apostrofo dritto o tipografico (una domanda copiata da un documento ha
+    il secondo), con o senza punto interrogativo finale. Le forme uguali
+    compaiono una volta sola.
+    """
+    dritto = testo.replace("’", "'")
+    tipografico = dritto.replace("'", "’")
+    risultato: dict[str, str] = {}
+    for nome, base in (("dritto", dritto), ("tipografico", tipografico)):
+        senza = base.rstrip("?").rstrip()
+        for variante, forma in (
+            (f"{nome} con ?", senza + "?"),
+            (f"{nome} senza ?", senza),
+        ):
+            if forma not in risultato.values():
+                risultato[variante] = forma
+    return risultato
+
+
+def peggiore(posizioni: list[int | None]) -> int | None:
+    """La posizione peggiore; un'assenza è peggio di qualunque posizione."""
+    return None if None in posizioni else max(posizioni)
+
+
+PERCORSI = ("prima", "normalizzata", "P2")
+
+
+def misura(motori: dict) -> list[dict]:
+    """Una riga per (domanda, frammento atteso, motore), con tre percorsi.
+
+    - prima: il motore nudo, con la domanda come arriva (prima di P2);
+    - normalizzata: il motore nudo, con la domanda normalizzata da
+      `recupera` della catena;
+    - P2: il motore avvolto in RecuperoPerDocumento, attraverso `recupera`,
+      come lo usa la catena.
+
+    Ogni domanda si misura in tutte le sue forme; per ogni percorso conta
+    la posizione peggiore tra le forme.
     """
     righe = []
     for indice, domanda in enumerate(PROVA, start=1):
+        varianti = forme(domanda.testo)
         for nome, (base, avvolto) in motori.items():
-            prima = [doc for doc, _, _ in base.cerca(domanda.testo, k=K)]
-            dopo = [doc for doc, _, _ in avvolto.cerca(domanda.testo, k=K)]
+            ricerche = {
+                "prima": lambda t, b=base: b.cerca(t, k=K),
+                "normalizzata": lambda t, b=base: recupera(b, t, k=K),
+                "P2": lambda t, a=avvolto: recupera(a, t, k=K),
+            }
+            liste = {
+                (p, v): [doc for doc, _, _ in ricerche[p](t)]
+                for p in PERCORSI
+                for v, t in varianti.items()
+            }
             nominati = documenti_nominati(domanda.testo, avvolto.titoli)
             for atteso in domanda.attesi:
-                p_prima = posizione(prima, atteso)
-                p_dopo = posizione(dopo, atteso)
+                per_forma = {
+                    p: {v: posizione(liste[(p, v)], atteso) for v in varianti}
+                    for p in PERCORSI
+                }
+                peggio = {p: peggiore(list(per_forma[p].values())) for p in PERCORSI}
+                forma_peggiore = next(
+                    v for v in varianti if per_forma["prima"][v] == peggio["prima"]
+                )
                 righe.append(
                     {
                         "indice": indice,
                         "motore": nome,
                         "fonte": atteso.fonte,
-                        "prima": p_prima,
-                        "dopo": p_dopo,
+                        "peggio": peggio,
+                        "per_forma": per_forma,
                         "esito_prima": esito_di(
-                            p_prima, nome, base, domanda.testo, atteso
+                            peggio["prima"],
+                            nome,
+                            base,
+                            varianti[forma_peggiore],
+                            atteso,
                         ),
-                        "esito_dopo": f"{p_dopo}ª" if p_dopo else "assente",
-                        "spostamento": spostamento(p_prima, p_dopo),
                         "nominati": sorted(f[:20] for f in nominati),
                     }
                 )
     return righe
+
+
+def breve(numero: int | None) -> str:
+    return str(numero) if numero else "-"
+
+
+def uscite_di(righe: list[dict], percorso: str) -> list[dict]:
+    """Righe che nel 'prima' (forma peggiore) erano nei primi K e nel
+    percorso indicato (forma peggiore) non ci sono più."""
+    return [r for r in righe if r["peggio"]["prima"] and not r["peggio"][percorso]]
 
 
 def main() -> None:
@@ -270,31 +341,50 @@ def main() -> None:
         proprie = [r for r in righe if r["indice"] == indice]
         print(f"   documenti nominati: {proprie[0]['nominati'] or 'nessuno'}")
         for r in proprie:
+            p = r["peggio"]
             print(
                 f"   {r['motore']:8}  {r['fonte']:20}  prima {r['esito_prima']:38}"
-                f"  dopo {r['esito_dopo']:8}  {r['spostamento']}"
+                f"  normalizzata {breve(p['normalizzata']):3}"
+                f"  P2 {breve(p['P2']):3}  {spostamento(p['prima'], p['P2'])}"
             )
+            for percorso in PERCORSI:
+                dettaglio = ", ".join(
+                    f"{v} {breve(n)}" for v, n in r["per_forma"][percorso].items()
+                )
+                print(f"      {percorso:12} per forma: {dettaglio}")
 
     for nome in motori:
         proprie = [r for r in righe if r["motore"] == nome]
-        prima = sum(1 for r in proprie if r["prima"])
-        dopo = sum(1 for r in proprie if r["dopo"])
+        conti = ", ".join(
+            f"{p} {sum(1 for r in proprie if r['peggio'][p])}" for p in PERCORSI
+        )
         print(
-            f"\n{nome}: nei primi {K} {prima} frammenti attesi su {len(proprie)}"
-            f" prima, {dopo} dopo"
+            f"\n{nome}: frammenti attesi nei primi {K} su {len(proprie)},"
+            f" forma peggiore: {conti}"
         )
 
-    da_guardare = [r for r in righe if "!!" in r["spostamento"]]
-    print(f"\nDa guardare (uscite o più di 3 posizioni): {len(da_guardare)}")
-    for r in da_guardare:
-        print(f"   {r['indice']}. {r['motore']} {r['fonte']}: {r['spostamento']}")
+    for percorso in ("normalizzata", "P2"):
+        spostate = [
+            r
+            for r in righe
+            if "!!" in spostamento(r["peggio"]["prima"], r["peggio"][percorso])
+        ]
+        print(f"\nDa guardare per {percorso} (uscite o più di 3 posizioni):")
+        for r in spostate:
+            print(
+                f"   {r['indice']}. {r['motore']} {r['fonte']}: "
+                f"{spostamento(r['peggio']['prima'], r['peggio'][percorso])}"
+            )
 
-    # Regola di chiusura di P2: nessuna domanda che funzionava esce dai
-    # primi 10, su nessuno dei due motori.
-    uscite = [r for r in righe if r["prima"] and not r["dopo"]]
+    # Regola di chiusura: nessuna domanda che funzionava prima (forma
+    # peggiore) esce dai primi 10, su nessuno dei due motori.
     aperti = [i for i, d in enumerate(PROVA, start=1) if d.aperto]
-    giudizio = "RISPETTATA" if not uscite else f"NON RISPETTATA ({len(uscite)} uscite)"
-    print(f"\nRegola di chiusura di P2: {giudizio}. Casi aperti: {aperti}")
+    for percorso in ("normalizzata", "P2"):
+        uscite = uscite_di(righe, percorso)
+        giudizio = (
+            "RISPETTATA" if not uscite else f"NON RISPETTATA ({len(uscite)} uscite)"
+        )
+        print(f"\nRegola di chiusura, {percorso}: {giudizio}. Casi aperti: {aperti}")
 
 
 if __name__ == "__main__":

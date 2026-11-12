@@ -9,6 +9,25 @@ from src.vectorstore import apri_store
 
 COSTANTE_RRF = 60
 
+# Apostrofi e virgolette tipografici, ricondotti a quelli dritti
+_TIPOGRAFICI = str.maketrans(
+    {"’": "'", "‘": "'", "`": "'", "“": '"', "”": '"', "«": '"', "»": '"'}
+)
+
+
+def normalizza_domanda(domanda: str) -> str:
+    """La domanda in una forma sola, prima di ogni ricerca.
+
+    Apostrofi e virgolette tipografici diventano dritti, il punto
+    interrogativo finale si toglie, gli spazi si uniformano. Il 12
+    novembre 2026 la stessa domanda copiata con l'apostrofo tipografico,
+    o scritta senza "?", spostava di diverse posizioni il frammento giusto
+    (scripts/diagnostica/prova_recupero.py): il modello di embedding è
+    sensibile a questi caratteri.
+    """
+    testo = " ".join(domanda.translate(_TIPOGRAFICI).split())
+    return testo.rstrip("?").rstrip()
+
 
 def tokenizza(testo: str) -> list[str]:
     """Spezza in parole minuscole, preservando i codici composti.
