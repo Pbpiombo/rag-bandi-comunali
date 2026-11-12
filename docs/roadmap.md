@@ -25,6 +25,11 @@ Stato al 11 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   durante la corsa lo sportello senza prova e gli importi con il punto
   decimale. Misure in `docs/piano-estrattore.md`.
 
+- **Piano fonti, tappa 1** (12 novembre 2026, voce 15 della revisione):
+  fonti, elenchi e regole di lettura dal database (`fonti.csv`,
+  `elenchi.csv`), tipi di fonte "pagine" e "file". Esito in
+  `docs/piano-fonti.md`.
+
 ## In corso
 
 Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
@@ -106,7 +111,12 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
      al caricamento, ricreazione su database esistente, esportazione solo
      a fine corsa);
    - voce 13: test del percorso di `estrai_nuovi` su pagine salvate;
-   - voce 15: fonte dei bandi letta dalla tabella `fonti`.
+   - voce 15: fonte dei bandi letta dalla tabella `fonti`;
+   - controllo periodico, senza modello, degli elenchi "bandi aperti"
+     dei programmi (PR FESR, PR FSE+, sviluppo rurale): le pagine che
+     hanno in più rispetto all'elenco generale. Il 12 novembre 2026
+     erano contenuti per intero nell'elenco generale, e per questo non
+     sono stati aggiunti come elenchi (`docs/piano-fonti.md`, tappa 2).
 5. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
    tra gli interventi ammissibili. Caso di prova: "devo rifare la piazza"
    → bando mercati rionali. (Lo stato del bando nei frammenti è passato al

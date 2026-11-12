@@ -1,6 +1,8 @@
-"""Scadenza letta dalla pagina del portale, senza modello.
+"""Scadenza letta dalla pagina della fonte, senza modello.
 
-Il portale della Regione Toscana riporta spesso un campo strutturato:
+Molte fonti riportano un campo strutturato, con un'etichetta che e' una
+regola della fonte (colonna etichetta_scadenza di fonti). Per il portale
+della Regione Toscana:
 
     Data di scadenza presentazione domande
     31.12.2026 12:00
@@ -11,17 +13,14 @@ modello. Il margine di un anno copre un campo sbagliato o non aggiornato
 dopo una proroga.
 
 La lettura e' volutamente rigida: vale solo un valore che e' per intero
-una data (con l'ora, eventualmente). Qualunque altra cosa ("15 giorni
-dalla pubblicazione...", un'etichetta, due date diverse) restituisce None
-e la pagina va al modello come prima.
+una data (con l'ora, eventualmente, prima o dopo: "ore 13.00 del 8 maggio
+2026", anche preceduto da "PROROGATO alle"). Qualunque altra cosa ("15
+giorni dalla pubblicazione...", un'etichetta, due date diverse)
+restituisce None e la pagina va al modello come prima.
 """
 
 import re
 from datetime import date
-
-ETICHETTA = re.compile(
-    r"^data di scadenza presentazione domande\s*:?\s*(.*)$", re.IGNORECASE
-)
 
 MESI = {
     "gennaio": 1,
@@ -39,9 +38,15 @@ MESI = {
 }
 
 ORA = r"(?:\s+(?:ore\s+)?\d{1,2}[:.]\d{2})?"
-DATA_NUMERICA = re.compile(rf"^(\d{{1,2}})[./](\d{{1,2}})[./](\d{{4}}){ORA}$")
+# L'ora prima della data, come la scrive il sito del GAL: "ore 13.00 del 8
+# maggio 2026", "PROROGATO alle ore 13.00 del 12 ottobre 2026"
+ORA_PRIMA = r"(?:prorogat[oa]\s+)?(?:alle\s+)?(?:ore\s+\d{1,2}[:.]\d{2}\s+del\s+)?"
+DATA_NUMERICA = re.compile(
+    rf"^{ORA_PRIMA}(\d{{1,2}})[./](\d{{1,2}})[./](\d{{4}}){ORA}$", re.IGNORECASE
+)
 DATA_IN_LETTERE = re.compile(
-    rf"^(\d{{1,2}})\s+({'|'.join(MESI)})\s+(\d{{4}}){ORA}$", re.IGNORECASE
+    rf"^{ORA_PRIMA}(\d{{1,2}})\s+({'|'.join(MESI)})\s+(\d{{4}}){ORA}$",
+    re.IGNORECASE,
 )
 
 # Giorni oltre la scadenza dopo i quali il bando si registra come scaduto
@@ -64,16 +69,28 @@ def _data(valore: str) -> date | None:
         return None
 
 
-def scadenza_dichiarata(testo: str) -> date | None:
-    """La data del campo "Data di scadenza presentazione domande", se leggibile.
+def _etichetta(etichetta: str) -> re.Pattern:
+    """La riga che comincia con l'etichetta, con il valore dopo i due punti."""
+    return re.compile(rf"^{re.escape(etichetta)}\s*:?\s*(.*)$", re.IGNORECASE)
 
-    testo: il testo della pagina, non ritagliato. Se il campo compare piu'
-    volte con date diverse, o il valore non e' una data, restituisce None.
+
+def scadenza_dichiarata(testo: str, etichetta: str | None) -> date | None:
+    """La data del campo con quell'etichetta, se leggibile.
+
+    testo: il testo della pagina, non ritagliato; etichetta: il nome del
+    campo, regola della fonte (es. "Data di scadenza presentazione
+    domande"). Il valore sta sulla stessa riga o su quella dopo. Se il
+    campo compare piu' volte con date diverse, o il valore non e' una
+    data, restituisce None. Una fonte senza etichetta non ha il campo:
+    None.
     """
+    if not etichetta:
+        return None
+    schema = _etichetta(etichetta)
     righe = [r.strip() for r in testo.splitlines()]
     trovate = set()
     for i, riga in enumerate(righe):
-        m = ETICHETTA.match(riga)
+        m = schema.match(riga)
         if not m:
             continue
         valore = m[1] or (righe[i + 1] if i + 1 < len(righe) else "")
@@ -97,19 +114,25 @@ AL_MODELLO = "al modello"
 
 
 def preselezione(
-    testo: str, recente: bool, oggi: date, filtro_anni: bool = True
+    testo: str,
+    recente: bool,
+    oggi: date,
+    filtro_anni: bool = True,
+    *,
+    etichetta: str | None,
 ) -> tuple[str, date | None]:
     """Decide, senza modello, se una pagina va mandata al modello.
 
     testo: il testo completo della pagina; recente: lo slug non ha un
-    anno passato (elenco.recente). Restituisce l'esito e la scadenza
-    letta dal campo, se c'e'.
+    anno passato (elenco.recente); filtro_anni: la fonte usa il filtro
+    sull'anno nello slug; etichetta: il campo della scadenza per la fonte.
+    Restituisce l'esito e la scadenza letta dal campo, se c'e'.
 
     Il campo della pagina vale piu' dell'anno nello slug: un bando con
     "2023" nel nome ma il campo che dice 2027 va al modello. L'anno nello
     slug decide solo se il campo manca o non si legge.
     """
-    scadenza = scadenza_dichiarata(testo)
+    scadenza = scadenza_dichiarata(testo, etichetta)
     if scaduto_da_oltre_il_margine(scadenza, oggi):
         return SCADUTO, scadenza
     if scadenza is None and filtro_anni and not recente:

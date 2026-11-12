@@ -5,17 +5,23 @@ import importlib
 import re
 import sqlite3
 import sys
+from pathlib import Path
 
 import pytest
 
+import scripts.ingestione.estrai_bando as estrai_bando
+import scripts.ingestione.estrai_nuovi as estrai_nuovi
 import scripts.ingestione.scopri_bandi as scopri_bandi
 from src.estrazione import elenco
+from src.estrazione.indirizzi import url_canonico
 from src.estrazione.registro import da_non_riesaminare, registra
 from src.estrazione.salva import ConflittoBando, conflitto, salva
 
 TOSCANA = "regione-toscana"
 BASE = "https://www.regione.toscana.it"
 FONTE = "Portale bandi Regione Toscana"
+ELENCO_REGIONE = f"{BASE}/bandi-aperti?delta=200"
+PAGINE = Path(__file__).parent / "pagine"
 
 # Estratto dell'elenco del portale, con i link nella forma reale: slug
 # con "/", con ".", con caratteri codificati (%C3%A0, %C2%A0), un link
@@ -201,9 +207,15 @@ EMERGENZA = (
 )
 
 
-def test_leggi_elenco_conserva_slug_interi(elenco_salvato):
+def _slug_letti(url_elenco: str = ELENCO_REGIONE) -> list[str]:
+    """Gli slug letti dall'elenco indicato, con le regole del database."""
+    [letto] = [x for x in elenco.leggi_elenchi() if x.elenco.url == url_elenco]
+    return [slug for slug, _ in letto.collegamenti]
+
+
+def test_leggi_elenco_conserva_slug_interi(db_su_file, elenco_salvato):
     """Slug con "/", "." e caratteri codificati non vengono tagliati."""
-    assert elenco.leggi_elenco() == [
+    assert _slug_letti() == [
         "bando-parcheggi-2026",
         "avviso-pubblico-per-il-sostegno-allo-sport-per-l-annualit%C3%A0-2022",
         "selezione-per%C2%A0dirigente-medico-disciplina-ortopedia",
@@ -235,8 +247,13 @@ def test_gia_in_archivio_restituisce_url_canonici(db_su_file):
 # --- identificativo ricavato dallo slug ---
 
 
+def _url(slug: str) -> str:
+    """L'URL canonico di una pagina del portale regionale con quello slug."""
+    return url_canonico(f"{BASE}/-/{slug}")
+
+
 def _id(slug: str) -> str:
-    return elenco.id_da_slug(slug, elenco.url_da_slug(slug))
+    return elenco.id_da_slug(slug, _url(slug))
 
 
 def test_id_da_slug_corto_resta_uguale():
@@ -273,7 +290,7 @@ def test_slug_lunghi_con_lo_stesso_inizio_danno_id_diversi():
 def test_id_da_slug_lunghi_non_vanno_in_conflitto_al_salvataggio(db_su_file):
     inizio = "presentazione-istanze-preliminari-per-riconoscimento-qualifica-di-museo"
     for s in (f"{inizio}/ecomuseo", f"{inizio}/ecomuseo-2024"):
-        url = elenco.url_da_slug(s)
+        url = _url(s)
         _salva(elenco.id_da_slug(s, url), url)
 
     assert len(_leggi(db_su_file, "SELECT id FROM bandi")) == 2
@@ -299,3 +316,331 @@ def test_comandi_usano_il_percorso_giusto_del_modulo(
         assert url.startswith(f"{BASE}/-/")
         assert re.fullmatch(r"[a-z0-9-]{1,60}", identificativo)
     importlib.import_module(modulo)
+
+
+# --- fonti, elenchi e regole lette dal database ---
+
+URL_RURALE = f"{BASE}/sviluppo-rurale-2023-2027/bandi-aperti?delta=200"
+RURALE = (PAGINE / "regione-sviluppo-rurale-bandi-aperti.html").read_text(
+    encoding="utf-8"
+)
+BANDI_RURALE = [
+    (
+        "risorse-genetiche-forestali-contributi-per-conservazione-uso-e-sviluppo-"
+        "sostenibile-il-bando-2026"
+    ),
+    (
+        "contributi-per-uso-e-gestione-sostenibile-delle-risorse-genetiche-agrarie-"
+        "specie-erbacee-specie-legnose-da-frutto-bovini-e-ovini-autoctoni"
+    ),
+    (
+        "premi-annuali-ad-ettaro-per-mantenere-imboschimenti/forestazione-su-terreni-"
+        "agricoli"
+    ),
+]
+GAL = "gal-prova"
+BASE_GAL = "https://www.gal-prova.it"
+
+
+def _scrivi(percorso, sql: str, parametri=()) -> None:
+    c = sqlite3.connect(percorso)
+    try:
+        c.execute("PRAGMA foreign_keys = ON")
+        c.execute(sql, parametri)
+        c.commit()
+    finally:
+        c.close()
+
+
+def _elenco(percorso, url: str, codice: str = TOSCANA, attivo: int = 1) -> None:
+    _scrivi(
+        percorso,
+        "INSERT INTO elenchi (url, codice_fonte, nome, attivo, fonte, verificato_il) "
+        "VALUES (?, ?, 'prova', ?, 'prova', '2026-11-12')",
+        (url, codice, attivo),
+    )
+
+
+def _fonte_gal(percorso) -> None:
+    """Una seconda fonte di pagine, con regole diverse da quelle regionali."""
+    _scrivi(
+        percorso,
+        "INSERT INTO fonti (codice, nome, tipo, url_base, schema_link, "
+        "etichetta_scadenza, fonte, verificato_il) VALUES (?, 'GAL di prova', "
+        "'pagine', ?, ?, 'Termine presentazione domande', 'prova', '2026-11-12')",
+        (GAL, BASE_GAL, r"^/(?P<percorso>bando/(?P<slug>[a-z0-9-]+))/?$"),
+    )
+
+
+def _pagine(monkeypatch, pagine: dict) -> list[str]:
+    """scarica restituisce l'HTML previsto per ogni indirizzo.
+
+    Un indirizzo non previsto fa fallire il test; un valore che e' un
+    errore viene sollevato. Restituisce gli indirizzi scaricati.
+    """
+    scaricati = []
+
+    def finto(url, timeout=30):
+        scaricati.append(url)
+        risposta = pagine[url]
+        if isinstance(risposta, Exception):
+            raise risposta
+        return risposta
+
+    monkeypatch.setattr(elenco, "scarica", finto)
+    return scaricati
+
+
+def test_notizie_e_piede_di_pagina_esclusi(db_su_file, monkeypatch):
+    """Le notizie di toscana-notizie.it hanno /-/ ma un altro dominio."""
+    _elenco(db_su_file, URL_RURALE)
+    _pagine(monkeypatch, {ELENCO_REGIONE: "", URL_RURALE: RURALE})
+
+    assert _slug_letti(URL_RURALE) == BANDI_RURALE
+
+
+def test_url_ricostruito_dal_percorso_della_fonte(db_su_file, monkeypatch):
+    _elenco(db_su_file, URL_RURALE)
+    _pagine(monkeypatch, {ELENCO_REGIONE: "", URL_RURALE: RURALE})
+
+    [letto] = [x for x in elenco.leggi_elenchi() if x.elenco.url == URL_RURALE]
+
+    assert [u for _, u in letto.collegamenti] == [_url(s) for s in BANDI_RURALE]
+
+
+def test_collegamento_con_it_nel_percorso_e_relativo(db_su_file, monkeypatch):
+    """/it/-/slug e /-/slug relativo danno lo stesso URL di quello assoluto."""
+    html = (
+        '<a href="/it/-/bando-parcheggi-2026">a</a>'
+        '<a href="/-/bando-parcheggi-2026">b</a>'
+        '<a href="http://regione.toscana.it/-/bando-sport-2026/">c</a>'
+    )
+    _pagine(monkeypatch, {ELENCO_REGIONE: html})
+
+    [letto] = elenco.leggi_elenchi()
+
+    assert letto.collegamenti == [
+        ("bando-parcheggi-2026", _url("bando-parcheggi-2026")),
+        ("bando-sport-2026", _url("bando-sport-2026")),
+    ]
+
+
+@pytest.mark.parametrize(
+    "slug",
+    [
+        "accessibilita-e-uso-del-sito",
+        "atti-di-notifica",
+        "bandi-di-concorso-e-avvisi",
+        "note-legali",
+        "mappa-del-sito",
+        "amministrazione-trasparente",
+        "newsletter-della-giunta",
+        "posta-elettronica-certificata-pec",
+        (
+            "tutela-del-dipendente-che-segnala-illeciti-whistleblower-la-disciplina-"
+            "dal-15-luglio-2023"
+        ),
+    ],
+)
+def test_voci_di_servizio_escluse_dalle_regole(db_su_file, monkeypatch, slug):
+    html = (
+        f'<a href="{BASE}/-/{slug}">x</a><a href="{BASE}/-/bando-di-prova-2026">y</a>'
+    )
+    _pagine(monkeypatch, {ELENCO_REGIONE: html})
+
+    assert _slug_letti() == ["bando-di-prova-2026"]
+
+
+def test_le_voci_escluse_per_nome_intero_non_escludono_altri_slug(
+    db_su_file, monkeypatch
+):
+    """'atti-di-notifica' e' escluso per intero, come prima: non per prefisso."""
+    html = f'<a href="{BASE}/-/atti-di-notifica-contributi-2026">x</a>'
+    _pagine(monkeypatch, {ELENCO_REGIONE: html})
+
+    assert _slug_letti() == ["atti-di-notifica-contributi-2026"]
+
+
+def test_stesso_bando_in_due_elenchi_della_stessa_fonte(db_su_file, monkeypatch):
+    _elenco(db_su_file, URL_RURALE)
+    _pagine(monkeypatch, {ELENCO_REGIONE: RURALE, URL_RURALE: RURALE})
+
+    voci = elenco.scopri()
+
+    assert [v.slug for v in voci] == BANDI_RURALE
+    # la voce resta con l'elenco in cui e' comparsa per prima
+    assert {v.elenco for v in voci} == {ELENCO_REGIONE}
+    assert [v.posizione for v in voci] == [1, 2, 3]
+
+
+def test_elenco_non_attivo_non_si_scarica(db_su_file, monkeypatch):
+    _elenco(db_su_file, URL_RURALE, attivo=0)
+    scaricati = _pagine(monkeypatch, {ELENCO_REGIONE: ELENCO_SALVATO})
+
+    elenco.leggi_elenchi()
+
+    assert scaricati == [ELENCO_REGIONE]
+
+
+def test_ogni_fonte_con_le_sue_regole(db_su_file, monkeypatch):
+    _fonte_gal(db_su_file)
+    _elenco(db_su_file, f"{BASE_GAL}/bandi/", codice=GAL)
+    pagina_gal = (
+        '<a href="/bando/as01-investimenti/">AS01</a>'
+        f'<a href="{BASE_GAL}/chi-siamo/">chi siamo</a>'
+        f'<a href="{BASE_GAL}/wp-content/uploads/bando.pdf">bando</a>'
+        f'<a href="{BASE}/-/bando-parcheggi-2026">un bando regionale</a>'
+    )
+    _pagine(
+        monkeypatch, {ELENCO_REGIONE: ELENCO_SALVATO, f"{BASE_GAL}/bandi/": pagina_gal}
+    )
+
+    voci = elenco.scopri()
+    del_gal = [v for v in voci if v.codice_fonte == GAL]
+
+    assert [(v.slug, v.url) for v in del_gal] == [
+        ("as01-investimenti", f"{BASE_GAL}/bando/as01-investimenti")
+    ]
+    assert del_gal[0].fonte.nome == "GAL di prova"
+    assert del_gal[0].fonte.etichetta_scadenza == "Termine presentazione domande"
+    assert not del_gal[0].fonte.filtro_anno_slug
+    regionali = [v for v in voci if v.codice_fonte == TOSCANA]
+    assert len(regionali) == 7
+    assert all(v.fonte.filtro_anno_slug for v in regionali)
+
+
+def test_fonte_di_tipo_file_non_si_scarica(db_su_file, monkeypatch):
+    _scrivi(
+        db_su_file,
+        "INSERT INTO fonti (codice, nome, tipo, url_base, fonte, verificato_il) "
+        "VALUES ('file-prova', 'File di prova', 'file', 'https://file-prova.it', "
+        "'prova', '2026-11-12')",
+    )
+    # anche con un elenco attivo: una fonte 'file' non ha elenchi da leggere
+    _elenco(db_su_file, "https://file-prova.it/open-data", codice="file-prova")
+    scaricati = _pagine(monkeypatch, {ELENCO_REGIONE: ELENCO_SALVATO})
+
+    voci = elenco.scopri()
+
+    assert scaricati == [ELENCO_REGIONE]
+    assert {v.codice_fonte for v in voci} == {TOSCANA}
+
+
+def test_elenco_che_non_si_scarica_non_ferma_gli_altri(db_su_file, monkeypatch):
+    _elenco(db_su_file, URL_RURALE)
+    _pagine(monkeypatch, {ELENCO_REGIONE: OSError("timeout"), URL_RURALE: RURALE})
+
+    letti = {x.elenco.url: x for x in elenco.leggi_elenchi()}
+
+    assert letti[ELENCO_REGIONE].errore == "timeout"
+    assert letti[ELENCO_REGIONE].collegamenti == []
+    assert [s for s, _ in letti[URL_RURALE].collegamenti] == BANDI_RURALE
+
+
+def test_sparito_solo_se_manca_da_tutti_gli_elenchi_della_fonte(
+    db_su_file, monkeypatch
+):
+    _elenco(db_su_file, URL_RURALE)
+    nel_secondo = _url(BANDI_RURALE[0])
+    in_nessuno = _url("bando-chiuso-2025")
+    _salva("nel-secondo", nel_secondo)
+    _salva("in-nessuno", in_nessuno)
+    _pagine(monkeypatch, {ELENCO_REGIONE: ELENCO_SALVATO, URL_RURALE: RURALE})
+
+    assert scopri_bandi.spariti(elenco.leggi_elenchi()) == {in_nessuno}
+
+
+def test_fonte_con_un_elenco_non_letto_non_si_confronta(db_su_file, monkeypatch):
+    _elenco(db_su_file, URL_RURALE)
+    _salva("in-nessuno", _url("bando-chiuso-2025"))
+    _pagine(monkeypatch, {ELENCO_REGIONE: OSError("timeout"), URL_RURALE: RURALE})
+
+    assert scopri_bandi.spariti(elenco.leggi_elenchi()) == set()
+
+
+def test_fonte_di_dal_dominio(db_su_file):
+    assert elenco.fonte_di(f"{BASE}/-/bando").codice == TOSCANA
+    assert elenco.fonte_di("http://regione.toscana.it/-/bando").codice == TOSCANA
+    assert elenco.fonte_di("https://www.toscana-notizie.it/-/notizia") is None
+
+
+def test_estrai_bando_rifiuta_un_dominio_che_non_e_una_fonte(
+    db_su_file, monkeypatch, tmp_path, capsys
+):
+    testo = tmp_path / "pagina.txt"
+    testo.write_text("testo del bando", encoding="utf-8")
+    monkeypatch.setattr(
+        sys, "argv", ["estrai_bando", str(testo), "https://altro.it/bando", "id"]
+    )
+
+    def nessun_modello():
+        raise AssertionError("il modello non va chiamato")
+
+    monkeypatch.setattr(estrai_bando, "costruisci_estrattore", nessun_modello)
+
+    estrai_bando.main()
+
+    assert "Nessuna fonte nel database" in capsys.readouterr().out
+
+
+# --- preselezione con le regole della fonte ---
+
+
+def _voce(slug: str, filtro_anno_slug: bool) -> elenco.Voce:
+    fonte = elenco.Fonte(
+        codice=TOSCANA,
+        nome=FONTE,
+        tipo="pagine",
+        url_base=BASE,
+        schema_link="^/-/",
+        esclusi=None,
+        etichetta_scadenza="Data di scadenza presentazione domande",
+        filtro_anno_slug=filtro_anno_slug,
+        scadenza_obbligatoria=False,
+    )
+    return elenco.Voce(
+        slug=slug,
+        url=_url(slug),
+        codice_fonte=TOSCANA,
+        titolo=slug,
+        nuovo=True,
+        promettente=False,
+        anno=elenco.anno_slug(slug),
+        recente=elenco.recente(slug),
+        posizione=1,
+        fonte=fonte,
+        elenco=ELENCO_REGIONE,
+    )
+
+
+@pytest.fixture
+def senza_rete(monkeypatch):
+    """La preselezione legge la pagina indicata, senza pause."""
+
+    def con_pagina(testo: str) -> None:
+        monkeypatch.setattr(estrai_nuovi, "scarica", lambda url: testo)
+
+    monkeypatch.setattr(estrai_nuovi.time, "sleep", lambda s: None)
+    monkeypatch.setattr(sys, "argv", ["estrai_nuovi", "--prova"])
+    return con_pagina
+
+
+@pytest.mark.parametrize(("filtro", "al_modello"), [(True, 0), (False, 1)])
+def test_il_filtro_sull_anno_e_una_regola_della_fonte(senza_rete, filtro, al_modello):
+    """Una pagina senza campo e con un anno passato nello slug: la salta
+    solo una fonte che usa il filtro."""
+    senza_rete("pagina senza campo")
+
+    candidati, _ = estrai_nuovi.preseleziona([_voce("bando-2019", filtro)], prova=True)
+
+    assert len(candidati) == al_modello
+
+
+def test_la_preselezione_legge_l_etichetta_della_fonte(senza_rete):
+    senza_rete("Data di scadenza presentazione domande\n31.12.2020")
+
+    voci = [_voce("bando-senza-anno", True)]
+    candidati, _ = estrai_nuovi.preseleziona(voci, prova=True)
+
+    # scaduto da oltre un anno secondo il campo: non va al modello
+    assert candidati == []

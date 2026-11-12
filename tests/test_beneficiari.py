@@ -24,9 +24,10 @@ BASE = "https://www.regione.toscana.it"
 def con_bando(conn):
     """Il database di prova con una fonte e un bando."""
     conn.execute(
-        "INSERT INTO fonti VALUES ('regione-toscana', 'Toscana', ?, ?, 'prova', "
+        "INSERT INTO fonti (codice, nome, url_base, schema_link, fonte, "
+        "verificato_il) VALUES ('regione-toscana', 'Toscana', ?, '^/-/', 'prova', "
         "'2026-11-11')",
-        (f"{BASE}/bandi-aperti", BASE),
+        (BASE,),
     )
     conn.execute(
         "INSERT INTO bandi (id, titolo, ente, beneficiari, url, fonte, "

@@ -26,3 +26,13 @@ completo. Le usa `tests/test_scadenza.py`.
 |---|---|---|
 | `estero.txt` | https://www.regione.toscana.it/-/lavorare-all-estero-borse-di-mobilit%C3%A0-professionale-per-disoccupati-o-inattivi-il-bando-2023 | "2023" nello slug, ma il campo dice 31.12.2027: va al modello |
 | `scuole-paritarie.txt` | https://www.regione.toscana.it/-/avviso-pubblico-individuazione-gestori-scuole-paritarie-private-pi%C3%B9-rappresentative-a-livello-regionale | il campo c'e' ma non e' una data ("15 giorni dalla pubblicazione...") |
+
+## Elenchi delle fonti
+
+Estratti di pagine elenco, con i soli collegamenti: gli `href` reali,
+nell'ordine della pagina. Li usa `tests/test_acquisizione.py` per provare la
+lettura degli elenchi con le regole di `data/processed/fonti.csv`.
+
+| File | Pagina | Perche' |
+|---|---|---|
+| `regione-sviluppo-rurale-bandi-aperti.html` | https://www.regione.toscana.it/sviluppo-rurale-2023-2027/bandi-aperti?delta=200, scaricata il 12 novembre 2026 | tre bandi, tre notizie di www.toscana-notizie.it con `/-/` nell'indirizzo, i collegamenti del piè di pagina (PEC, whistleblower, atti di notifica, accessibilità) |

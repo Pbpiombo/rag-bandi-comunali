@@ -7,6 +7,10 @@ Uso:
 Nella prima forma la pagina viene scaricata; nella seconda si parte da un
 testo gia' salvato, utile per rileggere una pagina senza riscaricarla.
 
+La fonte del bando si ricava dal dominio dell'URL, confrontato con
+url_base delle fonti nel database: un URL di un sito che non e' una
+fonte non si estrae.
+
 L'identificativo e' una convenzione nostra, non un dato del documento:
 va sempre indicato, ed e' cio' che distingue un bando nuovo da un
 aggiornamento di uno gia' in archivio.
@@ -29,12 +33,11 @@ from src.estrazione.bandi import (
     estrai,
     valida,
 )
-from src.estrazione.elenco import CODICE_FONTE
+from src.estrazione.elenco import fonte_di
 from src.estrazione.pagina import prendi
 from src.estrazione.salva import ConflittoBando, conflitto, esiste, salva
 
 SEGNI = {"alta": "  ", "media": "~ ", "bassa": "! "}
-FONTE = "Portale bandi Regione Toscana"
 
 # Le tabelle che un salvataggio modifica, da riversare nei CSV
 TABELLE_BANDO = ("bandi", "beneficiari_bando", "interventi_bando", "scadenze_bando")
@@ -186,6 +189,13 @@ def main() -> None:
         return
 
     testo, url, id_bando = letti
+
+    fonte = fonte_di(url)
+    if fonte is None:
+        print(f"Nessuna fonte nel database per il dominio di {url}. Non estraggo.")
+        return
+
+    print(f"Fonte: {fonte.nome}")
     print(f"Testo utile: {len(testo)} caratteri\n")
 
     estrattore = costruisci_estrattore()
@@ -229,7 +239,7 @@ def main() -> None:
         salvare, motivo = decidi_automatico(estrazione, riga)
 
         if salvare:
-            mostra_date_da_rivedere(salva(riga, url, FONTE, CODICE_FONTE))
+            mostra_date_da_rivedere(salva(riga, url, fonte.nome, fonte.codice))
             aggiorna_csv(*TABELLE_BANDO)
             print(f"\nSALVATO: {id_bando} ({motivo})")
         else:
@@ -245,7 +255,7 @@ def main() -> None:
         return
 
     try:
-        mostra_date_da_rivedere(salva(riga, url, FONTE, CODICE_FONTE))
+        mostra_date_da_rivedere(salva(riga, url, fonte.nome, fonte.codice))
     except ConflittoBando as errore:
         print(errore)
         return

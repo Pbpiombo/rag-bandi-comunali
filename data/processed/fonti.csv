@@ -1,2 +1,2 @@
-codice,nome,url_elenco,url_base,fonte,verificato_il
-regione-toscana,Portale bandi Regione Toscana,https://www.regione.toscana.it/bandi-aperti?delta=200,https://www.regione.toscana.it,"Sito istituzionale Regione Toscana, pagina Bandi aperti",2026-11-11
+codice,nome,tipo,url_base,schema_link,esclusi,etichetta_scadenza,filtro_anno_slug,scadenza_obbligatoria,fonte,verificato_il
+regione-toscana,Portale bandi Regione Toscana,pagine,https://www.regione.toscana.it,"^/(?:it/)?(?P<percorso>-/(?P<slug>[a-z0-9](?:[a-z0-9./-]|%[0-9A-Fa-f]{2}){10,}))",(?:atti-di-notifica|bandi-di-concorso-e-avvisi|posta-elettronica-certificata-pec)$|accessibilit|note-legali|privacy|mappa|contatti|amministrazione-trasparente|urp|newsletter|tutela-del-dipendente-che-segnala-illeciti,Data di scadenza presentazione domande,1,0,"Sito istituzionale Regione Toscana, pagina Bandi aperti",2026-11-11

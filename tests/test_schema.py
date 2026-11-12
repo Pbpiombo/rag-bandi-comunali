@@ -15,7 +15,8 @@ def test_un_csv_senza_le_colonne_nuove_prende_i_valori_predefiniti(
     """Un bandi.csv esportato prima della colonna natura si carica ancora."""
     monkeypatch.setattr(schema, "PROCESSED_DIR", tmp_path)
     conn.execute(
-        "INSERT INTO fonti VALUES ('regione-toscana', 'Toscana', 'x', 'y', 'prova', "
+        "INSERT INTO fonti (codice, nome, url_base, schema_link, fonte, "
+        "verificato_il) VALUES ('regione-toscana', 'Toscana', 'y', '^/-/', 'prova', "
         "'2026-11-11')"
     )
     riga = {c: "" for c in COLONNE_VECCHIE}
@@ -46,8 +47,8 @@ def test_un_csv_senza_le_colonne_nuove_prende_i_valori_predefiniti(
 def test_esporta_in_ordine_di_chiave_primaria(conn, tmp_path, monkeypatch):
     monkeypatch.setattr(schema, "PROCESSED_DIR", tmp_path)
     conn.execute(
-        "INSERT INTO fonti VALUES ('f', 'Fonte', 'https://x/e', 'https://x', 'p', "
-        "'2026-11-11')"
+        "INSERT INTO fonti (codice, nome, url_base, schema_link, fonte, "
+        "verificato_il) VALUES ('f', 'Fonte', 'https://x', '^/-/', 'p', '2026-11-11')"
     )
     for id_bando in ("b", "a"):
         conn.execute(

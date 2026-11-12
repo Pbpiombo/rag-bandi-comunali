@@ -22,9 +22,10 @@ OGGI = "2026-11-12"
 @pytest.fixture
 def db(conn):
     conn.execute(
-        "INSERT INTO fonti VALUES ('regione-toscana', 'Toscana', ?, ?, 'prova', "
+        "INSERT INTO fonti (codice, nome, url_base, schema_link, fonte, "
+        "verificato_il) VALUES ('regione-toscana', 'Toscana', ?, '^/-/', 'prova', "
         "'2026-11-11')",
-        (f"{BASE}elenco", BASE),
+        (BASE,),
     )
     return conn
 

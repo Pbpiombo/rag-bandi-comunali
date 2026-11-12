@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from src.database.schema import DDL
+from src.database.schema import DDL, TABELLE_DA_CSV, carica_csv
 
 CON_DATI = "11111111111"
 SENZA_DATI = "22222222222"
@@ -33,19 +33,17 @@ def db_su_file(tmp_path, monkeypatch):
     """Un database su file temporaneo, al posto di quello vero.
 
     Serve al codice che apre la connessione da se' con connetti(), come
-    registra() e salva(). Contiene lo schema e la fonte 'regione-toscana'.
+    registra() e salva(). Contiene lo schema e le fonti e gli elenchi
+    veri, caricati da data/processed: i test leggono le pagine con le
+    regole che usa la scansione.
     """
     percorso = tmp_path / "prova.sqlite"
     monkeypatch.setattr("src.database.schema.SQLITE_PATH", percorso)
 
     c = sqlite3.connect(percorso)
+    c.execute("PRAGMA foreign_keys = ON")
     c.executescript(DDL)
-    c.execute(
-        "INSERT INTO fonti (codice, nome, url_elenco, url_base, fonte, verificato_il) "
-        "VALUES ('regione-toscana', 'Portale bandi Regione Toscana', "
-        "'https://www.regione.toscana.it/bandi-aperti', "
-        "'https://www.regione.toscana.it', 'prova', '2026-11-11')"
-    )
-    c.commit()
+    for tabella in ("fonti", "elenchi"):
+        carica_csv(c, tabella, TABELLE_DA_CSV[tabella])
     c.close()
     return percorso

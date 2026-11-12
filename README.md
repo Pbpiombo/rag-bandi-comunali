@@ -238,8 +238,10 @@ per ogni riga:
 |---|---|
 | `enti.csv` | i quattro enti, con codice fiscale, codice ISTAT e profilo |
 | `popolazione.csv`, `territorio.csv` | dati numerici, ciascuno legato al suo ente |
+| `fonti.csv` | i siti da cui si acquisiscono i bandi, con il tipo (pagine web o file scaricato) e le regole per leggerli |
+| `elenchi.csv` | le pagine elenco di ogni fonte da cui si scoprono i bandi, anche più d'una per fonte |
 | `bandi.csv` | il catalogo dei bandi estratti |
-| `scansioni.csv` | il registro delle pagine del portale già esaminate |
+| `scansioni.csv` | il registro delle pagine delle fonti già esaminate |
 
 Ogni dato numerico è legato al suo ente con una chiave esterna verso la tabella
 `enti`: una riga con un codice ente inesistente viene rifiutata al caricamento,
@@ -256,8 +258,16 @@ python -m scripts.tutorial.step4_crea_db
 
 ### Popolare il catalogo dei bandi
 
+Le fonti dei bandi sono dati, non codice. `fonti.csv` dice per ogni sito il
+dominio, la forma dei collegamenti alle pagine dei bandi, le voci di servizio
+da ignorare, il nome del campo con la data di scadenza e se usare il filtro
+sull'anno nel nome della pagina; `elenchi.csv` dice da quali pagine partire.
+Aggiungere una fonte o un elenco vuol dire aggiungere una riga, dopo averne
+controllato il `robots.txt`. Le fonti di tipo "file" (un file scaricato e
+letto dal codice) non hanno elenchi da scansionare.
+
 ```bash
-# scopre quali bandi sono comparsi sul portale
+# scopre quali bandi sono comparsi negli elenchi delle fonti
 python -m scripts.ingestione.scopri_bandi --promettenti
 
 # estrae un singolo bando, con conferma

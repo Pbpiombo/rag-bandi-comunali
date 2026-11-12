@@ -74,12 +74,50 @@ CREATE TABLE IF NOT EXISTS territorio (
 
 -- I siti da cui si acquisiscono i bandi. nome e' il testo citato come
 -- fonte del bando; fonte e verificato_il dicono da dove sappiamo che il
--- sito e' quello ufficiale.
+-- sito e' quello ufficiale, e quando e' stato controllato il robots.txt.
+--
+-- tipo 'pagine': i bandi si scoprono dagli elenchi web della tabella
+-- elenchi e si leggono pagina per pagina, con le regole qui sotto.
+-- tipo 'file': un file scaricato a mano e letto dal codice; non ha
+-- elenchi da scansionare.
+--
+-- Le regole di lettura di una fonte 'pagine' (src/estrazione/elenco.py):
+--   url_base: dominio dei collegamenti accettati, e base degli URL;
+--   schema_link: espressione sul percorso del collegamento, con i gruppi
+--     'percorso' (la parte dopo url_base) e 'slug' (in fondo a percorso);
+--   esclusi: espressione sugli slug da ignorare (voci di servizio);
+--   etichetta_scadenza: il campo della pagina con la data di scadenza,
+--     letto senza modello dalla preselezione (src/estrazione/scadenza.py);
+--   filtro_anno_slug: una pagina senza scadenza leggibile e con un anno
+--     passato nello slug si salta;
+--   scadenza_obbligatoria: una pagina senza scadenza leggibile non e' un
+--     bando di questa fonte, e si salta senza modello.
 CREATE TABLE IF NOT EXISTS fonti (
-    codice          TEXT PRIMARY KEY,
+    codice                  TEXT PRIMARY KEY,
+    nome                    TEXT NOT NULL,
+    tipo                    TEXT NOT NULL DEFAULT 'pagine'
+                            CHECK (tipo IN ('pagine', 'file')),
+    url_base                TEXT NOT NULL,
+    schema_link             TEXT,
+    esclusi                 TEXT,
+    etichetta_scadenza      TEXT,
+    filtro_anno_slug        INTEGER NOT NULL DEFAULT 0
+                            CHECK (filtro_anno_slug IN (0, 1)),
+    scadenza_obbligatoria   INTEGER NOT NULL DEFAULT 0
+                            CHECK (scadenza_obbligatoria IN (0, 1)),
+    fonte                   TEXT NOT NULL,
+    verificato_il           TEXT NOT NULL,
+    CHECK (tipo = 'file' OR schema_link IS NOT NULL)
+);
+
+-- Le pagine da cui si scoprono i bandi di una fonte: piu' elenchi per la
+-- stessa fonte. Per una fonte 'file', la pagina da cui il file si
+-- scarica, con attivo = 0. fonte e verificato_il come in fonti.
+CREATE TABLE IF NOT EXISTS elenchi (
+    url             TEXT PRIMARY KEY,
+    codice_fonte    TEXT NOT NULL REFERENCES fonti(codice),
     nome            TEXT NOT NULL,
-    url_elenco      TEXT NOT NULL,
-    url_base        TEXT NOT NULL,
+    attivo          INTEGER NOT NULL DEFAULT 1 CHECK (attivo IN (0, 1)),
     fonte           TEXT NOT NULL,
     verificato_il   TEXT NOT NULL
 );
@@ -219,8 +257,22 @@ TABELLE_DA_CSV = {
     "bilancio": ["codice_ente", "anno", "tipo", "voce", "importo", "fonte"],
     "turismo": ["codice_ente", "anno", "mese", "arrivi", "presenze", "fonte"],
     "territorio": ["codice_ente", "chiave", "valore", "unita", "fonte"],
-    # fonti va caricata prima di bandi e scansioni, che vi fanno riferimento
-    "fonti": ["codice", "nome", "url_elenco", "url_base", "fonte", "verificato_il"],
+    # fonti va caricata prima di elenchi, bandi e scansioni, che vi fanno
+    # riferimento
+    "fonti": [
+        "codice",
+        "nome",
+        "tipo",
+        "url_base",
+        "schema_link",
+        "esclusi",
+        "etichetta_scadenza",
+        "filtro_anno_slug",
+        "scadenza_obbligatoria",
+        "fonte",
+        "verificato_il",
+    ],
+    "elenchi": ["url", "codice_fonte", "nome", "attivo", "fonte", "verificato_il"],
     "bandi": [
         "id",
         "titolo",

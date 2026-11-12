@@ -1,47 +1,30 @@
-"""Scoperta dei bandi pubblicati sul portale della Regione Toscana."""
+"""Scoperta dei bandi dagli elenchi web delle fonti.
+
+Fonti, elenchi e regole di lettura stanno nel database (tabelle fonti ed
+elenchi, caricate da data/processed): qui c'e' solo la meccanica. Una
+fonte di tipo 'pagine' ha uno o piu' elenchi; di ogni elenco si leggono i
+collegamenti al dominio della fonte che corrispondono al suo schema_link,
+tolti quelli esclusi. Una voce vista in piu' elenchi della stessa fonte
+compare una volta. Le fonti di tipo 'file' non hanno elenchi da leggere.
+"""
 
 import hashlib
 import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import date
-from urllib.parse import unquote
+from html.parser import HTMLParser
+from http.client import HTTPException
+from urllib.parse import unquote, urljoin, urlsplit
 
 from src.database.schema import connetti
 from src.estrazione.indirizzi import url_canonico
 from src.estrazione.pagina import scarica
 
-CODICE_FONTE = "regione-toscana"
-ELENCO = "https://www.regione.toscana.it/bandi-aperti?delta=200"
-BASE = "https://www.regione.toscana.it"
-
-# Lo slug di una pagina del portale, dopo "/-/". Puo' contenere "." e "/"
-# (es. "museo/ecomuseo", "a.s.-2025-26") e caratteri codificati come
-# %C3%A0 ("a" accentata) o %C2%A0 (spazio non separabile): una regex che
-# li escludesse taglierebbe lo slug e confonderebbe pagine diverse.
-SLUG_NEL_LINK = re.compile(r"/-/([a-z0-9](?:[a-z0-9./-]|%[0-9A-Fa-f]{2}){10,})")
-
 # Lunghezza massima dell'identificativo di un bando, e del codice che lo
 # chiude quando lo slug e' piu' lungo
 LUNGHEZZA_ID = 60
 LUNGHEZZA_CODICE = 6
-
-# Voci del portale che non sono bandi
-ESCLUSI = {
-    "accessibilita-e-uso-del-sito",
-    "atti-di-notifica",
-    "bandi-di-concorso-e-avvisi",
-    "note-legali",
-    "privacy",
-    "mappa-del-sito",
-    "contatti",
-}
-
-PAROLE_ESCLUSE = re.compile(
-    r"^(accessibilit|note-legali|privacy|mappa|contatti|"
-    r"amministrazione-trasparente|urp|newsletter)",
-    re.IGNORECASE,
-)
 
 # Parole nello slug che suggeriscono un bando rivolto a enti pubblici
 INDIZI_COMUNE = re.compile(
@@ -57,10 +40,57 @@ INDIZI_COMUNE = re.compile(
 # trattino tra i due anni serve a entrambi, e il 2025 non va perso.
 ANNO_NELLO_SLUG = re.compile(r"(?<![^-])(20[0-2]\d)(?![^-])")
 
+# Tempo massimo per scaricare un elenco: le pagine della Regione con 200
+# voci arrivano a un minuto
+ATTESA_ELENCO = 90
+
+
+@dataclass(frozen=True)
+class Fonte:
+    """Una riga della tabella fonti: chi e', e le regole per leggerla."""
+
+    codice: str
+    nome: str
+    tipo: str
+    url_base: str
+    schema_link: str | None
+    esclusi: str | None
+    etichetta_scadenza: str | None
+    filtro_anno_slug: bool
+    scadenza_obbligatoria: bool
+
+    @property
+    def dominio(self) -> str:
+        """Il dominio della fonte, senza "www.": i collegamenti accettati."""
+        return _dominio(self.url_base)
+
+
+@dataclass(frozen=True)
+class Elenco:
+    """Una pagina da cui si scoprono i bandi di una fonte."""
+
+    url: str
+    codice_fonte: str
+    nome: str
+
+
+@dataclass
+class Letto:
+    """Il risultato della lettura di un elenco.
+
+    collegamenti: (slug, url canonico) nell'ordine della pagina, senza
+    ripetizioni; errore: il motivo se l'elenco non si e' scaricato.
+    """
+
+    elenco: Elenco
+    fonte: Fonte
+    collegamenti: list[tuple[str, str]]
+    errore: str | None = None
+
 
 @dataclass
 class Voce:
-    """Un bando trovato nell'elenco del portale."""
+    """Un bando trovato in un elenco."""
 
     slug: str
     url: str
@@ -71,6 +101,142 @@ class Voce:
     anno: int | None
     recente: bool
     posizione: int
+    fonte: Fonte
+    elenco: str
+
+
+def _dominio(url: str) -> str:
+    return urlsplit(url).netloc.lower().removeprefix("www.")
+
+
+def _fonte(riga) -> Fonte:
+    return Fonte(
+        codice=riga["codice"],
+        nome=riga["nome"],
+        tipo=riga["tipo"],
+        url_base=riga["url_base"].rstrip("/"),
+        schema_link=riga["schema_link"],
+        esclusi=riga["esclusi"],
+        etichetta_scadenza=riga["etichetta_scadenza"],
+        filtro_anno_slug=bool(riga["filtro_anno_slug"]),
+        scadenza_obbligatoria=bool(riga["scadenza_obbligatoria"]),
+    )
+
+
+def leggi_fonti() -> list[Fonte]:
+    """Tutte le fonti del database, di ogni tipo."""
+    conn = connetti()
+    try:
+        righe = conn.execute("SELECT * FROM fonti ORDER BY codice").fetchall()
+    finally:
+        conn.close()
+    return [_fonte(r) for r in righe]
+
+
+def elenchi_attivi() -> list[tuple[Fonte, list[Elenco]]]:
+    """Le fonti di tipo 'pagine', ciascuna con i suoi elenchi attivi.
+
+    L'ordine e' quello del database (fonte, poi indirizzo dell'elenco):
+    lo stesso a ogni lancio.
+    """
+    conn = connetti()
+    try:
+        fonti = conn.execute(
+            "SELECT * FROM fonti WHERE tipo = 'pagine' ORDER BY codice"
+        ).fetchall()
+        elenchi = conn.execute(
+            "SELECT url, codice_fonte, nome FROM elenchi WHERE attivo = 1 "
+            "ORDER BY codice_fonte, url"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return [
+        (
+            _fonte(f),
+            [
+                Elenco(e["url"], e["codice_fonte"], e["nome"])
+                for e in elenchi
+                if e["codice_fonte"] == f["codice"]
+            ],
+        )
+        for f in fonti
+    ]
+
+
+def fonte_di(url: str) -> Fonte | None:
+    """La fonte a cui appartiene un indirizzo, dal dominio di url_base."""
+    dominio = _dominio(url)
+    return next((f for f in leggi_fonti() if f.dominio == dominio), None)
+
+
+class _Collegamenti(HTMLParser):
+    """Gli href dei tag <a>, nell'ordine della pagina."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.href: list[str] = []
+
+    def handle_starttag(self, tag, attrs) -> None:
+        if tag == "a":
+            self.href.extend(v for k, v in attrs if k == "href" and v)
+
+
+def collegamenti(html: str, url_pagina: str, fonte: Fonte) -> list[tuple[str, str]]:
+    """Le voci di un elenco: (slug, url canonico), nell'ordine della pagina.
+
+    Valgono solo i collegamenti al dominio della fonte il cui percorso
+    corrisponde a schema_link. Lo slug e' il gruppo 'slug', senza punti e
+    barre finali; l'URL e' url_base seguito dal gruppo 'percorso', con lo
+    slug cosi' ripulito. Uno slug che corrisponde a esclusi, o gia' visto,
+    si salta.
+    """
+    schema = re.compile(fonte.schema_link)
+    esclusi = re.compile(fonte.esclusi, re.IGNORECASE) if fonte.esclusi else None
+
+    lettore = _Collegamenti()
+    lettore.feed(html)
+
+    voci, visti = [], set()
+    for href in lettore.href:
+        indirizzo = urljoin(url_pagina, href)
+        if _dominio(indirizzo) != fonte.dominio:
+            continue
+        m = schema.match(urlsplit(indirizzo).path)
+        if not m:
+            continue
+
+        slug = m["slug"].rstrip("./")
+        if not slug or slug in visti or (esclusi and esclusi.match(slug)):
+            continue
+        visti.add(slug)
+
+        prima = m["percorso"][: m.start("slug") - m.start("percorso")]
+        voci.append((slug, url_canonico(f"{fonte.url_base}/{prima}{slug}")))
+
+    return voci
+
+
+def leggi_elenco(elenco: Elenco, fonte: Fonte) -> list[tuple[str, str]]:
+    """Scarica un elenco e ne restituisce le voci (slug, url canonico).
+
+    L'ordine e' informativo: i portali presentano per primi i bandi
+    pubblicati piu' di recente.
+    """
+    return collegamenti(scarica(elenco.url, timeout=ATTESA_ELENCO), elenco.url, fonte)
+
+
+def leggi_elenchi() -> list[Letto]:
+    """Legge tutti gli elenchi attivi. Un elenco che non si scarica non
+    ferma gli altri: il suo errore resta nel risultato."""
+    letti = []
+    for fonte, elenchi in elenchi_attivi():
+        for elenco in elenchi:
+            try:
+                letti.append(Letto(elenco, fonte, leggi_elenco(elenco, fonte)))
+            except (OSError, HTTPException) as errore:
+                letti.append(Letto(elenco, fonte, [], str(errore)))
+    return letti
 
 
 def _titolo_da_slug(slug: str) -> str:
@@ -105,30 +271,6 @@ def recente(slug: str, anno_corrente: int | None = None) -> bool:
     return anno is None or anno >= anno_corrente - 1
 
 
-def leggi_elenco() -> list[str]:
-    """Gli slug dei bandi nell'elenco, nell'ordine in cui compaiono.
-
-    L'ordine e' informativo: il portale presenta per primi i bandi
-    pubblicati piu' di recente.
-    """
-    html = scarica(ELENCO, timeout=60)
-
-    trovati = [s.rstrip("./") for s in SLUG_NEL_LINK.findall(html)]
-
-    ordinati = []
-    for s in trovati:
-        if s in ordinati or s in ESCLUSI or PAROLE_ESCLUSE.match(s):
-            continue
-        ordinati.append(s)
-
-    return ordinati
-
-
-def url_da_slug(slug: str) -> str:
-    """L'URL, in forma canonica, della pagina del portale con quello slug."""
-    return url_canonico(f"{BASE}/-/{slug}")
-
-
 def id_da_slug(slug: str, url: str) -> str:
     """L'identificativo di un bando, ricavato dal suo slug.
 
@@ -151,33 +293,56 @@ def id_da_slug(slug: str, url: str) -> str:
     return f"{inizio}-{codice[:LUNGHEZZA_CODICE]}"
 
 
-def gia_in_archivio() -> set[str]:
-    """Gli URL, in forma canonica, dei bandi gia' presenti nel database."""
+def gia_in_archivio(codice_fonte: str | None = None) -> set[str]:
+    """Gli URL, in forma canonica, dei bandi gia' presenti nel database.
+
+    Con codice_fonte, solo quelli di quella fonte.
+    """
     conn = connetti()
     try:
-        righe = conn.execute("SELECT url FROM bandi").fetchall()
+        if codice_fonte is None:
+            righe = conn.execute("SELECT url FROM bandi").fetchall()
+        else:
+            righe = conn.execute(
+                "SELECT url FROM bandi WHERE codice_fonte = ?", (codice_fonte,)
+            ).fetchall()
     finally:
         conn.close()
 
     return {url_canonico(r["url"]) for r in righe}
 
 
-def scopri() -> list[Voce]:
-    """Confronta l'elenco del portale con l'archivio e segnala i nuovi."""
+def scopri(letti: list[Letto] | None = None) -> list[Voce]:
+    """Confronta gli elenchi delle fonti con l'archivio e segnala i nuovi.
+
+    letti: gli elenchi gia' letti con leggi_elenchi; se manca, si leggono.
+    Una voce vista in piu' elenchi della stessa fonte compare una volta,
+    con l'elenco in cui e' comparsa per prima.
+    """
+    if letti is None:
+        letti = leggi_elenchi()
     noti = gia_in_archivio()
     anno_corrente = date.today().year
 
-    return [
-        Voce(
-            slug=s,
-            url=url_da_slug(s),
-            codice_fonte=CODICE_FONTE,
-            titolo=_titolo_da_slug(s),
-            nuovo=url_da_slug(s) not in noti,
-            promettente=promettente(s),
-            anno=anno_slug(s),
-            recente=recente(s, anno_corrente),
-            posizione=i,
-        )
-        for i, s in enumerate(leggi_elenco(), start=1)
-    ]
+    voci, visti = [], set()
+    for letto in letti:
+        for slug, url in letto.collegamenti:
+            if url in visti:
+                continue
+            visti.add(url)
+            voci.append(
+                Voce(
+                    slug=slug,
+                    url=url,
+                    codice_fonte=letto.fonte.codice,
+                    titolo=_titolo_da_slug(slug),
+                    nuovo=url not in noti,
+                    promettente=promettente(slug),
+                    anno=anno_slug(slug),
+                    recente=recente(slug, anno_corrente),
+                    posizione=len(voci) + 1,
+                    fonte=letto.fonte,
+                    elenco=letto.elenco.url,
+                )
+            )
+    return voci

@@ -1,4 +1,4 @@
-"""Estrae in sequenza i bandi nuovi trovati sul portale.
+"""Estrae in sequenza i bandi nuovi trovati negli elenchi delle fonti.
 
 Uso:
     python -u -m scripts.ingestione.estrai_nuovi --prova          mostra cosa farebbe
@@ -13,14 +13,20 @@ Ogni bando costa una chiamata all'API. Le pagine gia' esaminate con esito
 definitivo (scadute, o che non sono bandi) non vengono riproposte: il
 registro delle scansioni le ricorda.
 
+Fonti, elenchi e regole di lettura vengono dal database (tabelle fonti
+ed elenchi): si leggono tutti gli elenchi attivi delle fonti di tipo
+'pagine', e si stampa quante voci ha dato ciascuno.
+
 Prima del modello, una preselezione gratuita (src/estrazione/scadenza.py)
 scarica ogni pagina candidata:
-- se il campo "Data di scadenza presentazione domande" e' passato da piu'
+- se il campo della scadenza (etichetta_scadenza della fonte, per la
+  Regione "Data di scadenza presentazione domande") e' passato da piu'
   di un anno, la pagina si registra come scaduta senza modello;
-- se il campo manca o non si legge e lo slug ha un anno passato, la
-  pagina si salta, senza registrarla. --tutti-gli-anni disattiva questo
-  filtro, e segna le pagine che avrebbe saltato: il riepilogo finale ne
-  mostra gli esiti, per misurare quanti bandi aperti il filtro perde.
+- se il campo manca o non si legge, lo slug ha un anno passato e la
+  fonte usa il filtro sull'anno (filtro_anno_slug), la pagina si salta,
+  senza registrarla. --tutti-gli-anni disattiva questo filtro, e segna
+  le pagine che avrebbe saltato: il riepilogo finale ne mostra gli
+  esiti, per misurare quanti bandi aperti il filtro perde.
 Con --prova la preselezione si esegue ma non registra nulla, e si stima
 il costo delle estrazioni rimaste.
 
@@ -43,7 +49,7 @@ from src.estrazione.bandi import (
     estrai,
     valida,
 )
-from src.estrazione.elenco import id_da_slug, scopri
+from src.estrazione.elenco import id_da_slug, leggi_elenchi, scopri
 from src.estrazione.pagina import a_testo, ritaglia, scarica
 from src.estrazione.registro import da_non_riesaminare, registra, riepilogo
 from src.estrazione.salva import salva
@@ -55,7 +61,6 @@ from src.estrazione.scadenza import (
     preselezione,
 )
 
-FONTE = "Portale bandi Regione Toscana"
 PAUSA = 1.0
 # Pausa tra i download della preselezione, che non chiama il modello
 PAUSA_PAGINE = 0.5
@@ -91,9 +96,23 @@ def opzione(nome: str, predefinito: int) -> int:
         return predefinito
 
 
+def mostra_elenchi(letti: list) -> None:
+    """Quante voci ha dato ogni elenco: uno che smette di darne si vede."""
+    print("Elenchi letti:")
+    for letto in letti:
+        esito = (
+            f"ERRORE ({letto.errore})"
+            if letto.errore
+            else f"{len(letto.collegamenti)} voci"
+        )
+        print(f"  [{letto.fonte.codice}] {letto.elenco.url}: {esito}")
+
+
 def scegli_candidati() -> list:
     """I bandi da esaminare, applicando i filtri richiesti."""
-    voci = scopri()
+    letti = leggi_elenchi()
+    mostra_elenchi(letti)
+    voci = scopri(letti)
     candidati = [v for v in voci if v.nuovo]
     print(f"Nuovi rispetto all'archivio: {len(candidati)}")
 
@@ -114,11 +133,13 @@ def scegli_candidati() -> list:
 def avrebbe_saltato(voce, esito: str, scadenza, filtro_anni: bool) -> bool:
     """La pagina va al modello solo perche' il filtro sull'anno e' spento.
 
-    Vero se, con il filtro attivo, la preselezione l'avrebbe saltata:
-    campo della scadenza assente o illeggibile e anno passato nello slug.
+    Vero se la fonte usa il filtro e, con il filtro attivo, la
+    preselezione l'avrebbe saltata: campo della scadenza assente o
+    illeggibile e anno passato nello slug.
     """
     return (
         not filtro_anni
+        and voce.fonte.filtro_anno_slug
         and esito == AL_MODELLO
         and scadenza is None
         and not voce.recente
@@ -135,6 +156,8 @@ def preseleziona(candidati: list, prova: bool) -> tuple[list[tuple], set[str]]:
     modello con testo None: esamina riprova a scaricarla e, se fallisce
     ancora, la registra come fallita.
     """
+    # Il filtro sull'anno vale per le fonti che lo prevedono, salvo
+    # --tutti-gli-anni
     filtro_anni = "--tutti-gli-anni" not in sys.argv
     oggi = datetime.now(ZoneInfo("Europe/Rome")).date()
     al_modello, scaduti, anni_passati = [], 0, 0
@@ -149,7 +172,13 @@ def preseleziona(candidati: list, prova: bool) -> tuple[list[tuple], set[str]]:
             al_modello.append((v, None))
             continue
 
-        esito, scadenza = preselezione(completo, v.recente, oggi, filtro_anni)
+        esito, scadenza = preselezione(
+            completo,
+            v.recente,
+            oggi,
+            filtro_anni and v.fonte.filtro_anno_slug,
+            etichetta=v.fonte.etichetta_scadenza,
+        )
         if esito == SCADUTO:
             scaduti += 1
             print(f"  {v.slug[:60]}: {motivo_scaduto(scadenza)}")
@@ -242,7 +271,7 @@ def esamina(estrattore, voce, testo: str | None) -> tuple[str, str, str]:
     salvare, motivo = decidi_automatico(estrazione, riga)
 
     if salvare:
-        salva(riga, voce.url, FONTE, voce.codice_fonte)
+        salva(riga, voce.url, voce.fonte.nome, voce.codice_fonte)
         return "salvato", motivo, avvisi
 
     return "scartato", motivo, avvisi

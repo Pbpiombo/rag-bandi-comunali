@@ -24,11 +24,11 @@ BASE = "https://www.regione.toscana.it"
 def con_fonti(conn):
     """Il database di prova con due fonti."""
     conn.executemany(
-        "INSERT INTO fonti (codice, nome, url_elenco, url_base, fonte, verificato_il) "
-        "VALUES (?, ?, ?, ?, 'prova', '2026-11-11')",
+        "INSERT INTO fonti (codice, nome, url_base, schema_link, fonte, verificato_il) "
+        "VALUES (?, ?, ?, '^/-/', 'prova', '2026-11-11')",
         [
-            (TOSCANA, "Toscana", f"{BASE}/bandi-aperti", BASE),
-            (ALTRA, "Altra", "https://altra.it/bandi", "https://altra.it"),
+            (TOSCANA, "Toscana", BASE),
+            (ALTRA, "Altra", "https://altra.it"),
         ],
     )
     return conn
@@ -112,11 +112,54 @@ def test_scansione_con_fonte_sconosciuta_e_rifiutata(con_fonti):
 
 def test_fonti_caricata_prima_di_chi_la_usa():
     ordine = list(TABELLE_DA_CSV)
+    assert ordine.index("fonti") < ordine.index("elenchi")
     assert ordine.index("fonti") < ordine.index("bandi")
     assert ordine.index("fonti") < ordine.index("scansioni")
 
 
-ACQUISIZIONE = ["fonti", "bandi", "beneficiari_bando", "interventi_bando", "scansioni"]
+# --- tipo e regole della fonte ---
+
+
+def _fonte(conn, codice: str, tipo: str, schema_link: str | None) -> None:
+    conn.execute(
+        "INSERT INTO fonti (codice, nome, tipo, url_base, schema_link, fonte, "
+        "verificato_il) VALUES (?, 'nome', ?, 'https://x.it', ?, 'prova', "
+        "'2026-11-12')",
+        (codice, tipo, schema_link),
+    )
+
+
+def test_tipo_sconosciuto_e_rifiutato(conn):
+    with pytest.raises(sqlite3.IntegrityError):
+        _fonte(conn, "x", "rss", "^/-/")
+
+
+def test_fonte_pagine_senza_schema_link_e_rifiutata(conn):
+    with pytest.raises(sqlite3.IntegrityError):
+        _fonte(conn, "x", "pagine", None)
+
+
+def test_fonte_file_senza_schema_link_e_accettata(conn):
+    _fonte(conn, "x", "file", None)
+    assert conn.execute("SELECT tipo FROM fonti").fetchone()[0] == "file"
+
+
+def test_elenco_con_fonte_sconosciuta_e_rifiutato(conn):
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO elenchi (url, codice_fonte, nome, fonte, verificato_il) "
+            "VALUES ('https://x.it/bandi', 'inesistente', 'n', 'prova', '2026-11-12')"
+        )
+
+
+ACQUISIZIONE = [
+    "fonti",
+    "elenchi",
+    "bandi",
+    "beneficiari_bando",
+    "interventi_bando",
+    "scansioni",
+]
 
 
 @pytest.mark.parametrize("tabella", ACQUISIZIONE)

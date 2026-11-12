@@ -203,6 +203,27 @@ restano e devono passare senza modifiche alle attese.
 
 Nessuna chiamata al modello. Circa un giorno, come stimato nella revisione.
 
+### Esito (12/11/2026)
+
+- `fonti.csv` modificato con il diff approvato, `elenchi.csv` creato.
+  Database ricreato dai CSV: nessuna riga scartata, `elenchi` presente.
+- Prima di applicare il CSV: sulla pagina "Bandi aperti" salvata lo
+  stesso giorno, le regole del CSV danno le stesse 160 voci del codice di
+  prima, con gli stessi URL e nello stesso ordine; in meno PEC e
+  whistleblower.
+- `estrai_nuovi --prova`, prima e dopo: gli stessi 12 candidati, nello
+  stesso ordine. "Nuovi rispetto all'archivio" passa da 124 a 122 e "già
+  esaminati con esito definitivo" da 110 a 108: sono PEC e whistleblower,
+  ora esclusi dalle regole invece che dal registro. Differenza prevista,
+  non nei candidati.
+- `grep` di `regione.toscana.it` in `src/estrazione` e
+  `scripts/ingestione`: nessun risultato.
+- Altri file di test con `INSERT INTO fonti` per posizione, non elencati
+  sopra: `test_schema.py`, `test_stato_documenti.py`,
+  `test_uguale_per_comuni.py`. Corretti allo stesso modo.
+- `ruff check`: 11 segnalazioni, le stesse di prima. `pytest`: 598
+  passati, 2 xfail.
+
 ---
 
 ## 2. Tappa 2: elenco "bandi aperti" della montagna
@@ -298,9 +319,12 @@ chiusa il 30/06, le annualità arrivano fino al 2029, e la data della
 prossima non è ancora sulla pagina. Con la tappa 3 rientrerebbe nello
 storico (scaduto da 135 giorni). Proposta: salvarlo dopo la tappa 3
 dall'estrazione conservata, senza una nuova chiamata, con la sua
-`scadenza_nota`. L'estrazione è conservata fuori dal repository,
-nella cartella temporanea di questa sessione. Se nel frattempo
-si perde, serve un'altra chiamata. Nota in roadmap, passo 4.
+`scadenza_nota`. Nota in roadmap, passo 4.
+
+L'estrazione è conservata fuori dal repository, in
+`C:\Users\Matteo_Papucci\Desktop\programmazione\dati-grezzi\estrazioni\`:
+`2026-11-12_premi-imboschimenti.json` (leggibile), `.pkl` (l'oggetto
+`Estrazione`), `.testo.txt` (il testo della pagina su cui validarla).
 
 ### Decisione e motivi
 
@@ -782,17 +806,13 @@ oggi è "Digitale facile".
 Le alternative scartate, per confronto: rischio sismico come elenchi
 0,65–1,28 $; montagna "in attuazione" circa 0,12 $.
 
-## Decisioni ancora aperte
+## Decisioni (12/11/2026, dopo la seconda versione)
 
-1. **Modifica a mano di `fonti.csv`** (tappa 1): una riga, nessun dato
-   nuovo, solo le regole oggi nel codice. Da approvare, come chiede
-   CLAUDE.md.
-2. **Premi imboschimenti:** salvarlo come storico dopo la tappa 3,
-   dall'estrazione conservata (tappa 2, note).
-3. **Controllo degli elenchi dei programmi.** FESR, FSE+ e sviluppo
-   rurale oggi non aggiungono nulla all'elenco generale. Proposta: nel
-   passo 4 della roadmap, un confronto periodico senza modello (le pagine
-   in più rispetto all'elenco generale), invece di aggiungerli come
-   elenchi da scansionare.
-4. **Incentivi Italia, righe "da verificare":** controllo a mano o
-   modello, dopo la misura (tappa 5).
+1. **Modifica a mano di `fonti.csv`** (tappa 1): approvata alle
+   condizioni del piano, con il diff mostrato prima di applicarla.
+2. **Premi imboschimenti:** si salva come storico dopo la tappa 3,
+   dall'estrazione conservata in `dati-grezzi\estrazioni\`.
+3. **Controllo degli elenchi dei programmi:** in roadmap, tra i
+   requisiti dell'aggiornamento automatico (passo 4).
+4. **Incentivi Italia, righe "da verificare":** si decide dopo la
+   misura, alla tappa 5.

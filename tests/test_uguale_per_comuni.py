@@ -127,9 +127,9 @@ def test_interrogazioni_uguali_per_i_comuni(tmp_path, monkeypatch, data_fissa):
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(schema.DDL)
     conn.execute(
-        "INSERT INTO fonti VALUES ('regione-toscana', 'Portale bandi Regione Toscana', "
-        "'https://www.regione.toscana.it/bandi-aperti?delta=200', "
-        "'https://www.regione.toscana.it', 'prova', '2026-11-11')"
+        "INSERT INTO fonti (codice, nome, url_base, schema_link, fonte, "
+        "verificato_il) VALUES ('regione-toscana', 'Portale bandi Regione Toscana', "
+        "'https://www.regione.toscana.it', '^/-/', 'prova', '2026-11-11')"
     )
     conn.execute(
         "INSERT INTO enti (codice_fiscale, nome, tipo, regione, provincia, fonte, "
