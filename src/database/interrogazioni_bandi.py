@@ -128,11 +128,18 @@ def beneficiari_di(conn: sqlite3.Connection, id_bando: str) -> list:
 def euro(valore) -> str:
     """Formatta un importo con il separatore di migliaia italiano.
 
-    Python usa la convenzione americana con la virgola; qui serve il punto.
+    Python usa la convenzione americana con la virgola; qui serve il punto
+    per le migliaia e la virgola per i decimali. I centesimi si scrivono
+    solo se ci sono: un importo arrotondato all'euro e' un valore che nel
+    bando non esiste, e il verificatore lo confermerebbe confrontandolo
+    con questa riga (voce 5 della revisione).
     """
     if not valore:
         return "?"
-    return f"{valore:,.0f}".replace(",", ".")
+    if float(valore).is_integer():
+        return f"{valore:,.0f}".replace(",", ".")
+    americano = f"{valore:,.2f}"
+    return americano.replace(",", "_").replace(".", ",").replace("_", ".")
 
 
 def _anni_fa(oggi: str, anni: int) -> str:
@@ -373,6 +380,17 @@ def formatta_bando(
     if riga["contributo_perc"]:
         pezzi.append(f"contributo fino al {riga['contributo_perc']:.0f}%")
 
+    # Quanto si puo' chiedere: la domanda piu' probabile su un bando
+    if riga["contributo_min"] and riga["contributo_max"]:
+        pezzi.append(
+            f"contributo da {euro(riga['contributo_min'])} "
+            f"a {euro(riga['contributo_max'])} euro"
+        )
+    elif riga["contributo_max"]:
+        pezzi.append(f"contributo fino a {euro(riga['contributo_max'])} euro")
+    elif riga["contributo_min"]:
+        pezzi.append(f"contributo da almeno {euro(riga['contributo_min'])} euro")
+
     if riga["costo_min"] and riga["costo_max"]:
         pezzi.append(
             f"progetto ammissibile da {euro(riga['costo_min'])} "
@@ -395,10 +413,15 @@ def formatta_bando(
 
 
 def fonte_bando(riga) -> str:
-    """La fonte di un bando, con la data in cui è stata verificata."""
+    """La fonte di un bando, con la data in cui i dati sono stati estratti.
+
+    La colonna si chiama verificato_il, ma per i bandi e' la data
+    dell'estrazione automatica, non di una verifica umana (voce 8 della
+    revisione): "estratti il", non "verificati il".
+    """
     return (
         f"{riga['fonte']}, {riga['riferimento_atto']} "
-        f"(dati verificati il {riga['verificato_il']})"
+        f"(dati estratti il {riga['verificato_il']})"
     )
 
 

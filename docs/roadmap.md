@@ -39,6 +39,14 @@ Stato al 11 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   (AS01, viabilità e reti idriche solo per gli enti pubblici) non
   registrati; enti religiosi senza un tipo proprio. Dettagli in
   `docs/piano-fonti.md`.
+- **Correzioni dopo la tappa 4** (12 novembre 2026): il prompt
+  dell'estrattore riporta nella descrizione di un intervento i soggetti
+  che possono chiederlo ("…, solo enti pubblici"); enti religiosi ed
+  ecclesiastici sono terzo_settore con la condizione "ente religioso",
+  mai qualsiasi_soggetto; voce 5 della revisione (contributo minimo e
+  massimo nella riga del bando e nel dettaglio, importi con i centesimi
+  non arrotondati); voce 8 ("dati estratti il" invece di "dati verificati
+  il"). AS01 riestratto con `riclassifica_bandi --id` (0,079 $).
 
 ## In corso
 
@@ -143,7 +151,11 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
    .pdf.p7m da aprire prima della lettura. Se pagina e testo del bando
    non coincidono, vale il testo del bando.
 6. **Privati nell'app**: selettore pubblico/privato e tipo di privato a
-   macrogruppi.
+   macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
+   di beneficiario: oggi la riserva sta solo nel testo della descrizione
+   ("Adeguamento e ampliamento della viabilità rurale, solo enti
+   pubblici", AS01 del GAL), e un terzo settore che chiede quali
+   interventi può fare non riceve un filtro, solo il testo.
 7. **Sezione riservata**: accesso, iscrizioni con mail e ricerche salvate su
    Supabase, tasto "aggiorna adesso" che lancia il processo su GitHub,
    segnalazione manuale di un bando. Parte pubblica limitata a 3 domande per

@@ -89,6 +89,11 @@ TERMINI = {
     "aziende sanitarie": ("altro_ente_pubblico",),
     "enti del ssr": ("altro_ente_pubblico",),
     "enti del terzo settore": ("terzo_settore",),
+    # enti religiosi ed ecclesiastici: terzo settore, con la condizione
+    # ENTE_RELIGIOSO quando il soggetto e' solo l'ente religioso (in
+    # bandi._valida_beneficiari), mai qualsiasi_soggetto
+    "enti religiosi": ("terzo_settore",),
+    "enti ecclesiastici": ("terzo_settore",),
     "persone fisiche": ("cittadini_famiglie",),
     "organismi di ricerca": ("ricerca_formazione",),
     "istituzioni scolastiche": ("ricerca_formazione",),
@@ -150,7 +155,21 @@ FORME = {
     "reti, associazioni di professionisti": (
         rf"{_AGGREGATI} (?:di|tra|fra) (?:imprese ?(?:e|o|/) ?)?professionisti"
     ),
+    # "ente religioso", "enti religiosi civilmente riconosciuti"
+    "enti religiosi": r"ent[ei] religios[oi]",
+    "enti ecclesiastici": r"ent[ei] ecclesiastic[oi]",
 }
+
+# La condizione delle righe di un soggetto che e' solo un ente religioso o
+# ecclesiastico: terzo_settore da solo comprenderebbe tutte le
+# associazioni e cooperative
+ENTE_RELIGIOSO = "ente religioso"
+_RELIGIOSO = r"(?:religios[oi]|ecclesiastic[oi])"
+_SOLO_RELIGIOSO = re.compile(
+    rf"^(?:gli |agli |degli )?ent[ei] {_RELIGIOSO}"
+    rf"(?:(?: ed| e| o|,) {_RELIGIOSO})*"
+    r"(?: civilmente riconosciut[oi])?[ .;,:]*$"
+)
 
 
 def _schema(espressione: str) -> re.Pattern:
@@ -192,6 +211,16 @@ def tipi_da_termini(testo: str, regole: dict = TERMINI) -> set[str]:
         if _SCHEMI[espressione].search(ridotto):
             trovati.update(tipi)
     return trovati
+
+
+def solo_ente_religioso(soggetto: str | None) -> bool:
+    """Il soggetto e' soltanto un ente religioso o ecclesiastico.
+
+    "Enti religiosi", "Enti religiosi ed ecclesiastici civilmente
+    riconosciuti" si'; "Fondazioni ed enti religiosi" no: li' l'ente
+    religioso e' uno dei soggetti, e la condizione non vale per gli altri.
+    """
+    return bool(_SOLO_RELIGIOSO.match(normalizza(soggetto)))
 
 
 def soggetto_generico(soggetto: str | None) -> bool:

@@ -12,12 +12,12 @@ from src.verification.controllo import numeri_atto, riassumi, verifica
 PARCHEGGI = VoceBando(
     "«Bando parcheggi 2026» (Regione Toscana) | scade il 2026-11-30 "
     "| atto: decreto dirigenziale n. 18191 | url: https://esempio.it/parcheggi",
-    "Portale, decreto dirigenziale n. 18191 (dati verificati il 2026-11-11)",
+    "Portale, decreto dirigenziale n. 18191 (dati estratti il 2026-11-11)",
 )
 DATI_ENTI = VoceBando(
     "«Progettualità sui dati» (Regione Toscana) | a sportello fino al 2027-07-18 "
     "| atto: decreto dirigenziale n. 21441 | url: https://esempio.it/dati",
-    "Portale, decreto dirigenziale n. 21441 (dati verificati il 2026-11-11)",
+    "Portale, decreto dirigenziale n. 21441 (dati estratti il 2026-11-11)",
 )
 ELENCO = Risultato(
     "Bandi aperti a cui un Comune può presentare domanda (alla data del "

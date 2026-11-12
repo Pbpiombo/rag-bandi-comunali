@@ -885,3 +885,56 @@ def test_il_dettaglio_di_uno_sportello_chiuso_non_invita_a_verificare(db):
 
     assert "| era a sportello fino al 2026-06-30 |" in testo
     assert VERIFICARE not in testo
+
+
+# --- voce 5: contributo minimo e massimo, importi senza arrotondamento ---
+
+
+@pytest.mark.parametrize(
+    ("valore", "atteso"),
+    [
+        (1200000, "1.200.000"),
+        (1200000.0, "1.200.000"),
+        (84552097.68, "84.552.097,68"),
+        (9188.49, "9.188,49"),
+        (25449.6, "25.449,60"),
+        (None, "?"),
+    ],
+)
+def test_euro_senza_arrotondamento(valore, atteso):
+    assert ib.euro(valore) == atteso
+
+
+@pytest.mark.parametrize(
+    ("campi", "atteso"),
+    [
+        (
+            {"contributo_min": 20000, "contributo_max": 80000},
+            "| contributo da 20.000 a 80.000 euro |",
+        ),
+        ({"contributo_max": 9188.49}, "| contributo fino a 9.188,49 euro |"),
+        ({"contributo_min": 5000}, "| contributo da almeno 5.000 euro |"),
+    ],
+)
+def test_contributo_nella_riga_e_nel_dettaglio(db, campi, atteso):
+    bando(db, "importi", [("comune", None, None)], **campi)
+
+    (riga,) = righe_del_bando(ib.bandi_aperti_per_ente(db, COMUNE).testo, "importi")
+    assert atteso in riga
+    assert atteso in ib.dettaglio_bando(db, "importi").testo
+
+
+def test_senza_contributo_nessuna_voce(db):
+    bando(db, "senza", [("comune", None, None)])
+    assert "contributo da" not in ib.dettaglio_bando(db, "senza").testo
+
+
+# --- voce 8: la data della fonte e' quella dell'estrazione ---
+
+
+def test_la_fonte_dice_estratti_il(db):
+    bando(db, "fonte", [("comune", None, None)], riferimento_atto="Decreto 1 del 2026")
+    [fonte] = ib.dettaglio_bando(db, "fonte").fonti
+
+    assert fonte == "prova, Decreto 1 del 2026 (dati estratti il 2026-11-11)"
+    assert "verificati" not in fonte

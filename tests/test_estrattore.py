@@ -676,3 +676,82 @@ def test_il_prompt_dice_che_sportello_e_data_non_si_contraddicono():
     assert "non sono una contraddizione" in ISTRUZIONI
     assert "modificano scadenze o requisiti" in ISTRUZIONI
     assert "cittadini_famiglie solo se il bando nomina" in ISTRUZIONI
+
+
+# --- enti religiosi: terzo_settore con la condizione, mai qualsiasi_soggetto ---
+
+
+def _ammessi(riga) -> list[tuple[str, str | None]]:
+    return [(b["tipo"], b["condizioni"]) for b in riga["beneficiari_ammessi"]]
+
+
+def test_ente_religioso_come_qualsiasi_soggetto_diventa_terzo_settore():
+    _, riga, problemi, avvisi, _ = _musei_con_soggetto(
+        "Enti religiosi", ["qualsiasi_soggetto"]
+    )
+
+    assert problemi == []
+    [(tipo, condizioni)] = _ammessi(riga)
+    assert tipo == "terzo_settore"
+    # la condizione dei musei resta, preceduta da quella dell'ente religioso
+    assert condizioni.startswith("ente religioso; ")
+    # la sostituzione la fa gia' la regola di corrispondenza "enti religiosi"
+    assert any(
+        "qualsiasi_soggetto sostituito da terzo_settore per le regole" in a
+        for a in avvisi
+    )
+
+
+def test_ente_religioso_classificato_altrimenti_diventa_terzo_settore():
+    dati = risposta("musei")
+    voce = dati["beneficiari_ammessi"][0]
+    voce["soggetto"] = "Enti religiosi ed ecclesiastici civilmente riconosciuti"
+    voce["tipi"] = ["altro_ente_pubblico"]
+    voce["condizioni"] = None
+    voce["frase"] = f"Possono partecipare {voce['soggetto']}."
+
+    _, riga, problemi, _, _ = esegui("musei", dati, aggiunta=f"\n{voce['frase']}\n")
+
+    assert problemi == []
+    assert _ammessi(riga) == [("terzo_settore", "ente religioso")]
+
+
+def test_la_condizione_resta_se_dice_gia_ente_religioso():
+    dati = risposta("musei")
+    voce = dati["beneficiari_ammessi"][0]
+    voce["soggetto"] = "Enti religiosi"
+    voce["tipi"] = ["terzo_settore"]
+    voce["condizioni"] = "ente religioso civilmente riconosciuto"
+    voce["frase"] = "Enti religiosi"
+
+    _, riga, _, avvisi, _ = esegui("musei", dati, aggiunta="\nEnti religiosi\n")
+
+    assert _ammessi(riga) == [
+        ("terzo_settore", "ente religioso civilmente riconosciuto")
+    ]
+    assert avvisi == []
+
+
+def test_ente_religioso_tra_altri_soggetti_non_restringe_gli_altri():
+    _, riga, problemi, _, _ = _musei_con_soggetto(
+        "Fondazioni ed enti religiosi", ["terzo_settore"]
+    )
+
+    assert problemi == []
+    [(tipo, condizioni)] = _ammessi(riga)
+    assert tipo == "terzo_settore"
+    assert "ente religioso" not in (condizioni or "")
+
+
+def test_il_prompt_dice_la_regola_degli_enti_religiosi():
+    assert (
+        "Enti religiosi ed ecclesiastici sono terzo_settore, con la condizione "
+        '"ente religioso": mai qualsiasi_soggetto.'
+    ) in ISTRUZIONI
+
+
+def test_il_prompt_chiede_i_soggetti_riservati_negli_interventi():
+    assert "viabilita' rurale, solo enti pubblici" in ISTRUZIONI
+    assert "La frase comprende allora anche la parte che nomina quei soggetti." in (
+        ISTRUZIONI
+    )

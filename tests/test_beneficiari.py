@@ -13,6 +13,7 @@ from src.estrazione.beneficiari import (
     TIPI_BENEFICIARIO,
     TIPI_PRIVATI,
     TIPI_PUBBLICI,
+    solo_ente_religioso,
     tipi_da_termini,
 )
 from src.estrazione.salva import salva
@@ -345,3 +346,31 @@ IMPRESE = {
 )
 def test_forme_associative_di_imprese_e_professionisti(testo, attesi):
     assert tipi_da_termini(testo) == attesi
+
+
+# --- enti religiosi ed ecclesiastici ---
+
+
+@pytest.mark.parametrize(
+    "testo",
+    ["Enti religiosi", "ente ecclesiastico", "enti religiosi civilmente riconosciuti"],
+)
+def test_enti_religiosi_sono_terzo_settore(testo):
+    assert tipi_da_termini(testo) == {"terzo_settore"}
+
+
+@pytest.mark.parametrize(
+    ("soggetto", "atteso"),
+    [
+        ("Enti religiosi", True),
+        ("Enti religiosi;", True),
+        ("enti religiosi ed ecclesiastici civilmente riconosciuti", True),
+        ("Ente ecclesiastico", True),
+        ("Fondazioni ed enti religiosi", False),
+        ("Enti religiosi e associazioni", False),
+        ("Enti pubblici", False),
+        (None, False),
+    ],
+)
+def test_solo_ente_religioso(soggetto, atteso):
+    assert solo_ente_religioso(soggetto) is atteso

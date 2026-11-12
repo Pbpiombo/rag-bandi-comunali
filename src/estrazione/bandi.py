@@ -11,11 +11,13 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from src.config import MODEL_NAME
 from src.estrazione.beneficiari import (
+    ENTE_RELIGIOSO,
     GENERICI,
     PER_REQUISITO,
     TERMINI,
     TIPI_BENEFICIARIO,
     frase_nel_testo,
+    solo_ente_religioso,
     tipi_da_termini,
 )
 from src.estrazione.scadenza import nello_storico
@@ -218,6 +220,8 @@ elenca accanto a imprese e professionisti senza ripetere chi le compone. \
 Reti e consorzi di sole imprese non comprendono professionista_autonomo.
 Quando due tipi si sovrappongono vale il piu' specifico: una scuola statale \
 e' ricerca_formazione, una cooperativa sociale e' terzo_settore.
+Enti religiosi ed ecclesiastici sono terzo_settore, con la condizione \
+"{ENTE_RELIGIOSO}": mai {PER_REQUISITO}.
 Usa {PER_REQUISITO} solo se il bando definisce chi partecipa con un \
 requisito e non nomina nessun tipo di soggetto, neanche generico (privati, \
 soggetti pubblici, datori di lavoro): es. "i musei accreditati", "i \
@@ -235,6 +239,10 @@ INTERVENTI E SPESE AMMISSIBILI
 "interventi": un elenco, un elemento per ogni intervento o spesa ammessa:
   {{"genere": "intervento" oppure "spesa", "descrizione": "in breve", \
 "frase": "la frase del bando, copiata esattamente"}}
+Se la pagina indica, per un intervento, i soggetti che possono chiederlo, \
+la descrizione li riporta alla fine, dopo "solo": es. "Adeguamento e \
+ampliamento della viabilita' rurale, solo enti pubblici". La frase \
+comprende allora anche la parte che nomina quei soggetti.
 Elenco vuoto se il testo non li descrive.
 
 CUMULABILITA'
@@ -507,7 +515,9 @@ def _valida_beneficiari(
     soggetto si scarta con un avviso); le regole di corrispondenza
     aggiungono i tipi mancanti, con un avviso, e se trovano dei tipi per un
     soggetto classificato qualsiasi_soggetto lo sostituiscono con quelli,
-    con le stesse condizioni. Si produce una riga per
+    con le stesse condizioni. Un soggetto che e' solo un ente religioso o
+    ecclesiastico diventa terzo_settore, con la condizione ENTE_RELIGIOSO.
+    Si produce una riga per
     tipo; due soggetti con lo stesso tipo e la stessa frase si fondono.
     """
     righe: dict[tuple[str, str], dict] = {}
@@ -562,6 +572,21 @@ def _valida_beneficiari(
                 "per le regole di corrispondenza"
             )
             tipi = [*tipi, *aggiunti]
+
+        if solo_ente_religioso(soggetto or frase):
+            # regola specifica: un ente religioso o ecclesiastico e' terzo
+            # settore, con la condizione che lo restringe; mai
+            # qualsiasi_soggetto, mai un altro tipo
+            if tipi != ["terzo_settore"]:
+                avvisi.append(
+                    f"beneficiario '{nome}': {', '.join(tipi) or 'nessun tipo'} "
+                    f"sostituito da terzo_settore ({ENTE_RELIGIOSO})"
+                )
+            tipi = ["terzo_settore"]
+            if not condizioni:
+                condizioni = ENTE_RELIGIOSO
+            elif not any(p in condizioni.lower() for p in ("religios", "ecclesiastic")):
+                condizioni = f"{ENTE_RELIGIOSO}; {condizioni}"
 
         if not tipi:
             avvisi.append(f"beneficiario '{nome}': nessun tipo indicato, scartato")

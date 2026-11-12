@@ -40,6 +40,15 @@ scaduti), 22 voci su 35, con due differenze approvate:
   test): la riga comincia con "stato: scaduto il <data>, non più
   aperto |", il resto è invariato.
 
+Aggiornato di nuovo il 12 novembre 2026 (voci 5 e 8 della revisione),
+32 voci su 35, con due differenze approvate:
+- l'etichetta delle fonti dice "(dati estratti il ...)" invece di "(dati
+  verificati il ...)": la data e' quella dell'estrazione automatica;
+- nella riga dei bandi con contributo minimo o massimo compare
+  "contributo da X a Y euro" (o "fino a Y", "da almeno X") dopo la
+  percentuale (7 bandi), e gli importi con i centesimi non si
+  arrotondano piu' (dotazione di GOL: 84.552.097,68).
+
 Il test migra quei bandi con lo script di migrazione, li carica nello
 schema attuale ed esegue le stesse interrogazioni: il testo, le fonti e
 l'esito devono coincidere con il riferimento.
