@@ -220,6 +220,21 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   Rimedi da valutare allora: `hnsw.iterative_scan` di pgvector 0.8,
   `ef_search` più alto per le ricerche ristrette, o ricerca esatta quando
   c'è il filtro.
+- Dalla ricognizione delle fonti del 12 novembre 2026
+  (`docs/ricognizione-fonti.md`):
+  - nuova fonte candidata: le sezioni "Avvisi" dei siti istituzionali dei
+    tre comuni, che pubblicano bandi per le imprese (es. contributi dal
+    Fondo per i comuni delle aree interne). Prima di tutto verificare il
+    robots.txt di ciascun dominio;
+  - le linee di bando regionali per le imprese emerse (impianti di
+    risalita, custodi della montagna, bandi neve, voucher garanzia), da
+    cercare tra le pagine tematiche della Regione, come la
+    microzonazione;
+  - verificare se la pagina dei bandi aperti già acquisita copre i bandi
+    del PR FESR e del PR FSE+ Toscana 2021-27;
+  - nella tabella `enti`, valutare la partita IVA come secondo
+    identificativo degli enti (nei dati PNRR compaiono con l'una o con
+    l'altra).
 
 ## Decisioni prese
 
