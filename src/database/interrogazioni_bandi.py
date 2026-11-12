@@ -40,6 +40,7 @@ NOMI_TIPI = {
     "impresa_turistica": "imprese turistiche",
     "impresa_artigiana_commerciale": "imprese artigiane e commerciali",
     "altra_impresa": "altre imprese",
+    "professionista_autonomo": "professionisti e autonomi",
     "terzo_settore": "terzo settore",
     "cittadini_famiglie": "cittadini e famiglie",
     "ricerca_formazione": "ricerca e formazione",
@@ -131,21 +132,25 @@ def _anni_fa(oggi: str, anni: int) -> str:
 
 
 def stato_sportello(riga, oggi: str) -> str:
-    """Lo stato di un bando a sportello, con l'invito a verificare le risorse."""
+    """Lo stato di un bando a sportello, con l'invito a verificare le risorse.
+
+    L'avviso "probabilmente esaurito" vale solo per gli sportelli senza data
+    di chiusura: con una scadenza futura lo sportello e' aperto fino a quella
+    data, salvo esaurimento delle risorse, che l'invito a verificare dice gia'.
+    """
     pubblicato = riga["pubblicato_il"]
     if riga["scadenza"]:
-        testo = (
+        return (
             f"a sportello fino al {riga['scadenza']}, "
             "verificare la disponibilità delle risorse"
         )
-    else:
-        quando = (
-            f"pubblicato il {pubblicato}"
-            if pubblicato
-            else "data di pubblicazione non indicata"
-        )
-        testo = f"a sportello, verificare la disponibilità delle risorse ({quando})"
 
+    quando = (
+        f"pubblicato il {pubblicato}"
+        if pubblicato
+        else "data di pubblicazione non indicata"
+    )
+    testo = f"a sportello, verificare la disponibilità delle risorse ({quando})"
     if pubblicato and pubblicato < _anni_fa(oggi, SOGLIA_SPORTELLO_ANNI):
         testo += (
             f" | pubblicato da oltre {SOGLIA_SPORTELLO_ANNI} anni: "

@@ -21,13 +21,19 @@ TIPI_BENEFICIARIO = {
     "impresa_turistica": "imprese turistiche e ricettive, agriturismi",
     "impresa_artigiana_commerciale": "imprese artigiane e commerciali",
     "altra_impresa": "altre imprese",
+    # professionisti e lavoratori autonomi
+    "professionista_autonomo": (
+        "liberi professionisti, lavoratori autonomi, titolari di impresa individuale"
+    ),
     # terzo settore e associazioni
     "terzo_settore": (
         "enti del terzo settore, associazioni, fondazioni, cooperative "
         "sociali, associazioni sportive dilettantistiche"
     ),
     # cittadini e famiglie
-    "cittadini_famiglie": "persone fisiche, famiglie, studenti, lavoratori",
+    "cittadini_famiglie": (
+        "persone fisiche, famiglie, studenti, lavoratori dipendenti"
+    ),
     # ricerca e formazione
     "ricerca_formazione": (
         "universita', enti di ricerca, scuole, agenzie formative accreditate"
@@ -45,12 +51,28 @@ PER_REQUISITO = "qualsiasi_soggetto"
 # Da dove viene una riga di beneficiari_bando
 ORIGINI = ("estrazione", "ammette_comuni")
 
+# I tipi privati e tutti i tipi con un soggetto indicato, per le regole
+TIPI_PRIVATI = (
+    "impresa_agricola",
+    "impresa_turistica",
+    "impresa_artigiana_commerciale",
+    "altra_impresa",
+    "professionista_autonomo",
+    "terzo_settore",
+    "cittadini_famiglie",
+)
+TIPI_PUBBLICI = ("comune", "unione_comuni", "altro_ente_pubblico")
+TUTTI_CON_SOGGETTO = tuple(t for t in TIPI_BENEFICIARIO if t != PER_REQUISITO)
+
 # Regole di corrispondenza: un'espressione del bando -> i tipi che comprende.
 # Si applicano nel codice, dopo il modello: se il soggetto o la frase
 # contengono l'espressione, i tipi mancanti vengono aggiunti con un avviso.
 # Solo espressioni ombrello senza ambiguita': "imprese" o "comuni" da soli
 # non ci sono, perche' compaiono anche dentro "imprese agricole" o
 # "unioni di comuni".
+# Le chiavi sono le espressioni leggibili, mostrate nel prompt; il confronto
+# usa i confini di parola, e per le espressioni in FORME un'espressione
+# regolare che copre anche le altre forme della pagina.
 TERMINI = {
     # art. 2 del TUEL: comuni, province, citta' metropolitane, unioni...
     "enti locali": ("comune", "unione_comuni", "altro_ente_pubblico"),
@@ -68,7 +90,52 @@ TERMINI = {
     "organismi di ricerca": ("ricerca_formazione",),
     "istituzioni scolastiche": ("ricerca_formazione",),
     "agenzie formative": ("ricerca_formazione",),
+    "organismi formativi": ("ricerca_formazione",),
+    "enti di formazione": ("ricerca_formazione",),
+    "liberi professionisti": ("professionista_autonomo",),
+    "lavoratori autonomi": ("professionista_autonomo",),
+    "titolari di impresa individuale": ("professionista_autonomo",),
 }
+
+# Soggetti generici: non sono un requisito, nominano dei tipi. Si applicano
+# solo per sostituire qualsiasi_soggetto, mai per aggiungere tipi a un
+# soggetto gia' classificato: il bando li usa spesso con una qualificazione
+# che restringe ("privati senza scopo di lucro", "datori di lavoro privati
+# ad esclusione delle persone fisiche"), e le regole non la leggono.
+GENERICI = {
+    "privati": TIPI_PRIVATI,
+    "soggetti privati": TIPI_PRIVATI,
+    "datori di lavoro": TIPI_PRIVATI,
+    "soggetti pubblici": TIPI_PUBBLICI,
+    "pubblici o privati": TUTTI_CON_SOGGETTO,
+    "pubblici e/o privati": TUTTI_CON_SOGGETTO,
+    "pubblici e privati": TUTTI_CON_SOGGETTO,
+    "pubblico o privato": TUTTI_CON_SOGGETTO,
+}
+
+# Le forme femminili, singolari e con la barra delle espressioni di TERMINI
+# che le pagine usano: "libere/i professioniste/i",
+# "lavoratrici/lavoratori autonome/i", "titolari d'impresa individuale"
+_VOCALE = r"[aeio](?:/[aeio])?"
+_LAVORATORE = r"lavorat(?:ori|rici|ore|rice)"
+FORME = {
+    "liberi professionisti": rf"liber{_VOCALE} professionist{_VOCALE}",
+    "lavoratori autonomi": (
+        rf"{_LAVORATORE}(?:\s*(?:/|e|o|e/o)\s*{_LAVORATORE})? autonom{_VOCALE}"
+    ),
+    "titolari di impresa individuale": (
+        r"titolar[ei](?:/[ei])? (?:di |d'|dell')impres[ae] individual[ei]"
+    ),
+}
+
+
+def _schema(espressione: str) -> re.Pattern:
+    """L'espressione regolare di una regola, con i confini di parola."""
+    corpo = FORME.get(espressione, re.escape(espressione))
+    return re.compile(rf"\b(?:{corpo})\b")
+
+
+_SCHEMI = {espressione: _schema(espressione) for espressione in TERMINI | GENERICI}
 
 
 def normalizza(testo: str) -> str:
@@ -90,11 +157,14 @@ def frase_nel_testo(frase: str, testo: str) -> bool:
     return bool(cercata) and cercata in normalizza(testo)
 
 
-def tipi_da_termini(testo: str) -> set[str]:
-    """I tipi che le regole di corrispondenza ricavano da un testo."""
+def tipi_da_termini(testo: str, regole: dict = TERMINI) -> set[str]:
+    """I tipi che le regole di corrispondenza ricavano da un testo.
+
+    regole: TERMINI (le regole specifiche) o GENERICI (i soggetti generici).
+    """
     trovati = set()
     ridotto = normalizza(testo)
-    for espressione, tipi in TERMINI.items():
-        if espressione in ridotto:
+    for espressione, tipi in regole.items():
+        if _SCHEMI[espressione].search(ridotto):
             trovati.update(tipi)
     return trovati

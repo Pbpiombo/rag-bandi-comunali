@@ -293,6 +293,14 @@ def test_sportello_vecchio_probabilmente_esaurito_ma_mostrato():
     assert "esaurito" not in ib.stato_sportello(riga, "2026-11-11")
 
 
+def test_sportello_vecchio_con_scadenza_senza_avviso():
+    # con una data di chiusura lo sportello e' aperto fino a quella data
+    riga = {"scadenza": "2026-12-31", "pubblicato_il": "2024-03-13"}
+    assert ib.stato_sportello(riga, "2026-11-11") == (
+        f"a sportello fino al 2026-12-31, {VERIFICARE}"
+    )
+
+
 # --- per tema, per beneficiario, dettaglio ---
 
 

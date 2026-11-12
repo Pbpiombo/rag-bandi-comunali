@@ -22,7 +22,13 @@ from src.estrazione.bandi import (
     interpreta,
     valida,
 )
-from src.estrazione.beneficiari import TERMINI, TIPI_BENEFICIARIO, frase_nel_testo
+from src.estrazione.beneficiari import (
+    GENERICI,
+    TERMINI,
+    TIPI_BENEFICIARIO,
+    TIPI_PRIVATI,
+    frase_nel_testo,
+)
 from src.estrazione.salva import salva
 
 PAGINE = Path(__file__).parent / "pagine"
@@ -198,6 +204,54 @@ def test_qualsiasi_soggetto_senza_condizioni_si_scarta():
     assert "beneficiari_ammessi: nessun beneficiario con frase verificata" in problemi
 
 
+def _musei_con_soggetto(soggetto: str, tipi: list[str] | None = None):
+    """La risposta dei musei con un soggetto diverso, accodato alla pagina."""
+    dati = risposta("musei")
+    voce = dati["beneficiari_ammessi"][0]
+    voce["soggetto"] = soggetto
+    if tipi:
+        voce["tipi"] = tipi
+    voce["frase"] = f"Possono partecipare {soggetto}."
+    return esegui("musei", dati, aggiunta=f"\n{voce['frase']}\n")
+
+
+def test_qualsiasi_soggetto_con_soggetti_privati_diventa_i_tipi_privati():
+    _, riga, problemi, avvisi, _ = _musei_con_soggetto("soggetti ospitanti privati")
+
+    assert problemi == []
+    ammessi = riga["beneficiari_ammessi"]
+    assert sorted(b["tipo"] for b in ammessi) == sorted(TIPI_PRIVATI)
+    # le condizioni passano alle righe nuove
+    assert all("museo" in b["condizioni"] for b in ammessi)
+    # e il soggetto originale, con la sua qualificazione
+    assert {b["soggetto"] for b in ammessi} == {"soggetti ospitanti privati"}
+    atteso = (
+        "beneficiario 'soggetti ospitanti privati': qualsiasi_soggetto sostituito "
+        f"da {', '.join(sorted(TIPI_PRIVATI))} per le regole di corrispondenza"
+    )
+    assert avvisi == [atteso]
+
+
+def test_qualsiasi_soggetto_pubblici_o_privati_compare_ai_comuni():
+    _, riga, problemi, _, _ = _musei_con_soggetto("soggetti pubblici o privati")
+
+    assert problemi == []
+    tipi = {b["tipo"] for b in riga["beneficiari_ammessi"]}
+    assert {"comune", "unione_comuni"} <= tipi
+    assert "qualsiasi_soggetto" not in tipi
+
+
+def test_soggetto_generico_non_aggiunge_tipi_a_un_soggetto_classificato():
+    """ "privati senza scopo di lucro" classificato terzo_settore resta tale."""
+    _, riga, problemi, avvisi, _ = _musei_con_soggetto(
+        "soggetti privati senza scopo di lucro", ["terzo_settore"]
+    )
+
+    assert problemi == []
+    assert [b["tipo"] for b in riga["beneficiari_ammessi"]] == ["terzo_settore"]
+    assert avvisi == []
+
+
 def test_natura_sconosciuta_e_un_problema():
     dati = risposta("tpl")
     dati["natura"] = {"valore": "forse", "motivo": "", "prova": ""}
@@ -348,7 +402,7 @@ def test_frase_nel_testo_ignora_spazi_maiuscole_apostrofi_e_punto_finale():
 def test_il_prompt_contiene_tutti_i_tipi_e_le_regole():
     for codice in TIPI_BENEFICIARIO:
         assert f"- {codice}:" in ISTRUZIONI
-    for espressione in TERMINI:
+    for espressione in TERMINI | GENERICI:
         assert f'"{espressione}"' in ISTRUZIONI
 
 

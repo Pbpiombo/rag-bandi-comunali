@@ -11,6 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from src.config import MODEL_NAME
 from src.estrazione.beneficiari import (
+    GENERICI,
     PER_REQUISITO,
     TERMINI,
     TIPI_BENEFICIARIO,
@@ -118,10 +119,10 @@ def _elenco_tipi() -> str:
     return "\n".join(f"- {codice}: {d}" for codice, d in TIPI_BENEFICIARIO.items())
 
 
-def _elenco_termini() -> str:
+def _elenco_termini(regole: dict = TERMINI) -> str:
     return "\n".join(
         f'- "{espressione}" comprende: {", ".join(tipi)}'
-        for espressione, tipi in TERMINI.items()
+        for espressione, tipi in regole.items()
     )
 
 
@@ -191,12 +192,17 @@ Regole di corrispondenza:
 {_elenco_termini()}
 - "imprese" o "PMI" senza un settore comprende tutti e quattro i tipi di \
 impresa; con un settore, solo quello
+Soggetti generici, da usare solo quando il bando non dice di piu' sul \
+soggetto: una qualificazione lo restringe (es. "privati senza scopo di \
+lucro" sono terzo_settore, non imprese):
+{_elenco_termini(GENERICI)}
 Quando due tipi si sovrappongono vale il piu' specifico: una scuola statale \
 e' ricerca_formazione, una cooperativa sociale e' terzo_settore.
-Se il bando definisce chi partecipa con un requisito e non con un tipo di \
-soggetto (es. "i musei accreditati", "i titolari di"), usa \
-{PER_REQUISITO} e scrivi il requisito nelle condizioni. Non dedurre un \
-tipo che il bando non nomina.
+Usa {PER_REQUISITO} solo se il bando definisce chi partecipa con un \
+requisito e non nomina nessun tipo di soggetto, neanche generico (privati, \
+soggetti pubblici, datori di lavoro): es. "i musei accreditati", "i \
+titolari di". Scrivi il requisito nelle condizioni. Non dedurre un tipo \
+che il bando non nomina.
 Condizioni: tutto cio' che restringe l'ammissione di quel soggetto, \
 scritto come requisito di chi presenta domanda, in modo che completi la \
 frase "ammesso se ...". Non descrivere l'oggetto del bando, ma cosa deve \
@@ -233,8 +239,9 @@ un beneficiario ammesso.
 
 4. IMPORTI. Sono quattro grandezze diverse e non vanno confuse: \
 la dotazione complessiva del bando, il costo del singolo progetto, \
-il contributo concedibile, la percentuale. Se non distingui con certezza, \
-usa null e confidenza "bassa".
+il contributo concedibile, la percentuale. contributo_perc e' la quota del \
+costo coperta dal contributo, non la quota garantita di un prestito o di \
+una garanzia. Se non distingui con certezza, usa null e confidenza "bassa".
 
 5. Se un dato non e' nel testo, usa null. NON dedurre, NON completare con \
 conoscenze tue."""
@@ -459,7 +466,9 @@ def _valida_beneficiari(
     Per ogni soggetto: i tipi devono essere della lista chiusa (altrimenti
     e' un problema); la frase deve comparire nella pagina (altrimenti il
     soggetto si scarta con un avviso); le regole di corrispondenza
-    aggiungono i tipi mancanti, con un avviso. Si produce una riga per
+    aggiungono i tipi mancanti, con un avviso, e se trovano dei tipi per un
+    soggetto classificato qualsiasi_soggetto lo sostituiscono con quelli,
+    con le stesse condizioni. Si produce una riga per
     tipo; due soggetti con lo stesso tipo e la stessa frase si fondono.
     """
     righe: dict[tuple[str, str], dict] = {}
@@ -492,7 +501,22 @@ def _valida_beneficiari(
             )
             continue
 
-        aggiunti = sorted(tipi_da_termini(soggetto or frase) - set(tipi))
+        dalle_regole = tipi_da_termini(soggetto or frase)
+        generici = tipi_da_termini(soggetto or frase, GENERICI)
+        if PER_REQUISITO in tipi and (dalle_regole or generici):
+            # il bando nomina dei tipi, anche generici: non e' un requisito
+            # senza soggetto. Le condizioni e il soggetto passano alle righe
+            # nuove.
+            trovati = dalle_regole | generici
+            tipi = [t for t in tipi if t != PER_REQUISITO]
+            avvisi.append(
+                f"beneficiario '{nome}': {PER_REQUISITO} sostituito da "
+                f"{', '.join(sorted(trovati))} per le regole di corrispondenza"
+            )
+            tipi = [*tipi, *sorted(trovati - set(tipi))]
+
+        # i soggetti generici non aggiungono tipi a un soggetto classificato
+        aggiunti = sorted(dalle_regole - set(tipi))
         if aggiunti:
             avvisi.append(
                 f"beneficiario '{nome}': aggiunti {', '.join(aggiunti)} "

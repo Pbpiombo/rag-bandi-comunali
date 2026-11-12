@@ -7,7 +7,14 @@ import pytest
 
 from scripts.manutenzione.migra_beneficiari import MigrazioneFermata, migra
 from src.database.interrogazioni_bandi import filtro_ente
-from src.estrazione.beneficiari import TIPI_BENEFICIARIO
+from src.estrazione.beneficiari import (
+    GENERICI,
+    PER_REQUISITO,
+    TIPI_BENEFICIARIO,
+    TIPI_PRIVATI,
+    TIPI_PUBBLICI,
+    tipi_da_termini,
+)
 from src.estrazione.salva import salva
 
 BASE = "https://www.regione.toscana.it"
@@ -99,6 +106,61 @@ def test_chi_e_ammesso_si_calcola_dai_beneficiari(con_bando):
     assert (ammette("comune"), ammette("unione_comuni")) == (0, 1)
     _beneficiario(con_bando, "comune")
     assert ammette("comune") == 1
+
+
+# --- regole di corrispondenza ---
+
+
+@pytest.mark.parametrize(
+    "testo",
+    [
+        "Liberi professionisti iscritti agli ordini",
+        "libere/i professioniste/i",
+        "una libera professionista",
+        "lavoratori autonomi",
+        "lavoratrici/lavoratori autonome/i",
+        "lavoratrici e lavoratori autonomi",
+        "titolari di impresa individuale",
+        "titolari d’impresa individuale",
+        "il titolare di impresa individuale",
+    ],
+)
+def test_professionisti_e_autonomi_in_tutte_le_forme(testo):
+    assert tipi_da_termini(testo) == {"professionista_autonomo"}
+
+
+@pytest.mark.parametrize(
+    "testo",
+    ["lavoratori dipendenti", "professionisti della salute", "impresa individuale"],
+)
+def test_professionisti_e_autonomi_non_per_parole_sciolte(testo):
+    assert "professionista_autonomo" not in tipi_da_termini(testo)
+
+
+def test_le_regole_usano_i_confini_di_parola():
+    # "privati" dentro un'altra parola non e' il soggetto generico
+    assert tipi_da_termini("privatizzati", GENERICI) == set()
+    assert tipi_da_termini("soggetti ospitanti privati", GENERICI) == set(TIPI_PRIVATI)
+
+
+def test_soggetti_generici_solo_tra_i_generici():
+    # le regole specifiche non comprendono i soggetti generici
+    assert tipi_da_termini("soggetti ospitanti privati") == set()
+    assert tipi_da_termini("datori di lavoro", GENERICI) == set(TIPI_PRIVATI)
+    assert tipi_da_termini("soggetti pubblici", GENERICI) == set(TIPI_PUBBLICI)
+    tutti = set(TIPI_BENEFICIARIO) - {PER_REQUISITO}
+    for testo in (
+        "Altri soggetti pubblici e/o privati",
+        "soggetti pubblici o privati",
+        "enti pubblici e privati",
+        "un soggetto pubblico o privato",
+    ):
+        assert tipi_da_termini(testo, GENERICI) == tutti, testo
+
+
+def test_organismi_formativi_e_enti_di_formazione():
+    assert tipi_da_termini("organismi formativi accreditati") == {"ricerca_formazione"}
+    assert tipi_da_termini("enti di formazione") == {"ricerca_formazione"}
 
 
 # --- migrazione ---

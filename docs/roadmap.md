@@ -128,6 +128,13 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 - Atto senza data in parcheggi-2026: `riferimento_atto` non riporta la
   data del decreto 18191 del 7/8/2026 (verifica a mano dell'11 novembre
   2026).
+- `data/db/comune.sqlite` sotto git: compare modificato a ogni ricreazione
+  anche con i dati identici. Prima di toglierlo dal repository, l'app deve
+  ricrearlo dai CSV all'avvio, perché la demo su Streamlit Cloud lo legge
+  dal repository.
+- Test di equivalenza: un bando di prova per i privati
+  (`professionista_autonomo`, `qualsiasi_soggetto` sostituito dalle regole),
+  prima del selettore pubblico/privato.
 
 ## Decisioni prese
 
