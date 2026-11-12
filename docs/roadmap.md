@@ -177,6 +177,14 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 - Test di equivalenza: un bando di prova per i privati
   (`professionista_autonomo`, `qualsiasi_soggetto` sostituito dalle regole),
   prima del selettore pubblico/privato.
+- Perché Chroma ordina meglio di Postgres sulle stesse domande, dato che
+  la demo usa Postgres. In `scripts/diagnostica/prova_recupero.py` del
+  12 novembre 2026 il costo giornaliero (322,00 €) e i costi indiretti
+  sono 1ª su Chroma e 4ª su Postgres. La parte densa dà le stesse
+  posizioni sui due motori, quindi la differenza sta nella parte
+  lessicale: BM25 in memoria contro `ts_rank_cd` con la domanda in OR e
+  le radici delle parole in italiano. Una domanda va in senso opposto (i
+  1.904 comuni: 2ª su Postgres, 4ª su Chroma).
 
 ## Decisioni prese
 

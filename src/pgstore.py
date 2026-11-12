@@ -58,8 +58,22 @@ class RecuperoPostgres:
     def __init__(self) -> None:
         self.emb = crea_embeddings()
 
-    def _densa(self, domanda: str, quanti: int) -> list[Document]:
-        """Cerca per similarità semantica, confrontando gli embedding."""
+    def titoli(self) -> dict[str, str]:
+        """Titolo di ogni documento in archivio, per nome del file sorgente."""
+        with psycopg.connect(os.getenv("DATABASE_URL")) as conn:
+            righe = conn.execute(
+                """SELECT DISTINCT metadata->>'fonte', metadata->>'titolo'
+                FROM chunk"""
+            ).fetchall()
+        return {fonte: titolo or "" for fonte, titolo in righe if fonte}
+
+    def _densa(
+        self, domanda: str, quanti: int, fonte: str | None = None
+    ) -> list[Document]:
+        """Cerca per similarità semantica, confrontando gli embedding.
+
+        Con `fonte`, solo tra i chunk di quel documento.
+        """
         vettore_domanda = np.array(self.emb.embed_query(domanda))
 
         with psycopg.connect(os.getenv("DATABASE_URL")) as conn:
@@ -71,9 +85,10 @@ class RecuperoPostgres:
                         metadata, 
                         embedding <=> %s AS distanza
                 FROM chunk
+                WHERE %s::text IS NULL OR metadata->>'fonte' = %s
                 ORDER BY distanza
                 LIMIT %s""",
-                (vettore_domanda, quanti),
+                (vettore_domanda, fonte, fonte, quanti),
             )
 
             return [
@@ -81,8 +96,13 @@ class RecuperoPostgres:
                 for id, testo, metadata, distanza in cursor.fetchall()
             ]
 
-    def _lessicale(self, domanda: str, quanti: int) -> list[Document]:
-        """Cerca per parole, con il full-text italiano di Postgres."""
+    def _lessicale(
+        self, domanda: str, quanti: int, fonte: str | None = None
+    ) -> list[Document]:
+        """Cerca per parole, con il full-text italiano di Postgres.
+
+        Con `fonte`, solo tra i chunk di quel documento.
+        """
 
         query = a_or_query(domanda)
 
@@ -96,9 +116,10 @@ class RecuperoPostgres:
                         ts_rank_cd(to_tsvector('italian', testo), to_tsquery('italian', %s)) AS rank
                         FROM chunk
                         WHERE to_tsvector('italian', testo) @@ to_tsquery('italian', %s)
+                          AND (%s::text IS NULL OR metadata->>'fonte' = %s)
                         ORDER BY rank DESC
                         LIMIT %s""",
-                (query, query, quanti),
+                (query, query, fonte, fonte, quanti),
             )
 
             return [
@@ -107,11 +128,18 @@ class RecuperoPostgres:
             ]
 
     def cerca(
-        self, domanda: str, k: int = 8, ampiezza: int = 20
+        self,
+        domanda: str,
+        k: int = 8,
+        ampiezza: int = 20,
+        fonte: str | None = None,
     ) -> list[tuple[Document, float, list[str]]]:
-        """Restituisce i k chunk migliori con punteggio RRF e provenienza."""
-        densa = self._densa(domanda, quanti=ampiezza)
-        lessicale = self._lessicale(domanda, quanti=ampiezza)
+        """Restituisce i k chunk migliori con punteggio RRF e provenienza.
+
+        Con `fonte`, la ricerca si limita ai chunk di quel documento.
+        """
+        densa = self._densa(domanda, quanti=ampiezza, fonte=fonte)
+        lessicale = self._lessicale(domanda, quanti=ampiezza, fonte=fonte)
 
         punti: dict = {}
 

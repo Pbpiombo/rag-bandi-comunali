@@ -16,6 +16,7 @@ from src.chains.router import (
 from src.config import MODEL_NAME
 from src.database.enti import profilo_ente
 from src.database.schema import connetti
+from src.recupero_documenti import avvolgi
 from src.retrieval import RecuperoIbrido
 
 K_DEFAULT = 10
@@ -138,6 +139,8 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
 
     if recupero is None:
         recupero = RecuperoIbrido()
+    # Se la domanda nomina un documento, si cerca anche dentro quel documento.
+    recupero = avvolgi(recupero)
     router = costruisci_router()
 
     modello = ChatAnthropic(

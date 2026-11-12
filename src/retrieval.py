@@ -52,11 +52,29 @@ class RecuperoIbrido:
 
         print(f"  Indice lessicale costruito su {len(self.documenti)} chunk")
 
-    def _lessicale(self, domanda: str, quanti: int) -> list[Document]:
+    def titoli(self) -> dict[str, str]:
+        """Titolo di ogni documento in archivio, per nome del file sorgente."""
+        return {
+            d.metadata["fonte"]: d.metadata.get("titolo") or ""
+            for d in self.documenti
+            if d.metadata.get("fonte")
+        }
+
+    def _lessicale(
+        self, domanda: str, quanti: int, fonte: str | None = None
+    ) -> list[Document]:
+        """BM25 su tutto l'archivio; con `fonte`, solo i chunk di quel documento.
+
+        I punteggi si calcolano sempre su tutto l'indice, così il peso per
+        rarità delle parole resta quello dell'archivio.
+        """
         punteggi = self.bm25.get_scores(tokenizza(domanda))
-        migliori = sorted(
-            range(len(punteggi)), key=lambda i: punteggi[i], reverse=True
-        )[:quanti]
+        indici = [
+            i
+            for i in range(len(punteggi))
+            if fonte is None or self.documenti[i].metadata.get("fonte") == fonte
+        ]
+        migliori = sorted(indici, key=lambda i: punteggi[i], reverse=True)[:quanti]
         return [self.documenti[i] for i in migliori if punteggi[i] > 0]
 
     def cerca(
@@ -64,10 +82,15 @@ class RecuperoIbrido:
         domanda: str,
         k: int = 8,
         ampiezza: int = 20,
+        fonte: str | None = None,
     ) -> list[tuple[Document, float, list[str]]]:
-        """Restituisce i k chunk migliori con punteggio RRF e provenienza."""
-        densa = self.store.similarity_search(domanda, k=ampiezza)
-        lessicale = self._lessicale(domanda, ampiezza)
+        """Restituisce i k chunk migliori con punteggio RRF e provenienza.
+
+        Con `fonte`, la ricerca si limita ai chunk di quel documento.
+        """
+        filtro = {"fonte": fonte} if fonte else None
+        densa = self.store.similarity_search(domanda, k=ampiezza, filter=filtro)
+        lessicale = self._lessicale(domanda, ampiezza, fonte=fonte)
 
         punti: dict = {}
 
