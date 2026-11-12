@@ -4,12 +4,13 @@ import sys
 
 from src.chains.rag import costruisci_catena
 from src.config import ENTE_PREDEFINITO
-from src.verification.controllo import riassumi, verifica
+from src.verification.controllo import giudizio, riassumi, verifica
 
 SIMBOLI = {
     "verificato": "OK ",
     "non_trovato": "!! ",
     "non_citato": "?  ",
+    "citazione_generica": "~  ",
 }
 
 DOMANDE = [
@@ -64,11 +65,17 @@ def mostra(esito_catena: dict) -> None:
             print(f"       -> {e.dettaglio}")
 
     conteggio = riassumi(esiti)
-    print(
+    riepilogo = (
         f"\n  Verificati: {conteggio['verificato']}  "
         f"Non trovati: {conteggio['non_trovato']}  "
         f"Non citati: {conteggio['non_citato']}"
     )
+    if "citazione_generica" in conteggio:
+        riepilogo += f"  Citati con il blocco: {conteggio['citazione_generica']}"
+    print(riepilogo)
+
+    livello, messaggio = giudizio(esiti)
+    print(f"  Esito: {livello.upper()} - {messaggio}")
 
 
 def main() -> None:

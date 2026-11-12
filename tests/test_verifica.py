@@ -9,7 +9,8 @@ from types import SimpleNamespace
 import pytest
 from langchain_core.documents import Document
 
-from src.verification.controllo import riassumi, verifica
+from src.database.modelli import Risultato, VoceBando
+from src.verification.controllo import Esito, giudizio, riassumi, verifica
 
 FRAMMENTI = [
     Document(
@@ -37,7 +38,40 @@ FRAMMENTI = [
         ),
         metadata={"ente": "Regione Toscana", "pagina": 11},
     ),
+    # Per i casi falsificati della revisione del 12 novembre 2026: valori
+    # che contengono, come testo, quelli inventati nelle risposte
+    Document(
+        page_content=(
+            "Il contributo è pari all'80% della spesa ammissibile, fino a "
+            "€ 150.000,00. La dotazione complessiva è di 19.5 milioni di euro. "
+            "Le domande si presentano entro il 13 novembre 2026. Il diritto di "
+            "segreteria è di 54 euro. Il bando è approvato con decreto "
+            "dirigenziale n. 1234 del 12/03/2026."
+        ),
+        metadata={"ente": "Regione Toscana", "pagina": 3},
+    ),
+    # Un frammento il cui atto sta solo nei metadati, come nell'intestazione
+    # [n] ... atto: ... che il modello riceve
+    Document(
+        page_content="Il compenso giornaliero è ammesso fino a € 322,00.",
+        metadata={
+            "ente": "Regione Toscana",
+            "pagina": 2,
+            "riferimento_atto": "Decreto dirigenziale n. 9550 del 28/04/2026",
+        },
+    ),
 ]
+
+# Un elenco con un solo bando, la cui riga scrive le date in ISO
+RIGA_BANDO = (
+    "«Bando di prova» (Regione Toscana) | scade il 2027-07-31 (fra 261 giorni) "
+    "| atto: decreto dirigenziale n. 18191"
+)
+BANDO = Risultato(
+    f"Bandi aperti:\n- [#1] {RIGA_BANDO}",
+    fonti=["Portale, decreto dirigenziale n. 18191"],
+    voci=[VoceBando(RIGA_BANDO, "Portale, decreto dirigenziale n. 18191")],
+)
 
 POPOLAZIONE = SimpleNamespace(
     testo="Dato più recente: 1834 abitanti al 1 gennaio 2026.",
@@ -108,12 +142,41 @@ CASI = [
         "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
     },
     {
-        "nome": "riferimento all'atto in prosa, non citazione",
+        # Fino al 12 novembre 2026 l'atto nel testo era mascherato e
+        # l'atteso era 1 verificato: il caso controllava solo che l'importo
+        # non sparisse. Ora il decreto e' un dato, e il frammento 1 non lo
+        # riporta ne' nel testo ne' nei metadati.
+        "nome": "atto in prosa: importo verificato, decreto assente dalla fonte",
         "risposta": (
             "Secondo il Decreto dirigenziale n. 9550 del 28/04/2026, "
             "il costo è € 322,00 (fonte: [1], Regione, pag. 11)."
         ),
-        "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
+        "atteso": {"verificato": 1, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N12 atto in prosa: decreto nei metadati del frammento citato",
+        "risposta": (
+            "Secondo il Decreto dirigenziale n. 9550 del 28/04/2026, "
+            "il costo è € 322,00 (fonte: [5], Regione, pag. 2)."
+        ),
+        # l'atto, la sua data e l'importo
+        "atteso": {"verificato": 3, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N21 atto con numero e data nei metadati: entrambi verificati",
+        "risposta": (
+            "Il compenso è fissato dal decreto dirigenziale n. 9550 del "
+            "28/04/2026 (fonte: [5], Regione, pag. 2)."
+        ),
+        "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N22 atto giusto con la data SBAGLIATA",
+        "risposta": (
+            "Il compenso è fissato dal decreto dirigenziale n. 9550 del "
+            "28/05/2026 (fonte: [5], Regione, pag. 2)."
+        ),
+        "atteso": {"verificato": 1, "non_trovato": 1, "non_citato": 0},
     },
     {
         "nome": "citazione con testo prima di fonte",
@@ -152,6 +215,132 @@ CASI = [
         ),
         "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
     },
+    # --- casi falsificati della revisione: un valore contenuto in un altro ---
+    {
+        "nome": "N1 percentuale contenuta in un'altra (8% contro 80%)",
+        "risposta": "Il contributo copre l'8% (fonte: [4], Regione, pag. 3).",
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N2 percentuale intera",
+        "risposta": "Il contributo copre l'80% (fonte: [4], Regione, pag. 3).",
+        "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N3 importo contenuto in un altro (50.000 contro 150.000,00)",
+        "risposta": "Il contributo arriva a € 50.000 (fonte: [4], Regione, pag. 3).",
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N4 importo intero",
+        "risposta": "Il contributo arriva a € 150.000 (fonte: [4], Regione, pag. 3).",
+        "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N5 giorno contenuto in un altro (3 contro 13 novembre)",
+        "risposta": "Le domande scadono il 3 novembre 2026 (fonte: [4], Regione).",
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N6 giorno intero",
+        "risposta": "Le domande scadono il 13 novembre 2026 (fonte: [4], Regione).",
+        "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
+    },
+    # --- atti nel testo della risposta ---
+    {
+        "nome": "N7 decreto INVENTATO nel testo",
+        "risposta": (
+            "Il bando è approvato con decreto n. 9999 del 12/03/2026 "
+            "(fonte: [4], Regione)."
+        ),
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N8 decreto giusto nel testo",
+        "risposta": (
+            "Il bando è approvato con decreto dirigenziale n. 1234 del "
+            "12/03/2026 (fonte: [4], Regione)."
+        ),
+        # il numero e la sua data
+        "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N19 decreto nella citazione di un frammento, nei suoi metadati",
+        "risposta": (
+            "Il costo è € 322,00 "
+            "(fonte: [5], Decreto dirigenziale n. 9550 del 28/04/2026, pag. 2)."
+        ),
+        "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N20 decreto nella citazione di un frammento che non lo riporta",
+        "risposta": (
+            "Il costo è € 322,00 "
+            "(fonte: [1], Decreto dirigenziale n. 9550 del 28/04/2026, pag. 11)."
+        ),
+        "atteso": {"verificato": 1, "non_trovato": 1, "non_citato": 0},
+    },
+    # --- riferimento n/aaaa e atto con numero e data ---
+    {
+        "nome": "N17 riferimento n/aaaa contro atto con numero e data",
+        "risposta": "Il bando è il n. 1234/2026 (fonte: [4], Regione).",
+        "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N18 riferimento n/aaaa con l'anno SBAGLIATO",
+        "risposta": "Il bando è il n. 1234/2025 (fonte: [4], Regione).",
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
+    # --- date in forme diverse contro la riga ISO di un bando ---
+    {
+        "nome": "N9 data numerica contro riga ISO",
+        "risposta": (
+            "Il bando scade il 31/07/2027 "
+            "(fonte: [D1.1], decreto dirigenziale n. 18191)."
+        ),
+        "dati": [("bandi_aperti_per_ente", BANDO)],
+        "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N10 data in lettere contro riga ISO",
+        "risposta": (
+            "Il bando scade il 31 luglio 2027 "
+            "(fonte: [D1.1], decreto dirigenziale n. 18191)."
+        ),
+        "dati": [("bandi_aperti_per_ente", BANDO)],
+        "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N11 giorni contenuti in un altro numero (26 contro 261)",
+        "risposta": (
+            "Mancano 26 giorni alla scadenza "
+            "(fonte: [D1.1], decreto dirigenziale n. 18191)."
+        ),
+        "dati": [("bandi_aperti_per_ente", BANDO)],
+        "atteso": {"verificato": 1, "non_trovato": 1, "non_citato": 0},
+    },
+    # --- importi con moltiplicatore ---
+    {
+        "nome": "N13 importo in milioni, scritto in un'altra forma",
+        "risposta": "La dotazione è di 19,5 milioni di euro (fonte: [4], Regione).",
+        "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N14 importo in milioni INVENTATO",
+        "risposta": "La dotazione è di 19,8 milioni di euro (fonte: [4], Regione).",
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
+    # --- articoli: si confermano solo con un articolo ---
+    {
+        "nome": "N15 articolo confermato solo da un importo uguale",
+        "risposta": "La spesa è ammessa ai sensi dell'art. 54 (fonte: [4], Regione).",
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N16 articolo presente nel frammento",
+        "risposta": "La spesa è ammessa ai sensi dell'art. 54 (fonte: [3], Regione).",
+        "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
+    },
 ]
 
 
@@ -159,6 +348,92 @@ CASI = [
 def test_verifica_conteggi(caso):
     esiti = verifica(caso["risposta"], FRAMMENTI, caso.get("dati"))
     assert riassumi(esiti) == caso["atteso"]
+
+
+def test_data_dell_atto_sbagliata_indica_quella_della_fonte():
+    risposta = (
+        "Il compenso è fissato dal decreto dirigenziale n. 9550 del "
+        "28/05/2026 (fonte: [5], Regione, pag. 2)."
+    )
+    atto, data_atto = verifica(risposta, FRAMMENTI)
+    assert (atto.tipo, atto.valore, atto.stato) == ("atto", "9550", "verificato")
+    assert (data_atto.tipo, data_atto.valore, data_atto.stato) == (
+        "data",
+        "28/05/2026",
+        "non_trovato",
+    )
+    assert data_atto.dettaglio == "l'atto 9550 nella fonte citata ha la data 2026-04-28"
+
+
+def test_atto_non_trovato_la_sua_data_non_si_giudica():
+    """Il caso 12: l'esito dell'atto copre gia' tutto il riferimento."""
+    risposta = (
+        "Secondo il Decreto dirigenziale n. 9550 del 28/04/2026, "
+        "il costo è € 322,00 (fonte: [1], Regione, pag. 11)."
+    )
+    assert [(e.tipo, e.stato) for e in verifica(risposta, FRAMMENTI)] == [
+        ("atto", "non_trovato"),
+        ("importo", "verificato"),
+    ]
+
+
+# --- giudizio: il colore del pannello ---
+
+
+def esito(tipo: str, stato: str) -> Esito:
+    return Esito(tipo, "x", ["1"], stato)
+
+
+@pytest.mark.parametrize(
+    ("esiti", "livello"),
+    [
+        ([], "nessuno"),
+        ([esito("anno", "verificato")], "arancione"),
+        ([esito("importo", "verificato"), esito("importo", "non_citato")], "arancione"),
+        (
+            [esito("data", "verificato"), esito("data", "citazione_generica")],
+            "arancione",
+        ),
+        ([esito("importo", "verificato"), esito("data", "non_trovato")], "rosso"),
+        ([esito("importo", "non_citato"), esito("data", "non_trovato")], "rosso"),
+        ([esito("importo", "verificato"), esito("anno", "verificato")], "verde"),
+    ],
+    ids=[
+        "nessun esito",
+        "solo anni verificati",
+        "un verificato e un non citato",
+        "un verificato e una citazione generica",
+        "un non trovato",
+        "un non trovato e un non citato",
+        "tutti verificati",
+    ],
+)
+def test_giudizio(esiti, livello):
+    assert giudizio(esiti)[0] == livello
+
+
+def test_giudizio_non_e_verde_con_zero_verificati():
+    """Il difetto della revisione: verde con "0 dati verificati"."""
+    livello, messaggio = giudizio([esito("importo", "non_citato")] * 3)
+    assert livello == "arancione"
+    assert messaggio.startswith("Nessun dato verificato oltre agli anni, 3 dato/i")
+
+
+def test_giudizio_conta_i_verificati_senza_gli_anni():
+    livello, messaggio = giudizio(
+        [esito("importo", "verificato"), esito("anno", "verificato")]
+    )
+    assert (livello, messaggio) == ("verde", "Dati verificati nella fonte citata: 1.")
+
+
+def test_giudizio_arancione_dice_cosa_manca():
+    _, messaggio = giudizio(
+        [esito("importo", "verificato"), esito("importo", "non_citato")]
+    )
+    assert messaggio == (
+        "Dati verificati: 1; 1 dato/i senza fonte. "
+        "Verificare manualmente prima di riutilizzare la risposta."
+    )
 
 
 def test_tipi_data_e_orario():

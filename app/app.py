@@ -19,7 +19,7 @@ from src.database.modelli import con_etichette
 from src.database.repertorio import stato_archivio
 from src.database.schema import connetti
 from src.pgstore import RecuperoPostgres
-from src.verification.controllo import riassumi, verifica
+from src.verification.controllo import giudizio, verifica
 
 st.set_page_config(
     page_title="Assistente territoriale",
@@ -67,20 +67,15 @@ def mostra_verifica(esito: dict) -> None:
         esito.get("esiti_dati"),
     )
 
-    if not esiti:
-        st.caption("Nessun dato numerico da verificare in questa risposta.")
+    livello, messaggio = giudizio(esiti)
+    if livello == "nessuno":
+        st.caption(messaggio)
         return
 
-    conteggio = riassumi(esiti)
-    problemi = conteggio["non_trovato"]
-
-    if problemi:
-        st.error(
-            f"{problemi} dato/i citato/i NON trovato/i nella fonte indicata. "
-            "Verificare manualmente prima di riutilizzare la risposta."
-        )
-    else:
-        st.success(f"{conteggio['verificato']} dati verificati nella fonte citata.")
+    # Il verde solo se tutto cio' che si poteva verificare e' verificato
+    {"rosso": st.error, "arancione": st.warning, "verde": st.success}[livello](
+        messaggio
+    )
 
     da_mostrare = [
         e for e in esiti if not (e.tipo == "anno" and e.stato == "verificato")

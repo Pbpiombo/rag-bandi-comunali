@@ -38,6 +38,19 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   per il consulente.
 - **Dati ISTAT di Sambuca Pistoiese e San Marcello Piteglio** caricati
   (prompt per Claude Code pronto). Tutti e tre i comuni dalla stessa tabella.
+- **Blocco A, verificatore** (voci 1, 3, 4 e 11 di
+  `docs/revisione-2026-11-12.md`): confronto su valori interi e non su
+  sottostringhe; date in tutte le forme ricondotte a una sola; numeri di
+  decreto e delibera nel testo della risposta controllati come dati;
+  pannello di verifica non verde se non ha verificato niente;
+  `step3_verifica` riparato. Piano in `docs/piano-verificatore.md`.
+- **Blocco B, dati mostrati e documenti** (voci 5, 6, 10, 12 e 14 della
+  revisione, e l'etichetta "dati verificati il" della voce 8): contributo
+  minimo e massimo e territorio nelle righe dei bandi, importi senza
+  arrotondamento; `dettaglio_bando` che non sceglie a caso tra titoli
+  simili; database della demo allineato ai CSV; sportelli con data di
+  chiusura in `bandi_in_scadenza`; README e docs/ allineati al codice;
+  "estratti il" al posto di "verificati il" per le date di estrazione.
 
 ## Prossimi passi, in ordine
 
@@ -57,6 +70,18 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
    scadute il 30 settembre. Per ogni pagina si conserva un'impronta del
    testo: un bando aperto si riestrae solo se la sua pagina è cambiata,
    così il ricontrollo non costa una nuova estrazione a ogni giro.
+
+   **Requisiti da completare prima di attivarlo** (dettagli nelle voci
+   indicate di `docs/revisione-2026-11-12.md`):
+   - voce 2: l'estrattore controlla che il valore compaia nella sua prova,
+     con il modulo di normalizzazione del blocco A;
+   - voce 7: le pagine scadute da poco tornano candidate, per le proroghe;
+   - voce 8: le correzioni a mano su `bandi` protette dalla riestrazione;
+   - voce 9: nessuna desincronizzazione tra database e CSV (righe scartate
+     al caricamento, ricreazione su database esistente, esportazione solo
+     a fine corsa);
+   - voce 13: test del percorso di `estrai_nuovi` su pagine salvate;
+   - voce 15: fonte dei bandi letta dalla tabella `fonti`.
 5. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
    tra gli interventi ammissibili. Caso di prova: "devo rifare la piazza"
    → bando mercati rionali. Nei frammenti documentali, lo stato del bando

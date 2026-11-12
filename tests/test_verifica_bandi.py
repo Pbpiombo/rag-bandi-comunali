@@ -61,6 +61,12 @@ def test_dato_del_bando_citato_con_la_sua_etichetta():
     assert esiti[0].frammenti == ["D1.1"]
 
 
+def test_data_in_lettere_contro_la_riga_iso_del_bando():
+    (esito,) = esiti_di("Scade il 30 novembre 2026 (fonte: [D1.1], Regione).")
+    assert esito.stato == "verificato"
+    assert esito.frammenti == ["D1.1"]
+
+
 def test_dato_di_un_altro_bando_non_trovato_con_il_bando_giusto():
     (esito,) = esiti_di("Scade il 2026-11-30 (fonte: [D1.2], Regione).")
     assert esito.stato == "non_trovato"
