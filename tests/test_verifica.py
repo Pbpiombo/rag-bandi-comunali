@@ -363,6 +363,40 @@ CASI = [
         "risposta": "La spesa è ammessa ai sensi dell'art. 54 (fonte: [3], Regione).",
         "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
     },
+    # Prova del 12 novembre 2026: il testo nella parentesi prima di "fonte:"
+    # è contenuto della risposta, e si verifica sulla fonte della parentesi
+    {
+        "nome": "N23 percentuale dentro la parentesi, prima di fonte",
+        "risposta": (
+            "I costi indiretti sono ammessi (inclusa l'aliquota forfettaria del "
+            "7% per i costi indiretti, fonte: [3], Regione Toscana, pag. 11)."
+        ),
+        "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N24 percentuale FALSIFICATA dentro la parentesi, prima di fonte",
+        "risposta": (
+            "I costi indiretti sono ammessi (inclusa l'aliquota forfettaria del "
+            "17% per i costi indiretti, fonte: [3], Regione Toscana, pag. 11)."
+        ),
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N25 importo prima di fonte, atto con data dopo fonte",
+        "risposta": (
+            "Il compenso giornaliero è ammesso (fino a € 322,00, fonte: [5], "
+            "Regione Toscana, Decreto dirigenziale n. 9550 del 28/04/2026, pag. 2)."
+        ),
+        "atteso": {"verificato": 3, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N26 atto prima di fonte, contato una volta sola",
+        "risposta": (
+            "Il compenso è ammesso (approvato con decreto dirigenziale n. 9550 "
+            "del 28/04/2026, fonte: [5], Regione, pag. 2)."
+        ),
+        "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
+    },
 ]
 
 

@@ -169,15 +169,31 @@ class Dato:
     posizione_data: int = 0
 
 
+def inizio_citazione(blocco: str) -> int:
+    """Dove comincia la citazione vera in un blocco tra parentesi: al primo
+    "fonte:".
+
+    In "(inclusa l'aliquota del 7%, fonte: [7], Regione, pag. 14)" il testo
+    prima di "fonte:" è contenuto della risposta e si verifica come il
+    resto; da "fonte:" in poi è la citazione.
+    """
+    return re.search(r"fonte:", blocco, re.IGNORECASE).start()
+
+
 def maschera_citazioni(risposta: str) -> str:
     """Sostituisce con spazi le citazioni e i rimandi ai frammenti.
 
+    Di un blocco tra parentesi con "fonte:" si mascherano la parentesi
+    aperta e la parte da "fonte:" in poi: il testo prima resta, e i suoi
+    dati si verificano sulla fonte citata subito dopo.
     Gli atti scritti fuori dalle citazioni non si mascherano: sono dati,
     e si controllano come gli altri (SCHEMA_ATTO_TESTO).
     """
 
     def a_spazi(m):
-        return " " * len(m.group(0))
+        blocco = m.group(0)
+        inizio = inizio_citazione(blocco)
+        return " " + blocco[1:inizio] + " " * (len(blocco) - inizio)
 
     risposta = re.sub(
         SCHEMA_CITAZIONE, a_spazi, risposta, flags=re.DOTALL | re.IGNORECASE
@@ -556,7 +572,9 @@ def _verifica_atti(
     """
     esiti = []
     for m in re.finditer(SCHEMA_CITAZIONE, risposta, re.DOTALL | re.IGNORECASE):
-        citazione = m.group(0)
+        # Il testo prima di "fonte:" è risposta, già controllato da verifica:
+        # qui solo la citazione, così un atto lì non si conta due volte
+        citazione = m.group(0)[inizio_citazione(m.group(0)) :]
         etichette = [
             e.upper()
             for e in re.findall(rf"\[({ETICHETTA})\]", citazione, re.IGNORECASE)
