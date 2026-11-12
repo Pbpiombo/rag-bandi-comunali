@@ -49,21 +49,137 @@ Ente: Comune di Abetone Cutigliano, salvo dove indicato.
 
 ## Risultati
 
-Da compilare. Una riga per domanda; nelle note, per ogni falso positivo o
-negativo: il dato come l'ha scritto il modello, la fonte citata, il valore
-nella fonte.
+Prova del 12 novembre 2026, lanciata dall'app: 9 domande, 100 dati
+segnati come verificati, nessun falso positivo, 2 falsi negativi. Le
+citazioni generiche (≈) non sono state contate a parte.
 
-| # | colore | ✓ | ✗ | ? | ≈ | falsi positivi | falsi negativi | note |
-|---|---|---|---|---|---|---|---|---|
-| 1 | | | | | | | | |
-| 2 | | | | | | | | |
-| 3 | | | | | | | | |
-| 4 | | | | | | | | |
-| 5 | | | | | | | | |
-| 6 | | | | | | | | |
-| 7 | | | | | | | | |
-| 8 | | | | | | | | |
-| 9 | | | | | | | | |
+| # | colore | ✓ | ✗ | ? | falsi positivi | falsi negativi | note |
+|---|---|---|---|---|---|---|---|
+| 1 | rosso | 17 | 1 | 0 | 0 | 1 | "archivio aggiornato al 12/11/2026" citato con [D1.3]: la data sta nell'intestazione del blocco ("alla data del 2026-11-12"), non nella riga |
+| 2 | verde | 32 | 0 | 0 | 0 | 0 | |
+| 3 | arancione | 2 | 0 | 3 | 0 | 0 | |
+| 4 | arancione | 0 | 0 | 1 | 0 | 0 | risposta "non trovo" su € 322,00: il frammento di pag. 11 non è stato recuperato (sotto, recupero) |
+| 5 | arancione | 5 | 0 | 3 | 0 | 0 | recuperata la pag. 11 dello stesso avviso |
+| 6 | verde | 5 | 0 | 0 | 0 | 0 | |
+| 7 | verde | 13 | 0 | 0 | 0 | 0 | il bando mercati rionali, scaduto il 15/10/2026, presentato dai frammenti come attuale |
+| 8 | verde | 11 | 0 | 0 | 0 | 0 | |
+| 9 | rosso | 15 | 1 | 0 | 0 | 1 | stesso falso negativo della domanda 1 |
+| | | **100** | **2** | **7** | **0** | **2** | |
+
+## Esito: correzione fatta
+
+**Falsi negativi delle domande 1 e 9.** Il testo di confronto di `[Dn.k]`
+comprende ora anche l'intestazione del blocco, cioè il testo prima della
+prima riga di bando (`intestazione_di` in `src/verification/controllo.py`).
+Così la data dell'archivio, citata con la riga di un bando, si trova. Casi
+in `tests/test_verifica_bandi.py`: "aggiornato al 12/11/2026" con
+l'intestazione del 2026-11-12 risulta verificato; "13/11/2026" risulta
+non trovato. Il primo falliva prima della correzione.
+
+Effetto collaterale, accettato: un valore dell'intestazione vale per ogni
+riga del blocco. Oggi l'intestazione contiene la data e il numero dei
+bandi in archivio.
+
+## Esito: proposte, non implementate
+
+### P1. Atti con "Regionale Toscana" tra la parola e il numero
+
+"Delibera di Giunta Regionale Toscana n. 546" viene letta come quantità
+546. `SCHEMA_ATTO_TESTO` ammette tra la parola e il numero solo un
+elenco chiuso di qualificazioni, e "Toscana" non c'è. Le citazioni
+(`SCHEMA_NUMERO_ATTO`, fino a 40 caratteri liberi) e `atti_con_data` la
+riconoscono già.
+
+Proposta: si allarga l'elenco chiuso, senza ammettere parole libere.
+- Si aggiungono "toscana", "regione toscana", "della regione toscana",
+  "RT", come qualificazioni ripetibili.
+- Si aggiungono le parole "DGRT" e "D.G.R.T.".
+- Le parole libere restano escluse anche con "n." obbligatorio: "il
+  decreto stabilisce n. 10 posti" diventerebbe l'atto 10.
+
+Casi: la frase sopra come atto 546, verificato su una fonte che la
+riporta; "Decreto del Presidente della Giunta Regionale Toscana n. 12"
+come atto; "il decreto stabilisce n. 10 posti" non atto. Costo: un'ora.
+
+### P2. Recupero della domanda 4
+
+Indagine con `recupero.cerca(domanda, k=10)`, come nell'app, senza
+modello di risposta. Il chunk con € 322,00 (pag. 11, id 33) e quello
+precedente, che lo ripete nella sovrapposizione, contengono "parametro di
+costo giornata/uomo pari al massimo a € 322,00".
+
+| domanda | Postgres, posizione nei 10 | Chroma + BM25 |
+|---|---|---|
+| esempio dell'app: "Qual è il costo massimo giornaliero per un incarico professionale?" | 4ª | 1ª |
+| domanda 4: la stessa, più "nell'avviso per il rafforzamento amministrativo dei capofila delle aree interne" | assente (densa 15ª, lessicale 22ª) | assente (BM25 16ª) |
+| domanda 5, stesso avviso | 4ª | 1ª |
+
+La domanda d'esempio dell'app funziona. La domanda 4 fallisce per la
+parte che nomina il documento: quelle parole compaiono in quasi tutti i
+76 chunk dell'avviso, e tirano su i chunk introduttivi (pagg. 8-9) a
+scapito di quello che risponde. Allargare la fusione non serve: con 30,
+40 e 60 candidati per lista il chunk resta fuori dai 10 su Postgres. Con
+BM25 il peso per rarità non basta, perché quelle parole sono rare
+nell'archivio ma comuni nel documento.
+
+Proposta, senza modello:
+1. Se le parole della domanda coprono gran parte del titolo di un
+   documento in archivio (metadato `titolo`), il recupero si restringe
+   a quel documento.
+2. Quelle parole si tolgono dalla domanda di ricerca.
+
+Per la domanda 4 la ricerca diventa quella dell'esempio dell'app,
+ristretta all'avviso 9550. Già senza restrizione il chunk è 4° su
+Postgres e 1° su Chroma, e restringere a un documento non può farlo
+scendere.
+- La scelta del documento è una funzione pura, provata con i titoli in
+  archivio, senza database.
+- Il filtro è una clausola `WHERE metadata->>'titolo' = %s` su Postgres e
+  `where={"titolo": ...}` su Chroma.
+- Verifica: le 9 domande della prova con il solo recupero, controllando
+  che il frammento decisivo entri nei 10.
+
+Costo: mezza giornata. È la domanda tipica del consulente ("nel bando X,
+quanto…"), quindi va prima della demo.
+
+### P3. Stato del bando nei frammenti (passa al blocco B)
+
+I 117 chunk dell'avviso mercati rionali hanno già, su Postgres,
+`id_bando = mercati-rionali-2026`. Gli altri documenti non sono bandi del
+catalogo, o non hanno l'id. Non serve reindicizzare.
+
+Proposta:
+- **Calcolo dello stato.** In `prepara` (`src/chains/rag.py`), per ogni
+  frammento con `id_bando` si calcola lo stato del bando al momento della
+  domanda, con le funzioni delle interrogazioni (`stato_finestre`,
+  `stato_sportello`, `tra_quanto`). Il risultato va in un metadato del
+  documento recuperato, `stato_bando`: si calcola a ogni domanda e non si
+  memorizza da nessuna parte, come vuole il principio.
+- **Intestazione.** `etichetta` aggiunge `stato del bando: scaduto il
+  2026-10-15 (alla data del 2026-11-12)`.
+- **Prompt.** Regola nuova: un bando con stato "scaduto" non si presenta
+  come opportunità attuale; se ne riportano il contenuto e lo stato.
+- **Verificatore.** Il testo di confronto di un frammento comprende anche
+  `stato_bando`, come per i metadati dell'atto. Altrimenti "scaduto il
+  15/10/2026 (fonte: [3])" risulterebbe non trovato.
+- **Documenti senza `id_bando`.** Si cerca il bando dal numero d'atto
+  (13287 sta in `bandi.riferimento_atto` di mercati-rionali-2026). Se ci
+  sono zero o più bandi corrispondenti, nessuno stato: meglio niente che
+  uno sbagliato.
+
+Casi: frammento di un bando scaduto, aperto, a sportello e senza bando
+collegato; verifica della data di scadenza citata dal frammento. Costo:
+mezza giornata.
+
+### P4. Limite del README
+
+Testo proposto, per l'elenco dei limiti:
+
+> **Il verificatore controlla i valori, non gli abbinamenti.** Un dato è
+> verificato se il suo valore compare nella fonte citata, non se è
+> attribuito alla cosa giusta: un numero di abitanti riferito all'anno
+> sbagliato, o l'importo di un intervento attribuito a un altro, passano
+> se entrambi i valori sono nella fonte.
 
 ## Dopo la prova
 

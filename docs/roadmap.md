@@ -50,7 +50,11 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   arrotondamento; `dettaglio_bando` che non sceglie a caso tra titoli
   simili; database della demo allineato ai CSV; sportelli con data di
   chiusura in `bandi_in_scadenza`; README e docs/ allineati al codice;
-  "estratti il" al posto di "verificati il" per le date di estrazione.
+  "estratti il" al posto di "verificati il" per le date di estrazione;
+  stato del bando (scaduto o aperto) nei frammenti documentali, spostato
+  qui dal passo 5 dopo la prova del 12 novembre 2026, in cui il bando
+  mercati rionali, scaduto, è stato presentato come attuale (proposta P3
+  in `docs/prova-verificatore.md`).
 
 ## Prossimi passi, in ordine
 
@@ -84,8 +88,8 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
    - voce 15: fonte dei bandi letta dalla tabella `fonti`.
 5. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
    tra gli interventi ammissibili. Caso di prova: "devo rifare la piazza"
-   → bando mercati rionali. Nei frammenti documentali, lo stato del bando
-   (scaduto o aperto) arriva al modello.
+   → bando mercati rionali. (Lo stato del bando nei frammenti è passato al
+   blocco B, prima della demo.)
 
    **PDF dei bandi**: solo bandi aperti, o chiusi da poco se ricorrenti, e
    rivolti ai tipi di beneficiari serviti. Per ogni bando solo il testo

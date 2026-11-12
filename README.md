@@ -463,6 +463,10 @@ correzioni: scadenza corretta in 10, sportello in 8, atto in 8 (2
 parziali), beneficiari corretti in 7 e parzialmente in 3, nessuno
 errato.
 
+Prova del 12 novembre 2026 con il modello su 9 domande: 100 dati
+segnati come verificati, nessun falso positivo; 2 falsi negativi,
+entrambi per una data presa dall'intestazione del blocco di dati.
+
 ## Dove va
 
 Trovare i bandi non è il collo di bottiglia degli enti piccoli: lo è avere chi segue la redazione della domanda. L’obiettivo è un sistema che, scelto un bando, guidi la costruzione della domanda passo per passo: quali documenti servono, quali si possono compilare in autonomia, quando serve un tecnico e di che tipo. Intorno a questo, un aggiornamento periodico delle fonti con avviso via mail quando compare un bando pertinente, e un calendario delle scadenze con promemoria sugli step preliminari.

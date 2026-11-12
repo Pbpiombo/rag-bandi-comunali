@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from langchain_core.documents import Document
 
-from src.database.modelli import senza_segnaposto
+from src.database.modelli import SEGNAPOSTO, senza_segnaposto
 from src.normalizzazione import (
     MESI,
     Valori,
@@ -317,6 +317,17 @@ def contesto_di(testo: str, posizione: int, ampiezza: int = 40) -> str:
     return " ".join(testo[inizio:fine].split())
 
 
+def intestazione_di(testo: str) -> str:
+    """L'intestazione di un elenco di bandi: il testo prima della prima riga.
+
+    "Bandi aperti a cui un Comune può presentare domanda (alla data del
+    2026-11-12), 5 in archivio:". Vale per ogni riga del blocco: la data
+    dell'archivio, citata con l'etichetta di un bando, si trova qui.
+    """
+    trovato = SEGNAPOSTO.search(testo)
+    return testo[: trovato.start()] if trovato else ""
+
+
 def fonti_di(
     documenti: list[Document], esiti_dati: list | None
 ) -> tuple[dict[str, str], dict[str, str], dict[str, list[str]]]:
@@ -324,7 +335,8 @@ def fonti_di(
 
     I frammenti documentali sono '1', '2', ...; i blocchi dei dati 'D1',
     'D2', ... con le loro fonti; il bando k del blocco Dn, se il risultato
-    elenca bandi, 'Dn.k', con la riga e la fonte di quel bando.
+    elenca bandi, 'Dn.k', con l'intestazione del blocco, la riga e la
+    fonte di quel bando.
 
     Restituisce (testi, testi_atti, voci_di). testi_atti e' il testo in
     cui si cercano i numeri d'atto: per un frammento, il suo testo con
@@ -354,8 +366,9 @@ def fonti_di(
         fonti = " ".join(getattr(risultato, "fonti", None) or [])
         testi[blocco] = f"{senza_segnaposto(risultato.testo)} {fonti}"
         voci_di[blocco] = []
+        intestazione = intestazione_di(risultato.testo)
         for k, voce in enumerate(getattr(risultato, "voci", None) or [], start=1):
-            testi[f"{blocco}.{k}"] = f"{voce.testo} {voce.fonte}"
+            testi[f"{blocco}.{k}"] = f"{intestazione} {voce.testo} {voce.fonte}"
             voci_di[blocco].append(f"{blocco}.{k}")
 
     for etichetta, testo in testi.items():
@@ -375,7 +388,8 @@ def verifica(
     blocco Dn, se il risultato elenca bandi, 'Dn.k'.
 
     Il testo di confronto di Dn e' il blocco intero con le sue fonti;
-    quello di Dn.k e' la riga del bando con la fonte di quel bando.
+    quello di Dn.k e' l'intestazione del blocco (con la data dell'archivio),
+    la riga del bando e la fonte di quel bando.
     Un atto scritto nel testo ("decreto n. 9550 del 28/04/2026") e' un
     dato: il suo numero si cerca nelle fonti citate dopo di esso, per un
     frammento anche nei metadati dell'atto. Nelle citazioni a Dn.k e a un

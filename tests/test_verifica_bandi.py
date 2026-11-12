@@ -110,6 +110,37 @@ def test_decreto_con_il_blocco_non_si_controlla():
     assert not [e for e in esiti if e.tipo == "atto"]
 
 
+# --- intestazione del blocco nella riga del bando ---
+
+# La data dell'archivio sta solo nell'intestazione del blocco: le righe e
+# le fonti dei bandi hanno la data di verifica, diversa
+ELENCO_DEL_12 = Risultato(
+    ELENCO.testo.replace("alla data del 2026-11-11", "alla data del 2026-11-12"),
+    fonti=ELENCO.fonti,
+    voci=ELENCO.voci,
+)
+
+
+def test_data_dell_intestazione_citata_con_la_riga_del_bando():
+    """Il falso negativo della prova del 12 novembre 2026 (domande 1 e 9)."""
+    (esito,) = verifica(
+        "Archivio aggiornato al 12/11/2026 (fonte: [D1.2], Regione).",
+        [],
+        [("bandi_aperti_per_ente", ELENCO_DEL_12)],
+    )
+    assert esito.stato == "verificato"
+    assert esito.frammenti == ["D1.2"]
+
+
+def test_data_dell_intestazione_falsificata():
+    (esito,) = verifica(
+        "Archivio aggiornato al 13/11/2026 (fonte: [D1.2], Regione).",
+        [],
+        [("bandi_aperti_per_ente", ELENCO_DEL_12)],
+    )
+    assert esito.stato == "non_trovato"
+
+
 # --- citazione generica ---
 
 
