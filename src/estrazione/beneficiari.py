@@ -51,16 +51,19 @@ PER_REQUISITO = "qualsiasi_soggetto"
 # Da dove viene una riga di beneficiari_bando
 ORIGINI = ("estrazione", "ammette_comuni")
 
-# I tipi privati e tutti i tipi con un soggetto indicato, per le regole
-TIPI_PRIVATI = (
+# I tipi privati e tutti i tipi con un soggetto indicato, per le regole.
+# I tipi privati non comprendono cittadini_famiglie: "privati", "datori di
+# lavoro", "soggetti ospitanti privati" sono imprese, professionisti ed
+# enti; le persone fisiche entrano solo se il bando le nomina (regola
+# "persone fisiche"). "Pubblici e/o privati" invece comprende tutti i tipi
+# (verifica a mano del 12 novembre 2026).
+TIPI_IMPRESA = (
     "impresa_agricola",
     "impresa_turistica",
     "impresa_artigiana_commerciale",
     "altra_impresa",
-    "professionista_autonomo",
-    "terzo_settore",
-    "cittadini_famiglie",
 )
+TIPI_PRIVATI = (*TIPI_IMPRESA, "professionista_autonomo", "terzo_settore")
 TIPI_PUBBLICI = ("comune", "unione_comuni", "altro_ente_pubblico")
 TUTTI_CON_SOGGETTO = tuple(t for t in TIPI_BENEFICIARIO if t != PER_REQUISITO)
 
@@ -96,6 +99,11 @@ TERMINI = {
     "liberi professionisti": ("professionista_autonomo",),
     "lavoratori autonomi": ("professionista_autonomo",),
     "titolari di impresa individuale": ("professionista_autonomo",),
+    # forme associative di imprese o professionisti: vanno ai tipi di chi le
+    # compone. "Consorzi" o "forme associative" da soli no: ci sono anche i
+    # consorzi di bonifica e le forme associative tra Comuni.
+    "reti, consorzi, associazioni di imprese": TIPI_IMPRESA,
+    "reti, associazioni di professionisti": ("professionista_autonomo",),
 }
 
 # Soggetti generici: non sono un requisito, nominano dei tipi. Si applicano
@@ -119,6 +127,10 @@ GENERICI = {
 # "lavoratrici/lavoratori autonome/i", "titolari d'impresa individuale"
 _VOCALE = r"[aeio](?:/[aeio])?"
 _LAVORATORE = r"lavorat(?:ori|rici|ore|rice)"
+_AGGREGATI = (
+    r"(?:reti|rete|consorzi|consorzio|associazioni|aggregazioni|raggruppamenti"
+    r"|forme associative)(?: temporane[ei])?"
+)
 FORME = {
     "liberi professionisti": rf"liber{_VOCALE} professionist{_VOCALE}",
     "lavoratori autonomi": (
@@ -126,6 +138,17 @@ FORME = {
     ),
     "titolari di impresa individuale": (
         r"titolar[ei](?:/[ei])? (?:di |d'|dell')impres[ae] individual[ei]"
+    ),
+    # "reti di imprese", "consorzi tra imprese", "associazioni temporanee di
+    # imprese", "forme associative di imprese e professionisti"... ma non
+    # "di imprese agricole": con un settore vale solo quello, e lo decide
+    # il modello
+    "reti, consorzi, associazioni di imprese": (
+        rf"{_AGGREGATI} (?:di|tra|fra) (?:professionisti (?:e|o) )?imprese"
+        r"(?! (?:agricol|turistic|ricettiv|artigian|commercial|forestal|agro))"
+    ),
+    "reti, associazioni di professionisti": (
+        rf"{_AGGREGATI} (?:di|tra|fra) (?:imprese ?(?:e|o|/) ?)?professionisti"
     ),
 }
 

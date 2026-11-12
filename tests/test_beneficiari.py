@@ -291,3 +291,56 @@ def test_salva_senza_beneficiari_non_tocca_le_tabelle_collegate(db_su_file):
     ]
     assert len(_leggi(db_su_file, "SELECT * FROM interventi_bando")) == 1
     assert _leggi(db_su_file, "SELECT classificato_il FROM bandi") == [("2026-11-11",)]
+
+
+# --- seconda verifica a mano (12 novembre 2026) ---
+
+
+@pytest.mark.parametrize(
+    "testo",
+    ["privati", "soggetti privati", "datori di lavoro", "Soggetti ospitanti privati"],
+)
+def test_i_privati_generici_non_comprendono_le_persone_fisiche(testo):
+    tipi = tipi_da_termini(testo, GENERICI)
+    assert "cittadini_famiglie" not in tipi
+    assert "professionista_autonomo" in tipi
+
+
+def test_pubblici_e_privati_comprendono_anche_le_persone_fisiche():
+    assert "cittadini_famiglie" in tipi_da_termini(
+        "Altri soggetti pubblici e/o privati", GENERICI
+    )
+
+
+IMPRESE = {
+    "impresa_agricola",
+    "impresa_turistica",
+    "impresa_artigiana_commerciale",
+    "altra_impresa",
+}
+
+
+@pytest.mark.parametrize(
+    ("testo", "attesi"),
+    [
+        ("reti di imprese", IMPRESE),
+        ("consorzi tra imprese", IMPRESE),
+        ("associazioni temporanee di imprese", IMPRESE),
+        (
+            "forme associative di imprese e professionisti",
+            IMPRESE | {"professionista_autonomo"},
+        ),
+        (
+            "costituite da almeno tre reti di imprese/professionisti",
+            IMPRESE | {"professionista_autonomo"},
+        ),
+        ("associazioni di professionisti", {"professionista_autonomo"}),
+        # con un settore decide il modello; i consorzi pubblici restano fuori
+        ("associazioni di imprese agricole", set()),
+        ("Consorzi di Bonifica", set()),
+        ("forme associative tra Comuni", set()),
+        ("Forme associative con personalità giuridica", set()),
+    ],
+)
+def test_forme_associative_di_imprese_e_professionisti(testo, attesi):
+    assert tipi_da_termini(testo) == attesi

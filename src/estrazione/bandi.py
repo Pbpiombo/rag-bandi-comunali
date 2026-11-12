@@ -150,8 +150,10 @@ Per questi campi produci un oggetto con tre chiavi:
 25 parole
 - scadenza: data ULTIMA per presentare DOMANDA, formato AAAA-MM-GG
 - a_sportello: true se non c'e' una scadenza competitiva ma si presenta \
-fino a esaurimento risorse. Anche a_sportello e' un oggetto con la prova, \
-mai true o false da solo:
+fino a esaurimento risorse. Un bando a sportello puo' avere anche una data \
+di chiusura ("fino al 31/10/2027, salvo esaurimento delle risorse"): \
+sportello e data di chiusura insieme non sono una contraddizione. Anche \
+a_sportello e' un oggetto con la prova, mai true o false da solo:
   {{"valore": true, "confidenza": "alta", "prova": "la frase della pagina \
 che dice che si presenta fino a esaurimento delle risorse, copiata"}}
   {{"valore": false, "confidenza": "alta", "prova": ""}} se non e' a sportello
@@ -176,7 +178,11 @@ istruzione, cultura, territorio, mobilita, agricoltura, turismo, pesca, sociale
 - scadenza_nota: proroghe, orari, condizioni sulla scadenza
 - territorio: ambito territoriale ammissibile
 - premialita: criteri che assegnano punteggio aggiuntivo
-- riferimento_atto: decreto o delibera che approva il bando
+- riferimento_atto: decreto o delibera che approva il bando, e quelli che \
+ne modificano scadenze o requisiti, proroghe comprese (es. "Decreto 14800 \
+del 29/06/2026, modificato con decreti 21128 del 24/09/2026 e 23817 del \
+29/10/2026"). Non i decreti che approvano graduatorie, elenchi, esiti o \
+modulistica
 
 BENEFICIARI AMMESSI
 "beneficiari_ammessi": un elenco, un elemento per ogni soggetto che il \
@@ -196,6 +202,15 @@ Soggetti generici, da usare solo quando il bando non dice di piu' sul \
 soggetto: una qualificazione lo restringe (es. "privati senza scopo di \
 lucro" sono terzo_settore, non imprese):
 {_elenco_termini(GENERICI)}
+cittadini_famiglie solo se il bando nomina le persone fisiche (persone \
+fisiche, famiglie, cittadini, studenti, lavoratori): "privati", "soggetti \
+privati", "datori di lavoro", "soggetti ospitanti privati" non le \
+comprendono.
+Forme associative, reti, consorzi e associazioni di imprese o di \
+professionisti vanno ai tipi di chi le compone (i tipi di impresa, \
+professionista_autonomo), mai a {PER_REQUISITO}, anche quando il bando le \
+elenca accanto a imprese e professionisti senza ripetere chi le compone. \
+Reti e consorzi di sole imprese non comprendono professionista_autonomo.
 Quando due tipi si sovrappongono vale il piu' specifico: una scuola statale \
 e' ricerca_formazione, una cooperativa sociale e' terzo_settore.
 Usa {PER_REQUISITO} solo se il bando definisce chi partecipa con un \
@@ -666,6 +681,37 @@ def _valida_cumulabilita(
 
 GENERI_SCADENZA = ("domanda", "fase_successiva")
 
+# "salvo esaurimento (anticipato) delle risorse": le domande si accolgono
+# finche' ci sono risorse, anche con una data di chiusura. Non basta "fino a
+# esaurimento delle risorse", che nei bandi a graduatoria descrive lo
+# scorrimento ("finanziati in ordine di graduatoria fino a esaurimento").
+SALVO_ESAURIMENTO = re.compile(
+    r"salvo\s+(?:l['’]\s*)?esauriment\w*\s+(?:anticipat\w*\s+)?"
+    r"(?:delle\s+|dei\s+|della\s+)?(?:risorse|fondi|dotazion\w*)",
+    re.IGNORECASE,
+)
+# Lunghezza massima della frase riportata come prova
+PROVA_MAX = 300
+
+
+def prova_sportello(testo: str) -> str | None:
+    """La frase della pagina che rende il bando a sportello, se c'e'.
+
+    E' la riga che contiene "salvo esaurimento (anticipato) delle risorse",
+    accorciata attorno all'espressione se e' troppo lunga: resta un pezzo
+    del testo, e frase_nel_testo la ritrova.
+    """
+    trovata = SALVO_ESAURIMENTO.search(testo)
+    if not trovata:
+        return None
+    inizio = testo.rfind("\n", 0, trovata.start()) + 1
+    fine = testo.find("\n", trovata.end())
+    fine = len(testo) if fine == -1 else fine
+    if fine - inizio > PROVA_MAX:
+        inizio = max(inizio, trovata.start() - PROVA_MAX // 2)
+        fine = min(fine, trovata.end() + PROVA_MAX // 2)
+    return testo[inizio:fine].strip()
+
 
 def _data_iso(valore) -> str | None:
     """La data se e' nel formato AAAA-MM-GG, altrimenti None."""
@@ -805,6 +851,14 @@ def valida(estrazione: Estrazione, testo: str) -> tuple[dict, list[str], list[st
 
     if riga.get("a_sportello") is None:
         riga["a_sportello"] = 0
+
+    # Il modello tende a leggere una data di chiusura come bando a
+    # graduatoria: la frase "salvo esaurimento delle risorse" decide
+    if riga["a_sportello"] == 0:
+        frase = prova_sportello(testo)
+        if frase:
+            riga["a_sportello"] = 1
+            avvisi.append(f"a_sportello: la pagina dice «{frase}»: bando a sportello")
 
     riga["pubblicato_origine"] = None
     if riga.get("pubblicato_il"):

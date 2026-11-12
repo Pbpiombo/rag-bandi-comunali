@@ -631,3 +631,48 @@ def test_estrai_bando_senza_scadenze_multiple(capsys):
 
     mostra(interpreta(risposta("tpl")))
     assert "SCADENZE MULTIPLE\n  nessuna (una sola data)" in capsys.readouterr().out
+
+
+# --- sportello con data di chiusura ---
+
+
+@pytest.mark.parametrize(
+    "frase",
+    [
+        "Domande fino al 31 ottobre 2027, salvo esaurimento anticipato delle risorse disponibili.",
+        "Domande dal 28 marzo fino al 31 dicembre 2026, salvo esaurimento delle risorse.",
+        "Fino al 31/12/2027, salvo l’esaurimento anticipato delle risorse.",
+    ],
+)
+def test_prova_sportello_trova_la_frase(frase):
+    assert bandi.prova_sportello(f"Titolo\n{frase}\nAltro") == frase
+
+
+def test_graduatoria_fino_a_esaurimento_non_e_sportello():
+    testo = "Le risorse sono assegnate in ordine di graduatoria fino a esaurimento delle risorse."
+    assert bandi.prova_sportello(testo) is None
+
+
+def test_salvo_esaurimento_rende_il_bando_a_sportello():
+    frase = (
+        "Domande fino al 21 ottobre 2021, salvo esaurimento anticipato delle risorse."
+    )
+    _, riga, problemi, avvisi, decisione = esegui("tpl", aggiunta=f"\n{frase}\n")
+
+    assert problemi == []
+    assert riga["a_sportello"] == 1
+    assert avvisi == [f"a_sportello: la pagina dice «{frase}»: bando a sportello"]
+    assert decisione[1].startswith("scaduto il 2021-10-21")
+
+
+def test_prova_sportello_lunga_si_accorcia_e_resta_nel_testo():
+    riga = "x" * 400 + " salvo esaurimento delle risorse " + "y" * 400
+    prova = bandi.prova_sportello(riga)
+    assert len(prova) <= 2 * bandi.PROVA_MAX
+    assert frase_nel_testo(prova, riga)
+
+
+def test_il_prompt_dice_che_sportello_e_data_non_si_contraddicono():
+    assert "non sono una contraddizione" in ISTRUZIONI
+    assert "modificano scadenze o requisiti" in ISTRUZIONI
+    assert "cittadini_famiglie solo se il bando nomina" in ISTRUZIONI

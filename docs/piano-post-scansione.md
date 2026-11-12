@@ -202,6 +202,71 @@ Ordine interno, con una fermata dopo ogni passo: 5a (punti 4 e 5),
 - Dopo: un foglio nuovo con le sole righe riestratte, nello stesso
   formato, per ricontrollarle.
 
+### Punto 5: fatto (12 novembre 2026)
+
+Tappe 5a-5d fatte, con le aggiunte decise strada facendo:
+
+- 5a: "probabilmente esaurito" solo per gli sportelli senza data di
+  chiusura; contributo_perc del fondo di garanzia svuotato
+  (`svuota_contributo_garanzia`).
+- 5b: tipo `professionista_autonomo`; regole come espressioni regolari con
+  i confini di parola. Le regole generiche (privati, datori di lavoro,
+  pubblici e/o privati...) stanno in `GENERICI` e si applicano solo per
+  sostituire qualsiasi_soggetto, mai per aggiungere tipi a un soggetto gia'
+  classificato. Le righe con un soggetto generico si mostrano con il
+  soggetto del bando ("nel bando: «...»"). Regole aggiunte: "enti
+  formativi" (GOL).
+- 5c: tabella `scadenze_bando`, gruppo "Chiusi ora, con una prossima
+  finestra". Righe inserite a mano (`inserisci_finestre`) per dopo la
+  laurea, GOL e JTC 2027, con origine `manuale`: una riestrazione non le
+  sostituisce mai, e le date diverse proposte dal modello si elencano da
+  rivedere. GOL: Misura 1 al 31/07/2027 (la pagina riporta anche il
+  31/07/2026, detto nella descrizione), Misura 2 al 30/06/2027;
+  bandi.scadenza a 2027-07-31. In piu': esportazione dei CSV in ordine di
+  chiave primaria, "oggi" e "fra 1 giorno" nelle righe.
+- 5d: riestratti 10 bandi (dopo la laurea escluso: la sua scadenza era gia'
+  corretta a mano). Costo reale 0,608 $, cioe' 0,061 $ a bando:
+  `COSTO_BANDO` aggiornato; `COSTO_NON_BANDO` (0,031 $) da rimisurare.
+
+Verifiche a mano:
+
+- prima, 11 novembre 2026, 23 bandi: scadenza corretta in 21, sportello e
+  atto in 23, beneficiari corretti in 17, parzialmente in 3, errati in 3
+  (`verifica-manuale-2026-11-11.csv`);
+- seconda, 12 novembre 2026, sui 10 bandi riestratti: scadenza corretta in
+  10, sportello in 8, atto in 8 (2 parziali), beneficiari corretti in 7 e
+  parzialmente in 3, nessuno errato (`verifica-manuale-2026-11-12.csv`).
+
+Correzioni finali, dopo la seconda verifica:
+
+- regole e prompt: "privati", "soggetti privati", "datori di lavoro" (e
+  quindi "soggetti ospitanti privati") non comprendono cittadini_famiglie;
+  "pubblici e/o privati" si'. Reti, consorzi, associazioni di imprese ai
+  tipi di impresa, di professionisti a professionista_autonomo; con un
+  settore, o "consorzi" e "forme associative" da soli, nessuna regola.
+  Nel prompt: forme associative mai qualsiasi_soggetto; sportello e data
+  di chiusura non si contraddicono; riferimento_atto con i decreti che
+  modificano scadenze o requisiti, non quelli su graduatorie, elenchi o
+  modulistica;
+- regola nel codice: "salvo (l')esaurimento (anticipato) delle risorse"
+  rende il bando a sportello, con la frase come prova;
+- dati, senza modello (`applica_regole_verifica`): tolte le righe
+  cittadini_famiglie di welfare aziendale e tirocini; a sportello le due
+  linee della conciliazione per i lavoratori indipendenti (voucher e
+  contributo);
+- dati a mano (`correggi_atti`), con le frasi della pagina verificate:
+  decreti di modifica aggiunti agli atti di risorse forestali (valore
+  precedente alla 5d), contributo della conciliazione, sicurezza sul
+  lavoro, mercati rionali, percorsi formativi ecosistemi; scadenza_nota
+  della conciliazione per lavoratrici riscritta con le due frasi della
+  pagina;
+- riestratta l'internazionalizzazione (0,047 $): le forme associative
+  vanno ai tipi di impresa e a professionista_autonomo.
+
+Rimasti in coda nella roadmap: la contraddizione 13542/13543 della
+sicurezza sul lavoro, e le correzioni a mano sui campi di `bandi`, non
+protette da una riestrazione futura.
+
 ### Per quando l'estrattore leggera' i PDF dei bandi
 
 - Nei bandi dei fondi europei la voce "Beneficiari" puo' indicare chi

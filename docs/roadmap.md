@@ -136,6 +136,15 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   anche con i dati identici. Prima di toglierlo dal repository, l'app deve
   ricrearlo dai CSV all'avvio, perché la demo su Streamlit Cloud lo legge
   dal repository.
+- Sicurezza e salute nei luoghi di lavoro 2026: la pagina dice che il bando
+  è approvato con decreto 13543 del 15 giugno 2026 e, poco sotto, che testo
+  e allegati sono approvati con decreto 13542 dello stesso giorno. In
+  archivio c'è 13543: da controllare sul decreto.
+- Le correzioni a mano sui campi di `bandi` (atti, note, sportello: script
+  `correggi_atti` e `applica_regole_verifica` del 12 novembre 2026) non sono
+  protette da una riestrazione futura, a differenza delle date di
+  `scadenze_bando` con origine `manuale`. Alla prossima scansione,
+  controllare che non siano tornate ai valori di prima.
 - Test di equivalenza: un bando di prova per i privati
   (`professionista_autonomo`, `qualsiasi_soggetto` sostituito dalle regole),
   prima del selettore pubblico/privato.
