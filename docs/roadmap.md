@@ -87,6 +87,15 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
    testo: un bando aperto si riestrae solo se la sua pagina è cambiata,
    così il ricontrollo non costa una nuova estrazione a ogni giro.
 
+   Anche gli scarti "scaduto" di `scansioni` vanno ricontrollati, non
+   solo i bandi in archivio. Caso del 12 novembre 2026: "premi annuali
+   ad ettaro per mantenere imboschimenti" (SRA28) è registrato come
+   "scaduto il 2026-06-30", che è uno scarto definitivo, ma è un bando
+   a domanda annuale: il 30 giugno è il termine dell'annualità 2026, e
+   le domande si possono presentare fino all'annualità 2029. La pagina
+   regionale lo dà "Aperto". Riestratto quel giorno con una chiamata,
+   senza salvarlo (`docs/piano-fonti.md`).
+
    **Requisiti da completare prima di attivarlo** (dettagli nelle voci
    indicate di `docs/revisione-2026-11-12.md`):
    - voce 2: l'estrattore controlla che il valore compaia nella sua prova,
