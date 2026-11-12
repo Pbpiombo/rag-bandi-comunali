@@ -53,6 +53,21 @@ DATA_IN_LETTERE = re.compile(
 # senza modello
 MARGINE_GIORNI = 365
 
+# Lo storico: un bando scaduto da non piu' di tanti giorni si salva
+# (bandi.decidi_automatico) e compare nelle liste per tema, in un blocco a
+# parte (interrogazioni_bandi.bandi_per_tema). Piu' vecchio, non si salva
+# e non si elenca, ma un bando gia' in archivio si trova ancora per nome.
+# Una soglia sola per salvataggio e interrogazioni. MARGINE_GIORNI non
+# deve scendere sotto: la preselezione scarterebbe pagine da storico
+# prima del modello.
+GIORNI_STORICO = 365
+
+
+def nello_storico(scadenza: str, oggi: date) -> bool:
+    """La scadenza (ISO) e' passata da non piu' di GIORNI_STORICO giorni."""
+    giorni = (oggi - date.fromisoformat(scadenza)).days
+    return 0 < giorni <= GIORNI_STORICO
+
 
 def _data(valore: str) -> date | None:
     """Il valore come data, solo se e' per intero una data."""

@@ -705,3 +705,169 @@ def test_scade_oggi_e_domani_nella_riga(db):
     assert "| scade il 2026-11-11 (oggi) |" in oggi
     (domani,) = righe_del_bando(testo, "domani")
     assert "| scade il 2026-11-12 (fra 1 giorno) |" in domani
+
+
+# --- storico degli scaduti (piano fonti, tappa 3) ---
+
+SCADUTO_DA_30 = "2026-10-12"
+
+
+def _aperto_e_storico(db, **campi) -> None:
+    """Un bando aperto e uno scaduto da 30 giorni, stessi tipi e tema."""
+    tipi = [("comune", None, None), ("unione_comuni", None, None)]
+    bando(db, "aperto", tipi, tema="ambiente", **campi)
+    bando(db, "storico", tipi, tema="ambiente", scadenza=SCADUTO_DA_30)
+
+
+def test_lo_storico_non_e_tra_gli_aperti_per_ente(db):
+    _aperto_e_storico(db)
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+
+    assert righe_del_bando(testo, "aperto")
+    assert not righe_del_bando(testo, "storico")
+
+
+def test_lo_storico_non_e_tra_gli_aperti_per_beneficiario(db):
+    _aperto_e_storico(db)
+    testo = ib.bandi_per_beneficiario(db, "comune").testo
+
+    assert righe_del_bando(testo, "aperto")
+    assert not righe_del_bando(testo, "storico")
+
+
+def test_lo_storico_non_e_in_scadenza(db):
+    _aperto_e_storico(db, scadenza="2026-11-30")
+    testo = ib.bandi_in_scadenza(db, COMUNE, 60).testo
+
+    assert righe_del_bando(testo, "aperto")
+    assert not righe_del_bando(testo, "storico")
+
+
+def test_sportello_con_chiusura_passata_non_e_tra_gli_sportelli(db):
+    bando(db, "chiuso", [("comune", None, None)], a_sportello=1, scadenza=SCADUTO_DA_30)
+    bando(db, "aperto", [("comune", None, None)], a_sportello=1, scadenza=None)
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+
+    assert righe_del_bando(testo, "aperto")
+    assert not righe_del_bando(testo, "chiuso")
+
+
+def test_il_dettaglio_dello_storico_comincia_con_lo_stato(db):
+    _aperto_e_storico(db)
+
+    storico = ib.dettaglio_bando(db, "storico")
+    aperto = ib.dettaglio_bando(db, "aperto")
+
+    assert storico.trovato
+    assert storico.testo.startswith(
+        "[#1] stato: scaduto il 2026-10-12, non più aperto | «Bando storico»"
+    )
+    assert "SCADUTO da 30 giorni" in storico.testo
+    assert "stato:" not in aperto.testo
+
+
+def test_per_tema_lo_storico_sta_in_un_blocco_a_parte(db):
+    _aperto_e_storico(db)
+    r = ib.bandi_per_tema(db, "ambiente")
+    prima, dopo = r.testo.split(ib.GRUPPO_STORICO)
+
+    assert righe_del_bando(prima, "aperto")
+    assert not righe_del_bando(prima, "storico")
+    (storico,) = righe_del_bando(dopo, "storico")
+    # la numerazione prosegue dopo gli aperti, e le fonti seguono lo stesso ordine
+    assert storico.startswith("- [#2] ")
+    assert [v.testo.split(" ")[-1] for v in r.voci] == [
+        BASE + "aperto",
+        BASE + "storico",
+    ]
+    assert len(r.fonti) == 2
+
+
+def test_per_tema_solo_storico(db):
+    bando(
+        db, "storico", [("comune", None, None)], tema="ambiente", scadenza=SCADUTO_DA_30
+    )
+    r = ib.bandi_per_tema(db, "ambiente")
+
+    assert ib.NESSUNO_APERTO_TEMA.format(oggi="2026-11-11") in r.testo
+    assert righe_del_bando(r.testo.split(ib.GRUPPO_STORICO)[1], "storico")
+
+
+def test_per_tema_senza_storico_nessun_blocco(db):
+    bando(db, "aperto", [("comune", None, None)], tema="ambiente")
+    assert ib.GRUPPO_STORICO not in ib.bandi_per_tema(db, "ambiente").testo
+
+
+def test_una_finestra_futura_non_e_storico(db):
+    """Un bando a piu' date con la scadenza passata ma una finestra futura
+    non e' scaduto: segue le sue finestre."""
+    bando(db, "finestre", [("comune", None, None)], scadenza=SCADUTO_DA_30)
+    scadenze(
+        db,
+        "finestre",
+        [
+            ("domanda", "Prima finestra", "2026-09-01", SCADUTO_DA_30),
+            ("domanda", "Seconda finestra", "2027-01-10", "2027-02-10"),
+        ],
+    )
+
+    assert not ib.scaduto(
+        db.execute("SELECT * FROM bandi WHERE id = 'finestre'").fetchone(),
+        ib.scadenze_di(db, "finestre"),
+        "2026-11-11",
+    )
+    assert "stato:" not in ib.dettaglio_bando(db, "finestre").testo
+
+
+# --- per tema solo lo storico degli ultimi 12 mesi ---
+
+# OGGI e' il 2026-11-11: 365 giorni prima e' il 2025-11-11, 366 il 2025-11-10
+SUL_LIMITE = "2025-11-11"
+OLTRE_IL_LIMITE = "2025-11-10"
+
+
+def test_per_tema_lo_storico_si_ferma_a_dodici_mesi(db):
+    tipi = [("comune", None, None)]
+    bando(db, "aperto", tipi, tema="ambiente")
+    bando(db, "limite", tipi, tema="ambiente", scadenza=SUL_LIMITE)
+    bando(db, "vecchio", tipi, tema="ambiente", scadenza=OLTRE_IL_LIMITE)
+
+    r = ib.bandi_per_tema(db, "ambiente")
+    storico = r.testo.split(ib.GRUPPO_STORICO)[1]
+
+    assert righe_del_bando(storico, "limite")
+    assert not righe_del_bando(r.testo, "vecchio")
+    assert len(r.fonti) == 2
+
+
+def test_lo_scaduto_da_piu_di_un_anno_si_trova_per_nome(db):
+    bando(
+        db,
+        "vecchio",
+        [("comune", None, None)],
+        tema="ambiente",
+        scadenza=OLTRE_IL_LIMITE,
+    )
+
+    r = ib.dettaglio_bando(db, "vecchio")
+
+    assert r.trovato
+    assert r.testo.startswith("[#1] stato: scaduto il 2025-11-10, non più aperto |")
+
+
+def test_tema_con_soli_scaduti_vecchi(db):
+    """Nessun bando da elencare: lo si dice, senza blocco dello storico."""
+    bando(
+        db,
+        "vecchio",
+        [("comune", None, None)],
+        tema="ambiente",
+        scadenza=OLTRE_IL_LIMITE,
+    )
+
+    r = ib.bandi_per_tema(db, "ambiente")
+
+    assert not r.trovato
+    assert ib.NESSUNO_APERTO_TEMA.format(oggi="2026-11-11") in r.testo
+    assert ib.GRUPPO_STORICO not in r.testo
+    assert r.fonti == []

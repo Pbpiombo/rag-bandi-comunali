@@ -29,6 +29,10 @@ Stato al 11 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   fonti, elenchi e regole di lettura dal database (`fonti.csv`,
   `elenchi.csv`), tipi di fonte "pagine" e "file". Esito in
   `docs/piano-fonti.md`.
+- **Piano fonti, tappe 2 e 3** (12 novembre 2026): elenco "bandi aperti"
+  della montagna; bandi scaduti da meno di 12 mesi salvati come storico,
+  mai tra gli aperti, in un blocco a parte nelle liste per tema e
+  trovabili per nome. Premi imboschimenti (SRA28) salvato come storico.
 
 ## In corso
 
@@ -168,9 +172,13 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 - Fine riga CRLF/LF.
 - Supabase in pausa dopo inattività: tenerlo sveglio o cambiare piano.
 - Limite di spesa mensile nella console di Anthropic.
-- Bando microzonazione sismica (DGR 1081 del 7/9/2026, premialità Toscana
-  Diffusa): fuori dall'elenco dei bandi aperti del portale, quindi la
-  scansione non lo vede. Cercarlo su un'altra pagina o fonte.
+- ~~Bando microzonazione sismica (DGR 1081 del 7/9/2026, premialità
+  Toscana Diffusa)~~: trovato il 12 novembre 2026 nella sezione rischio
+  sismico, un livello sotto le schede: scaduto il 17/10/2026, come gli
+  altri due bandi sismici del 2026 (microzonazione di livello 4 il 27/06,
+  verifiche tecniche l'01/08). Le pagine della sezione non sono state
+  aggiunte come elenchi: sono schede, non bandi (`docs/piano-fonti.md`,
+  tappa 2).
 - Scadenze multiple nello stesso bando (es. assegno formazione GOL, Misura
   1 al 31 luglio 2026 o 2027, Misura 2 al 30 giugno 2027): oggi
   l'estrattore ne tiene una sola.
@@ -250,12 +258,17 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
     tre comuni, che pubblicano bandi per le imprese (es. contributi dal
     Fondo per i comuni delle aree interne). Prima di tutto verificare il
     robots.txt di ciascun dominio;
-  - le linee di bando regionali per le imprese emerse (impianti di
-    risalita, custodi della montagna, bandi neve, voucher garanzia), da
-    cercare tra le pagine tematiche della Regione, come la
-    microzonazione;
-  - verificare se la pagina dei bandi aperti già acquisita copre i bandi
-    del PR FESR e del PR FSE+ Toscana 2021-27;
+  - ~~le linee di bando regionali per le imprese emerse~~: verificate il
+    12 novembre 2026. Voucher garanzia già in archivio (4 bandi);
+    impianti di risalita e custodi della montagna solo tra i bandi chiusi
+    della sezione montagna; bandi neve solo il "sistema neve 2017".
+    Aggiunto l'elenco "bandi aperti" della montagna, vuoto quel giorno
+    (`docs/piano-fonti.md`, tappa 2);
+  - ~~verificare se la pagina dei bandi aperti già acquisita copre i bandi
+    del PR FESR e del PR FSE+ Toscana 2021-27~~: sì, il 12 novembre 2026
+    gli elenchi dei due programmi e dello sviluppo rurale erano contenuti
+    per intero in quello generale. Il controllo si ripete con
+    l'aggiornamento periodico (passo 4);
   - nella tabella `enti`, valutare la partita IVA come secondo
     identificativo degli enti (nei dati PNRR compaiono con l'una o con
     l'altra).

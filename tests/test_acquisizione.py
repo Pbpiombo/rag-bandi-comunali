@@ -320,6 +320,10 @@ def test_comandi_usano_il_percorso_giusto_del_modulo(
 
 # --- fonti, elenchi e regole lette dal database ---
 
+ELENCO_MONTAGNA = f"{BASE}/politiche-per-la-montagna/bandi-aperti?delta=200"
+MONTAGNA_VUOTA = (PAGINE / "montagna-bandi-aperti-vuota.html").read_text(
+    encoding="utf-8"
+)
 URL_RURALE = f"{BASE}/sviluppo-rurale-2023-2027/bandi-aperti?delta=200"
 RURALE = (PAGINE / "regione-sviluppo-rurale-bandi-aperti.html").read_text(
     encoding="utf-8"
@@ -375,9 +379,12 @@ def _fonte_gal(percorso) -> None:
 def _pagine(monkeypatch, pagine: dict) -> list[str]:
     """scarica restituisce l'HTML previsto per ogni indirizzo.
 
-    Un indirizzo non previsto fa fallire il test; un valore che e' un
-    errore viene sollevato. Restituisce gli indirizzi scaricati.
+    L'elenco della montagna, se il test non dice altro, e' la pagina
+    vuota salvata. Un indirizzo non previsto fa fallire il test; un
+    valore che e' un errore viene sollevato. Restituisce gli indirizzi
+    scaricati.
     """
+    pagine = {ELENCO_MONTAGNA: MONTAGNA_VUOTA, **pagine}
     scaricati = []
 
     def finto(url, timeout=30):
@@ -417,7 +424,7 @@ def test_collegamento_con_it_nel_percorso_e_relativo(db_su_file, monkeypatch):
     )
     _pagine(monkeypatch, {ELENCO_REGIONE: html})
 
-    [letto] = elenco.leggi_elenchi()
+    [letto] = [x for x in elenco.leggi_elenchi() if x.elenco.url == ELENCO_REGIONE]
 
     assert letto.collegamenti == [
         ("bando-parcheggi-2026", _url("bando-parcheggi-2026")),
@@ -479,7 +486,7 @@ def test_elenco_non_attivo_non_si_scarica(db_su_file, monkeypatch):
 
     elenco.leggi_elenchi()
 
-    assert scaricati == [ELENCO_REGIONE]
+    assert scaricati == [ELENCO_REGIONE, ELENCO_MONTAGNA]
 
 
 def test_ogni_fonte_con_le_sue_regole(db_su_file, monkeypatch):
@@ -522,7 +529,7 @@ def test_fonte_di_tipo_file_non_si_scarica(db_su_file, monkeypatch):
 
     voci = elenco.scopri()
 
-    assert scaricati == [ELENCO_REGIONE]
+    assert scaricati == [ELENCO_REGIONE, ELENCO_MONTAGNA]
     assert {v.codice_fonte for v in voci} == {TOSCANA}
 
 
@@ -644,3 +651,49 @@ def test_la_preselezione_legge_l_etichetta_della_fonte(senza_rete):
 
     # scaduto da oltre un anno secondo il campo: non va al modello
     assert candidati == []
+
+
+# --- elenco della montagna (piano fonti, tappa 2) ---
+
+
+def test_l_elenco_della_montagna_e_tra_quelli_veri(db_su_file, monkeypatch):
+    scaricati = _pagine(monkeypatch, {ELENCO_REGIONE: ELENCO_SALVATO})
+
+    elenco.leggi_elenchi()
+
+    assert ELENCO_MONTAGNA in scaricati
+
+
+def test_la_montagna_vuota_non_da_voci(db_su_file, monkeypatch):
+    """Menu della sezione, notizie e piede di pagina non sono bandi."""
+    _pagine(monkeypatch, {ELENCO_REGIONE: ELENCO_SALVATO})
+
+    assert _slug_letti(ELENCO_MONTAGNA) == []
+
+
+def test_la_montagna_non_cambia_le_voci_dell_elenco_generale(db_su_file, monkeypatch):
+    _pagine(monkeypatch, {ELENCO_REGIONE: ELENCO_SALVATO})
+
+    voci = elenco.scopri()
+
+    assert [v.slug for v in voci] == _slug_letti()
+    assert {v.elenco for v in voci} == {ELENCO_REGIONE}
+
+
+def test_un_bando_della_montagna_entra_con_le_regole_della_regione(
+    db_su_file, monkeypatch
+):
+    """Quando la pagina avra' bandi, i collegamenti /-/ diventano voci; uno
+    gia' nell'elenco generale resta una voce sola."""
+    con_bandi = MONTAGNA_VUOTA.replace(
+        "<p>Nessun risultato trovato.</p>",
+        f'<a href="{BASE}/-/custodi-della-montagna-bando-2027">Custodi</a>'
+        f'<a href="{BASE}/-/bando-parcheggi-2026">Parcheggi</a>',
+    )
+    _pagine(monkeypatch, {ELENCO_REGIONE: ELENCO_SALVATO, ELENCO_MONTAGNA: con_bandi})
+
+    voci = {v.slug: v for v in elenco.scopri()}
+
+    assert voci["custodi-della-montagna-bando-2027"].elenco == ELENCO_MONTAGNA
+    assert voci["bando-parcheggi-2026"].elenco == ELENCO_REGIONE
+    assert len(voci) == 8

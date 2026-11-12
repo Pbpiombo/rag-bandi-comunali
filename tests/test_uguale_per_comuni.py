@@ -26,6 +26,20 @@ tre differenze approvate una per una:
 - ogni riga di bando contiene "atto: <riferimento_atto>" prima dell'url;
 - nel dettaglio l'atto passa dalla fine del testo alla riga del bando.
 
+Aggiornato il 12 novembre 2026 (piano-fonti.md, tappa 3: storico degli
+scaduti), 22 voci su 35, con due differenze approvate:
+- bandi_per_tema (6 temi): prima gli aperti, poi la riga "Scaduti, solo
+  come storico: non più aperti:" con i bandi scaduti da non più di 365
+  giorni alla data del test; la numerazione [#k] e l'ordine delle fonti
+  seguono il nuovo ordine. Un tema senza aperti scrive "Nessun bando
+  aperto su questo tema alla data del 2026-11-11.". Gli scaduti più
+  vecchi escono dalla lista (rievocazione-storica-2025 da cultura,
+  orientamento-universitario-2018 da formazione) ma restano trovabili
+  con dettaglio_bando;
+- dettaglio_bando (16 bandi, tutti e solo quelli scaduti alla data del
+  test): la riga comincia con "stato: scaduto il <data>, non più
+  aperto |", il resto è invariato.
+
 Il test migra quei bandi con lo script di migrazione, li carica nello
 schema attuale ed esegue le stesse interrogazioni: il testo, le fonti e
 l'esito devono coincidere con il riferimento.

@@ -379,6 +379,13 @@ Le altre pagine no, per questi motivi (decisione del 12/11/2026):
 
 Nessuna chiamata al modello. Mezz'ora, più il tempo di download.
 
+### Esito (12/11/2026)
+
+- Riga in `elenchi.csv`, pagina salvata
+  `tests/pagine/montagna-bandi-aperti-vuota.html`, quattro test.
+- `estrai_nuovi --prova`: elenco generale 160 voci, elenco della montagna
+  0 voci; gli stessi 12 candidati della tappa 1, nello stesso ordine.
+
 ---
 
 ## 3. Tappa 3: bandi scaduti da meno di 12 mesi come storico
@@ -504,6 +511,36 @@ scaduto da 30 giorni dello stesso tema e per lo stesso tipo di ente:
 Nessuna chiamata al modello. Mezza giornata. Dopo la tappa, il
 salvataggio di "premi imboschimenti" dall'estrazione conservata non
 costa chiamate.
+
+### Esito (12/11/2026)
+
+- `decidi_automatico(estrazione, riga, oggi=None)`: scaduto da 1 a 365
+  giorni salvato con il motivo "storico: scaduto il …", più vecchio
+  scartato come prima. La soglia è una sola, `GIORNI_STORICO` in
+  `src/estrazione/scadenza.py` con `nello_storico`, usata dal
+  salvataggio e dalle interrogazioni.
+- Regola aggiunta su richiesta: in `bandi_per_tema` il blocco "Scaduti,
+  solo come storico" contiene solo gli scaduti da non più di 12 mesi;
+  quelli più vecchi restano in archivio e si trovano con
+  `dettaglio_bando`, non nelle liste. Un tema con soli scaduti vecchi dà
+  `trovato=False`.
+- `dettaglio_bando` di un bando scaduto comincia con "stato: scaduto il
+  …, non più aperto".
+- Riferimento di equivalenza rigenerato dopo l'approvazione: 22 voci su
+  35 (6 `bandi_per_tema`, 16 `dettaglio_bando`, tutti e solo i bandi
+  scaduti alla data del test), differenze nel docstring del test.
+- Premi imboschimenti salvato come storico dall'estrazione in
+  `dati-grezzi\estrazioni\`, senza modello:
+  `premi-annuali-ad-ettaro-per-mantenere-imboschimenti-f-cee3db`, 9 righe
+  di beneficiari, 4 interventi; in `scansioni` la riga passa da
+  "scartato, scaduto il 2026-06-30" a "salvato, storico: scaduto il
+  2026-06-30". Fuori dagli aperti, nello storico di
+  `bandi_per_tema(agricoltura)`.
+- Da segnalare: per uno sportello scaduto la riga del bando dice ancora
+  "a sportello fino al 2026-06-30, verificare la disponibilità delle
+  risorse" (`stato_sportello`). La riga di stato che la precede dice che
+  è scaduto, ma l'invito a verificare le risorse non ha senso per un
+  bando chiuso. Non corretto: fuori dal perimetro della tappa.
 
 ---
 

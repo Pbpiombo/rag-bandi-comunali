@@ -16,6 +16,7 @@ from src.estrazione.beneficiari import (
     TIPI_BENEFICIARIO,
     soggetto_generico,
 )
+from src.estrazione.scadenza import nello_storico
 
 # Anni dalla pubblicazione oltre i quali un bando a sportello e' segnalato
 # come probabilmente esaurito. Non si esclude: fondi di garanzia e rotativi
@@ -61,6 +62,12 @@ GRUPPO_SPORTELLO = "A sportello, finché ci sono risorse:"
 GRUPPO_SENZA_SCADENZA = "Scadenza non indicata, da verificare sul bando:"
 # Un bando a finestre tra una finestra chiusa e la prossima
 GRUPPO_PROSSIMA = "Chiusi ora, con una prossima finestra:"
+# I bandi scaduti da non piu' di scadenza.GIORNI_STORICO giorni: lo
+# storico. Non compaiono mai tra gli aperti; nelle liste per tema stanno in
+# un blocco a parte. Quelli piu' vecchi restano in archivio e si trovano
+# per nome (dettaglio_bando), ma non nelle liste.
+GRUPPO_STORICO = "Scaduti, solo come storico: non più aperti:"
+NESSUNO_APERTO_TEMA = "Nessun bando aperto su questo tema alla data del {oggi}."
 
 # Le pagine in archivio che non sono bandi (natura 'non_bando') restano
 # nel database ma non compaiono negli elenchi ne' nei conteggi
@@ -282,6 +289,20 @@ def stato_finestre(riga, scadenze: list, oggi: str) -> str | None:
     if dopo:
         stato += f"; {dopo}"
     return stato
+
+
+def scaduto(riga, scadenze: list, oggi: str) -> bool:
+    """Il bando e' scaduto alla data oggi (ISO): storico, non aperto.
+
+    Come in stato_documenti.stato_bando: un bando con piu' date segue le
+    sue finestre, e non e' scaduto se ne ha una aperta o futura; gli altri
+    sono scaduti se la scadenza e' passata, anche a sportello. La stessa
+    condizione degli elenchi degli aperti (scadenza IS NULL OR scadenza >=
+    oggi), con le finestre in piu'.
+    """
+    if stato_finestre(riga, scadenze, oggi):
+        return False
+    return bool(riga["scadenza"]) and riga["scadenza"] < oggi
 
 
 def scadenza_vicina(riga, scadenze: list, oggi: str) -> str | None:
@@ -604,7 +625,12 @@ def etichetta_tipi(riga, beneficiari: list) -> str:
 
 
 def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
-    """I bandi di un certo tema, con l'indicazione se aperti e per chi."""
+    """I bandi di un certo tema, con l'indicazione se aperti e per chi.
+
+    Prima gli aperti, poi lo storico: gli scaduti da non piu' di
+    GIORNI_STORICO giorni. Gli scaduti piu' vecchi non si elencano. Se non
+    resta nessun bando da elencare, trovato e' False.
+    """
     oggi = data_di_oggi().isoformat()
 
     righe = conn.execute(
@@ -623,21 +649,41 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
             trovato=False,
         )
 
+    # Gli aperti prima, gli scaduti da meno di un anno in un blocco a parte:
+    # lo storico non si confonde con le opportunita' di oggi. La
+    # numerazione prosegue. Gli scaduti piu' vecchi non entrano.
+    giorno = date.fromisoformat(oggi)
+    aperti, storici = [], []
+    for r in righe:
+        scadenze = scadenze_di(conn, r["id"])
+        if not scaduto(r, scadenze, oggi):
+            aperti.append((r, scadenze))
+        elif nello_storico(r["scadenza"], giorno):
+            storici.append((r, scadenze))
+
     numerate = RigheBandi()
-    elenco = "\n".join(
-        "- "
-        + numerate.numera(
-            r,
-            f"{etichetta_tipi(r, beneficiari_di(conn, r['id']))} "
-            f"{formatta_bando(r, oggi, scadenze=scadenze_di(conn, r['id']))}",
+
+    def elenco(gruppo):
+        return "\n".join(
+            "- "
+            + numerate.numera(
+                r,
+                f"{etichetta_tipi(r, beneficiari_di(conn, r['id']))} "
+                f"{formatta_bando(r, oggi, scadenze=scadenze)}",
+            )
+            for r, scadenze in gruppo
         )
-        for r in righe
-    )
+
+    testo = f"Bandi sul tema '{tema}' in archivio:\n"
+    testo += elenco(aperti) if aperti else NESSUNO_APERTO_TEMA.format(oggi=oggi)
+    if storici:
+        testo += f"\n{GRUPPO_STORICO}\n{elenco(storici)}"
 
     return Risultato(
-        f"Bandi sul tema '{tema}' in archivio:\n{elenco}",
-        fonti=[fonte_bando(r) for r in righe],
+        testo,
+        fonti=[fonte_bando(r) for r, _ in [*aperti, *storici]],
         voci=numerate.voci,
+        trovato=bool(aperti or storici),
     )
 
 
@@ -779,7 +825,15 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
         return Risultato(testo, fonti=[fonte_bando(riga)], voci=numerate.voci)
 
     scadenze = scadenze_di(conn, riga["id"])
+    # Lo stato prima di tutto, calcolato ora: un bando dello storico non
+    # va presentato come un'opportunita' aperta
+    stato = (
+        [f"stato: scaduto il {riga['scadenza']}, non più aperto"]
+        if scaduto(riga, scadenze, oggi)
+        else []
+    )
     pezzi = [
+        *stato,
         formatta_bando(riga, oggi, scadenze=scadenze),
         "beneficiari ammessi: "
         + descrivi_beneficiari(riga, beneficiari_di(conn, riga["id"])),

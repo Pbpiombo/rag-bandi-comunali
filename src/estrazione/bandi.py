@@ -18,6 +18,7 @@ from src.estrazione.beneficiari import (
     frase_nel_testo,
     tipi_da_termini,
 )
+from src.estrazione.scadenza import nello_storico
 
 # I campi semplici del bando: nome -> (tipo, critico, con_prova).
 # - critico: richiede sempre conferma umana nell'estrazione manuale
@@ -80,6 +81,10 @@ ORIGINI_PUBBLICAZIONE = ("pubblicazione", "atto")
 # Motivi di scarto: devono iniziare cosi' perche' il registro delle
 # scansioni li riconosca come definitivi (src/estrazione/registro.py)
 NON_BANDO = "non e' un bando"
+
+# Il motivo di un bando salvato come storico. Non comincia con "scaduto":
+# non e' uno scarto, e il registro non lo tratta come tale.
+STORICO = "storico"
 
 # I campi numerici per cui "fino a 50.000 euro" e' il valore cercato:
 # un tetto. Per un minimo, un tetto non ha senso.
@@ -888,23 +893,31 @@ def valida(estrazione: Estrazione, testo: str) -> tuple[dict, list[str], list[st
     return riga, problemi, avvisi
 
 
-def decidi_automatico(estrazione: Estrazione, riga: dict) -> tuple[bool, str]:
+def decidi_automatico(
+    estrazione: Estrazione, riga: dict, oggi: date | None = None
+) -> tuple[bool, str]:
     """Decide se salvare senza conferma umana.
 
-    Si scarta solo cio' che non e' un bando o e' scaduto (scarti
-    definitivi), oppure la cui scadenza e' incerta (scarti da rivedere).
-    Il tipo di beneficiario non e' mai motivo di scarto: si filtra al
-    momento della domanda.
+    Si scarta solo cio' che non e' un bando o e' scaduto da piu' di
+    scadenza.GIORNI_STORICO giorni (scarti definitivi), oppure la cui scadenza e'
+    incerta (scarti da rivedere). Un bando scaduto da meno si salva come
+    storico. Il tipo di beneficiario non e' mai motivo di scarto: si
+    filtra al momento della domanda.
 
     Un bando a sportello si salva anche senza data di chiusura; se ha una
-    data di chiusura gia' passata, e' scaduto.
+    data di chiusura gia' passata, e' scaduto, con la stessa soglia.
+
+    oggi: la data dell'esame; se manca, quella di sistema.
     """
     if estrazione.natura == "non_bando":
         motivo = f": {estrazione.natura_motivo}" if estrazione.natura_motivo else ""
         return False, f"{NON_BANDO}{motivo}"
 
+    oggi = oggi or date.today()
     scadenza = riga.get("scadenza")
-    if scadenza and scadenza < date.today().isoformat():
+    if scadenza and scadenza < oggi.isoformat():
+        if nello_storico(scadenza, oggi):
+            return True, f"{STORICO}: scaduto il {scadenza}"
         return False, f"scaduto il {scadenza}"
 
     if riga.get("a_sportello") == 1:

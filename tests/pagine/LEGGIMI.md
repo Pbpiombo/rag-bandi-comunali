@@ -36,3 +36,4 @@ lettura degli elenchi con le regole di `data/processed/fonti.csv`.
 | File | Pagina | Perche' |
 |---|---|---|
 | `regione-sviluppo-rurale-bandi-aperti.html` | https://www.regione.toscana.it/sviluppo-rurale-2023-2027/bandi-aperti?delta=200, scaricata il 12 novembre 2026 | tre bandi, tre notizie di www.toscana-notizie.it con `/-/` nell'indirizzo, i collegamenti del piè di pagina (PEC, whistleblower, atti di notifica, accessibilità) |
+| `montagna-bandi-aperti-vuota.html` | https://www.regione.toscana.it/politiche-per-la-montagna/bandi-aperti?delta=200, scaricata il 12 novembre 2026 | nessun bando ("Nessun risultato trovato"): solo menu della sezione e collegamenti del piè di pagina, che non devono dare voci |
