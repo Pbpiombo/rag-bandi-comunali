@@ -92,6 +92,7 @@ TERMINI = {
     "agenzie formative": ("ricerca_formazione",),
     "organismi formativi": ("ricerca_formazione",),
     "enti di formazione": ("ricerca_formazione",),
+    "enti formativi": ("ricerca_formazione",),
     "liberi professionisti": ("professionista_autonomo",),
     "lavoratori autonomi": ("professionista_autonomo",),
     "titolari di impresa individuale": ("professionista_autonomo",),

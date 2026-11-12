@@ -90,6 +90,15 @@ def mostra(estrazione) -> None:
         print(f"      frase: {s.get('frase')}")
 
 
+def mostra_date_da_rivedere(da_rivedere: list[str]) -> None:
+    """Le date inserite a mano tenute, e le differenze proposte dal modello."""
+    if not da_rivedere:
+        return
+    print("\nDATE INSERITE A MANO: tenute, differenze da rivedere")
+    for d in da_rivedere:
+        print(f"  {d}")
+
+
 def mostra_confronto(precedente: dict, riga: dict) -> None:
     """Evidenzia le differenze rispetto alla riga gia' in archivio."""
     print(
@@ -220,7 +229,7 @@ def main() -> None:
         salvare, motivo = decidi_automatico(estrazione, riga)
 
         if salvare:
-            salva(riga, url, FONTE, CODICE_FONTE)
+            mostra_date_da_rivedere(salva(riga, url, FONTE, CODICE_FONTE))
             aggiorna_csv(*TABELLE_BANDO)
             print(f"\nSALVATO: {id_bando} ({motivo})")
         else:
@@ -236,7 +245,7 @@ def main() -> None:
         return
 
     try:
-        salva(riga, url, FONTE, CODICE_FONTE)
+        mostra_date_da_rivedere(salva(riga, url, FONTE, CODICE_FONTE))
     except ConflittoBando as errore:
         print(errore)
         return

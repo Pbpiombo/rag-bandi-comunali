@@ -547,7 +547,8 @@ def scadenze(conn, id_bando, righe):
     """Inserisce le righe di scadenze_bando: (genere, descrizione, apertura, scadenza)."""
     for numero, (genere, descrizione, apertura, scadenza) in enumerate(righe, 1):
         conn.execute(
-            "INSERT INTO scadenze_bando VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO scadenze_bando (id_bando, numero, genere, descrizione, "
+            "apertura, scadenza, frase) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (id_bando, numero, genere, descrizione, apertura, scadenza, "frase"),
         )
 

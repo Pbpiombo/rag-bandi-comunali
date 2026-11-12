@@ -16,9 +16,12 @@ bandi.scadenza passa da 2026-07-31 a 2027-07-31, solo se e' ancora il
 valore vecchio. La contraddizione resta nella descrizione della riga, che
 l'utente vede, oltre che in scadenza_nota.
 
-Crea la tabella scadenze_bando se il database e' precedente; alla fine
-riversa nei CSV bandi e scadenze_bando. Rilanciarlo non cambia nulla: le
-righe di un bando si sostituiscono.
+Le righe hanno origine 'manuale': una nuova estrazione non le sostituisce,
+e le date diverse proposte dal modello si elencano da rivedere.
+
+Crea la tabella scadenze_bando, o la sua colonna origine, se il database e'
+precedente; alla fine riversa nei CSV bandi e scadenze_bando. Rilanciarlo
+non cambia nulla: le righe di un bando si sostituiscono.
 """
 
 from src.database.schema import aggiorna_csv, connetti, crea_schema
@@ -159,16 +162,30 @@ def inserisci(conn, id_bando: str, righe: list[tuple]) -> str:
     conn.execute("DELETE FROM scadenze_bando WHERE id_bando = ?", (id_bando,))
     conn.executemany(
         "INSERT INTO scadenze_bando (id_bando, numero, genere, descrizione, "
-        "apertura, scadenza, frase) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "apertura, scadenza, frase, origine) VALUES (?, ?, ?, ?, ?, ?, ?, 'manuale')",
         [(id_bando, numero, *r) for numero, r in enumerate(ordinate, start=1)],
     )
     return f"{len(ordinate)} righe"
+
+
+def aggiungi_origine(conn) -> bool:
+    """Aggiunge la colonna origine a una scadenze_bando creata prima."""
+    presenti = {r["name"] for r in conn.execute("PRAGMA table_info(scadenze_bando)")}
+    if "origine" in presenti:
+        return False
+    conn.execute(
+        "ALTER TABLE scadenze_bando ADD COLUMN origine TEXT NOT NULL "
+        "DEFAULT 'estrazione' CHECK (origine IN ('estrazione', 'manuale'))"
+    )
+    return True
 
 
 def main() -> None:
     conn = connetti()
     try:
         crea_schema(conn)
+        if aggiungi_origine(conn):
+            print("  Colonna origine aggiunta a scadenze_bando")
         for id_bando, (attesa, corretta) in CORREZIONI_SCADENZA.items():
             esito = correggi_scadenza(conn, id_bando, attesa, corretta)
             print(f"  {id_bando}: {esito}")

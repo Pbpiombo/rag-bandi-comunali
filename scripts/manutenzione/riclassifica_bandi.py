@@ -50,7 +50,14 @@ from src.estrazione.bandi import (
     valida,
 )
 from src.estrazione.pagina import prendi
-from src.estrazione.salva import COLONNE, COLONNE_SCADENZE, salva, segna_non_bando
+from src.estrazione.salva import (
+    COLONNE,
+    COLONNE_SCADENZE,
+    applica_date_manuali,
+    date_manuali,
+    salva,
+    segna_non_bando,
+)
 
 PAUSA = 1.0
 
@@ -108,12 +115,15 @@ def fondi(precedente: dict, riga: dict, avvisi: list[str]) -> list[dict]:
 
 
 def scadenze_precedenti(id_bando: str) -> list[dict]:
-    """Le righe di scadenze_bando gia' in archivio per un bando."""
+    """Le righe estratte di scadenze_bando gia' in archivio per un bando.
+
+    Le righe inserite a mano non ci sono: le protegge applica_date_manuali.
+    """
     conn = connetti()
     try:
         righe = conn.execute(
             f"SELECT {', '.join(COLONNE_SCADENZE)} FROM scadenze_bando "
-            "WHERE id_bando = ? ORDER BY numero",
+            "WHERE id_bando = ? AND origine = 'estrazione' ORDER BY numero",
             (id_bando,),
         ).fetchall()
     finally:
@@ -202,7 +212,13 @@ def riclassifica(estrattore, precedente: dict) -> dict:
     Restituisce l'esito: salvato, non_bando o fallito, con il motivo, gli
     avvisi, i valori vecchi mantenuti e le differenze.
     """
-    esito = {"id": precedente["id"], "mantenuti": [], "cambiati": [], "avvisi": []}
+    esito = {
+        "id": precedente["id"],
+        "mantenuti": [],
+        "cambiati": [],
+        "avvisi": [],
+        "date_da_rivedere": [],
+    }
 
     try:
         testo = prendi(precedente["url"])
@@ -225,6 +241,12 @@ def riclassifica(estrattore, precedente: dict) -> dict:
 
     riga["id"] = precedente["id"]
     esito["mantenuti"] = fondi(precedente, riga, avvisi)
+    # Le date inserite a mano restano: quelle diverse proposte dal modello
+    # si elencano da rivedere. Prima delle differenze, che cosi' mostrano
+    # la scadenza che si salva davvero.
+    esito["date_da_rivedere"] = applica_date_manuali(
+        riga, date_manuali(precedente["id"])
+    )
     date = mantieni_scadenze(scadenze_precedenti(precedente["id"]), riga, avvisi)
     if date:
         esito["mantenuti"].append(date)
@@ -269,6 +291,15 @@ def mostra_rapporto(esiti: list[dict]) -> None:
         for m in e["mantenuti"]:
             print(f"    {m['colonna']}: {m['vecchio']}")
             print(f"      motivo: {m['motivo']}")
+
+    da_rivedere = [e for e in esiti if e.get("date_da_rivedere")]
+    print("\nDATE INSERITE A MANO: DIFFERENZE PROPOSTE DAL MODELLO (da rivedere)")
+    if not da_rivedere:
+        print("  nessuna")
+    for e in da_rivedere:
+        print(f"  {e['id']}")
+        for d in e["date_da_rivedere"]:
+            print(f"    {d}")
 
 
 def main() -> None:

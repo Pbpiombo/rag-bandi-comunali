@@ -137,7 +137,82 @@ def segna_non_bando(id_bando: str, motivo: str) -> bool:
         conn.close()
 
 
-def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
+def _date_manuali(conn: sqlite3.Connection, id_bando: str) -> list[dict]:
+    rows = conn.execute(
+        "SELECT * FROM scadenze_bando WHERE id_bando = ? AND origine = 'manuale' "
+        "ORDER BY numero",
+        (id_bando,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def date_manuali(id_bando: str) -> list[dict]:
+    """Le righe di scadenze_bando inserite a mano per un bando."""
+    conn = connetti()
+    try:
+        return _date_manuali(conn, id_bando)
+    finally:
+        conn.close()
+
+
+def _data(s: dict) -> str:
+    periodo = (
+        f"dal {s['apertura']} al {s['scadenza']}"
+        if s.get("apertura")
+        else f"entro il {s['scadenza']}"
+    )
+    return f"{s['genere']} «{s['descrizione']}» {periodo}"
+
+
+def applica_date_manuali(riga: dict, manuali: list[dict]) -> list[str]:
+    """Le date inserite a mano prevalgono su quelle della nuova estrazione.
+
+    Se il bando ha righe 'manuale' in scadenze_bando, la riga perde la
+    chiave scadenze (cosi' salva non tocca la tabella) e la scadenza del
+    bando torna l'ultima scadenza 'domanda' delle righe manuali. Modifica
+    riga e restituisce le differenze da rivedere: le date proposte dal
+    modello e non in archivio, quelle in archivio e non proposte, e una
+    scadenza del bando diversa. Senza righe manuali non fa nulla.
+    """
+    if not manuali:
+        return []
+
+    da_rivedere = []
+    proposte = riga.pop("scadenze", None)
+    if proposte is not None:
+        chiave = lambda s: (s["genere"], s.get("apertura"), s["scadenza"])  # noqa: E731
+        tenute = {chiave(s) for s in manuali}
+        if not proposte:
+            da_rivedere.append(
+                f"il modello non propone date multiple: restano le {len(manuali)} "
+                "righe inserite a mano"
+            )
+        else:
+            nuove = {chiave(s) for s in proposte}
+            da_rivedere += [
+                f"proposta dal modello, non in archivio: {_data(s)}"
+                for s in proposte
+                if chiave(s) not in tenute
+            ]
+            da_rivedere += [
+                f"inserita a mano, non proposta dal modello: {_data(s)}"
+                for s in manuali
+                if chiave(s) not in nuove
+            ]
+
+    domande = [s["scadenza"] for s in manuali if s["genere"] == "domanda"]
+    if domande:
+        ultima = max(domande)
+        if riga.get("scadenza") != ultima:
+            da_rivedere.append(
+                f"scadenza del bando: il modello indica {riga.get('scadenza')}, "
+                f"le date inserite a mano danno {ultima}: resta {ultima}"
+            )
+            riga["scadenza"] = ultima
+    return da_rivedere
+
+
+def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> list[str]:
     """Scrive o aggiorna la riga del bando nel database.
 
     Un bando si aggiorna solo con lo stesso id e lo stesso URL. Se l'id
@@ -153,6 +228,11 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
     righe migrate da ammette_comuni, e classificato_il diventa oggi.
     Lo stesso per interventi e scadenze. Senza quelle chiavi, le tabelle
     collegate restano come sono.
+
+    Fanno eccezione le date inserite a mano (scadenze_bando con origine
+    'manuale'): non si sostituiscono mai, e la scadenza del bando resta
+    quella che danno (applica_date_manuali). Restituisce le differenze da
+    rivedere tra le date proposte e quelle tenute; vuota se non ce ne sono.
     """
     oggi = date.today().isoformat()
     riga = dict(riga)
@@ -165,7 +245,6 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
     riga["natura"] = "bando"
     riga["natura_motivo"] = None
 
-    valori = [riga.get(c) for c in COLONNE]
     segnaposto = ", ".join("?" for _ in COLONNE)
     elenco = ", ".join(COLONNE)
     aggiorna = ", ".join(f"{c} = excluded.{c}" for c in COLONNE if c != "id")
@@ -175,6 +254,9 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
         problema = _conflitto(conn, riga["id"], riga["url"])
         if problema:
             raise ConflittoBando(f"Non salvo: {problema}")
+
+        da_rivedere = applica_date_manuali(riga, _date_manuali(conn, riga["id"]))
+        valori = [riga.get(c) for c in COLONNE]
 
         conn.execute(
             f"INSERT INTO bandi ({elenco}) VALUES ({segnaposto}) "
@@ -214,3 +296,4 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
         conn.commit()
     finally:
         conn.close()
+    return da_rivedere

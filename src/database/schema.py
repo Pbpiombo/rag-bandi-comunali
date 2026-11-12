@@ -164,6 +164,9 @@ CREATE TABLE IF NOT EXISTS interventi_bando (
 -- finestra, o una misura con la sua scadenza); 'fase_successiva': una
 -- scadenza per chi ha gia' superato una fase, che non apre il bando a
 -- nuove domande. bandi.scadenza resta l'ultima scadenza 'domanda'.
+-- origine 'manuale': righe lette a mano dalla pagina, che una nuova
+-- estrazione non sostituisce mai; le date diverse proposte dal modello si
+-- elencano da rivedere.
 CREATE TABLE IF NOT EXISTS scadenze_bando (
     id_bando        TEXT NOT NULL REFERENCES bandi(id),
     numero          INTEGER NOT NULL,
@@ -172,6 +175,8 @@ CREATE TABLE IF NOT EXISTS scadenze_bando (
     apertura        TEXT,
     scadenza        TEXT NOT NULL,
     frase           TEXT NOT NULL,
+    origine         TEXT NOT NULL DEFAULT 'estrazione'
+                    CHECK (origine IN ('estrazione', 'manuale')),
     PRIMARY KEY (id_bando, numero),
     CHECK (apertura IS NULL OR apertura <= scadenza)
 );
@@ -268,6 +273,7 @@ TABELLE_DA_CSV = {
         "apertura",
         "scadenza",
         "frase",
+        "origine",
     ],
     "scansioni": [
         "url",

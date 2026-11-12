@@ -12,7 +12,7 @@ from scripts.manutenzione.riclassifica_bandi import (
     mantieni_scadenze,
 )
 from src.estrazione.bandi import interpreta
-from src.estrazione.salva import salva, segna_non_bando
+from src.estrazione.salva import applica_date_manuali, salva, segna_non_bando
 from tests.test_estrattore import pagina_salvata, risposta
 
 PRECEDENTE = {
@@ -268,3 +268,137 @@ def test_da_riestrarre_prende_anche_i_classificati(db_su_file):
 
     assert [b["id"] for b in trovati] == ["classificato"]
     assert mancanti == ["inesistente"]
+
+
+# --- date inserite a mano: non si sostituiscono mai ---
+
+MANUALI = [{**d, "origine": "manuale", "id_bando": "tpl"} for d in DATE_VECCHIE]
+
+
+def test_senza_date_manuali_non_cambia_nulla():
+    riga = {"scadenza": "2021-10-21", "scadenze": []}
+    assert applica_date_manuali(riga, []) == []
+    assert riga == {"scadenza": "2021-10-21", "scadenze": []}
+
+
+def test_date_manuali_uguali_nessuna_differenza():
+    proposte = [{**d, "descrizione": "altro nome"} for d in DATE_VECCHIE]
+    riga = {"scadenza": "2022-03-31", "scadenze": proposte}
+
+    assert applica_date_manuali(riga, MANUALI) == []
+    assert "scadenze" not in riga
+
+
+def test_date_proposte_diverse_si_elencano_e_restano_le_manuali():
+    proposta = {**DATE_VECCHIE[1], "scadenza": "2022-04-30", "apertura": None}
+    riga = {"scadenza": "2022-04-30", "scadenze": [DATE_VECCHIE[0], proposta]}
+
+    da_rivedere = applica_date_manuali(riga, MANUALI)
+
+    assert "scadenze" not in riga
+    assert riga["scadenza"] == "2022-03-31"
+    assert da_rivedere == [
+        (
+            "proposta dal modello, non in archivio: domanda «seconda finestra» "
+            "entro il 2022-04-30"
+        ),
+        (
+            "inserita a mano, non proposta dal modello: domanda «seconda finestra» "
+            "dal 2022-03-01 al 2022-03-31"
+        ),
+        (
+            "scadenza del bando: il modello indica 2022-04-30, le date inserite a "
+            "mano danno 2022-03-31: resta 2022-03-31"
+        ),
+    ]
+
+
+def _bando_con_date_manuali(db_su_file):
+    url = "https://www.regione.toscana.it/-/tpl"
+    salva(
+        {
+            "id": "tpl",
+            "titolo": "TPL",
+            "ente": "Regione Toscana",
+            "beneficiari": "Enti locali competenti.",
+            "a_sportello": 0,
+            "scadenza": "2022-03-31",
+        },
+        url,
+        "x",
+        "regione-toscana",
+    )
+    c = sqlite3.connect(db_su_file)
+    c.executemany(
+        "INSERT INTO scadenze_bando (id_bando, numero, genere, descrizione, "
+        "apertura, scadenza, frase, origine) VALUES ('tpl', ?, ?, ?, ?, ?, ?, "
+        "'manuale')",
+        [
+            (d["numero"], d["genere"], d["descrizione"], d["apertura"])
+            + (d["scadenza"], d["frase"])
+            for d in DATE_VECCHIE
+        ],
+    )
+    c.commit()
+    c.close()
+    return url
+
+
+DATE_IN_ARCHIVIO = (
+    "SELECT numero, descrizione, scadenza, origine FROM scadenze_bando ORDER BY numero"
+)
+ATTESE = [
+    (1, "prima finestra", "2021-10-21", "manuale"),
+    (2, "seconda finestra", "2022-03-31", "manuale"),
+]
+
+
+def test_salva_non_sostituisce_le_date_manuali(db_su_file):
+    url = _bando_con_date_manuali(db_su_file)
+    proposta = {**DATE_VECCHIE[0], "scadenza": "2021-11-30", "numero": 1}
+
+    da_rivedere = salva(
+        {
+            "id": "tpl",
+            "titolo": "TPL",
+            "ente": "Regione Toscana",
+            "beneficiari": "Enti locali competenti.",
+            "a_sportello": 0,
+            "scadenza": "2021-11-30",
+            "scadenze": [
+                proposta,
+                {**proposta, "numero": 2, "genere": "fase_successiva"},
+            ],
+        },
+        url,
+        "x",
+        "regione-toscana",
+    )
+
+    assert _leggi(db_su_file, DATE_IN_ARCHIVIO) == ATTESE
+    assert _leggi(db_su_file, "SELECT scadenza FROM bandi") == [("2022-03-31",)]
+    assert any(d.startswith("proposta dal modello") for d in da_rivedere)
+
+
+def test_riclassifica_tiene_le_date_manuali_e_le_elenca(db_su_file, monkeypatch):
+    _bando_con_date_manuali(db_su_file)
+    # la nuova estrazione non trova date multiple e indica il 21/10/2021
+    monkeypatch.setattr(rb, "prendi", lambda _: pagina_salvata("tpl"))
+    monkeypatch.setattr(rb, "estrai", lambda _e, _t: interpreta(risposta("tpl")))
+    (precedente,) = rb.da_riestrarre(["tpl"])[0]
+
+    esito = rb.riclassifica(None, precedente)
+
+    assert esito["esito"] == "salvato"
+    assert _leggi(db_su_file, DATE_IN_ARCHIVIO) == ATTESE
+    assert _leggi(db_su_file, "SELECT scadenza FROM bandi") == [("2022-03-31",)]
+    assert esito["date_da_rivedere"] == [
+        "il modello non propone date multiple: restano le 2 righe inserite a mano",
+        (
+            "scadenza del bando: il modello indica 2021-10-21, le date inserite a "
+            "mano danno 2022-03-31: resta 2022-03-31"
+        ),
+    ]
+    # non sono valori vecchi mantenuti, e la scadenza non risulta cambiata
+    assert all(m["colonna"] != "scadenze_bando" for m in esito["mantenuti"])
+    assert all(c[0] != "scadenza" for c in esito["cambiati"])

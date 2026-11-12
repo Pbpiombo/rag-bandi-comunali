@@ -161,6 +161,10 @@ def test_soggetti_generici_solo_tra_i_generici():
 def test_organismi_formativi_e_enti_di_formazione():
     assert tipi_da_termini("organismi formativi accreditati") == {"ricerca_formazione"}
     assert tipi_da_termini("enti di formazione") == {"ricerca_formazione"}
+    # la forma della pagina di GOL
+    assert tipi_da_termini("Gli enti formativi in possesso dei requisiti") == {
+        "ricerca_formazione"
+    }
 
 
 # --- migrazione ---
