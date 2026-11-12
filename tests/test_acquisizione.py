@@ -321,6 +321,7 @@ def test_comandi_usano_il_percorso_giusto_del_modulo(
 # --- fonti, elenchi e regole lette dal database ---
 
 ELENCO_MONTAGNA = f"{BASE}/politiche-per-la-montagna/bandi-aperti?delta=200"
+ELENCO_GAL = "https://www.montagnappennino.it/bandi-e-graduatorie"
 MONTAGNA_VUOTA = (PAGINE / "montagna-bandi-aperti-vuota.html").read_text(
     encoding="utf-8"
 )
@@ -379,12 +380,12 @@ def _fonte_gal(percorso) -> None:
 def _pagine(monkeypatch, pagine: dict) -> list[str]:
     """scarica restituisce l'HTML previsto per ogni indirizzo.
 
-    L'elenco della montagna, se il test non dice altro, e' la pagina
-    vuota salvata. Un indirizzo non previsto fa fallire il test; un
-    valore che e' un errore viene sollevato. Restituisce gli indirizzi
-    scaricati.
+    Se il test non dice altro, l'elenco della montagna e' la pagina vuota
+    salvata e quello del GAL una pagina senza collegamenti. Un indirizzo
+    non previsto fa fallire il test; un valore che e' un errore viene
+    sollevato. Restituisce gli indirizzi scaricati.
     """
-    pagine = {ELENCO_MONTAGNA: MONTAGNA_VUOTA, **pagine}
+    pagine = {ELENCO_MONTAGNA: MONTAGNA_VUOTA, ELENCO_GAL: "", **pagine}
     scaricati = []
 
     def finto(url, timeout=30):
@@ -486,7 +487,7 @@ def test_elenco_non_attivo_non_si_scarica(db_su_file, monkeypatch):
 
     elenco.leggi_elenchi()
 
-    assert scaricati == [ELENCO_REGIONE, ELENCO_MONTAGNA]
+    assert scaricati == [ELENCO_GAL, ELENCO_REGIONE, ELENCO_MONTAGNA]
 
 
 def test_ogni_fonte_con_le_sue_regole(db_su_file, monkeypatch):
@@ -529,7 +530,7 @@ def test_fonte_di_tipo_file_non_si_scarica(db_su_file, monkeypatch):
 
     voci = elenco.scopri()
 
-    assert scaricati == [ELENCO_REGIONE, ELENCO_MONTAGNA]
+    assert scaricati == [ELENCO_GAL, ELENCO_REGIONE, ELENCO_MONTAGNA]
     assert {v.codice_fonte for v in voci} == {TOSCANA}
 
 

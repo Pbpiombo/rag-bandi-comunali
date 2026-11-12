@@ -37,3 +37,17 @@ lettura degli elenchi con le regole di `data/processed/fonti.csv`.
 |---|---|---|
 | `regione-sviluppo-rurale-bandi-aperti.html` | https://www.regione.toscana.it/sviluppo-rurale-2023-2027/bandi-aperti?delta=200, scaricata il 12 novembre 2026 | tre bandi, tre notizie di www.toscana-notizie.it con `/-/` nell'indirizzo, i collegamenti del piè di pagina (PEC, whistleblower, atti di notifica, accessibilità) |
 | `montagna-bandi-aperti-vuota.html` | https://www.regione.toscana.it/politiche-per-la-montagna/bandi-aperti?delta=200, scaricata il 12 novembre 2026 | nessun bando ("Nessun risultato trovato"): solo menu della sezione e collegamenti del piè di pagina, che non devono dare voci |
+
+## Pagine del GAL MontagnAppennino
+
+Il blocco `<main>` delle pagine del sito, scaricate il 12 novembre 2026: senza
+intestazione e piè di pagina, che contengono i contatti del GAL. HTML reale,
+con le entità (`&rsquo;`, `&ldquo;`) come le scrive il sito. Le usa
+`tests/test_gal.py`.
+
+| File | Pagina | Perche' |
+|---|---|---|
+| `gal-elenco.html` | https://www.montagnappennino.it/bandi-e-graduatorie/ | l'elenco: quattro collegamenti `/bando/`, più allegati e pagine di servizio |
+| `gal-as01.html` | https://www.montagnappennino.it/bando/aso1-investimenti-non-produttivi-e-per-lo-sviluppo-socio-economico-delle-ree-rurali/ | "PROROGATO alle ore 13.00 del 12 ottobre 2026"; etichetta "In corso" benché scaduto |
+| `gal-srd14.html` | https://www.montagnappennino.it/bando/srd-14-investimenti-produttivi-non-agricoli-in-aree-rurali/ | "ore 13.00 del 8 maggio 2026" |
+| `gal-vuota.html` | https://www.montagnappennino.it/bando/3450/ | pagina di bando vuota: etichette senza valori |

@@ -668,6 +668,33 @@ bandi con lo stesso id e URL diversi (`test_stesso_id_con_url_diverso_e_rifiutat
 al più 0,12 $. Le pagine vuote non costano. Le scansioni successive non
 costano finché il GAL non pubblica bandi nuovi.
 
+### Esito (12/11/2026)
+
+- Fonte e elenco in `fonti.csv` ed `elenchi.csv`; `html.unescape` dopo la
+  tabella delle entità (otto bandi regionali dell'archivio: testo e
+  ritaglio identici a prima; sulle pagine tematiche cambiano solo le
+  frecce di paginazione); esito "senza scadenza leggibile"; opzione
+  `--fonte`. Test in `tests/test_gal.py` sulle pagine salvate.
+- Prova senza modello: 4 voci, 2 pagine vuote saltate, 2 al modello; i
+  12 candidati della Regione invariati.
+- Corsa: 2 chiamate, 0,106 $. AS01 salvato con "storico: scaduto il
+  2026-10-12" (la proroga, non il 18/09), SRD 14 con "storico: scaduto
+  il 2026-05-08". AS01: contributo 20.000–80.000 €, 90%, dotazione
+  710.624 €, 8 righe di beneficiari, 7 interventi.
+- Da correggere, non fatto in questa tappa:
+  - gli interventi (e) viabilità rurale e (f) reti idriche sono riservati
+    agli enti pubblici sulla pagina, ma `interventi_bando` non ha dove
+    scriverlo: la frase salvata si ferma prima di "-> Enti pubblici", e il
+    dettaglio li elenca come ammissibili per tutti;
+  - "Enti religiosi" classificato come `qualsiasi_soggetto` con la
+    condizione "ente religioso": la lista dei tipi non ha un tipo per gli
+    enti religiosi;
+  - contributo minimo e massimo salvati ma non mostrati nel dettaglio
+    (voce 5 della revisione);
+  - SRD 14: `contributo_perc` 65, il massimo tra 50% piccole imprese,
+    60% microimprese e 65% microimprese con titolare giovane; le
+    percentuali per categoria restano solo sulla pagina.
+
 ---
 
 ## 5. Tappa 5: fonte Incentivi Italia (file open data)

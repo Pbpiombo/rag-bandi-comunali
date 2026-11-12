@@ -125,6 +125,7 @@ def scaduto_da_oltre_il_margine(scadenza: date | None, oggi: date) -> bool:
 # Esiti della preselezione
 SCADUTO = "scaduto"
 ANNO_PASSATO = "anno passato nello slug"
+SENZA_SCADENZA = "senza scadenza leggibile"
 AL_MODELLO = "al modello"
 
 
@@ -135,13 +136,20 @@ def preselezione(
     filtro_anni: bool = True,
     *,
     etichetta: str | None,
+    scadenza_obbligatoria: bool = False,
 ) -> tuple[str, date | None]:
     """Decide, senza modello, se una pagina va mandata al modello.
 
     testo: il testo completo della pagina; recente: lo slug non ha un
     anno passato (elenco.recente); filtro_anni: la fonte usa il filtro
-    sull'anno nello slug; etichetta: il campo della scadenza per la fonte.
+    sull'anno nello slug; etichetta: il campo della scadenza per la fonte;
+    scadenza_obbligatoria: per la fonte ogni bando ha il campo leggibile.
     Restituisce l'esito e la scadenza letta dal campo, se c'e'.
+
+    Una pagina senza scadenza leggibile, in una fonte che la richiede, si
+    salta senza modello (SENZA_SCADENZA): sul sito del GAL sono le pagine
+    di bando vuote, con le etichette ma senza valori. Non si registra:
+    se la pagina si riempie, alla scansione dopo torna candidata.
 
     Il campo della pagina vale piu' dell'anno nello slug: un bando con
     "2023" nel nome ma il campo che dice 2027 va al modello. L'anno nello
@@ -150,6 +158,8 @@ def preselezione(
     scadenza = scadenza_dichiarata(testo, etichetta)
     if scaduto_da_oltre_il_margine(scadenza, oggi):
         return SCADUTO, scadenza
+    if scadenza is None and scadenza_obbligatoria:
+        return SENZA_SCADENZA, None
     if scadenza is None and filtro_anni and not recente:
         return ANNO_PASSATO, None
     return AL_MODELLO, scadenza

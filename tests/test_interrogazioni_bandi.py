@@ -316,6 +316,11 @@ VERIFICARE = "verificare la disponibilità delle risorse"
         (None, "2026-03-01", f"a sportello, {VERIFICARE} (pubblicato il 2026-03-01)"),
         (None, None, f"a sportello, {VERIFICARE} (data di pubblicazione non indicata)"),
         ("2027-07-31", None, f"a sportello fino al 2027-07-31, {VERIFICARE}"),
+        # chiude oggi: ancora aperto
+        ("2026-11-11", None, f"a sportello fino al 2026-11-11, {VERIFICARE}"),
+        # chiuso: nessun invito a verificare le risorse
+        ("2026-11-10", None, "era a sportello fino al 2026-11-10"),
+        ("2026-06-30", "2024-01-01", "era a sportello fino al 2026-06-30"),
     ],
 )
 def test_etichetta_sportello(scadenza, pubblicato, atteso):
@@ -871,3 +876,12 @@ def test_tema_con_soli_scaduti_vecchi(db):
     assert ib.NESSUNO_APERTO_TEMA.format(oggi="2026-11-11") in r.testo
     assert ib.GRUPPO_STORICO not in r.testo
     assert r.fonti == []
+
+
+def test_il_dettaglio_di_uno_sportello_chiuso_non_invita_a_verificare(db):
+    bando(db, "chiuso", [("comune", None, None)], a_sportello=1, scadenza="2026-06-30")
+
+    testo = ib.dettaglio_bando(db, "chiuso").testo
+
+    assert "| era a sportello fino al 2026-06-30 |" in testo
+    assert VERIFICARE not in testo

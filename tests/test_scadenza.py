@@ -11,6 +11,7 @@ from src.estrazione.scadenza import (
     AL_MODELLO,
     ANNO_PASSATO,
     SCADUTO,
+    SENZA_SCADENZA,
     motivo_scaduto,
     preselezione,
     scadenza_dichiarata,
@@ -207,3 +208,21 @@ def test_recente_tiene_l_anno_scorso():
     assert recente("bando-2025", 2026)
     assert not recente("bando-2024", 2026)
     assert recente("bando-senza-anno", 2026)
+
+
+# --- fonti che richiedono la scadenza ---
+
+
+def test_con_la_scadenza_obbligatoria_vince_lo_scaduto_dal_campo():
+    """Il campo scaduto da oltre un anno resta uno scaduto, anche se la
+    fonte richiede la scadenza."""
+    assert preselezione(
+        pagina("tpl"), True, OGGI, etichetta=CAMPO, scadenza_obbligatoria=True
+    ) == (SCADUTO, date(2021, 10, 21))
+
+
+def test_con_la_scadenza_obbligatoria_la_pagina_senza_campo_si_salta():
+    """Prima del filtro sull'anno: lo slug non conta."""
+    assert preselezione(
+        pagina("musei"), False, OGGI, etichetta=CAMPO, scadenza_obbligatoria=True
+    ) == (SENZA_SCADENZA, None)

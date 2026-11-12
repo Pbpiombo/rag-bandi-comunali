@@ -1,5 +1,6 @@
 """Scarica e ripulisce il testo di una pagina web."""
 
+import html
 import re
 import urllib.request
 
@@ -77,7 +78,14 @@ def _entita(testo: str) -> str:
         testo = testo.replace(entita, carattere)
 
     # Entita' numeriche: &#8364; -> €
-    return re.sub(r"&#(\d+);", lambda m: chr(int(m.group(1))), testo)
+    testo = re.sub(r"&#(\d+);", lambda m: chr(int(m.group(1))), testo)
+
+    # Tutte le altre (&rsquo;, &ldquo;, &copy;, &Eacute;...), che la tabella
+    # non conosce: le pagine del GAL MontagnAppennino le usano. La tabella
+    # resta prima, cosi' il testo delle pagine che usano solo quelle (il
+    # portale della Regione) non cambia: &nbsp; resta uno spazio normale e
+    # &ndash; un trattino.
+    return html.unescape(testo)
 
 
 def ritaglia(testo: str) -> str:

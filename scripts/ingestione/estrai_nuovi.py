@@ -5,6 +5,7 @@ Uso:
     python -u -m scripts.ingestione.estrai_nuovi --limite 10      estrae i primi 10
     python -u -m scripts.ingestione.estrai_nuovi --promettenti    solo quelli con indizi
     python -u -m scripts.ingestione.estrai_nuovi --tutti-gli-anni senza filtro sull'anno
+    python -u -m scripts.ingestione.estrai_nuovi --fonte CODICE   solo gli elenchi di quella fonte
 
 L'opzione -u di Python disattiva l'accumulo dell'output, cosi' le righe
 compaiono man mano invece che tutte alla fine.
@@ -26,7 +27,10 @@ scarica ogni pagina candidata:
   fonte usa il filtro sull'anno (filtro_anno_slug), la pagina si salta,
   senza registrarla. --tutti-gli-anni disattiva questo filtro, e segna
   le pagine che avrebbe saltato: il riepilogo finale ne mostra gli
-  esiti, per misurare quanti bandi aperti il filtro perde.
+  esiti, per misurare quanti bandi aperti il filtro perde;
+- se la fonte richiede la scadenza (scadenza_obbligatoria) e la pagina
+  non ne ha una leggibile, la pagina si salta, senza registrarla, e il
+  riepilogo la elenca: un bando scritto in un'altra forma si vede.
 Con --prova la preselezione si esegue ma non registra nulla, e si stima
 il costo delle estrazioni rimaste.
 
@@ -57,6 +61,7 @@ from src.estrazione.scadenza import (
     AL_MODELLO,
     ANNO_PASSATO,
     SCADUTO,
+    SENZA_SCADENZA,
     motivo_scaduto,
     preselezione,
 )
@@ -96,6 +101,14 @@ def opzione(nome: str, predefinito: int) -> int:
         return predefinito
 
 
+def opzione_testo(nome: str) -> str | None:
+    """Il valore di un'opzione testuale da riga di comando, se c'e'."""
+    if nome not in sys.argv:
+        return None
+    posizione = sys.argv.index(nome)
+    return sys.argv[posizione + 1] if posizione + 1 < len(sys.argv) else None
+
+
 def mostra_elenchi(letti: list) -> None:
     """Quante voci ha dato ogni elenco: uno che smette di darne si vede."""
     print("Elenchi letti:")
@@ -110,7 +123,10 @@ def mostra_elenchi(letti: list) -> None:
 
 def scegli_candidati() -> list:
     """I bandi da esaminare, applicando i filtri richiesti."""
-    letti = leggi_elenchi()
+    codice_fonte = opzione_testo("--fonte")
+    letti = leggi_elenchi(codice_fonte)
+    if codice_fonte and not letti:
+        print(f"Nessun elenco attivo per la fonte '{codice_fonte}'.")
     mostra_elenchi(letti)
     voci = scopri(letti)
     candidati = [v for v in voci if v.nuovo]
@@ -161,6 +177,7 @@ def preseleziona(candidati: list, prova: bool) -> tuple[list[tuple], set[str]]:
     filtro_anni = "--tutti-gli-anni" not in sys.argv
     oggi = datetime.now(ZoneInfo("Europe/Rome")).date()
     al_modello, scaduti, anni_passati = [], 0, 0
+    senza_scadenza = []
     dal_filtro = set()
 
     print(f"\nPreselezione senza modello di {len(candidati)} pagine...")
@@ -178,6 +195,7 @@ def preseleziona(candidati: list, prova: bool) -> tuple[list[tuple], set[str]]:
             oggi,
             filtro_anni and v.fonte.filtro_anno_slug,
             etichetta=v.fonte.etichetta_scadenza,
+            scadenza_obbligatoria=v.fonte.scadenza_obbligatoria,
         )
         if esito == SCADUTO:
             scaduti += 1
@@ -188,6 +206,8 @@ def preseleziona(candidati: list, prova: bool) -> tuple[list[tuple], set[str]]:
                 )
         elif esito == ANNO_PASSATO:
             anni_passati += 1
+        elif esito == SENZA_SCADENZA:
+            senza_scadenza.append(v.slug)
         else:
             al_modello.append((v, ritaglia(completo)))
             if avrebbe_saltato(v, esito, scadenza, filtro_anni):
@@ -202,6 +222,13 @@ def preseleziona(candidati: list, prova: bool) -> tuple[list[tuple], set[str]]:
             "  con l'anno passato nello slug e senza campo leggibile, "
             f"che il filtro avrebbe saltato: {len(dal_filtro)}"
         )
+    if senza_scadenza:
+        print(
+            "  saltati senza scadenza leggibile, in fonti che la richiedono: "
+            f"{len(senza_scadenza)}"
+        )
+        for slug in senza_scadenza:
+            print(f"    {slug[:70]}")
     print(f"  da mandare al modello: {len(al_modello)}")
     return al_modello, dal_filtro
 

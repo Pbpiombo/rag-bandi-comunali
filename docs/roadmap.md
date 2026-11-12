@@ -33,6 +33,12 @@ Stato al 11 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   della montagna; bandi scaduti da meno di 12 mesi salvati come storico,
   mai tra gli aperti, in un blocco a parte nelle liste per tema e
   trovabili per nome. Premi imboschimenti (SRA28) salvato come storico.
+- **Piano fonti, tappa 4** (12 novembre 2026): fonte GAL MontagnAppennino.
+  AS01 e SRD 14 salvati come storico (2 chiamate, 0,106 $). Problemi
+  emersi, da correggere: interventi riservati a un tipo di beneficiario
+  (AS01, viabilità e reti idriche solo per gli enti pubblici) non
+  registrati; enti religiosi senza un tipo proprio. Dettagli in
+  `docs/piano-fonti.md`.
 
 ## In corso
 

@@ -150,8 +150,12 @@ def stato_sportello(riga, oggi: str) -> str:
     L'avviso "probabilmente esaurito" vale solo per gli sportelli senza data
     di chiusura: con una scadenza futura lo sportello e' aperto fino a quella
     data, salvo esaurimento delle risorse, che l'invito a verificare dice gia'.
+    Uno sportello con la data di chiusura passata e' chiuso: nessun invito
+    a verificare le risorse.
     """
     pubblicato = riga["pubblicato_il"]
+    if riga["scadenza"] and riga["scadenza"] < oggi:
+        return f"era a sportello fino al {riga['scadenza']}"
     if riga["scadenza"]:
         return (
             f"a sportello fino al {riga['scadenza']}, "

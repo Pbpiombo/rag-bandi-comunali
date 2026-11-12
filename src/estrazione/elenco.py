@@ -133,16 +133,18 @@ def leggi_fonti() -> list[Fonte]:
     return [_fonte(r) for r in righe]
 
 
-def elenchi_attivi() -> list[tuple[Fonte, list[Elenco]]]:
+def elenchi_attivi(codice_fonte: str | None = None) -> list[tuple[Fonte, list[Elenco]]]:
     """Le fonti di tipo 'pagine', ciascuna con i suoi elenchi attivi.
 
-    L'ordine e' quello del database (fonte, poi indirizzo dell'elenco):
-    lo stesso a ogni lancio.
+    codice_fonte: solo quella fonte. L'ordine e' quello del database
+    (fonte, poi indirizzo dell'elenco): lo stesso a ogni lancio.
     """
     conn = connetti()
     try:
         fonti = conn.execute(
-            "SELECT * FROM fonti WHERE tipo = 'pagine' ORDER BY codice"
+            "SELECT * FROM fonti WHERE tipo = 'pagine' "
+            "AND (? IS NULL OR codice = ?) ORDER BY codice",
+            (codice_fonte, codice_fonte),
         ).fetchall()
         elenchi = conn.execute(
             "SELECT url, codice_fonte, nome FROM elenchi WHERE attivo = 1 "
@@ -226,11 +228,14 @@ def leggi_elenco(elenco: Elenco, fonte: Fonte) -> list[tuple[str, str]]:
     return collegamenti(scarica(elenco.url, timeout=ATTESA_ELENCO), elenco.url, fonte)
 
 
-def leggi_elenchi() -> list[Letto]:
-    """Legge tutti gli elenchi attivi. Un elenco che non si scarica non
-    ferma gli altri: il suo errore resta nel risultato."""
+def leggi_elenchi(codice_fonte: str | None = None) -> list[Letto]:
+    """Legge gli elenchi attivi, di tutte le fonti o di quella indicata.
+
+    Un elenco che non si scarica non ferma gli altri: il suo errore resta
+    nel risultato.
+    """
     letti = []
-    for fonte, elenchi in elenchi_attivi():
+    for fonte, elenchi in elenchi_attivi(codice_fonte):
         for elenco in elenchi:
             try:
                 letti.append(Letto(elenco, fonte, leggi_elenco(elenco, fonte)))
