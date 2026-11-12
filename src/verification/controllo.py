@@ -368,10 +368,16 @@ def fonti_di(
     riferimento_atto e titolo dei metadati, che il modello vede
     nell'intestazione del frammento; per i dati, lo stesso di testi. Gli
     altri dati si cercano solo in testi: una data presente soltanto
-    nell'intestazione non e' nel frammento.
+    nell'intestazione non e' nel frammento, salvo quelle dello stato del
+    bando (metadato stato_bando), che fanno parte del testo di confronto.
     """
+    # Lo stato del bando, calcolato alla data della domanda, sta
+    # nell'intestazione del frammento: "scaduto il 2026-10-15 (fonte: [3])"
+    # si verifica su quella riga, come il testo
     testi = {
-        str(numero_frammento): doc.page_content
+        str(numero_frammento): " ".join(
+            [doc.page_content, str(doc.metadata.get("stato_bando") or "")]
+        ).strip()
         for numero_frammento, doc in enumerate(documenti, start=1)
     }
     testi_atti = {

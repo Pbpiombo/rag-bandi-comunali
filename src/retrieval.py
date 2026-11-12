@@ -18,15 +18,17 @@ _TIPOGRAFICI = str.maketrans(
 def normalizza_domanda(domanda: str) -> str:
     """La domanda in una forma sola, prima di ogni ricerca.
 
-    Apostrofi e virgolette tipografici diventano dritti, il punto
-    interrogativo finale si toglie, gli spazi si uniformano. Il 12
+    Apostrofi e virgolette tipografici diventano dritti, gli spazi si
+    uniformano, e la domanda finisce sempre con un solo "?". Il 12
     novembre 2026 la stessa domanda copiata con l'apostrofo tipografico,
     o scritta senza "?", spostava di diverse posizioni il frammento giusto
     (scripts/diagnostica/prova_recupero.py): il modello di embedding è
-    sensibile a questi caratteri.
+    sensibile a questi caratteri. Con il "?" sempre aggiunto 4 frammenti
+    attesi salgono e nessuno scende rispetto alla forma peggiore; con il
+    "?" sempre tolto ne saliva 1.
     """
-    testo = " ".join(domanda.translate(_TIPOGRAFICI).split())
-    return testo.rstrip("?").rstrip()
+    testo = " ".join(domanda.translate(_TIPOGRAFICI).split()).rstrip("?").rstrip()
+    return f"{testo}?" if testo else ""
 
 
 def tokenizza(testo: str) -> list[str]:

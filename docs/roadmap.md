@@ -35,7 +35,10 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   cioè il tipo nuovo `professionista_autonomo` (5b.1) e `qualsiasi_soggetto`
   solo per i requisiti (5b.2). Dettagli in `docs/piano-post-scansione.md`.
 - **Domande d'esempio dell'app**: sostituite con domande sui bandi pensate
-  per il consulente.
+  per il consulente. Non devono nominare un avviso per titolo ("nel bando
+  X, quanto…"): con P2 il recupero cerca anche dentro l'avviso nominato,
+  ma restano casi non risolti e un frammento al limite
+  (`docs/prova-verificatore.md`, P2).
 - **Dati ISTAT di Sambuca Pistoiese e San Marcello Piteglio** caricati
   (prompt per Claude Code pronto). Tutti e tre i comuni dalla stessa tabella.
 - **Blocco A, verificatore** (voci 1, 3, 4 e 11 di
@@ -54,7 +57,11 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   stato del bando (scaduto o aperto) nei frammenti documentali, spostato
   qui dal passo 5 dopo la prova del 12 novembre 2026, in cui il bando
   mercati rionali, scaduto, è stato presentato come attuale (proposta P3
-  in `docs/prova-verificatore.md`).
+  in `docs/prova-verificatore.md`). **Fatto il 12 novembre 2026**: stato
+  calcolato a ogni domanda e scritto nell'intestazione del frammento,
+  regola nel prompt, verificatore che confronta anche quella riga
+  (`src/database/stato_documenti.py`). Da provare con il modello sulla
+  domanda 7 della prova.
 
 ## Prossimi passi, in ordine
 
@@ -185,17 +192,22 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   lessicale: BM25 in memoria contro `ts_rank_cd` con la domanda in OR e
   le radici delle parole in italiano. Una domanda va in senso opposto (i
   1.904 comuni: 2ª su Postgres, 4ª su Chroma).
-- P2, ricerca ristretta ai documenti nominati: scollegata dalla catena il
-  12 novembre 2026. Restano `src/recupero_documenti.py`, i suoi test e
-  `scripts/diagnostica/prova_recupero.py`. Misura su 15 domande, ognuna
-  in quattro forme (apostrofo dritto o tipografico, con o senza "?"),
-  con la domanda normalizzata. Fa entrare il costo giornaliero
-  nell'avviso nominato (assente → 6ª su Postgres, 2ª su Chroma) e, solo
-  su Chroma, la quota per Area interna (6ª). Fa però uscire su Postgres il
-  termine di presentazione (7ª → assente) e non rispetta la regola di
-  chiusura. Provate e scartate: ripulitura di tutte le parole del titolo
-  e fusione con RRF (dettagli nel modulo). Casi aperti nella prova: i
-  contributi dei mercati rionali e la domanda su due avvisi.
+- P2, ricerca ristretta ai documenti nominati: collegata. Il 12 novembre
+  2026 è stata scollegata e poi ricollegata. Con la domanda normalizzata
+  senza "?" finale faceva uscire su Postgres il termine di presentazione
+  (7ª → assente). Con il "?" sempre aggiunto rispetta la regola: 13
+  frammenti su 16 invece di 11 nelle 15 domande di prova, e nessuna uscita
+  nelle 5 di controllo, scritte dopo. Provate e scartate: ripulitura di
+  tutte le parole del titolo e fusione con RRF (dettagli nel modulo).
+  Restano da seguire:
+  - i casi aperti: i contributi dei mercati rionali, con parole diverse
+    dal testo, e la domanda su due avvisi;
+  - il termine di presentazione al limite: 8ª su Postgres, 10ª su Chroma;
+  - la domanda di controllo sulla rendicontazione dei mercati rionali,
+    che con P2 scende dalla 5ª alla 7ª su Postgres.
+
+  Rilanciare `scripts/diagnostica/prova_recupero.py` a ogni modifica del
+  recupero o dell'archivio.
 - Indice HNSW su Postgres e ricerca ristretta a un documento. Su `chunk`
   c'è `chunk_embedding_idx` (HNSW, `hnsw.ef_search` = 40). Con 316
   frammenti il pianificatore sceglie la scansione sequenziale, quindi la

@@ -15,7 +15,10 @@ from src.chains.router import (
 )
 from src.config import MODEL_NAME
 from src.database.enti import profilo_ente
+from src.database.interrogazioni_bandi import data_di_oggi
 from src.database.schema import connetti
+from src.database.stato_documenti import con_stato_bando
+from src.recupero_documenti import avvolgi
 from src.retrieval import RecuperoIbrido, normalizza_domanda
 
 K_DEFAULT = 10
@@ -100,7 +103,14 @@ Se un bando indica "ammesso se ...", l'ente è ammesso a condizione: \
 riporta la condizione, non rispondere con un semplice sì. Se indica \
 "beneficiari non ancora classificati", non sai se l'ente è ammesso: dillo \
 e invita a verificare sul bando. Un bando "a sportello" resta aperto \
-finché ci sono risorse: riporta l'invito a verificarne la disponibilità."""
+finché ci sono risorse: riporta l'invito a verificarne la disponibilità.
+
+STATO DEL BANDO NEI FRAMMENTI
+Se l'intestazione di un frammento riporta "stato del bando", lo stato è \
+calcolato alla data indicata e vale più del testo del frammento, che non \
+sa di essere scaduto. Un bando scaduto non si presenta come opportunità \
+attuale: se ne riporta il contenuto insieme allo stato, citato con la \
+fonte del frammento."""
 
 MODELLO_PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -126,6 +136,8 @@ def etichetta(documento: Document, numero: int) -> str:
         f"livello: {meta.get('livello', '?')} | "
         f"atto: {meta.get('riferimento_atto') or meta.get('titolo', '?')} | "
         f"pag. {meta.get('page', '?')}"
+    ) + (
+        f" | stato del bando: {meta['stato_bando']}" if meta.get("stato_bando") else ""
     )
 
 
@@ -138,6 +150,15 @@ def formatta(documenti: list[Document]) -> str:
     return "\n\n".join(blocchi)
 
 
+def con_stato_del_giorno(documenti: list[Document]) -> list[Document]:
+    """I documenti con lo stato del loro bando, calcolato alla data di oggi."""
+    conn = connetti()
+    try:
+        return con_stato_bando(documenti, conn, data_di_oggi().isoformat())
+    finally:
+        conn.close()
+
+
 def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
     """Assembla la chain LCEL: router, recupero ibrido, generazione."""
     conn = connetti()
@@ -148,10 +169,11 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
 
     if recupero is None:
         recupero = RecuperoIbrido()
-    # La ricerca ristretta ai documenti nominati (src/recupero_documenti.py,
-    # P2) non è collegata: con le domande in tutte le forme fa uscire dai
-    # primi 10 un frammento che oggi c'è (misura del 12 novembre 2026,
-    # scripts/diagnostica/prova_recupero.py).
+    # Se la domanda nomina un documento, si cerca anche dentro quel documento
+    # (P2). Ricollegata il 12 novembre 2026 dopo la prova su 15 domande e
+    # su 5 di controllo, in quattro forme, con la domanda normalizzata:
+    # scripts/diagnostica/prova_recupero.py.
+    recupero = avvolgi(recupero)
     router = costruisci_router()
 
     modello = ChatAnthropic(
@@ -168,7 +190,7 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
 
         if decisione.get("documenti", True):
             risultati = recupera(recupero, domanda, k=k)
-            documenti = [doc for doc, _, _ in risultati]
+            documenti = con_stato_del_giorno([doc for doc, _, _ in risultati])
             origini = [orig for _, _, orig in risultati]
         else:
             documenti = []

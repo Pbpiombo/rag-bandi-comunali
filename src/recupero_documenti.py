@@ -18,12 +18,14 @@ Misure del 12 novembre 2026 (`scripts/diagnostica/prova_recupero.py`):
 - fondere le liste con RRF invece che a quote faceva uscire la domanda che
   nomina un avviso ma ha la risposta in un altro documento.
 
-NON COLLEGATO ALLA CATENA. Misurata con le domande in quattro forme
-(apostrofo dritto o tipografico, con o senza "?") e con la domanda
-normalizzata, la versione attuale fa uscire dai primi 10 su Postgres il
-frammento della domanda sul termine di presentazione (7º prima, assente
-dopo). Il modulo e i suoi test restano, per riprovare con
-`scripts/diagnostica/prova_recupero.py`.
+Collegato alla catena (src/chains/rag.py). Scollegato una volta: con le
+domande in quattro forme (apostrofo dritto o tipografico, con o senza
+"?") e la domanda normalizzata senza "?" finale, faceva uscire dai primi
+10 su Postgres il termine di presentazione. Con la normalizzazione che
+chiude la domanda con "?" rispetta la regola: 13 frammenti su 16 tra i
+primi 10 invece di 11, e nessuna uscita nemmeno nelle 5 domande di
+controllo scritte dopo. Il termine di presentazione resta al limite, 8º
+su Postgres e 10º su Chroma.
 
 Le funzioni di scelta e di divisione sono pure e si provano senza database.
 """

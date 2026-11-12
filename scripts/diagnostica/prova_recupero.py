@@ -20,9 +20,11 @@ frammento che la prova trovava.
 
 Ogni domanda si misura con tre percorsi: il motore nudo con la domanda
 come arriva (prima), il motore nudo con la domanda normalizzata da
-`recupera` della catena (il percorso dell'app), e il motore avvolto in
-`RecuperoPerDocumento` attraverso `recupera` (P2, oggi non collegata alla
-catena). La regola di chiusura
+`recupera` della catena (senza P2), e il motore avvolto in
+`RecuperoPerDocumento` attraverso `recupera` (P2: il percorso dell'app).
+Le domande sono in due gruppi: le 15 di prova e le 5 di controllo
+(`python -m scripts.diagnostica.prova_recupero controllo` misura solo
+queste). La regola di chiusura
 (`docs/prova-verificatore.md`, P2): nessun frammento atteso che era nei
 primi 10 prima, nella forma peggiore, ne esce, su nessuno dei due motori.
 Ogni spostamento è riportato; quelli di più di 3 posizioni sono segnati a
@@ -32,6 +34,7 @@ Uso: python -m scripts.diagnostica.prova_recupero
 """
 
 import re
+import sys
 from dataclasses import dataclass
 
 from langchain_core.documents import Document
@@ -175,6 +178,54 @@ PROVA = [
 ]
 
 
+# Gruppo di controllo, scritto il 12 novembre 2026 dopo tutte le decisioni
+# prese sulle 15 domande sopra: domande mai usate prima, con la risposta
+# in frammenti diversi. Servono a non scegliere solo in base alle domande
+# su cui si è già deciso. Regola per ricollegare P2: nessun frammento
+# atteso che è tra i primi 10 senza P2 (domanda normalizzata) ne esce con
+# P2, in nessuna forma peggiore e su nessuno dei due motori.
+CONTROLLO = [
+    Domanda(
+        "Nell'avviso per il rafforzamento amministrativo dei capofila, per "
+        "quanti anni va conservata la documentazione?",
+        (Atteso(AVVISO_CAPOFILA, "periodo non inferiore a 10 anni"),),
+        "nomina l'avviso; pag. 17",
+    ),
+    Domanda(
+        "Nell'avviso per i mercati rionali, quale anticipo del contributo si "
+        "può chiedere?",
+        (Atteso(AVVISO_MERCATI, "anticipo del 40% del contributo"),),
+        "nomina l'avviso; pag. 18",
+    ),
+    Domanda(
+        "Entro quanto va presentata la rendicontazione finale nell'avviso per "
+        "i mercati rionali?",
+        (Atteso(AVVISO_MERCATI, "termine perentorio di 90 giorni"),),
+        "nomina l'avviso in fondo alla domanda; pag. 16",
+    ),
+    Domanda(
+        "Quanti interventi conta il gruppo di aree interne chiamato «Povertà "
+        "dietro l'angolo»?",
+        (Atteso(STUDIO_CENSIS, "874 in totale"),),
+        "non nomina documenti; pag. 28",
+    ),
+    Domanda(
+        "Quale sentenza della Corte costituzionale ha giudicato l'obbligo di "
+        "gestione associata per i comuni sotto i 5.000 abitanti?",
+        (Atteso(LINEE_GUIDA_SNAI, "2019 n. 33"),),
+        "non nomina documenti; pag. 8",
+    ),
+]
+
+
+def elenco(gruppi: tuple[str, ...] = ("prova", "controllo")) -> list[tuple]:
+    """Le domande da misurare: (etichetta, gruppo, domanda)."""
+    tutte = [(str(i), "prova", d) for i, d in enumerate(PROVA, start=1)] + [
+        (f"C{i}", "controllo", d) for i, d in enumerate(CONTROLLO, start=1)
+    ]
+    return [voce for voce in tutte if voce[1] in gruppi]
+
+
 def normalizza(testo: str) -> str:
     return re.sub(r"\s+", " ", testo)
 
@@ -261,20 +312,20 @@ def peggiore(posizioni: list[int | None]) -> int | None:
 PERCORSI = ("prima", "normalizzata", "P2")
 
 
-def misura(motori: dict) -> list[dict]:
+def misura(motori: dict, domande: list[tuple]) -> list[dict]:
     """Una riga per (domanda, frammento atteso, motore), con tre percorsi.
 
     - prima: il motore nudo, con la domanda come arriva (prima di P2);
     - normalizzata: il motore nudo, con la domanda normalizzata da
       `recupera` della catena;
     - P2: il motore avvolto in RecuperoPerDocumento, attraverso `recupera`,
-      come lo usa la catena.
+      come lo usa la catena (src/chains/rag.py).
 
     Ogni domanda si misura in tutte le sue forme; per ogni percorso conta
     la posizione peggiore tra le forme.
     """
     righe = []
-    for indice, domanda in enumerate(PROVA, start=1):
+    for indice, gruppo, domanda in domande:
         varianti = forme(domanda.testo)
         for nome, (base, avvolto) in motori.items():
             ricerche = {
@@ -300,6 +351,7 @@ def misura(motori: dict) -> list[dict]:
                 righe.append(
                     {
                         "indice": indice,
+                        "gruppo": gruppo,
                         "motore": nome,
                         "fonte": atteso.fonte,
                         "peggio": peggio,
@@ -331,11 +383,14 @@ def main() -> None:
     motori = {}
     for nome, base in (("postgres", RecuperoPostgres()), ("chroma", RecuperoIbrido())):
         motori[nome] = (base, RecuperoPerDocumento(base))
-    righe = misura(motori)
+    # Con l'argomento "controllo" o "prova" si misura un solo gruppo
+    gruppi = tuple(sys.argv[1:]) or ("prova", "controllo")
+    domande = elenco(gruppi)
+    righe = misura(motori, domande)
 
-    for indice, domanda in enumerate(PROVA, start=1):
+    for indice, gruppo, domanda in domande:
         nota = f"  [{domanda.nota}]" if domanda.nota else ""
-        print(f"\n{indice}. {domanda.testo}{nota}")
+        print(f"\n{indice}. ({gruppo}) {domanda.testo}{nota}")
         if domanda.aperto:
             print(f"   CASO APERTO: {domanda.aperto}")
         proprie = [r for r in righe if r["indice"] == indice]
@@ -353,15 +408,18 @@ def main() -> None:
                 )
                 print(f"      {percorso:12} per forma: {dettaglio}")
 
-    for nome in motori:
-        proprie = [r for r in righe if r["motore"] == nome]
-        conti = ", ".join(
-            f"{p} {sum(1 for r in proprie if r['peggio'][p])}" for p in PERCORSI
-        )
-        print(
-            f"\n{nome}: frammenti attesi nei primi {K} su {len(proprie)},"
-            f" forma peggiore: {conti}"
-        )
+    for gruppo in gruppi:
+        for nome in motori:
+            proprie = [
+                r for r in righe if r["motore"] == nome and r["gruppo"] == gruppo
+            ]
+            conti = ", ".join(
+                f"{p} {sum(1 for r in proprie if r['peggio'][p])}" for p in PERCORSI
+            )
+            print(
+                f"\n{gruppo}, {nome}: frammenti attesi nei primi {K} su"
+                f" {len(proprie)}, forma peggiore: {conti}"
+            )
 
     for percorso in ("normalizzata", "P2"):
         spostate = [
@@ -378,13 +436,30 @@ def main() -> None:
 
     # Regola di chiusura: nessuna domanda che funzionava prima (forma
     # peggiore) esce dai primi 10, su nessuno dei due motori.
-    aperti = [i for i, d in enumerate(PROVA, start=1) if d.aperto]
-    for percorso in ("normalizzata", "P2"):
-        uscite = uscite_di(righe, percorso)
+    aperti = [i for i, g, d in domande if d.aperto]
+    della_prova = [r for r in righe if r["gruppo"] == "prova"]
+    for percorso in ("normalizzata", "P2") if della_prova else ():
+        uscite = uscite_di(della_prova, percorso)
         giudizio = (
             "RISPETTATA" if not uscite else f"NON RISPETTATA ({len(uscite)} uscite)"
         )
         print(f"\nRegola di chiusura, {percorso}: {giudizio}. Casi aperti: {aperti}")
+
+    # Gruppo di controllo: P2 non deve far uscire nessun frammento che è
+    # tra i primi 10 senza P2 (domanda normalizzata)
+    del_controllo = [r for r in righe if r["gruppo"] == "controllo"]
+    if del_controllo:
+        uscite = [
+            r
+            for r in del_controllo
+            if r["peggio"]["normalizzata"] and not r["peggio"]["P2"]
+        ]
+        for r in uscite:
+            print(f"   uscita con P2: {r['indice']}. {r['motore']} {r['fonte']}")
+        giudizio = (
+            "RISPETTATA" if not uscite else f"NON RISPETTATA ({len(uscite)} uscite)"
+        )
+        print(f"\nRegola del gruppo di controllo, P2 contro senza P2: {giudizio}")
 
 
 if __name__ == "__main__":

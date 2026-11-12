@@ -13,18 +13,23 @@ def test_le_quattro_forme_diventano_una():
         DOMANDA.replace("'", "’") + "?",
         DOMANDA.replace("'", "’"),
     ]
-    assert {normalizza_domanda(f) for f in forme} == {DOMANDA}
+    assert {normalizza_domanda(f) for f in forme} == {DOMANDA + "?"}
 
 
 def test_virgolette_tipografiche_e_spazi():
     assert (
         normalizza_domanda("  Il bando «mercati  rionali» e “parcheggi” ?  ")
-        == 'Il bando "mercati rionali" e "parcheggi"'
+        == 'Il bando "mercati rionali" e "parcheggi"?'
     )
 
 
-def test_punto_interrogativo_solo_alla_fine():
-    assert normalizza_domanda("Chi? Quando?") == "Chi? Quando"
+def test_un_solo_punto_interrogativo_alla_fine():
+    assert normalizza_domanda("Chi? Quando") == "Chi? Quando?"
+    assert normalizza_domanda("Quando??") == "Quando?"
+
+
+def test_domanda_vuota_resta_vuota():
+    assert normalizza_domanda("   ") == ""
 
 
 class MotoreFinto:
@@ -39,4 +44,4 @@ class MotoreFinto:
 def test_recupera_cerca_con_la_domanda_normalizzata():
     motore = MotoreFinto()
     recupera(motore, DOMANDA.replace("'", "’") + "?", k=10)
-    assert motore.domande == [(DOMANDA, 10)]
+    assert motore.domande == [(DOMANDA + "?", 10)]

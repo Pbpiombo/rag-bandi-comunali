@@ -142,6 +142,101 @@ scendere.
 Costo: mezza giornata. È la domanda tipica del consulente ("nel bando X,
 quanto…"), quindi va prima della demo.
 
+#### Esito di P2: misurata, scollegata dalla catena
+
+Misura senza modello con `scripts/diagnostica/prova_recupero.py`:
+15 domande, ciascuna con il documento e la frase che deve uscire tra i
+primi 10. Comprendono la domanda d'esempio dell'app e le domande 4-7
+della prova, una che nomina due avvisi, una con la risposta in una
+pagina introduttiva, una con parole dei titoli senza nominare un
+documento, una che nomina un avviso con la risposta in un altro
+documento. Due sono casi aperti, fuori dalla regola:
+- i contributi dei mercati rionali: la domanda dice "contributi", il
+  testo "contributo concedibile";
+- la domanda su due avvisi, che senza i loro nomi resta troppo generica.
+
+Regola di chiusura: P2 entra solo se nessun frammento atteso che oggi è
+tra i primi 10 ne esce, su Postgres e su Chroma.
+
+Com'è stata realizzata:
+- **scelta dei documenti:** un documento è nominato se la domanda ha una
+  parola come "avviso" o "bando" e almeno due parole del suo titolo, e
+  non è battuto da un titolo con più parole in comune. Con tre o più
+  documenti non si restringe niente;
+- **posti:** la ricerca generale resta sempre, e si affianca a una
+  ricerca ristretta per documento. I 10 posti si dividono 5+5 con un
+  documento, 4+3+3 con due.
+
+Il proposto "gran parte del titolo" non funziona: "l'avviso per i
+mercati rionali" copre 2 parole su circa 10. Il filtro rigido a un
+documento è escluso dalla domanda la cui risposta sta in un altro
+documento.
+
+Combinazioni misurate, in frammenti attesi tra i primi 10 su 32 (16
+per motore):
+
+| ripulitura della domanda ristretta | fusione | nei 10 | uscite |
+|---|---|---|---|
+| nessuna | quote | 22 | — |
+| nessuna | RRF | 20 | risposta in un altro documento |
+| tutte le parole del titolo | quote | 24 | termine di presentazione |
+| tutte le parole del titolo | RRF | 22 | risposta in un altro documento |
+| solo il tratto che nomina l'avviso | quote | 26 | — |
+| solo il tratto che nomina l'avviso | RRF | 22 | risposta in un altro documento |
+
+La combinazione migliore (tratto e quote) è entrata nel commit
+9b22b74. Poi due verifiche l'hanno messa in discussione:
+- **indagine su una discrepanza con l'app:** la stessa domanda copiata
+  con l'apostrofo tipografico perdeva il frammento. Il percorso era lo
+  stesso: la ricerca ristretta su Postgres sposta il frammento dalla 3ª
+  all'11ª posizione per un apostrofo, e alla 14ª per un "?" mancante;
+- **ipotesi dell'indice HNSW:** su 316 frammenti il pianificatore usa la
+  scansione sequenziale, quindi la ricerca è esatta e l'instabilità viene
+  dal modello di embedding. Il rischio per quando l'archivio crescerà è
+  in roadmap.
+
+Dopo queste verifiche ogni domanda si misura in quattro forme
+(apostrofo dritto o tipografico, con o senza "?") e conta la posizione
+peggiore. Con la domanda normalizzata prima di ogni ricerca (apostrofi
+e virgolette dritti, spazi uniformi, "?" finale tolto), P2 porta i
+frammenti tra i primi 10 da 11 a 13 su Chroma, ma su Postgres fa uscire
+il termine di presentazione (domanda 6 della prova: 7ª → assente) e non
+rispetta la regola.
+
+Prima decisione: P2 scollegata dalla catena. Restano il modulo
+`src/recupero_documenti.py`, i suoi test e la prova, per riprovare.
+Resta collegata la normalizzazione della domanda, che rispetta la
+regola da sola. Il "?" sempre aggiunto fa salire 4 frammenti e non ne fa
+scendere nessuno. Il "?" sempre tolto, misurato prima, ne faceva salire
+uno solo.
+
+Misura successiva, con il "?" sempre aggiunto: P2 rispetta la regola su
+entrambi i motori, con 13 frammenti su 16 tra i primi 10 invece di 11.
+Entrano il costo giornaliero nell'avviso nominato (6ª su Postgres, 2ª
+su Chroma) e la quota per Area interna (6ª e 2ª). Il termine di
+presentazione resta dentro, ma al limite: 8ª su Postgres, 10ª su Chroma
+(era 6ª).
+
+Prima di ricollegarla, una prova su 5 domande nuove (gruppo
+"controllo" in `prova_recupero`), scritte dopo tutte le decisioni e con
+la risposta in frammenti mai usati: 3 nominano un avviso per titolo, 2
+non nominano documenti. Regola: P2 non deve far uscire nessuna di queste
+dai primi 10, in nessuna forma e su nessun motore. Posizioni nella forma
+peggiore, Postgres / Chroma:
+
+| domanda di controllo | senza P2 | con P2 |
+|---|---|---|
+| C1 conservazione della documentazione, avviso per i capofila (pag. 17) | 2 / 3 | 2 / 2 |
+| C2 anticipo del contributo, avviso mercati rionali (pag. 18) | 2 / 4 | 2 / 2 |
+| C3 termine della rendicontazione finale, mercati rionali (pag. 16) | 5 / 6 | 7 / 7 |
+| C4 interventi del gruppo "Povertà dietro l'angolo" (studio Censis) | 2 / 3 | 2 / 3 |
+| C5 sentenza sulla gestione associata obbligatoria (linee guida) | 9 / 7 | 9 / 7 |
+
+Nessuna uscita: P2 è stata ricollegata alla catena. Il controllo dice
+che P2 non fa danni sulle domande nuove, non che porti guadagni: tutte
+e 5 erano già tra i primi 10 senza P2. Due salgono, una scende di due
+posizioni (C3).
+
 ### P3. Stato del bando nei frammenti (passa al blocco B)
 
 I 117 chunk dell'avviso mercati rionali hanno già, su Postgres,
@@ -170,6 +265,43 @@ Proposta:
 Casi: frammento di un bando scaduto, aperto, a sportello e senza bando
 collegato; verifica della data di scadenza citata dal frammento. Costo:
 mezza giornata.
+
+#### Esito di P3: fatta
+
+Fatta il 12 novembre 2026, come proposta, con una differenza sui
+documenti senza `id_bando`.
+
+- **Calcolo** (`src/database/stato_documenti.py`): `stato_bando` usa
+  `stato_finestre`, `stato_sportello` e `tra_quanto` senza modificarli.
+  - Un bando con la scadenza passata è "scaduto il …", anche se a
+    sportello.
+  - Lo stato porta la data a cui è calcolato.
+  - Si calcola in `prepara`, a ogni domanda, su copie dei documenti
+    recuperati: Chroma tiene gli originali in memoria, e uno stato
+    scritto lì resterebbe alla domanda dopo.
+- **Collegamento senza `id_bando`.** Non basta il numero d'atto: serve
+  la coppia numero e data (`atti_con_data`, la stessa funzione del
+  verificatore), e un solo bando che la contenga. Lo stesso numero con
+  un'altra data, un atto senza data o due bandi con lo stesso atto: nessuno
+  stato.
+- **Intestazione:** `| stato del bando: scaduto il 2026-10-15 (alla data
+  del 2026-11-12)`.
+- **Prompt:** regola "STATO DEL BANDO NEI FRAMMENTI". Lo stato vale più
+  del testo; un bando scaduto non si presenta come opportunità attuale.
+- **Verificatore:** il testo di confronto di un frammento comprende
+  `stato_bando`, così "scaduto il 15/10/2026 (fonte: [n])" risulta
+  verificato.
+- **Test:** `tests/test_stato_documenti.py`, 19 casi su database in
+  memoria.
+- **Sull'archivio vero** solo l'avviso dei mercati rionali riceve uno
+  stato ("scaduto il 2026-10-15"), sia da `id_bando` sia dall'atto. Gli
+  altri 4 documenti non sono bandi del catalogo.
+- **Effetti collaterali:** il riferimento di equivalenza
+  (`tests/dati/interrogazioni_comuni_dopo.json`) non cambia, e nemmeno
+  `prova_recupero`: lo stato si aggiunge dopo il recupero.
+
+Da fare: provare con il modello la domanda 7 della prova (mercati
+rionali), che il 12 novembre presentava il bando scaduto come attuale.
 
 ### P4. Limite del README
 

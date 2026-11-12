@@ -432,6 +432,16 @@ Vale la pena elencarli con la stessa precisione di ciò che il sistema fa.
 - **Il recupero può mancare il frammento decisivo.** Una domanda
   sull'ammissibilità può non recuperare il paragrafo dei beneficiari, anche se è
   in archivio; il sistema allora risponde con cautela invece di concludere.
+- **Prova del recupero su 20 domande, ciascuna in 4 forme: tra i primi 10
+  ci sono 13 frammenti attesi su 16 nelle 15 domande di prova e 5 su 5
+  nelle 5 di controllo, su Postgres e su Chroma.** Le domande di controllo
+  sono state scritte dopo aver deciso tutto sulle altre 15. Quando una
+  domanda nomina un avviso per titolo ("nel bando X, quanto…") si cerca
+  anche dentro quell'avviso. Restano due casi non risolti: una domanda che
+  usa parole diverse dal testo ("contributi" dove il bando dice
+  "contributo concedibile") e una che chiede di due avvisi insieme. Un
+  frammento è al limite: il termine di presentazione di un avviso è 8° su
+  Postgres e 10° su Chroma.
 - **Una domanda riguarda un ente alla volta.** Non esiste ancora una vista su
   tutta l'area, del tipo "quali bandi può usare ciascuno dei nostri comuni".
 - **I bandi distinguono solo se ammettono i comuni.** Non è registrato se
