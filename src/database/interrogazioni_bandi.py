@@ -11,7 +11,11 @@ import sqlite3
 from datetime import date
 
 from src.database.modelli import Risultato, VoceBando
-from src.estrazione.beneficiari import PER_REQUISITO, TIPI_BENEFICIARIO
+from src.estrazione.beneficiari import (
+    PER_REQUISITO,
+    TIPI_BENEFICIARIO,
+    soggetto_generico,
+)
 
 # Anni dalla pubblicazione oltre i quali un bando a sportello e' segnalato
 # come probabilmente esaurito. Non si esclude: fondi di garanzia e rotativi
@@ -55,6 +59,8 @@ NOTA_UNIONE = "beneficiari non ancora classificati: verificare se ammette le Uni
 SENZA_SCADENZA = "scadenza non indicata, da verificare sul bando"
 GRUPPO_SPORTELLO = "A sportello, finché ci sono risorse:"
 GRUPPO_SENZA_SCADENZA = "Scadenza non indicata, da verificare sul bando:"
+# Un bando a finestre tra una finestra chiusa e la prossima
+GRUPPO_PROSSIMA = "Chiusi ora, con una prossima finestra:"
 
 # Le pagine in archivio che non sono bandi (natura 'non_bando') restano
 # nel database ma non compaiono negli elenchi ne' nei conteggi
@@ -159,38 +165,151 @@ def stato_sportello(riga, oggi: str) -> str:
     return testo
 
 
+def come_requisito(b) -> bool:
+    """La riga va mostrata con il soggetto del bando.
+
+    Vale per qualsiasi_soggetto e per i soggetti generici ("soggetti
+    pubblici e/o privati che operano nel campo della ricerca"): il tipo
+    da solo perderebbe la qualificazione.
+    """
+    return b["tipo"] == PER_REQUISITO or soggetto_generico(b["soggetto"])
+
+
+def caso_ammissione(b) -> str:
+    """Una riga di beneficiari come caso di ammissione."""
+    if b["condizioni"]:
+        caso = f"ammesso se {b['condizioni']}"
+        if come_requisito(b) and b["soggetto"]:
+            caso += f" (nel bando: «{b['soggetto']}»)"
+        return caso
+    return f"ammesso come «{b['soggetto']}» nel bando"
+
+
 def ammissione(beneficiari: list, tipo: str) -> str | None:
     """Come e' ammesso un tipo di ente, se ci sono condizioni.
 
     Senza condizioni restituisce None: il bando e' nell'elenco perche'
     l'ente e' ammesso, e non serve dirlo. Con piu' righe, le condizioni
-    si uniscono con "oppure". Per qualsiasi_soggetto si aggiunge, tra
-    parentesi, il soggetto come lo chiama il bando.
+    si uniscono con "oppure". Per qualsiasi_soggetto e per i soggetti
+    generici si aggiunge, tra parentesi, il soggetto come lo chiama il
+    bando; senza condizioni, "ammesso come «...» nel bando".
     """
     pertinenti = [b for b in beneficiari if b["tipo"] in (tipo, PER_REQUISITO)]
     if not pertinenti or any(
-        b["tipo"] == tipo and not b["condizioni"] for b in pertinenti
+        b["tipo"] == tipo and not b["condizioni"] and not come_requisito(b)
+        for b in pertinenti
     ):
         return None
 
-    casi = []
-    for b in pertinenti:
-        caso = f"ammesso se {b['condizioni']}"
-        if b["tipo"] == PER_REQUISITO and b["soggetto"]:
-            caso += f" (nel bando: «{b['soggetto']}»)"
-        casi.append(caso)
-    return " oppure ".join(casi)
+    return " oppure ".join(caso_ammissione(b) for b in pertinenti)
 
 
-def formatta_bando(riga, oggi: str, nota: str | None = None) -> str:
+def scadenze_di(conn: sqlite3.Connection, id_bando: str) -> list:
+    """Le righe di scadenze_bando di un bando, in ordine di numero.
+
+    Ci sono solo per i bandi con piu' date: per gli altri l'elenco e' vuoto
+    e lo stato si calcola da bandi.scadenza.
+    """
+    return conn.execute(
+        "SELECT * FROM scadenze_bando WHERE id_bando = ? ORDER BY numero",
+        (id_bando,),
+    ).fetchall()
+
+
+def finestre(scadenze: list, oggi: str) -> tuple[list, list, object]:
+    """Le date di genere 'domanda': tutte, quelle aperte oggi, la prossima.
+
+    Una finestra e' aperta se l'apertura e' passata o vuota e la scadenza
+    non e' passata. La prossima e' quella che apre per prima dopo oggi.
+    """
+    domande = [s for s in scadenze if s["genere"] == "domanda"]
+    aperte = [
+        s
+        for s in domande
+        if (not s["apertura"] or s["apertura"] <= oggi) and s["scadenza"] >= oggi
+    ]
+    future = [s for s in domande if s["apertura"] and s["apertura"] > oggi]
+    prossima = min(future, key=lambda s: s["apertura"]) if future else None
+    return domande, aperte, prossima
+
+
+def _fra(scadenza: str, oggi: str) -> int:
+    return (date.fromisoformat(scadenza) - date.fromisoformat(oggi)).days
+
+
+def stato_finestre(riga, scadenze: list, oggi: str) -> str | None:
+    """Lo stato di un bando con piu' date, calcolato dalle righe.
+
+    None se il bando non ha date di genere 'domanda' o sono tutte passate:
+    allora vale lo stato calcolato da bandi.scadenza.
+    """
+    domande, aperte, prossima = finestre(scadenze, oggi)
+    if not domande or not (aperte or prossima):
+        return None
+
+    dopo = (
+        f"prossima finestra dal {prossima['apertura']} al {prossima['scadenza']} "
+        f"({prossima['descrizione']})"
+        if prossima
+        else None
+    )
+    if not aperte:
+        return f"chiuso ora, {dopo}"
+
+    stato = "; ".join(
+        f"finestra aperta fino al {s['scadenza']} ({s['descrizione']}, "
+        f"fra {_fra(s['scadenza'], oggi)} giorni)"
+        for s in aperte
+    )
+    if riga["a_sportello"]:
+        stato += ", a sportello: verificare la disponibilità delle risorse"
+    if dopo:
+        stato += f"; {dopo}"
+    return stato
+
+
+def scadenza_vicina(riga, scadenze: list, oggi: str) -> str | None:
+    """La prossima data entro cui presentare domanda.
+
+    Per un bando con piu' date, la scadenza della finestra aperta che chiude
+    per prima, o None se nessuna e' aperta; per gli altri, bandi.scadenza.
+    """
+    domande, aperte, _ = finestre(scadenze, oggi)
+    if domande:
+        return min((s["scadenza"] for s in aperte), default=None)
+    return riga["scadenza"]
+
+
+def fasi_successive(scadenze: list, oggi: str) -> str | None:
+    """Le scadenze per chi ha gia' superato una fase, se non passate.
+
+    Non aprono il bando a nuove domande: si mostrano solo come informazione.
+    """
+    fasi = [
+        f"{s['descrizione']} entro il {s['scadenza']}"
+        for s in scadenze
+        if s["genere"] == "fase_successiva" and s["scadenza"] >= oggi
+    ]
+    if not fasi:
+        return None
+    return "fase successiva, solo per chi ha superato la precedente: " + "; ".join(fasi)
+
+
+def formatta_bando(
+    riga, oggi: str, nota: str | None = None, scadenze: list = ()
+) -> str:
     """Una riga di bando in forma leggibile.
 
     nota: come e' ammesso l'ente, o perche' va verificato; si aggiunge
-    dopo i beneficiari.
+    dopo i beneficiari. scadenze: le righe di scadenze_bando, per i bandi
+    con piu' date.
     """
     pezzi = [f"«{riga['titolo']}» ({riga['ente']})"]
 
-    if riga["a_sportello"]:
+    stato_date = stato_finestre(riga, scadenze, oggi)
+    if stato_date:
+        pezzi.append(stato_date)
+    elif riga["a_sportello"]:
         pezzi.append(stato_sportello(riga, oggi))
     elif riga["scadenza"]:
         giorni = (date.fromisoformat(riga["scadenza"]) - date.fromisoformat(oggi)).days
@@ -202,6 +321,10 @@ def formatta_bando(riga, oggi: str, nota: str | None = None) -> str:
         pezzi.append(stato)
     else:
         pezzi.append(SENZA_SCADENZA)
+
+    fasi = fasi_successive(scadenze, oggi)
+    if fasi:
+        pezzi.append(fasi)
 
     if riga["scadenza_nota"]:
         pezzi.append(f"nota: {riga['scadenza_nota']}")
@@ -270,7 +393,13 @@ class RigheBandi:
 
 def _elenco(conn, righe, oggi: str, tipo: str, numerate: RigheBandi) -> str:
     return "\n".join(
-        f"- {numerate.numera(r, formatta_bando(r, oggi, nota_per_ente(conn, r, tipo)))}"
+        "- "
+        + numerate.numera(
+            r,
+            formatta_bando(
+                r, oggi, nota_per_ente(conn, r, tipo), scadenze_di(conn, r["id"])
+            ),
+        )
         for r in righe
     )
 
@@ -280,25 +409,40 @@ def senza_scadenza(riga) -> bool:
     return not riga["a_sportello"] and not riga["scadenza"]
 
 
-def gruppi_aperti(righe: list) -> tuple[list, list, list]:
-    """Divide i bandi non scaduti: con scadenza, a sportello, senza scadenza.
+def gruppi_aperti(conn: sqlite3.Connection, righe: list, oggi: str) -> tuple:
+    """Divide i bandi non scaduti in quattro gruppi.
 
-    Solo i primi due sono aperti di sicuro; per i bandi senza scadenza la
-    pagina non dice fino a quando si puo' presentare domanda.
+    Con scadenza, a sportello, senza scadenza, e chiusi ora con una
+    prossima finestra. Solo i primi due sono aperti di sicuro; per i bandi
+    senza scadenza la pagina non dice fino a quando si puo' presentare
+    domanda. Per i bandi con piu' date lo stato si calcola dalle righe di
+    scadenze_bando: con una finestra aperta stanno nei primi due gruppi,
+    tra due finestre nel quarto; con tutte le date passate non compaiono.
     """
-    a_scadenza = [r for r in righe if not r["a_sportello"] and r["scadenza"]]
-    a_sportello = [r for r in righe if r["a_sportello"]]
-    da_verificare = [r for r in righe if senza_scadenza(r)]
-    return a_scadenza, a_sportello, da_verificare
+    a_scadenza, a_sportello, da_verificare, prossima = [], [], [], []
+    for r in righe:
+        domande, aperte, dopo = finestre(scadenze_di(conn, r["id"]), oggi)
+        if domande:
+            if aperte:
+                (a_sportello if r["a_sportello"] else a_scadenza).append(r)
+            elif dopo:
+                prossima.append(r)
+        elif r["a_sportello"]:
+            a_sportello.append(r)
+        elif r["scadenza"]:
+            a_scadenza.append(r)
+        else:
+            da_verificare.append(r)
+    return a_scadenza, a_sportello, da_verificare, prossima
 
 
 def testo_gruppi(intestazione: str, gruppi: tuple, elenco) -> str:
-    """L'elenco dei bandi non scaduti, in tre gruppi.
+    """L'elenco dei bandi non scaduti, nei quattro gruppi di gruppi_aperti.
 
     intestazione: la prima riga, per i bandi aperti di sicuro (con scadenza
     o a sportello); elenco: la funzione che scrive le righe di un gruppo.
     """
-    a_scadenza, a_sportello, da_verificare = gruppi
+    a_scadenza, a_sportello, da_verificare, prossima = gruppi
     testo = intestazione
     if a_scadenza:
         testo += f"\n{elenco(a_scadenza)}"
@@ -306,7 +450,29 @@ def testo_gruppi(intestazione: str, gruppi: tuple, elenco) -> str:
         testo += f"\n{GRUPPO_SPORTELLO}\n{elenco(a_sportello)}"
     if da_verificare:
         testo += f"\n{GRUPPO_SENZA_SCADENZA}\n{elenco(da_verificare)}"
+    if prossima:
+        testo += f"\n{GRUPPO_PROSSIMA}\n{elenco(prossima)}"
     return testo
+
+
+def nessuno_aperto(per_chi: str, oggi: str, gruppi: tuple) -> str:
+    """L'intestazione quando nessun bando e' aperto di sicuro."""
+    if gruppi[2]:
+        return (
+            f"Nessun bando aperto di sicuro per {per_chi} alla data del "
+            f"{oggi}: nessuno ha una scadenza futura o e' a sportello."
+        )
+    return f"Nessun bando aperto ora per {per_chi} alla data del {oggi}."
+
+
+def fonti_dei_gruppi(righe: list, gruppi: tuple) -> list[str]:
+    """Le fonti dei bandi mostrati, nell'ordine delle righe.
+
+    Un bando con tutte le finestre passate non sta in nessun gruppo e non
+    e' mostrato: la sua fonte non si elenca.
+    """
+    mostrati = {r["id"] for gruppo in gruppi for r in gruppo}
+    return [fonte_bando(r) for r in righe if r["id"] in mostrati]
 
 
 def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risultato:
@@ -340,14 +506,13 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
             trovato=False,
         )
 
-    gruppi = gruppi_aperti(righe)
+    gruppi = gruppi_aperti(conn, righe, oggi)
     aperti = len(gruppi[0]) + len(gruppi[1])
     intestazione = (
         f"Bandi aperti a cui {nomi['uno']} può presentare domanda "
         f"(alla data del {oggi}), {aperti} in archivio:"
         if aperti
-        else f"Nessun bando aperto di sicuro per {nomi['tutti']} alla data del "
-        f"{oggi}: nessuno ha una scadenza futura o e' a sportello."
+        else nessuno_aperto(nomi["tutti"], oggi, gruppi)
     )
     numerate = RigheBandi()
     testo = testo_gruppi(
@@ -356,7 +521,7 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
         lambda gruppo: _elenco(conn, gruppo, oggi, tipo, numerate),
     )
 
-    return Risultato(testo, fonti=[fonte_bando(r) for r in righe], voci=numerate.voci)
+    return Risultato(testo, fonti=fonti_dei_gruppi(righe, gruppi), voci=numerate.voci)
 
 
 def bandi_in_scadenza(
@@ -371,17 +536,25 @@ def bandi_in_scadenza(
     limite = date.fromordinal(oggi.toordinal() + giorni).isoformat()
     filtro, parametri = filtro_ente(tipo)
 
-    righe = conn.execute(
+    # bandi.scadenza e' l'ultima data: per un bando a finestre la scadenza
+    # che conta e' quella della finestra aperta, che si calcola dalle righe
+    candidati = conn.execute(
         f"""
         SELECT * FROM bandi
         WHERE {filtro}
           AND {SOLO_BANDI}
           AND a_sportello = 0
-          AND scadenza BETWEEN ? AND ?
+          AND scadenza >= ?
         ORDER BY scadenza
         """,
-        (*parametri, oggi.isoformat(), limite),
+        (*parametri, oggi.isoformat()),
     ).fetchall()
+    in_scadenza = []
+    for r in candidati:
+        scadenza = scadenza_vicina(r, scadenze_di(conn, r["id"]), oggi.isoformat())
+        if scadenza and scadenza <= limite:
+            in_scadenza.append((scadenza, r))
+    righe = [r for _, r in sorted(in_scadenza, key=lambda coppia: coppia[0])]
 
     if not righe:
         return Risultato(
@@ -414,7 +587,7 @@ def etichetta_tipi(riga, beneficiari: list) -> str:
     for tipo in TIPI_BENEFICIARIO:
         righe = [b for b in beneficiari if b["tipo"] == tipo]
         if righe:
-            condizionato = all(b["condizioni"] for b in righe)
+            condizionato = all(b["condizioni"] or come_requisito(b) for b in righe)
             nomi.append(NOMI_TIPI[tipo] + (" (a condizione)" if condizionato else ""))
     return f"[ammessi: {', '.join(nomi)}]"
 
@@ -445,7 +618,7 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
         + numerate.numera(
             r,
             f"{etichetta_tipi(r, beneficiari_di(conn, r['id']))} "
-            f"{formatta_bando(r, oggi)}",
+            f"{formatta_bando(r, oggi, scadenze=scadenze_di(conn, r['id']))}",
         )
         for r in righe
     )
@@ -507,23 +680,25 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
             + numerate.numera(
                 r,
                 formatta_bando(
-                    r, oggi, ammissione(beneficiari_di(conn, r["id"]), tipo)
+                    r,
+                    oggi,
+                    ammissione(beneficiari_di(conn, r["id"]), tipo),
+                    scadenze_di(conn, r["id"]),
                 ),
             )
             for r in gruppo
         )
 
-    gruppi = gruppi_aperti(righe)
+    gruppi = gruppi_aperti(conn, righe, oggi)
     aperti = len(gruppi[0]) + len(gruppi[1])
     intestazione = (
         f"Bandi aperti per {nome} (alla data del {oggi}), {aperti} in archivio:"
         if aperti
-        else f"Nessun bando aperto di sicuro per {nome} alla data del {oggi}: "
-        "nessuno ha una scadenza futura o e' a sportello."
+        else nessuno_aperto(nome, oggi, gruppi)
     )
     return Risultato(
         testo_gruppi(intestazione, gruppi, elenco) + avvertenza,
-        fonti=[fonte_bando(r) for r in righe],
+        fonti=fonti_dei_gruppi(righe, gruppi),
         voci=numerate.voci,
     )
 
@@ -533,10 +708,8 @@ def descrivi_beneficiari(riga, beneficiari: list) -> str:
     voci = []
     for b in beneficiari:
         voce = NOMI_TIPI[b["tipo"]]
-        if b["condizioni"]:
-            voce += f", ammesso se {b['condizioni']}"
-        if b["tipo"] == PER_REQUISITO and b["soggetto"]:
-            voce += f" (nel bando: «{b['soggetto']}»)"
+        if b["condizioni"] or come_requisito(b):
+            voce += f", {caso_ammissione(b)}"
         # Le righe migrate hanno come frase il testo di beneficiari, che il
         # dettaglio mostra gia'
         if b["origine"] != "ammette_comuni":
@@ -547,6 +720,23 @@ def descrivi_beneficiari(riga, beneficiari: list) -> str:
         if not voci:
             voci.append("non i Comuni")
         voci.append(NON_CLASSIFICATI)
+    return "; ".join(voci)
+
+
+def descrivi_scadenze(scadenze: list) -> str:
+    """Tutte le date di un bando con piu' date, con la frase del bando."""
+    voci = []
+    for s in scadenze:
+        periodo = (
+            f"dal {s['apertura']} al {s['scadenza']}"
+            if s["apertura"]
+            else f"entro il {s['scadenza']}"
+        )
+        genere = "domanda" if s["genere"] == "domanda" else "fase successiva"
+        voci.append(
+            f"{s['descrizione']} ({genere}), {periodo} "
+            f"(frase del bando: «{s['frase']}»)"
+        )
     return "; ".join(voci)
 
 
@@ -577,11 +767,14 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
         )
         return Risultato(testo, fonti=[fonte_bando(riga)], voci=numerate.voci)
 
+    scadenze = scadenze_di(conn, riga["id"])
     pezzi = [
-        formatta_bando(riga, oggi),
+        formatta_bando(riga, oggi, scadenze=scadenze),
         "beneficiari ammessi: "
         + descrivi_beneficiari(riga, beneficiari_di(conn, riga["id"])),
     ]
+    if scadenze:
+        pezzi.append("date del bando: " + descrivi_scadenze(scadenze))
 
     interventi = conn.execute(
         "SELECT * FROM interventi_bando WHERE id_bando = ? ORDER BY numero",

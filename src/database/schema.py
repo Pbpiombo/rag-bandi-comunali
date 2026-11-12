@@ -159,6 +159,23 @@ CREATE TABLE IF NOT EXISTS interventi_bando (
     PRIMARY KEY (id_bando, numero)
 );
 
+-- Le date di un bando a finestre o con piu' scadenze, solo per i bandi con
+-- piu' date. genere 'domanda': un periodo in cui si presenta domanda (una
+-- finestra, o una misura con la sua scadenza); 'fase_successiva': una
+-- scadenza per chi ha gia' superato una fase, che non apre il bando a
+-- nuove domande. bandi.scadenza resta l'ultima scadenza 'domanda'.
+CREATE TABLE IF NOT EXISTS scadenze_bando (
+    id_bando        TEXT NOT NULL REFERENCES bandi(id),
+    numero          INTEGER NOT NULL,
+    genere          TEXT NOT NULL CHECK (genere IN ('domanda', 'fase_successiva')),
+    descrizione     TEXT NOT NULL,
+    apertura        TEXT,
+    scadenza        TEXT NOT NULL,
+    frase           TEXT NOT NULL,
+    PRIMARY KEY (id_bando, numero),
+    CHECK (apertura IS NULL OR apertura <= scadenza)
+);
+
 -- Le pagine gia' esaminate. La chiave e' l'URL in forma canonica, unico
 -- tra tutte le fonti; lo slug resta solo come informazione leggibile.
 CREATE TABLE IF NOT EXISTS scansioni (
@@ -231,7 +248,8 @@ TABELLE_DA_CSV = {
         "natura",
         "natura_motivo",
     ],
-    # beneficiari_bando e interventi_bando dopo bandi, a cui fanno riferimento
+    # beneficiari_bando, interventi_bando e scadenze_bando dopo bandi, a cui
+    # fanno riferimento
     "beneficiari_bando": [
         "id_bando",
         "tipo",
@@ -242,6 +260,15 @@ TABELLE_DA_CSV = {
         "origine",
     ],
     "interventi_bando": ["id_bando", "numero", "genere", "descrizione", "frase"],
+    "scadenze_bando": [
+        "id_bando",
+        "numero",
+        "genere",
+        "descrizione",
+        "apertura",
+        "scadenza",
+        "frase",
+    ],
     "scansioni": [
         "url",
         "codice_fonte",

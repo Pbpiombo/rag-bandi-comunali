@@ -63,7 +63,7 @@ COLONNE_FUSE = [c for c in COLONNE if c not in NON_ESTRATTE]
 # Il motivo di un valore vuoto quando nessun avviso lo spiega
 SENZA_AVVISO = "il modello non ha restituito un valore"
 
-TABELLE_BANDO = ("bandi", "beneficiari_bando", "interventi_bando")
+TABELLE_BANDO = ("bandi", "beneficiari_bando", "interventi_bando", "scadenze_bando")
 
 
 def _vuoto(valore) -> bool:

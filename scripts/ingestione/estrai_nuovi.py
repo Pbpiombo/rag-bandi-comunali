@@ -352,7 +352,9 @@ def main() -> None:
     mostra_dal_filtro(esiti, dal_filtro)
     mostra_costo(contatore.usage_metadata, sum(len(e) for e in esiti.values()))
     print(f"\n{riepilogo()}")
-    aggiorna_csv("bandi", "beneficiari_bando", "interventi_bando", "scansioni")
+    aggiorna_csv(
+        "bandi", "beneficiari_bando", "interventi_bando", "scadenze_bando", "scansioni"
+    )
 
 
 if __name__ == "__main__":

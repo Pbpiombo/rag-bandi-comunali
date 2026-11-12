@@ -143,6 +143,46 @@ def test_piu_condizioni_si_uniscono_con_oppure(db):
     assert "ammesso se sotto i 5.000 abitanti oppure ammesso se x" in riga
 
 
+RICERCA = "Soggetti pubblici e/o privati che operano nel campo della ricerca"
+
+
+def test_soggetto_generico_con_condizioni_mostra_il_soggetto(db):
+    bando(db, "ricerca", [("comune", "comprovata esperienza", RICERCA)])
+    (riga,) = righe_del_bando(ib.bandi_aperti_per_ente(db, COMUNE).testo, "ricerca")
+    assert f"| ammesso se comprovata esperienza (nel bando: «{RICERCA}») |" in riga
+
+
+def test_soggetto_generico_senza_condizioni_ammesso_come(db):
+    bando(db, "pubblici", [("comune", None, "soggetti pubblici o privati")])
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+    (riga,) = righe_del_bando(testo, "pubblici")
+    assert "| ammesso come «soggetti pubblici o privati» nel bando |" in riga
+
+
+def test_soggetto_non_generico_senza_condizioni_resta_senza_etichetta(db):
+    bando(db, "b", [("comune", None, "Comuni toscani")])
+    (riga,) = righe_del_bando(ib.bandi_aperti_per_ente(db, COMUNE).testo, "b")
+    assert "ammesso" not in riga
+
+
+def test_soggetto_generico_a_condizione_in_etichetta_e_nel_dettaglio(db):
+    bando(
+        db,
+        "pubblici",
+        [
+            ("comune", None, "soggetti pubblici o privati"),
+            ("terzo_settore", None, "ETS"),
+        ],
+        tema="ambiente",
+    )
+    testo = ib.bandi_per_tema(db, "ambiente").testo
+    assert "[ammessi: Comuni (a condizione), terzo settore]" in testo
+
+    dettaglio = ib.dettaglio_bando(db, "pubblici").testo
+    assert "Comuni, ammesso come «soggetti pubblici o privati» nel bando" in dettaglio
+    assert "terzo settore (frase del bando" in dettaglio
+
+
 def test_unione_vede_i_non_classificati_dei_comuni_con_la_nota(db):
     bando(db, "migrato", [("comune", None, None)], classificato=False)
     bando(db, "migrato-non-comuni", classificato=False)
@@ -490,3 +530,151 @@ def test_il_dettaglio_e_una_sola_voce_con_l_atto_una_volta(db):
     assert r.testo.startswith("[#1] «Bando b»")
     assert r.testo.count("atto: decreto n. 7") == 1
     assert [v.testo for v in r.voci] == [r.testo.removeprefix("[#1] ")]
+
+
+# --- bandi a finestre o con piu' scadenze (oggi: 2026-11-11) ---
+
+# Le quattro finestre di "dopo la laurea": la terza e' aperta oggi
+FINESTRE_LAUREA = [
+    ("domanda", "prima finestra", "2025-08-21", "2025-10-31"),
+    ("domanda", "seconda finestra", "2026-06-15", "2026-07-15"),
+    ("domanda", "terza finestra", "2026-11-11", "2026-12-11"),
+    ("domanda", "quarta finestra", "2027-06-15", "2027-07-15"),
+]
+
+
+def scadenze(conn, id_bando, righe):
+    """Inserisce le righe di scadenze_bando: (genere, descrizione, apertura, scadenza)."""
+    for numero, (genere, descrizione, apertura, scadenza) in enumerate(righe, 1):
+        conn.execute(
+            "INSERT INTO scadenze_bando VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (id_bando, numero, genere, descrizione, apertura, scadenza, "frase"),
+        )
+
+
+def test_finestra_aperta_con_la_prossima(db):
+    bando(db, "laurea", [("comune", None, None)], scadenza="2027-07-15")
+    scadenze(db, "laurea", FINESTRE_LAUREA)
+
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+
+    assert testo.startswith("Bandi aperti a cui un Comune può presentare domanda")
+    assert ib.GRUPPO_PROSSIMA not in testo
+    (riga,) = righe_del_bando(testo, "laurea")
+    assert (
+        "| finestra aperta fino al 2026-12-11 (terza finestra, fra 30 giorni); "
+        "prossima finestra dal 2027-06-15 al 2027-07-15 (quarta finestra) |"
+    ) in riga
+
+
+def test_tra_due_finestre_nel_gruppo_dei_chiusi_ora(db):
+    bando(db, "laurea", [("comune", None, None)], scadenza="2027-07-15")
+    scadenze(db, "laurea", [FINESTRE_LAUREA[1], FINESTRE_LAUREA[3]])
+    bando(db, "aperto", [("comune", None, None)])
+
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+
+    assert "1 in archivio:" in testo
+    gruppo = testo.split(ib.GRUPPO_PROSSIMA)[1]
+    (riga,) = righe_del_bando(gruppo, "laurea")
+    assert (
+        "| chiuso ora, prossima finestra dal 2027-06-15 al 2027-07-15 "
+        "(quarta finestra) |"
+    ) in riga
+    assert _stato_bandi(db, COMUNE) == (
+        "bandi: 2 in archivio, di cui 1 aperti a cui un Comune può presentare "
+        "domanda, più 1 chiusi ora, con una prossima finestra"
+    )
+
+
+def test_solo_bandi_tra_due_finestre(db):
+    bando(db, "laurea", [("comune", None, None)], scadenza="2027-07-15")
+    scadenze(db, "laurea", [FINESTRE_LAUREA[1], FINESTRE_LAUREA[3]])
+
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+
+    assert testo.startswith(
+        "Nessun bando aperto ora per i Comuni alla data del 2026-11-11.\n"
+        f"{ib.GRUPPO_PROSSIMA}"
+    )
+
+
+def test_tutte_le_finestre_passate_non_si_mostra(db):
+    # bandi.scadenza futura per errore: lo stato si calcola dalle righe
+    bando(db, "vecchio", [("comune", None, None)], scadenza="2027-07-15")
+    scadenze(db, "vecchio", FINESTRE_LAUREA[:2])
+    bando(db, "aperto", [("comune", None, None)])
+
+    r = ib.bandi_aperti_per_ente(db, COMUNE)
+
+    assert not righe_del_bando(r.testo, "vecchio")
+    assert len(r.fonti) == 1
+
+
+def test_in_scadenza_conta_la_finestra_aperta(db):
+    # bandi.scadenza e' oltre i 60 giorni, ma la finestra aperta chiude prima
+    bando(db, "laurea", [("comune", None, None)], scadenza="2027-07-15")
+    scadenze(db, "laurea", FINESTRE_LAUREA)
+    bando(db, "tra-finestre", [("comune", None, None)], scadenza="2027-07-15")
+    scadenze(db, "tra-finestre", [FINESTRE_LAUREA[1], FINESTRE_LAUREA[3]])
+    bando(db, "vicino", [("comune", None, None)], scadenza="2026-12-20")
+    bando(db, "lontano", [("comune", None, None)], scadenza="2027-03-01")
+
+    testo = ib.bandi_in_scadenza(db, COMUNE).testo
+
+    assert righe_del_bando(testo, "laurea")
+    assert righe_del_bando(testo, "vicino")
+    assert not righe_del_bando(testo, "tra-finestre")
+    assert not righe_del_bando(testo, "lontano")
+    # in ordine di scadenza effettiva: 11/12 prima del 20/12
+    assert testo.index("Bando laurea") < testo.index("Bando vicino")
+
+
+def test_fase_successiva_solo_come_informazione(db):
+    bando(db, "jtc", [("comune", None, None)], scadenza="2027-01-20")
+    scadenze(
+        db,
+        "jtc",
+        [
+            ("domanda", "pre-proposta", None, "2027-01-20"),
+            ("fase_successiva", "proposta completa", None, "2027-05-25"),
+        ],
+    )
+
+    (riga,) = righe_del_bando(ib.bandi_aperti_per_ente(db, COMUNE).testo, "jtc")
+
+    assert (
+        "| finestra aperta fino al 2027-01-20 (pre-proposta, fra 70 giorni) |" in riga
+    )
+    assert (
+        "| fase successiva, solo per chi ha superato la precedente: "
+        "proposta completa entro il 2027-05-25 |"
+    ) in riga
+
+    dettaglio = ib.dettaglio_bando(db, "jtc").testo
+    assert (
+        "date del bando: pre-proposta (domanda), entro il 2027-01-20 "
+        "(frase del bando: «frase»); proposta completa (fase successiva), "
+        "entro il 2027-05-25"
+    ) in dettaglio
+
+
+def test_sportello_con_misure_a_scadenze_diverse(db):
+    bando(db, "gol", [("comune", None, None)], a_sportello=1, scadenza="2027-06-30")
+    scadenze(
+        db,
+        "gol",
+        [
+            ("domanda", "Misura 1", None, "2026-07-31"),
+            ("domanda", "Misura 2", None, "2027-06-30"),
+        ],
+    )
+
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+
+    gruppo = testo.split(ib.GRUPPO_SPORTELLO)[1]
+    (riga,) = righe_del_bando(gruppo, "gol")
+    assert (
+        "| finestra aperta fino al 2027-06-30 (Misura 2, fra 231 giorni), "
+        f"a sportello: {VERIFICARE} |"
+    ) in riga

@@ -168,3 +168,13 @@ def tipi_da_termini(testo: str, regole: dict = TERMINI) -> set[str]:
         if _SCHEMI[espressione].search(ridotto):
             trovati.update(tipi)
     return trovati
+
+
+def soggetto_generico(soggetto: str | None) -> bool:
+    """Il soggetto corrisponde a una regola dei soggetti generici.
+
+    Si calcola al momento, non si memorizza: serve a mostrare il soggetto
+    come lo scrive il bando, perche' la sua qualificazione ("che operano
+    nel campo della ricerca") non sta nel tipo.
+    """
+    return bool(soggetto) and bool(tipi_da_termini(soggetto, GENERICI))

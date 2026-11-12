@@ -221,6 +221,20 @@ CUMULABILITA'
 "cumulabilita": {{"clausola": "cosa dice il bando sul cumulo con altri \
 finanziamenti, oppure null", "frase": "la frase del bando, copiata"}}
 
+SCADENZE MULTIPLE
+"scadenze": un elenco, SOLO se la pagina indica piu' date: un bando a \
+finestre, misure con scadenze diverse, o una scadenza per una fase \
+successiva. Altrimenti elenco vuoto. Un elemento per ogni data:
+  {{"genere": "domanda" oppure "fase_successiva",
+    "descrizione": "in breve, es. 'terza finestra' o 'Misura 2 - catalogo'",
+    "apertura": "AAAA-MM-GG oppure null",
+    "scadenza": "AAAA-MM-GG",
+    "frase": "la frase del bando con la data, copiata esattamente"}}
+"domanda": un periodo in cui si presenta domanda. "fase_successiva": una \
+scadenza solo per chi ha gia' superato una fase (es. la proposta completa \
+dopo la pre-proposta), che non apre il bando a nuove domande. Con piu' \
+date, "scadenza" del bando e' l'ultima scadenza di genere "domanda".
+
 REGOLE CRITICHE
 
 1. FRASI. Ogni "frase" e ogni "prova" va copiata dal testo, parola per \
@@ -230,7 +244,10 @@ parola: viene cercata nella pagina, e se non si trova il dato viene scartato.
 rendicontazione o di conclusione lavori. Se il testo segnala una proroga, \
 usa la data prorogata e spiega in scadenza_nota. Se il campo strutturato \
 della pagina contraddice il testo, fidati del TESTO e segnala la \
-discrepanza in scadenza_nota, con confidenza "bassa".
+discrepanza in scadenza_nota, con confidenza "bassa". Se il testo da' due \
+date diverse per la stessa domanda (es. 31/07/2026 in un punto e \
+31/07/2027 in un altro), non sceglierne una: riportale entrambe in \
+scadenza_nota, con confidenza "bassa".
 
 3. BENEFICIARI. Decidi leggendo il paragrafo sui beneficiari, MAI il tag \
 della pagina, che e' spesso sbagliato. Un soggetto che partecipa solo come \
@@ -279,6 +296,7 @@ class Estrazione:
     beneficiari: list = field(default_factory=list)
     interventi: list = field(default_factory=list)
     cumulabilita: dict | None = None
+    scadenze: list = field(default_factory=list)
 
 
 def costruisci_estrattore():
@@ -354,6 +372,7 @@ def interpreta(dati: dict) -> Estrazione:
         beneficiari=dati.get("beneficiari_ammessi") or [],
         interventi=dati.get("interventi") or [],
         cumulabilita=cumulabilita if isinstance(cumulabilita, dict) else None,
+        scadenze=dati.get("scadenze") or [],
     )
 
 
@@ -645,6 +664,94 @@ def _valida_cumulabilita(
     return clausola, frase
 
 
+GENERI_SCADENZA = ("domanda", "fase_successiva")
+
+
+def _data_iso(valore) -> str | None:
+    """La data se e' nel formato AAAA-MM-GG, altrimenti None."""
+    testo = str(valore or "").strip()
+    return testo if re.fullmatch(r"\d{4}-\d{2}-\d{2}", testo) else None
+
+
+def _valida_scadenze(voci: list, testo: str, avvisi: list[str]) -> list[dict]:
+    """Le date di un bando con piu' scadenze, verificate.
+
+    Ogni voce deve avere un genere valido, una scadenza nel formato
+    AAAA-MM-GG, un'apertura vuota o nello stesso formato e non successiva
+    alla scadenza, e una frase presente nella pagina; altrimenti si scarta
+    con un avviso. Le righe servono solo ai bandi con piu' date: se ne
+    resta una sola, non se ne tiene nessuna. Sono numerate per scadenza.
+    """
+    valide = []
+    for numero, voce in enumerate(voci, start=1):
+        if not isinstance(voce, dict):
+            avvisi.append(f"scadenza {numero}: formato non conforme, scartata")
+            continue
+
+        genere = voce.get("genere")
+        descrizione = (voce.get("descrizione") or "").strip()
+        scadenza = _data_iso(voce.get("scadenza"))
+        apertura = _data_iso(voce.get("apertura"))
+        frase = (voce.get("frase") or "").strip()
+        nome = descrizione or f"scadenza {numero}"
+
+        if genere not in GENERI_SCADENZA or not descrizione or not scadenza:
+            avvisi.append(
+                f"scadenze: '{nome}' senza genere, descrizione o scadenza valida, "
+                "scartata"
+            )
+            continue
+        if voce.get("apertura") and not apertura:
+            avvisi.append(f"scadenze: '{nome}' con apertura non valida, scartata")
+            continue
+        if apertura and apertura > scadenza:
+            avvisi.append(f"scadenze: '{nome}' apre dopo la scadenza, scartata")
+            continue
+        if not frase_nel_testo(frase, testo):
+            avvisi.append(
+                f"scadenze: '{nome}' frase non trovata nella pagina, scartata "
+                f"('{frase[:80]}')"
+            )
+            continue
+
+        valide.append(
+            {
+                "genere": genere,
+                "descrizione": descrizione,
+                "apertura": apertura,
+                "scadenza": scadenza,
+                "frase": frase,
+            }
+        )
+
+    if len(valide) < 2:
+        if valide:
+            avvisi.append("scadenze: una sola data verificata, nessuna riga salvata")
+        return []
+
+    valide.sort(key=lambda v: (v["scadenza"], v["apertura"] or ""))
+    for numero, voce in enumerate(valide, start=1):
+        voce["numero"] = numero
+    return valide
+
+
+def _scadenza_dalle_righe(riga: dict, avvisi: list[str]) -> None:
+    """bandi.scadenza diventa l'ultima scadenza di genere 'domanda'.
+
+    Se il modello ne ha indicata un'altra, si segnala con un avviso.
+    """
+    domande = [s["scadenza"] for s in riga["scadenze"] if s["genere"] == "domanda"]
+    if not domande:
+        return
+    ultima = max(domande)
+    if riga.get("scadenza") != ultima:
+        avvisi.append(
+            f"scadenza: il modello indica '{riga.get('scadenza')}', l'ultima "
+            f"scadenza per presentare domanda e' {ultima}: uso {ultima}"
+        )
+        riga["scadenza"] = ultima
+
+
 def valida(estrazione: Estrazione, testo: str) -> tuple[dict, list[str], list[str]]:
     """Converte l'estrazione in una riga per il database e la verifica.
 
@@ -657,8 +764,9 @@ def valida(estrazione: Estrazione, testo: str) -> tuple[dict, list[str], list[st
     resta vuoto e l'avviso conserva il valore originale per chi lo rivede.
 
     Le frasi si controllano su testo, la pagina da cui si e' estratto.
-    La riga contiene anche beneficiari_ammessi e interventi, gia'
-    verificati, che salva() scrive nelle rispettive tabelle.
+    La riga contiene anche beneficiari_ammessi, interventi e scadenze,
+    gia' verificati, che salva() scrive nelle rispettive tabelle. Con piu'
+    scadenze, la scadenza del bando si calcola dalle righe.
     """
     riga = {
         "natura": estrazione.natura,
@@ -719,6 +827,9 @@ def valida(estrazione: Estrazione, testo: str) -> tuple[dict, list[str], list[st
     riga["cumulabilita"], riga["cumulabilita_frase"] = _valida_cumulabilita(
         estrazione.cumulabilita, testo, avvisi
     )
+
+    riga["scadenze"] = _valida_scadenze(estrazione.scadenze, testo, avvisi)
+    _scadenza_dalle_righe(riga, avvisi)
 
     return riga, problemi, avvisi
 

@@ -48,6 +48,7 @@ COLONNE_BENEFICIARI = [
     "origine",
 ]
 COLONNE_INTERVENTI = ["numero", "genere", "descrizione", "frase"]
+COLONNE_SCADENZE = ["numero", "genere", "descrizione", "apertura", "scadenza", "frase"]
 
 
 class ConflittoBando(Exception):
@@ -145,13 +146,13 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
 
     L'aggiornamento usa ON CONFLICT DO UPDATE, non INSERT OR REPLACE:
     REPLACE cancellerebbe la riga, in silenzio, insieme ai riferimenti
-    delle tabelle beneficiari_bando e interventi_bando.
+    delle tabelle beneficiari_bando, interventi_bando e scadenze_bando.
 
     Se la riga contiene beneficiari_ammessi (prodotti e verificati da
     valida), sostituiscono tutti i beneficiari del bando, comprese le
     righe migrate da ammette_comuni, e classificato_il diventa oggi.
-    Lo stesso per interventi. Senza quelle chiavi, le tabelle collegate
-    restano come sono.
+    Lo stesso per interventi e scadenze. Senza quelle chiavi, le tabelle
+    collegate restano come sono.
     """
     oggi = date.today().isoformat()
     riga = dict(riga)
@@ -199,6 +200,15 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> None:
                 COLONNE_INTERVENTI,
                 riga["id"],
                 riga["interventi"],
+            )
+
+        if "scadenze" in riga:
+            _sostituisci(
+                conn,
+                "scadenze_bando",
+                COLONNE_SCADENZE,
+                riga["id"],
+                riga["scadenze"],
             )
 
         conn.commit()

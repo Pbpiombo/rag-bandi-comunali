@@ -37,7 +37,7 @@ SEGNI = {"alta": "  ", "media": "~ ", "bassa": "! "}
 FONTE = "Portale bandi Regione Toscana"
 
 # Le tabelle che un salvataggio modifica, da riversare nei CSV
-TABELLE_BANDO = ("bandi", "beneficiari_bando", "interventi_bando")
+TABELLE_BANDO = ("bandi", "beneficiari_bando", "interventi_bando", "scadenze_bando")
 
 
 def mostra(estrazione) -> None:

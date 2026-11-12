@@ -460,3 +460,154 @@ def test_salva_scrive_beneficiari_e_interventi_e_sostituisce_i_migrati(db_su_fil
     )
     # classificato_il e' la data del salvataggio
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", bando[3])
+
+
+# --- bandi a finestre o con piu' scadenze ---
+
+FINESTRE = (
+    "\nPrima finestra: dal 1 settembre al 30 settembre 2021."
+    "\nSeconda finestra: dal 1 ottobre al 21 ottobre 2021."
+    "\nTerza finestra: dal 1 marzo al 31 marzo 2022."
+    "\nLa proposta completa va inviata entro il 15 gennaio 2022.\n"
+)
+
+
+def _finestra(descrizione, apertura, scadenza, frase, genere="domanda"):
+    return {
+        "genere": genere,
+        "descrizione": descrizione,
+        "apertura": apertura,
+        "scadenza": scadenza,
+        "frase": frase,
+    }
+
+
+PRIMA = _finestra(
+    "prima finestra",
+    "2021-09-01",
+    "2021-09-30",
+    "Prima finestra: dal 1 settembre al 30 settembre 2021.",
+)
+SECONDA = _finestra(
+    "seconda finestra",
+    "2021-10-01",
+    "2021-10-21",
+    "Seconda finestra: dal 1 ottobre al 21 ottobre 2021.",
+)
+TERZA = _finestra(
+    "terza finestra",
+    "2022-03-01",
+    "2022-03-31",
+    "Terza finestra: dal 1 marzo al 31 marzo 2022.",
+)
+COMPLETA = _finestra(
+    "proposta completa",
+    None,
+    "2022-01-15",
+    "La proposta completa va inviata entro il 15 gennaio 2022.",
+    genere="fase_successiva",
+)
+
+
+def _con_scadenze(voci):
+    dati = risposta("tpl")
+    dati["scadenze"] = voci
+    return esegui("tpl", dati, aggiunta=FINESTRE)
+
+
+def test_scadenze_verificate_e_scadenza_del_bando_dall_ultima():
+    _, riga, problemi, avvisi, _ = _con_scadenze([TERZA, PRIMA, SECONDA])
+
+    assert problemi == []
+    assert [(s["numero"], s["descrizione"]) for s in riga["scadenze"]] == [
+        (1, "prima finestra"),
+        (2, "seconda finestra"),
+        (3, "terza finestra"),
+    ]
+    assert riga["scadenza"] == "2022-03-31"
+    atteso = (
+        "scadenza: il modello indica '2021-10-21', l'ultima scadenza per "
+        "presentare domanda e' 2022-03-31: uso 2022-03-31"
+    )
+    assert avvisi == [atteso]
+
+
+def test_fase_successiva_non_cambia_la_scadenza_del_bando():
+    _, riga, problemi, avvisi, _ = _con_scadenze([SECONDA, COMPLETA])
+
+    assert problemi == []
+    assert [s["genere"] for s in riga["scadenze"]] == ["domanda", "fase_successiva"]
+    assert riga["scadenza"] == "2021-10-21"
+    assert avvisi == []
+
+
+def test_scadenza_con_frase_assente_si_scarta():
+    inventata = {**TERZA, "frase": "Terza finestra: dal 1 aprile 2022."}
+    _, riga, _, avvisi, _ = _con_scadenze([PRIMA, SECONDA, inventata])
+
+    assert [s["descrizione"] for s in riga["scadenze"]] == [
+        "prima finestra",
+        "seconda finestra",
+    ]
+    assert any(
+        a.startswith("scadenze: 'terza finestra' frase non trovata") for a in avvisi
+    )
+
+
+@pytest.mark.parametrize(
+    "sbagliata",
+    [
+        {**TERZA, "genere": "rendicontazione"},
+        {**TERZA, "scadenza": "31/03/2022"},
+        {**TERZA, "apertura": "marzo"},
+        {**TERZA, "apertura": "2022-04-01"},
+    ],
+)
+def test_scadenza_non_valida_si_scarta(sbagliata):
+    _, riga, _, avvisi, _ = _con_scadenze([PRIMA, SECONDA, sbagliata])
+
+    assert len(riga["scadenze"]) == 2
+    assert any(a.startswith("scadenze: 'terza finestra'") for a in avvisi)
+
+
+def test_una_sola_data_nessuna_riga():
+    _, riga, _, avvisi, _ = _con_scadenze([SECONDA])
+
+    assert riga["scadenze"] == []
+    assert riga["scadenza"] == "2021-10-21"
+    assert avvisi == ["scadenze: una sola data verificata, nessuna riga salvata"]
+
+
+def test_il_prompt_chiede_le_scadenze_e_le_date_in_contraddizione():
+    assert '"scadenze"' in ISTRUZIONI
+    assert "fase_successiva" in ISTRUZIONI
+    assert "non sceglierne una" in ISTRUZIONI
+
+
+def test_salva_scrive_e_sostituisce_le_scadenze(db_su_file):
+    url = "https://www.regione.toscana.it/-/tpl"
+    _, riga, *_ = _con_scadenze([PRIMA, SECONDA, TERZA])
+    riga["id"] = "tpl"
+
+    salva(riga, url, "Portale bandi Regione Toscana", "regione-toscana")
+
+    c = sqlite3.connect(db_su_file)
+    righe = c.execute(
+        "SELECT numero, genere, apertura, scadenza FROM scadenze_bando ORDER BY numero"
+    ).fetchall()
+    scadenza = c.execute("SELECT scadenza FROM bandi").fetchone()[0]
+    c.close()
+    assert righe == [
+        (1, "domanda", "2021-09-01", "2021-09-30"),
+        (2, "domanda", "2021-10-01", "2021-10-21"),
+        (3, "domanda", "2022-03-01", "2022-03-31"),
+    ]
+    assert scadenza == "2022-03-31"
+
+    # una nuova estrazione con una sola data toglie le righe
+    _, riga, *_ = esegui("tpl")
+    riga["id"] = "tpl"
+    salva(riga, url, "Portale bandi Regione Toscana", "regione-toscana")
+    c = sqlite3.connect(db_su_file)
+    assert c.execute("SELECT COUNT(*) FROM scadenze_bando").fetchone()[0] == 0
+    c.close()

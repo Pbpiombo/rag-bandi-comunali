@@ -17,6 +17,7 @@ from src.database.interrogazioni_bandi import (
     data_di_oggi,
     dettaglio_bando,
     filtro_ente,
+    gruppi_aperti,
     tipo_ente,
 )
 from src.database.interrogazioni_dati import (
@@ -221,20 +222,20 @@ def _stato_bandi(conn, codice_ente: str) -> str:
 
     oggi = data_di_oggi().isoformat()
     filtro, parametri = filtro_ente(tipo)
-    # Aperti di sicuro: scadenza futura o a sportello. Senza scadenza e non
-    # a sportello: non si sa, si contano a parte
-    aperti, non_classificati, senza_scadenza = conn.execute(
-        f"""
-        SELECT
-          COALESCE(SUM(scadenza IS NOT NULL OR a_sportello = 1), 0),
-          COALESCE(SUM((scadenza IS NOT NULL OR a_sportello = 1)
-                       AND classificato_il IS NULL), 0),
-          COALESCE(SUM(scadenza IS NULL AND a_sportello = 0), 0)
-        FROM bandi
-        WHERE {filtro} AND {SOLO_BANDI} AND (scadenza IS NULL OR scadenza >= ?)
-        """,
+    righe = conn.execute(
+        f"SELECT * FROM bandi WHERE {filtro} AND {SOLO_BANDI} "
+        "AND (scadenza IS NULL OR scadenza >= ?)",
         (*parametri, oggi),
-    ).fetchone()
+    ).fetchall()
+    # Aperti di sicuro: con scadenza futura o a sportello, e per i bandi a
+    # finestre con una finestra aperta. Senza scadenza e non a sportello:
+    # non si sa, si contano a parte; cosi' i bandi tra due finestre
+    a_scadenza, a_sportello, da_verificare, prossima = gruppi_aperti(conn, righe, oggi)
+    aperti = len(a_scadenza) + len(a_sportello)
+    non_classificati = sum(
+        r["classificato_il"] is None for r in (*a_scadenza, *a_sportello)
+    )
+    senza_scadenza = len(da_verificare)
     testo = (
         f"bandi: {totale} in archivio, di cui {aperti} aperti a cui "
         f"{NOMI_ENTE[tipo]['uno']} può presentare domanda"
@@ -245,4 +246,6 @@ def _stato_bandi(conn, codice_ente: str) -> str:
         testo += (
             f", più {senza_scadenza} con scadenza non indicata, da verificare sul bando"
         )
+    if prossima:
+        testo += f", più {len(prossima)} chiusi ora, con una prossima finestra"
     return testo
