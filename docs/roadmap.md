@@ -60,8 +60,13 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   in `docs/prova-verificatore.md`). **Fatto il 12 novembre 2026**: stato
   calcolato a ogni domanda e scritto nell'intestazione del frammento,
   regola nel prompt, verificatore che confronta anche quella riga
-  (`src/database/stato_documenti.py`). Da provare con il modello sulla
-  domanda 7 della prova.
+  (`src/database/stato_documenti.py`). Provato con il modello: stato
+  citato e verificato (`docs/prova-verificatore.md`).
+  Quando una domanda nomina un bando, il router deve usare
+  `dettaglio_bando` invece di `bandi_per_tema`. Caso: "mercati rionali"
+  cercato come tema non trova il bando, classificato con il tema
+  "commercio", e il modello riporta che l'archivio non ha
+  corrispondenze.
 
 ## Prossimi passi, in ordine
 

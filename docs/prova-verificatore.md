@@ -300,8 +300,8 @@ documenti senza `id_bando`.
   (`tests/dati/interrogazioni_comuni_dopo.json`) non cambia, e nemmeno
   `prova_recupero`: lo stato si aggiunge dopo il recupero.
 
-Da fare: provare con il modello la domanda 7 della prova (mercati
-rionali), che il 12 novembre presentava il bando scaduto come attuale.
+Provata con il modello: lo stato "scaduto il 2026-10-15" è citato e
+verificato (sotto, "Prova con il modello dopo P2 e P3").
 
 ### P4. Limite del README
 
@@ -312,6 +312,27 @@ Testo proposto, per l'elenco dei limiti:
 > attribuito alla cosa giusta: un numero di abitanti riferito all'anno
 > sbagliato, o l'importo di un intervento attribuito a un altro, passano
 > se entrambi i valori sono nella fonte.
+
+## Prova con il modello dopo P2 e P3
+
+Lanciata dall'app il 12 novembre 2026, ente Comune di Abetone
+Cutigliano, tre domande: 38 dati verificati, nessun errore.
+
+| domanda | cosa mette alla prova | esito | colore | ✓ | ✗ | ? |
+|---|---|---|---|---|---|---|
+| mercati rionali | P3: stato del bando nei frammenti | stato "scaduto il 2026-10-15" citato e verificato | verde | 18 | 0 | 0 |
+| costo giornaliero, nominando l'avviso per il rafforzamento amministrativo (domanda 4 della prova) | P2: ricerca dentro l'avviso nominato | € 322,00 trovato | verde | 7 | 0 | 0 |
+| quota per Area interna nello stesso avviso (domanda 13 di `prova_recupero`) | P2, risposta in una pagina introduttiva | € 244.475,00 trovato | verde | 13 | 0 | 0 |
+| | | | | **38** | **0** | **0** |
+
+Prima di P2 e P3 la domanda 4 rispondeva "non trovo", la quota per Area
+interna non entrava tra i primi 10 frammenti, e il bando mercati
+rionali, scaduto, era presentato come attuale.
+
+Emerso nella stessa prova, da correggere (roadmap, blocco B): "mercati
+rionali", cercato come tema con `bandi_per_tema`, non trova il bando,
+classificato con il tema "commercio", e il modello riporta che
+l'archivio non ha corrispondenze.
 
 ## Dopo la prova
 
