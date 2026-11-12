@@ -20,6 +20,7 @@ from src.normalizzazione import (
     articolo,
     atti_con_data,
     data,
+    date_degli_atti,
     giorno_mese,
     numero,
     orario,
@@ -51,7 +52,7 @@ _MOLTIPLICATORE = r"mila|milion[ei]|mln|miliard[oi]"
 # Non e' un numero d'atto quello di una data: "decreto del 29 ottobre",
 # "decreto 12/10/2026".
 SCHEMA_NUMERO_ATTO = re.compile(
-    r"(?:\b(?:decreto|delibera|deliberazione|dgr|dd)\b|d\.g\.r\.|d\.d\.)"
+    r"(?:\b(?:decreto|delibera|deliberazione|dgrt?|dd)\b|d\.g\.r\.(?:t\.)?|d\.d\.)"
     r"(?P<mezzo>[^\d()\[\]]{0,40}?)"
     rf"(?P<numero>\d{{2,6}})(?:/\d{{4}})?(?![\d/])(?!\s+(?:{_MESI}))",
     re.IGNORECASE,
@@ -63,18 +64,23 @@ SCHEMA_NUMERO_ATTO = re.compile(
 # qualificazioni e "n.", cosi' "il decreto prevede € 322,00" non e' l'atto
 # 322. La data dell'atto si controlla insieme al numero: deve comparire con
 # quel numero, nella fonte in cui il numero e' stato trovato.
+# Le qualificazioni sono un elenco chiuso e si possono ripetere ("di Giunta
+# Regionale Toscana"); parole libere no, neanche con "n.": "il decreto
+# stabilisce n. 10 posti" non e' l'atto 10.
 _QUALIFICA = (
     r"dirigenziale|regionale|di\s+giunta(?:\s+regionale)?|"
     r"della\s+giunta(?:\s+regionale)?|"
     r"del\s+presidente(?:\s+della\s+giunta(?:\s+regionale)?)?|"
-    r"del\s+consiglio(?:\s+regionale)?|gr|grt"
+    r"del\s+consiglio(?:\s+regionale)?|"
+    r"della\s+regione\s+toscana|regione\s+toscana|toscana|rt|gr|grt"
 )
 _DATA_ATTO = (
     r"\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4}"
     rf"|\d{{1,2}}\s*[°º]?\s+(?:{_MESI})\s+\d{{4}}"
 )
 SCHEMA_ATTO_TESTO = (
-    r"(?:\b(?:decreto|delibera|deliberazione|dgr|dd)\b|\bd\.g\.r\.|\bd\.d\.)"
+    r"(?:\b(?:decreto|delibera|deliberazione|dgrt?|dd)\b"
+    r"|\bd\.g\.r\.(?:t\.)?|\bd\.d\.)"
     rf"(?:\s+(?:{_QUALIFICA}))*"
     r"(?:\s*(?:n\.|n°|nº|n\b|numero))?"
     r"\s*(?P<numero>\d{2,6})(?:/\d{4})?(?![\d/]|[.,]\d)"
@@ -317,15 +323,18 @@ def contesto_di(testo: str, posizione: int, ampiezza: int = 40) -> str:
     return " ".join(testo[inizio:fine].split())
 
 
-def intestazione_di(testo: str) -> str:
-    """L'intestazione di un elenco di bandi: il testo prima della prima riga.
+def date_dell_intestazione(testo: str) -> str:
+    """Le date dell'intestazione di un elenco di bandi, in ISO.
 
-    "Bandi aperti a cui un Comune può presentare domanda (alla data del
-    2026-11-12), 5 in archivio:". Vale per ogni riga del blocco: la data
-    dell'archivio, citata con l'etichetta di un bando, si trova qui.
+    L'intestazione e' il testo prima della prima riga: "Bandi aperti a cui
+    un Comune può presentare domanda (alla data del 2026-11-12), 12 in
+    archivio:". La data dell'archivio vale per ogni riga del blocco, e si
+    cita con l'etichetta di un bando. I numeri no: "12 in archivio" non
+    deve verificare un 12 qualsiasi attribuito a un bando.
     """
     trovato = SEGNAPOSTO.search(testo)
-    return testo[: trovato.start()] if trovato else ""
+    intestazione = testo[: trovato.start()] if trovato else ""
+    return " ".join(sorted(valori(intestazione).date))
 
 
 def fonti_di(
@@ -335,8 +344,8 @@ def fonti_di(
 
     I frammenti documentali sono '1', '2', ...; i blocchi dei dati 'D1',
     'D2', ... con le loro fonti; il bando k del blocco Dn, se il risultato
-    elenca bandi, 'Dn.k', con l'intestazione del blocco, la riga e la
-    fonte di quel bando.
+    elenca bandi, 'Dn.k', con le date dell'intestazione del blocco, la
+    riga e la fonte di quel bando.
 
     Restituisce (testi, testi_atti, voci_di). testi_atti e' il testo in
     cui si cercano i numeri d'atto: per un frammento, il suo testo con
@@ -366,9 +375,9 @@ def fonti_di(
         fonti = " ".join(getattr(risultato, "fonti", None) or [])
         testi[blocco] = f"{senza_segnaposto(risultato.testo)} {fonti}"
         voci_di[blocco] = []
-        intestazione = intestazione_di(risultato.testo)
+        date = date_dell_intestazione(risultato.testo)
         for k, voce in enumerate(getattr(risultato, "voci", None) or [], start=1):
-            testi[f"{blocco}.{k}"] = f"{intestazione} {voce.testo} {voce.fonte}"
+            testi[f"{blocco}.{k}"] = f"{date} {voce.testo} {voce.fonte}"
             voci_di[blocco].append(f"{blocco}.{k}")
 
     for etichetta, testo in testi.items():
@@ -388,8 +397,9 @@ def verifica(
     blocco Dn, se il risultato elenca bandi, 'Dn.k'.
 
     Il testo di confronto di Dn e' il blocco intero con le sue fonti;
-    quello di Dn.k e' l'intestazione del blocco (con la data dell'archivio),
-    la riga del bando e la fonte di quel bando.
+    quello di Dn.k sono le date dell'intestazione del blocco (la data
+    dell'archivio, non i numeri), la riga del bando e la fonte di quel
+    bando.
     Un atto scritto nel testo ("decreto n. 9550 del 28/04/2026") e' un
     dato: il suo numero si cerca nelle fonti citate dopo di esso, per un
     frammento anche nei metadati dell'atto. Nelle citazioni a Dn.k e a un
@@ -455,7 +465,13 @@ def verifica(
             esiti.append(
                 (
                     dato.posizione_data,
-                    _esito_data_atto(dato, dentro, testi_atti, risposta),
+                    _esito_data_atto(
+                        dato.valore,
+                        dato.data_atto,
+                        dentro,
+                        testi_atti,
+                        contesto_di(risposta, dato.posizione_data),
+                    ),
                 )
             )
 
@@ -464,22 +480,25 @@ def verifica(
 
 
 def _esito_data_atto(
-    dato: Dato, dentro: list[str], testi_atti: dict[str, str], risposta: str
+    numero_atto: str,
+    data_scritta: str,
+    dentro: list[str],
+    testi_atti: dict[str, str],
+    contesto: str,
 ) -> Esito:
-    """L'esito della data di un atto scritto nel testo.
+    """L'esito della data di un atto, nel testo o in una citazione.
 
     Si cerca dove si e' trovato il numero dell'atto (dentro), quindi per un
     frammento anche nei metadati, e deve comparire insieme a quel numero:
     "n. 9550 del 28/04/2026" non si conferma con un 9550 da una parte e un
     28/04/2026 dall'altra. Se il numero non e' stato trovato, la data non si
-    giudica: l'esito dell'atto copre gia' tutto il riferimento.
+    giudica: l'esito dell'atto copre gia' tutto il riferimento. Per questo
+    chi chiama passa solo un dentro non vuoto.
     """
-    contesto = contesto_di(risposta, dato.posizione_data)
-    iso = data(dato.data_atto)
-    coppia = (str(int(dato.valore)), iso)
+    coppia = (str(int(numero_atto)), data(data_scritta))
     con_data = [e for e in dentro if coppia in atti_con_data(testi_atti[e])]
     if con_data:
-        return Esito("data", dato.data_atto, con_data, "verificato", "", contesto)
+        return Esito("data", data_scritta, con_data, "verificato", "", contesto)
 
     date_dell_atto = sorted(
         {d for e in dentro for n, d in atti_con_data(testi_atti[e]) if n == coppia[0]}
@@ -489,7 +508,7 @@ def _esito_data_atto(
         if date_dell_atto
         else f"l'atto {coppia[0]} compare nella fonte citata senza questa data"
     )
-    return Esito("data", dato.data_atto, dentro, "non_trovato", dettaglio, contesto)
+    return Esito("data", data_scritta, dentro, "non_trovato", dettaglio, contesto)
 
 
 def _esito_trovato(
@@ -525,13 +544,15 @@ def _esito_trovato(
 def _verifica_atti(
     risposta: str, testi_atti: dict[str, str]
 ) -> list[tuple[int, Esito]]:
-    """Controlla i numeri di decreto o delibera nelle citazioni.
+    """Controlla i numeri di decreto o delibera nelle citazioni, e le date.
 
     In una citazione a [Dn.k] ogni numero d'atto deve comparire nella riga
     di quel bando; in una citazione a un frammento [n], nel suo testo o
     nei metadati del suo atto. Se compare in un'altra fonte, lo si indica.
-    Le citazioni a un blocco [Dn] non si controllano: non si sa di quale
-    bando sia l'atto.
+    La data scritta con il numero ("decreto 18191 del 7/8/2026") si
+    controlla come per gli atti nel testo (_esito_data_atto). Le citazioni
+    a un blocco [Dn] non si controllano: non si sa di quale bando sia
+    l'atto.
     """
     esiti = []
     for m in re.finditer(SCHEMA_CITAZIONE, risposta, re.DOTALL | re.IGNORECASE):
@@ -547,6 +568,7 @@ def _verifica_atti(
 
         senza_etichette = re.sub(SCHEMA_RIFERIMENTO, " ", citazione)
         contesto = " ".join(citazione.split())
+        date_scritte = date_degli_atti(senza_etichette)
         for numero_atto in numeri_atto(senza_etichette):
             dentro = [
                 e
@@ -559,6 +581,16 @@ def _verifica_atti(
                         m.start(),
                         Esito("atto", numero_atto, dentro, "verificato", "", contesto),
                     )
+                )
+                esiti.extend(
+                    (
+                        m.start(),
+                        _esito_data_atto(
+                            numero_atto, scritta, dentro, testi_atti, contesto
+                        ),
+                    )
+                    for n, scritta, _ in date_scritte
+                    if n == str(int(numero_atto))
                 )
                 continue
 

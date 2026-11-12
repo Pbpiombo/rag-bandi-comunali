@@ -104,6 +104,46 @@ def test_decreto_inesistente():
     assert atto.dettaglio == "non presente nella riga del bando citato"
 
 
+def test_data_del_decreto_nella_citazione_senza_data_nella_riga():
+    """Il caso di parcheggi-2026 prima della correzione: atto senza data."""
+    esiti = esiti_di(
+        "Scade il 2026-11-30 "
+        "(fonte: [D1.1], decreto dirigenziale n. 18191 del 7/8/2026)."
+    )
+    assert [(e.tipo, e.valore, e.stato) for e in esiti] == [
+        ("data", "2026-11-30", "verificato"),
+        ("atto", "18191", "verificato"),
+        ("data", "7/8/2026", "non_trovato"),
+    ]
+    assert esiti[2].dettaglio == (
+        "l'atto 18191 compare nella fonte citata senza questa data"
+    )
+
+
+def test_data_del_decreto_nella_citazione_con_la_data_nella_riga():
+    """Dopo la correzione: la riga scrive la data in lettere, la citazione no."""
+    riga = (
+        "«Bando parcheggi 2026» (Regione Toscana) | scade il 2026-11-30 "
+        "| atto: Decreto dirigenziale 18191 del 7 agosto 2026"
+    )
+    elenco = Risultato(
+        f"Bandi aperti:\n- [#1] {riga}",
+        fonti=["Portale"],
+        voci=[VoceBando(riga, "Portale")],
+    )
+    esiti = verifica(
+        "Scade il 30/11/2026 "
+        "(fonte: [D1.1], decreto dirigenziale n. 18191 del 07-08-2026).",
+        [],
+        [("bandi_aperti_per_ente", elenco)],
+    )
+    assert [(e.tipo, e.stato) for e in esiti] == [
+        ("data", "verificato"),
+        ("atto", "verificato"),
+        ("data", "verificato"),
+    ]
+
+
 def test_decreto_con_il_blocco_non_si_controlla():
     """Con [D1] non si sa a quale bando si riferisce l'atto: non si controlla."""
     esiti = esiti_di("Ci sono due bandi (fonte: [D1], decreto n. 21441).")
@@ -130,6 +170,21 @@ def test_data_dell_intestazione_citata_con_la_riga_del_bando():
     )
     assert esito.stato == "verificato"
     assert esito.frammenti == ["D1.2"]
+
+
+def test_i_numeri_dell_intestazione_non_valgono_per_la_riga():
+    """'12 in archivio' non verifica un 12 attribuito a un bando."""
+    elenco = Risultato(
+        ELENCO_DEL_12.testo.replace("2 in archivio", "12 in archivio"),
+        fonti=ELENCO.fonti,
+        voci=ELENCO.voci,
+    )
+    dati = [("bandi_aperti_per_ente", elenco)]
+    (con_la_riga,) = verifica("Ammessi 12 progetti (fonte: [D1.2], Regione).", [], dati)
+    assert con_la_riga.stato == "non_trovato"
+    # citato con il blocco, il numero c'e': e' nell'intestazione del blocco
+    (con_il_blocco,) = verifica("Ci sono 12 bandi (fonte: [D1], Regione).", [], dati)
+    assert con_il_blocco.stato == "verificato"
 
 
 def test_data_dell_intestazione_falsificata():

@@ -422,6 +422,11 @@ Vale la pena elencarli con la stessa precisione di ciò che il sistema fa.
   risposta fatta di soli nomi propri passa senza rilievi, perché non contiene
   nulla di misurabile. Segnala anche riferimenti nominati come "cosa
   servirebbe", che non sono dati.
+- **Il verificatore controlla i valori, non gli abbinamenti.** Un dato è
+  verificato se il suo valore compare nella fonte citata, non se è
+  attribuito alla cosa giusta: un numero di abitanti riferito all'anno
+  sbagliato, o l'importo di un intervento attribuito a un altro, passano
+  se entrambi i valori sono nella fonte.
 - **Non sa quali documenti dovrebbe avere.** Risponde solo su ciò che è in
   archivio, e lo dichiara quando non basta.
 - **Il recupero può mancare il frammento decisivo.** Una domanda

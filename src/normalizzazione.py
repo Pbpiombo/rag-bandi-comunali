@@ -102,7 +102,7 @@ _DATA_QUALSIASI = (
 )
 _ATTO_CON_DATA = re.compile(
     r"(?:\bn\s*[.°º]?|\bnumero|"
-    r"(?:\b(?:decreto|delibera|deliberazione|dgr|dd)\b|d\.g\.r\.|d\.d\.)"
+    r"(?:\b(?:decreto|delibera|deliberazione|dgrt?|dd)\b|d\.g\.r\.(?:t\.)?|d\.d\.)"
     r"[^\d()\[\]]{0,40}?)"
     rf"\s*(?P<n>\d{{1,6}})\s+del(?:l['’])?\s*(?P<data>{_DATA_QUALSIASI})(?!\d)",
     re.IGNORECASE,
@@ -261,6 +261,19 @@ def periodo(testo: str) -> str | None:
     return f"{trovato['da']}-{trovato['a']}" if trovato else None
 
 
+def date_degli_atti(testo: str) -> list[tuple[str, str, str | None]]:
+    """Gli atti scritti con numero e data, come terne (numero, data, ISO).
+
+    "decreto n. 9550 del 28/04/2026" -> ("9550", "28/04/2026",
+    "2026-04-28"). La data e' come appare nel testo; l'ISO e' None se la
+    data non esiste (31/02/2026).
+    """
+    return [
+        (str(int(m["n"])), m["data"], data(m["data"]))
+        for m in _ATTO_CON_DATA.finditer(testo.replace(" ", " "))
+    ]
+
+
 def atti_con_data(testo: str) -> set[tuple[str, str]]:
     """Gli atti scritti con numero e data, come coppie (numero, data ISO).
 
@@ -268,12 +281,7 @@ def atti_con_data(testo: str) -> set[tuple[str, str]]:
     Numero e data sono una coppia: lo stesso numero con un'altra data e' un
     altro riferimento.
     """
-    coppie = set()
-    for m in _ATTO_CON_DATA.finditer(testo.replace(" ", " ")):
-        iso = data(m["data"])
-        if iso:
-            coppie.add((str(int(m["n"])), iso))
-    return coppie
+    return {(n, iso) for n, _, iso in date_degli_atti(testo) if iso}
 
 
 @dataclass

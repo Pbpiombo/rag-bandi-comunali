@@ -158,9 +158,9 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
     mano (elenco nel rapporto della scansione);
   - i 9 bandi salvati nella prima corsa, prima della correzione degli
     importi con il punto decimale, possono avere importi vuoti.
-- Atto senza data in parcheggi-2026: `riferimento_atto` non riporta la
-  data del decreto 18191 del 7/8/2026 (verifica a mano dell'11 novembre
-  2026).
+- ~~Atto senza data in parcheggi-2026~~: corretto il 12 novembre 2026 con
+  `correggi_atti` ("Decreto dirigenziale 18191 del 7 agosto 2026", dal
+  link "Testo decreto 18191 del 07-08-2026" della pagina).
 - `data/db/comune.sqlite` sotto git: compare modificato a ogni ricreazione
   anche con i dati identici. Prima di toglierlo dal repository, l'app deve
   ricrearlo dai CSV all'avvio, perché la demo su Streamlit Cloud lo legge

@@ -293,3 +293,23 @@ dal verificatore e non deve cambiare.
   (data diversa: data non trovata, con la data della fonte nel
   dettaglio); N8 e N12 passano a 2 e 3 verificati.
 - Prova con il modello vero: `docs/prova-verificatore.md`.
+
+## Decisioni dopo la prova (12 novembre 2026)
+
+- Confermato: la data di un atto non si giudica se il numero non e'
+  trovato.
+- La data si controlla anche per gli atti scritti nelle citazioni a
+  `[Dn.k]` e a `[n]` (`date_degli_atti` in `src/normalizzazione.py`), con
+  la stessa regola. Prima, l'atto di parcheggi-2026 e' stato completato
+  con la data (`correggi_atti`). Casi N19 (3 verificati), N23 (data
+  sbagliata nella citazione) e due casi in `test_verifica_bandi.py`
+  (riga senza data, riga con data in lettere).
+- Per `[Dn.k]` vale solo la **data** dell'intestazione del blocco, non i
+  suoi numeri: "12 in archivio" non verifica un 12 citato con la riga di
+  un bando, e lo verifica se citato con `[Dn]`.
+- P1: elenco chiuso delle qualificazioni allargato ("toscana", "regione
+  toscana", "della regione toscana", "RT"), parole "DGRT" e "D.G.R.T.";
+  parole libere sempre escluse. Caso N24 e `test_che_cosa_e_un_atto`.
+- P4: limite aggiunto al README.
+- P2 e P3 approvate, da fare dopo. P2 parte da un insieme di prova del
+  recupero, senza modello.

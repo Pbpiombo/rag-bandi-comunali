@@ -10,7 +10,13 @@ import pytest
 from langchain_core.documents import Document
 
 from src.database.modelli import Risultato, VoceBando
-from src.verification.controllo import Esito, giudizio, riassumi, verifica
+from src.verification.controllo import (
+    Esito,
+    giudizio,
+    riassumi,
+    trova_dati,
+    verifica,
+)
 
 FRAMMENTI = [
     Document(
@@ -270,6 +276,22 @@ CASI = [
             "Il costo è € 322,00 "
             "(fonte: [5], Decreto dirigenziale n. 9550 del 28/04/2026, pag. 2)."
         ),
+        # l'importo, l'atto della citazione e la sua data
+        "atteso": {"verificato": 3, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N23 decreto nella citazione con la data SBAGLIATA",
+        "risposta": (
+            "Il costo è € 322,00 "
+            "(fonte: [5], Decreto dirigenziale n. 9550 del 28/05/2026, pag. 2)."
+        ),
+        "atteso": {"verificato": 2, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N24 DGRT nel testo, con numero e data",
+        "risposta": (
+            "Il bando attua la DGRT n. 1234 del 12/03/2026 (fonte: [4], Regione)."
+        ),
         "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
     },
     {
@@ -375,6 +397,32 @@ def test_atto_non_trovato_la_sua_data_non_si_giudica():
         ("atto", "non_trovato"),
         ("importo", "verificato"),
     ]
+
+
+# --- atti nel testo: che cosa e' un atto ---
+
+
+@pytest.mark.parametrize(
+    ("testo", "atteso"),
+    [
+        ("Delibera di Giunta Regionale Toscana n. 546", ("atto", "546")),
+        ("delibera della giunta regionale toscana n. 546", ("atto", "546")),
+        (
+            "Decreto del Presidente della Giunta Regionale Toscana n. 12",
+            ("atto", "12"),
+        ),
+        ("decreto della Regione Toscana n. 9550", ("atto", "9550")),
+        ("DGRT n. 546", ("atto", "546")),
+        ("D.G.R.T. n. 546", ("atto", "546")),
+        ("DGR 1081/2026", ("atto", "1081")),
+        # parole libere tra la parola e il numero: non e' un atto
+        ("il decreto stabilisce n. 10 posti", ("quantita", "10")),
+        ("il decreto prevede € 322,00", ("importo", "322,00")),
+    ],
+)
+def test_che_cosa_e_un_atto(testo, atteso):
+    (dato,) = trova_dati(testo)
+    assert (dato.tipo, dato.valore) == atteso
 
 
 # --- giudizio: il colore del pannello ---

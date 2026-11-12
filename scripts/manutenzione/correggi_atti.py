@@ -118,6 +118,15 @@ CORREZIONI = {
             ),
         ],
     ),
+    # Aggiunta il 12 novembre 2026, dopo la prova del verificatore: l'atto
+    # senza data non permette di controllare la data citata dal modello.
+    # La data viene dal link al testo del decreto sulla pagina.
+    "parcheggi-2026": (
+        "riferimento_atto",
+        "Decreto dirigenziale 18191",
+        "Decreto dirigenziale 18191 del 7 agosto 2026",
+        ["Testo decreto 18191 del 07-08-2026"],
+    ),
     # sportello e data di chiusura non si contraddicono: la nota le riporta
     "conciliazione-vita-lavoro-contributi-per-lavoratrici-3d10eb": (
         "scadenza_nota",
