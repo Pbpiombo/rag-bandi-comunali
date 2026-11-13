@@ -205,6 +205,35 @@ def test_link_gia_in_archivio_da_altra_fonte_saltato(righe):
     assert esami(righe, {url})["900003"].esito == inc.GIA_IN_ARCHIVIO
 
 
+def test_doppione_saltato_con_il_bando_tenuto(righe):
+    riga = righe["900003"]
+    condivisi = inc.link_condivisi(list(righe.values()))
+
+    e = inc.esamina(riga, OGGI, condivisi, set(), {riga.url: "bando-della-regione"})
+
+    assert e.esito == inc.GIA_IN_ARCHIVIO
+    assert e.motivo == "doppione di bando-della-regione"
+
+
+def test_doppione_registrato_in_scansioni_e_non_salvato(db_su_file, righe):
+    riga = righe["900003"]
+    condivisi = inc.link_condivisi(list(righe.values()))
+    e = inc.esamina(riga, OGGI, condivisi, set(), {riga.url: "bando-della-regione"})
+
+    importa.scrivi([e], inc.NOME_FONTE.format(data="2026-11-12"))
+
+    conn = connetti()
+    try:
+        scansione = conn.execute(
+            "SELECT esito, motivo FROM scansioni WHERE url = ?", (riga.url,)
+        ).fetchone()
+        salvati = conn.execute("SELECT count(*) FROM bandi").fetchone()[0]
+    finally:
+        conn.close()
+    assert tuple(scansione) == ("scartato", "doppione di bando-della-regione")
+    assert salvati == 0
+
+
 def test_aperto_per_enti_pubblici_al_modello(righe):
     assert esami(righe)["900011"].esito == inc.AL_MODELLO
 

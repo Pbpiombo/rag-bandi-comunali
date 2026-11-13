@@ -30,7 +30,6 @@ bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-7057d9,impresa_artigiana_co
 bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-7057d9,impresa_turistica,"Linea B: Micro, piccole e medie imprese (Mpmi)",,"Linea B : Micro, piccole e medie imprese (Mpmi) come definite dall’allegato 1 del Regolamento UE n. 651/2014",alta,estrazione
 bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-7057d9,professionista_autonomo,Linea A1: liberi professionisti,"giovanili, femminili o destinatari di ammortizzatori sociali, con inizio attività nei 36 mesi precedenti la data di presentazione della domanda (solo linea A1)","Linea A1: Micro e piccole Imprese, così come definite dall’allegato 1 del Regolamento UE 651/2014 e successive modifiche e integrazioni , giovanili, femminili o destinatari di ammortizzatori sociali, compresi i liberi professionisti, la cui costituzione è avvenuta nel corso dei 36 mesi precedenti la data di presentazione della domanda",alta,manuale
 bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-8cd3ac,altra_impresa,Micro e piccole medie imprese (Mpmi),"operare nei settori ammissibili ai sensi della delibera di giunta regionale 704/2025 e del Fondo di garanzia per le Pmi, purché l'attività non rientri nei settori esclusi",I suddetti soggetti devono operare nei settori ammissibili ai sensi della delibera di giunta regionale 704/2025,alta,estrazione
-bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-8cd3ac,cittadini_famiglie,professionisti,"operare nei settori ammissibili ai sensi della delibera di giunta regionale 704/2025 e del Fondo di garanzia per le Pmi, purché l'attività non rientri nei settori esclusi","Micro e piccole medie imprese (Mpmi) e professionisti, come definite dall’allegato 1 del Regolamento UE n. 651/2014",media,estrazione
 bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-8cd3ac,impresa_agricola,Micro e piccole medie imprese (Mpmi),"operare nei settori ammissibili ai sensi della delibera di giunta regionale 704/2025 e del Fondo di garanzia per le Pmi, purché l'attività non rientri nei settori esclusi",I suddetti soggetti devono operare nei settori ammissibili ai sensi della delibera di giunta regionale 704/2025,alta,estrazione
 bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-8cd3ac,impresa_artigiana_commerciale,Micro e piccole medie imprese (Mpmi),"operare nei settori ammissibili ai sensi della delibera di giunta regionale 704/2025 e del Fondo di garanzia per le Pmi, purché l'attività non rientri nei settori esclusi",I suddetti soggetti devono operare nei settori ammissibili ai sensi della delibera di giunta regionale 704/2025,alta,estrazione
 bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-8cd3ac,impresa_turistica,Micro e piccole medie imprese (Mpmi),"operare nei settori ammissibili ai sensi della delibera di giunta regionale 704/2025 e del Fondo di garanzia per le Pmi, purché l'attività non rientri nei settori esclusi",I suddetti soggetti devono operare nei settori ammissibili ai sensi della delibera di giunta regionale 704/2025,alta,estrazione
@@ -142,14 +141,6 @@ incentivi-1868,impresa_artigiana_commerciale,Rete d'impresa,,Rete d'impresa,,cat
 incentivi-1868,impresa_turistica,Impresa,,Impresa,,catalogo
 incentivi-1868,impresa_turistica,Rete d'impresa,,Rete d'impresa,,catalogo
 incentivi-1868,ricerca_formazione,Università/Ente di Ricerca,,Università/Ente di Ricerca,,catalogo
-incentivi-2036,altra_impresa,Consorzio,,Consorzio,,catalogo
-incentivi-2036,altra_impresa,Impresa,,Impresa,,catalogo
-incentivi-2036,impresa_artigiana_commerciale,Consorzio,,Consorzio,,catalogo
-incentivi-2036,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
-incentivi-2036,impresa_turistica,Consorzio,,Consorzio,,catalogo
-incentivi-2036,impresa_turistica,Impresa,,Impresa,,catalogo
-incentivi-2036,professionista_autonomo,Professionista,,Professionista,,catalogo
-incentivi-2036,terzo_settore,Cooperative/Associazioni Non Profit,,Cooperative/Associazioni Non Profit,,catalogo
 incentivi-2504,altra_impresa,Impresa,,Impresa,,catalogo
 incentivi-2504,impresa_agricola,Impresa,,Impresa,,catalogo
 incentivi-2504,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
@@ -175,8 +166,6 @@ incentivi-3662,altra_impresa,Impresa,,Impresa,,catalogo
 incentivi-3662,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
 incentivi-3662,impresa_turistica,Impresa,,Impresa,,catalogo
 incentivi-3662,professionista_autonomo,Professionista,,Professionista,,catalogo
-incentivi-3777,impresa_turistica,Impresa,,Impresa,,catalogo
-incentivi-3777,professionista_autonomo,Professionista,,Professionista,,catalogo
 incentivi-3838,altra_impresa,Impresa,,Impresa,,catalogo
 incentivi-3904,altra_impresa,Impresa,,Impresa,,catalogo
 incentivi-3904,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
@@ -248,26 +237,6 @@ incentivi-8028,impresa_artigiana_commerciale,Rete d'impresa,,Rete d'impresa,,cat
 incentivi-8028,impresa_turistica,Impresa,,Impresa,,catalogo
 incentivi-8028,impresa_turistica,Rete d'impresa,,Rete d'impresa,,catalogo
 incentivi-8028,professionista_autonomo,Professionista,,Professionista,,catalogo
-incentivi-8300,altra_impresa,Impresa,,Impresa,,catalogo
-incentivi-8300,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
-incentivi-8300,impresa_turistica,Impresa,,Impresa,,catalogo
-incentivi-8300,professionista_autonomo,Professionista,,Professionista,,catalogo
-incentivi-8302,altra_impresa,Impresa,,Impresa,,catalogo
-incentivi-8302,altra_impresa,Impresa - prevalenza femminile,,Impresa - prevalenza femminile,,catalogo
-incentivi-8302,altra_impresa,Impresa - prevalenza giovanile,,Impresa - prevalenza giovanile,,catalogo
-incentivi-8302,altra_impresa,Impresa da costituire - Femminile,,Impresa da costituire - Femminile,,catalogo
-incentivi-8302,altra_impresa,Impresa da costituire - Giovanile,,Impresa da costituire - Giovanile,,catalogo
-incentivi-8302,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
-incentivi-8302,impresa_artigiana_commerciale,Impresa - prevalenza femminile,,Impresa - prevalenza femminile,,catalogo
-incentivi-8302,impresa_artigiana_commerciale,Impresa - prevalenza giovanile,,Impresa - prevalenza giovanile,,catalogo
-incentivi-8302,impresa_artigiana_commerciale,Impresa da costituire - Femminile,,Impresa da costituire - Femminile,,catalogo
-incentivi-8302,impresa_artigiana_commerciale,Impresa da costituire - Giovanile,,Impresa da costituire - Giovanile,,catalogo
-incentivi-8302,impresa_turistica,Impresa,,Impresa,,catalogo
-incentivi-8302,impresa_turistica,Impresa - prevalenza femminile,,Impresa - prevalenza femminile,,catalogo
-incentivi-8302,impresa_turistica,Impresa - prevalenza giovanile,,Impresa - prevalenza giovanile,,catalogo
-incentivi-8302,impresa_turistica,Impresa da costituire - Femminile,,Impresa da costituire - Femminile,,catalogo
-incentivi-8302,impresa_turistica,Impresa da costituire - Giovanile,,Impresa da costituire - Giovanile,,catalogo
-incentivi-8302,professionista_autonomo,Professionista,,Professionista,,catalogo
 incentivi-8473,professionista_autonomo,Professionista,,Professionista,,catalogo
 incentivi-8513,altra_impresa,Impresa,,Impresa,,catalogo
 incentivi-8513,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo

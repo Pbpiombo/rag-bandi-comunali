@@ -18,6 +18,10 @@ Senza opzioni: come --prova, poi salva le righe in bandi e
 beneficiari_bando, registra salvate e da verificare in scansioni, ed
 esporta i CSV, anche se si interrompe.
 
+Le righe elencate in data/processed/doppioni.csv sono lo stesso bando di
+un'altra fonte: non si salvano, e in scansioni restano come "doppione
+di <id>".
+
 Nessuna chiamata al modello. Le righe aperte per enti pubblici si
 elencano: la loro pagina si legge con il modello in un passo a parte.
 """
@@ -31,6 +35,9 @@ from zoneinfo import ZoneInfo
 
 from src.database.schema import aggiorna_csv, connetti
 from src.estrazione import incentivi as inc
+from src.estrazione.doppioni import PREFISSO as PREFISSO_DOPPIONE
+from src.estrazione.doppioni import FileNonValido as FileDoppioniNonValido
+from src.estrazione.doppioni import leggi_doppioni
 from src.estrazione.indirizzi import url_canonico
 from src.estrazione.pagina import scarica
 from src.estrazione.registro import registra
@@ -189,6 +196,11 @@ def scrivi(esami: list[inc.Esame], fonte: str) -> None:
                 inc.motivo_salvato(esame),
                 "; ".join(esame.avvisi),
             )
+        elif esame.esito == inc.GIA_IN_ARCHIVIO and esame.motivo.startswith(
+            PREFISSO_DOPPIONE
+        ):
+            # La pagina resta nel registro come doppione, non come bando
+            registra(url, inc.CODICE_FONTE, slug, "scartato", esame.motivo)
         elif esame.esito == inc.DA_VERIFICARE and url:
             registra(
                 url,
@@ -218,7 +230,15 @@ def main() -> None:
 
     condivisi = inc.link_condivisi(incentivi)
     esistenti = altre_fonti()
-    esami = [inc.esamina(i, oggi, condivisi, esistenti) for i in incentivi]
+    try:
+        doppioni = {
+            url: d.id_tenuto
+            for url, d in leggi_doppioni().items()
+            if d.codice_fonte == inc.CODICE_FONTE
+        }
+    except FileDoppioniNonValido as errore:
+        sys.exit(f"data/processed/doppioni.csv rifiutato: {errore}")
+    esami = [inc.esamina(i, oggi, condivisi, esistenti, doppioni) for i in incentivi]
 
     mostra_ignorate(esami)
     mostra_concedenti_nuovi(esami)

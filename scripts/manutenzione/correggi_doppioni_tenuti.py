@@ -16,6 +16,12 @@ Regione:
   contributo massimo resta vuoto: sono due massimali distinti, e la
   somma sarebbe un valore calcolato. Vanno tra le spese, ciascuno con la
   sua frase.
+Una correzione trovata sulle stesse pagine, decisa il 13 novembre 2026:
+nel bando EU-Blending i professionisti erano classificati come
+cittadini_famiglie (soggetto «professionisti»): classificazione
+sbagliata, la riga si toglie (il tipo giusto e' aggiunto sopra). Il
+costo massimo del bando turismo, che sembrava mancare, era gia' in
+archivio (5.000.000 euro): nulla da scrivere.
 
 Gli importi del catalogo Incentivi Italia non si riportano: si scrive solo
 cio' che dice la pagina della Regione. Ogni riga ha la sua frase; la
@@ -128,6 +134,21 @@ SPESE = [
 ]
 
 
+# Righe di beneficiari_bando da togliere: (id del bando, tipo, soggetto,
+# motivo). Si toglie solo la riga con quel tipo e quel soggetto.
+DA_TOGLIERE = [
+    (
+        EU_BLENDING,
+        "cittadini_famiglie",
+        "professionisti",
+        (
+            "professionisti classificati come cittadini e famiglie: il tipo "
+            "giusto e' professionista_autonomo"
+        ),
+    ),
+]
+
+
 def pagina(conn, id_bando: str, pagine: dict) -> str | None:
     """Il testo della pagina del bando, scaricato una volta sola."""
     if id_bando not in pagine:
@@ -183,20 +204,40 @@ def da_fare(conn, pagine: dict) -> list[tuple[str, str, tuple]]:
             esiti.append(
                 (f"{id_bando}: aggiungere la spesa {numero}", "inserire", voce)
             )
+
+    for id_bando, tipo, soggetto, motivo in DA_TOGLIERE:
+        presente = conn.execute(
+            "SELECT 1 FROM beneficiari_bando WHERE id_bando = ? AND tipo = ? "
+            "AND soggetto = ?",
+            (id_bando, tipo, soggetto),
+        ).fetchone()
+        voce = ("togli_beneficiario", (id_bando, tipo, soggetto))
+        if presente:
+            esiti.append((f"{id_bando}: togliere {tipo} ({motivo})", "togliere", voce))
+        else:
+            esiti.append((f"{id_bando}: {tipo} gia' tolto", "", voce))
+
     return esiti
 
 
-def inserisci(conn, tabella: str, valori: tuple) -> None:
+def applica(conn, tabella: str, valori: tuple) -> None:
+    """Applica una correzione verificata."""
     if tabella == "beneficiari_bando":
         conn.execute(
             "INSERT INTO beneficiari_bando (id_bando, tipo, soggetto, condizioni, "
             "frase, confidenza, origine) VALUES (?, ?, ?, ?, ?, 'alta', 'manuale')",
             valori,
         )
-    else:
+    elif tabella == "interventi_bando":
         conn.execute(
             "INSERT INTO interventi_bando (id_bando, numero, genere, descrizione, "
             "frase) VALUES (?, ?, 'spesa', ?, ?)",
+            valori,
+        )
+    else:
+        conn.execute(
+            "DELETE FROM beneficiari_bando WHERE id_bando = ? AND tipo = ? "
+            "AND soggetto = ?",
             valori,
         )
 
@@ -208,16 +249,16 @@ def main() -> None:
         esiti = da_fare(conn, {})
         for messaggio, _, _ in esiti:
             print(f"  {messaggio}")
-        da_inserire = [voce for _, azione, voce in esiti if azione == "inserire"]
-        if prova or not da_inserire:
+        da_applicare = [voce for _, azione, voce in esiti if azione]
+        if prova or not da_applicare:
             print("\nProva: nulla modificato." if prova else "\nNulla da fare.")
             return
         copia = copia_di_sicurezza(conn, "correggi-doppioni-tenuti")
         print(f"\nBackup: {copia}")
-        for tabella, valori in da_inserire:
-            inserisci(conn, tabella, valori)
+        for tabella, valori in da_applicare:
+            applica(conn, tabella, valori)
         conn.commit()
-        print(f"Inserite {len(da_inserire)} righe.")
+        print(f"Applicate {len(da_applicare)} correzioni.")
     finally:
         conn.close()
     aggiorna_csv("beneficiari_bando", "interventi_bando")

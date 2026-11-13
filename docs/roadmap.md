@@ -184,6 +184,18 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   di risposta vieta al modello di scrivere indirizzi. Provato su "bandi
   aperti" e "fondo strade" per Abetone: 8 e 1 bandi citati, nessun
   indirizzo nelle risposte.
+- **Doppioni tra Incentivi Italia e la Regione** (13 novembre 2026):
+  cercati senza modello (titolo, date, indirizzo), 5 coppie confermate
+  sulle pagine. Prima le versioni della Regione completate con la frase
+  della pagina (`correggi_doppioni_tenuti`: professionisti in tre bandi
+  BEI, i due massimali dei minibond tra le spese, tolta una riga
+  `cittadini_famiglie` sbagliata); poi `togli_doppioni --scrivi`, con
+  confronto campo per campo e controllo delle interrogazioni: tolti 4
+  (turismo BEI, EU-Blending 2026, finanziamenti fino a 50 mila, donne
+  datori di lavoro). Fermato il minibond (`incentivi-8026`): la versione
+  della Regione non ha i tipi impresa artigiana/commerciale e turistica
+  del catalogo. `data/processed/doppioni.csv` è il primo pezzo della
+  regola dei due domini (vedi "In coda").
 
 ## In corso
 
@@ -356,6 +368,11 @@ perde i suoi esempi migliori.
   sono per imprese o terzo settore.
 - Dopo la demo. Revisione dei test: segnalare quelli che ricopiano il
   codice invece di proteggere un comportamento.
+- Dopo la demo. Regola che riconosce "professionisti" da solo come
+  `professionista_autonomo` (oggi solo "liberi professionisti"), da
+  provare sui casi in cui la parola indica consulenze e non beneficiari;
+  poi il bando IGP (`produzioni-artigianali-e-industriali-…-fa7c57`:
+  «le Pmi, inclusi i professionisti, in forma aggregata»).
 - Dopo la demo. Regola per i bandi pubblicati su due domini (Regione e
   Sviluppo Toscana, poi BURT e le altre fonti), da scrivere prima di
   accendere l'elenco di Sviluppo Toscana (oggi `attivo` = 0). Caso del
@@ -364,6 +381,10 @@ perde i suoi esempi migliori.
   già in archivio dalla Regione (decreto 22706 del 9/10/2026); con l'elenco
   acceso sarebbero doppioni anche IGP, le due 1.3.2 PMI, PMI turismo e
   Minibond.
+  Primo pezzo fatto il 13/11/2026: `data/processed/doppioni.csv`, un file
+  per i doppioni tra tutte le fonti (indirizzo, fonte, id tenuto, motivo,
+  data, differenze accettate), letto oggi dall'importazione di Incentivi
+  Italia; da far leggere anche a Sviluppo Toscana e BURT.
 - Dopo la demo. Soglie di popolazione dei bandi (es. comuni fino a 5.000
   abitanti, fondo strade MIT) confrontate con i dati ISTAT del comune:
   oggi la soglia sta solo nelle condizioni dei beneficiari, e il bando

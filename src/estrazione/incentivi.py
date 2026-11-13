@@ -458,12 +458,15 @@ def esamina(
     oggi: date,
     condivisi: set[str],
     altre_fonti: set[str],
+    doppioni: dict[str, str] | None = None,
 ) -> Esame:
     """Decide, senza rete, che cosa fare di una riga.
 
     condivisi: gli URL usati da piu' righe del file; altre_fonti: gli URL
     gia' in bandi o in scansioni con un'altra fonte, che hanno la
-    precedenza (vale il bando acquisito dalla pagina, con le sue prove).
+    precedenza (vale il bando acquisito dalla pagina, con le sue prove);
+    doppioni: gli URL di data/processed/doppioni.csv, con l'id del bando
+    tenuto al loro posto: lo stesso bando con un altro indirizzo.
     """
     st = stato(incentivo, oggi)
 
@@ -495,6 +498,8 @@ def esamina(
         return esame(DA_VERIFICARE, "nessuna data nel catalogo", classe)
     if not incentivo.url:
         return esame(DA_VERIFICARE, "nessun Link_istituzionale", classe)
+    if doppioni and incentivo.url in doppioni:
+        return esame(GIA_IN_ARCHIVIO, f"doppione di {doppioni[incentivo.url]}", classe)
     if incentivo.url in altre_fonti:
         return esame(GIA_IN_ARCHIVIO, "gia' in archivio da un'altra fonte", classe)
     if incentivo.url in condivisi:
