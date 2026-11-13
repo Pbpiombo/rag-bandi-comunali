@@ -15,7 +15,7 @@ import streamlit as st
 from src.chains.rag import costruisci_catena
 from src.config import ENTE_PREDEFINITO
 from src.database.enti import elenco_enti
-from src.database.modelli import con_etichette
+from src.database.modelli import bandi_citati, con_etichette
 from src.database.repertorio import stato_archivio
 from src.database.schema import connetti
 from src.pgstore import RecuperoPostgres
@@ -116,6 +116,27 @@ def mostra_verifica(esito: dict) -> None:
                 if e.frammenti:
                     riga += f" → fonti {', '.join(e.frammenti)}"
                 st.markdown(riga)
+
+
+def testo_per_collegamento(testo: str) -> str:
+    """Il testo con le parentesi quadre protette, per un collegamento Markdown."""
+    return testo.replace("[", r"\[").replace("]", r"\]")
+
+
+def mostra_bandi_citati(esito: dict) -> None:
+    """I bandi citati nella risposta con [Dn.k], scritti dall'app.
+
+    Titolo e indirizzo vengono dal database, non dal modello. I
+    collegamenti verso altri siti Streamlit li apre in una nuova scheda.
+    """
+    citati = bandi_citati(esito["risposta"], esito.get("esiti_dati"))
+    if not citati:
+        return
+
+    st.markdown("#### Bandi citati")
+    for voce in citati:
+        titolo = testo_per_collegamento(voce.titolo or voce.url)
+        st.markdown(f"- [{titolo}](<{voce.url}>)")
 
 
 def mostra_da_approfondire(esito: dict) -> None:
@@ -261,6 +282,7 @@ def main() -> None:
     with sinistra:
         st.markdown("#### Risposta")
         st.markdown(esito["risposta"])
+        mostra_bandi_citati(esito)
         mostra_da_approfondire(esito)
         st.divider()
         st.markdown("#### Verifica")

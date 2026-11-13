@@ -174,6 +174,12 @@ riconoscere proroghe e bandi ricorrenti. Gli elenchi per tema mostrano, in
 un blocco separato, quelli scaduti da meno di 12 mesi; il dettaglio di un
 bando scaduto comincia con "scaduto il …, non più aperto".
 
+**Bandi citati.** Sotto la risposta l'app elenca i bandi che la risposta
+cita con un'etichetta [Dn.k], con il titolo e il collegamento alla pagina
+ufficiale presi dal database, una volta ciascuno. Il modello non scrive
+indirizzi: il prompt glielo vieta, e l'elenco non usa nulla del suo testo
+oltre alle etichette.
+
 **Da approfondire.** Gli elenchi contengono solo i bandi con i dati
 essenziali. Sotto la risposta, una sezione scritta dall'app e non dal
 modello elenca i bandi pertinenti a cui manca un dato (scadenza non
@@ -434,7 +440,7 @@ cosa c'è in archivio per quell'ente. Sopra la casella delle domande ci
 sono sette domande d'esempio pensate per il consulente pilota: bandi aperti e
 in scadenza per il Comune, un bando nominato, bandi per le imprese turistiche
 e agricole, un dato di un avviso, la popolazione. L'interfaccia mostra la
-risposta, la sezione "Da approfondire", il pannello di verifica dei dati
+risposta, i "Bandi citati", la sezione "Da approfondire", il pannello di verifica dei dati
 citati con il contesto di ciascuno, e le fonti navigabili: cliccando su un
 frammento se ne legge il testo originale.
 

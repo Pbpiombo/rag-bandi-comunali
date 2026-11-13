@@ -9,12 +9,23 @@ from dataclasses import dataclass, field
 SEGNAPOSTO = re.compile(r"\[#(\d+)\]")
 
 
+# Un'etichetta di bando nella risposta del modello: [D1.2] e' la seconda
+# riga del blocco D1. La stessa forma che riconosce il verificatore.
+ETICHETTA_CITATA = re.compile(r"\[D(\d+)\.(\d+)\]", re.IGNORECASE)
+
+
 @dataclass
 class VoceBando:
-    """Una riga di bando di un risultato, con la fonte di quel bando."""
+    """Una riga di bando di un risultato, con la fonte di quel bando.
+
+    titolo e url vengono dal database: li usa l'app per l'elenco dei bandi
+    citati, mai il modello.
+    """
 
     testo: str
     fonte: str
+    titolo: str = ""
+    url: str = ""
 
 
 @dataclass
@@ -52,6 +63,29 @@ class Risultato:
 def con_etichette(testo: str, numero: int) -> str:
     """Il testo con i segnaposto [#k] sostituiti dalle etichette [Dn.k]."""
     return SEGNAPOSTO.sub(lambda m: f"[D{numero}.{m.group(1)}]", testo)
+
+
+def bandi_citati(risposta: str, esiti_dati: list | None) -> list[VoceBando]:
+    """I bandi che la risposta cita con un'etichetta [Dn.k], senza doppioni.
+
+    Dn e' il blocco n degli esiti, k la sua riga di bando. Le etichette che
+    non corrispondono a una riga si ignorano, come le voci senza url. Un
+    bando citato piu' volte, anche da blocchi diversi, compare una volta,
+    nell'ordine della prima citazione.
+    """
+    risultati = [risultato for _, risultato in esiti_dati or []]
+    per_url: dict[str, VoceBando] = {}
+    for m in ETICHETTA_CITATA.finditer(risposta):
+        blocco, riga = int(m.group(1)), int(m.group(2))
+        if not (1 <= blocco <= len(risultati)):
+            continue
+        voci = getattr(risultati[blocco - 1], "voci", None) or []
+        if not (1 <= riga <= len(voci)):
+            continue
+        voce = voci[riga - 1]
+        if voce.url:
+            per_url.setdefault(voce.url, voce)
+    return list(per_url.values())
 
 
 def senza_segnaposto(testo: str) -> str:

@@ -489,7 +489,14 @@ class RigheBandi:
 
     def numera(self, riga, testo: str) -> str:
         """Il testo della riga preceduto dal suo segnaposto."""
-        self.voci.append(VoceBando(testo, fonte_bando(riga)))
+        self.voci.append(
+            VoceBando(
+                testo,
+                fonte_bando(riga),
+                titolo=riga["titolo"] or "",
+                url=riga["url"] or "",
+            )
+        )
         return f"[#{len(self.voci)}] {testo}"
 
 

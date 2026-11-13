@@ -1478,3 +1478,12 @@ def test_gli_altri_elenchi_non_cambiano_per_gli_sportelli(db):
     assert (
         "a sportello fino al 2026-12-05, verificare la disponibilità delle risorse"
     ) in testo
+
+
+def test_la_voce_porta_titolo_e_url_del_bando(db):
+    bando(db, "parcheggi", COMUNI, titolo="Bando parcheggi 2026")
+
+    (voce,) = ib.dettaglio_bando(db, "parcheggi").voci
+
+    assert voce.titolo == "Bando parcheggi 2026"
+    assert voce.url == BASE + "parcheggi"

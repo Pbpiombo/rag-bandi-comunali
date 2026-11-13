@@ -174,6 +174,12 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   prima. Il router non mette più in id_bando il nome dell'ente che emette
   il bando (MIT, Regione, GAL, ICS...). Provato con il modello per
   Abetone: risposta corretta, 10 dati verificati su 10.
+- **Bandi citati sotto la risposta** (13 novembre 2026): l'app elenca i
+  bandi citati con [Dn.k], con titolo e collegamento alla pagina ufficiale
+  dal database (`bandi_citati` in `src/database/modelli.py`); il prompt
+  di risposta vieta al modello di scrivere indirizzi. Provato su "bandi
+  aperti" e "fondo strade" per Abetone: 8 e 1 bandi citati, nessun
+  indirizzo nelle risposte.
 
 ## In corso
 
@@ -320,6 +326,9 @@ perde i suoi esempi migliori.
   sessione da solo non basta.
 - Dopo la demo. Nota sotto la casella delle domande: le domande vanno a un
   servizio di AI, niente dati personali.
+- Prima del post su LinkedIn. Domande fuori ambito: il router le
+  riconosce e l'app risponde con una frase fissa, senza chiamare il
+  modello di risposta né il recupero.
 - Dopo la demo. Post su LinkedIn dopo la risposta del consulente pilota,
   con video o schermate, link al repository e al README.
 - Dopo la demo. Registro delle decisioni (`docs/decisioni.md`): una scheda

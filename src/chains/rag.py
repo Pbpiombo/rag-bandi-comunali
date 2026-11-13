@@ -79,6 +79,7 @@ l'atto scritto nella sua riga dopo "atto:":
   (fonte: [D1.2], <atto del bando>)
 Non citare con [D1] un dato che appartiene a un solo bando, e non \
 attribuire a un bando l'atto di un altro.
+Non scrivere indirizzi web: i collegamenti ai bandi citati li mostra l'app.
 Se un dato è dichiarato "valore calcolato", riportalo come tale.
 Se non ricevi alcun DATO, significa che la domanda non richiedeva \
 statistiche oppure che il dato non è in archivio: in quest'ultimo caso \
