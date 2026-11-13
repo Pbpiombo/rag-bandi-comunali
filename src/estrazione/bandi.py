@@ -602,7 +602,12 @@ def _valida_beneficiari(
             chiave = (tipo, frase)
             if chiave in righe:
                 esistente = righe[chiave]
-                if condizioni and condizioni != esistente["condizioni"]:
+                if not condizioni or not esistente["condizioni"]:
+                    # uno dei due soggetti e' ammesso senza condizioni: la
+                    # riga fusa non ne ha ("Comuni, Unioni di Comuni, Comuni
+                    # in forma associata" ammette i Comuni anche da soli)
+                    esistente["condizioni"] = None
+                elif condizioni != esistente["condizioni"]:
                     esistente["condizioni"] = "; ".join(
                         c for c in (esistente["condizioni"], condizioni) if c
                     )

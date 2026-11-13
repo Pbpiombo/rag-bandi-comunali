@@ -99,6 +99,9 @@ contributi-per-uso-e-gestione-sostenibile-delle-risor-9d883c,ricerca_formazione,
 contributi-per-uso-e-gestione-sostenibile-delle-risor-9d883c,ricerca_formazione,Soggetti pubblici e/o privati che operano nel campo della ricerca,di comprovata esperienza nelle azioni da finanziare,Soggetti pubblici e/o privati che operano nel campo della ricerca di comprovata esperienza nelle azioni da finanziare,media,estrazione
 contributi-per-uso-e-gestione-sostenibile-delle-risor-9d883c,terzo_settore,Altri soggetti pubblici e/o privati,in forma singola o associata,"Altri soggetti pubblici e/o privati, in forma singola o associata",bassa,estrazione
 contributi-per-uso-e-gestione-sostenibile-delle-risor-9d883c,unione_comuni,Altri soggetti pubblici e/o privati,in forma singola o associata,"Altri soggetti pubblici e/o privati, in forma singola o associata",bassa,estrazione
+cultura-missione-comune-2026,altro_ente_pubblico,Città Metropolitane,,"Le risorse possono essere utilizzate da Comuni, Unioni di Comuni, Comuni in forma associata, Città Metropolitane, Province e Regioni per finanziare la realizzazione di progetti",alta,estrazione
+cultura-missione-comune-2026,comune,Comuni,,"Le risorse possono essere utilizzate da Comuni, Unioni di Comuni, Comuni in forma associata, Città Metropolitane, Province e Regioni per finanziare la realizzazione di progetti",alta,estrazione
+cultura-missione-comune-2026,unione_comuni,Unioni di Comuni,,"Le risorse possono essere utilizzate da Comuni, Unioni di Comuni, Comuni in forma associata, Città Metropolitane, Province e Regioni per finanziare la realizzazione di progetti",alta,estrazione
 cultura-riuso-2026,terzo_settore,Organizzazioni ETS,iscritto al Registro Unico Nazionale del Terzo Settore (RUNTS),Regione Toscana mette a disposizione € 1.000.000 a favore delle Organizzazioni ETS iscritte al Registro Unico Nazionale del Terzo Settore (RUNTS) nell’ambito degli incentivi per l’economia circolare in materia di rifiuti previsti all’art. 6 della L.R. 34/2020.,alta,estrazione
 dopo-la-laurea-finanziamenti-per-progetti-di-informaz-851fa7,ricerca_formazione,Istituti Afam,"con riferimento esclusivo ai corsi equiparati ai corsi universitari, con sede legale e/o almeno una sede operativa in Toscana",Istituti Afam (con riferimento esclusivo ai corsi equiparati ai corsi universitari) con sede legale e/o almeno una sede operativa in Toscana,alta,estrazione
 dopo-la-laurea-finanziamenti-per-progetti-di-informaz-851fa7,ricerca_formazione,Istituti di istruzione universitaria a ordinamento speciale,con sede legale e/o almeno una sede operativa in Toscana,Istituti di istruzione universitaria a ordinamento speciale con sede legale e/o almeno una sede operativa in Toscana,alta,estrazione
@@ -114,6 +117,217 @@ immobili-emergenza-abitativa-2026,comune,,,Amministrazioni ed enti pubblici; Com
 impianti-rifiuti-recupero-2026,altra_impresa,"imprese private autonome, associate e/o collegate","micro, piccole e medie imprese (Mpmi) regolarmente costituite, iscritte e attive presso la Camera di Commercio, che esercitano un'attività economica prevalente rientrante nei codici Ateco indicati (sezione B, sezione C, 38, 39, 41, 42, 43, 46), escluso il settore della produzione dei prodotti agricoli e le imprese agricole e forestali","I soggetti destinatari sono l e imprese private autonome, associate e/o collegate che operano nel settore del trattamento e dei servizi di recupero/riciclaggio dei rifiuti.",alta,estrazione
 imprese-didattiche-2026,ricerca_formazione,Istituti di Istruzione Secondaria Superiore della Toscana,"attuatori singoli o in partenariato con un'agenzia formativa, capofila del progetto","Istituti di Istruzione Secondaria Superiore della Toscana, come attuatori singoli o in partenariato con un’agenzia formativa. Il capofila è l’Istituto di Istruzione Secondaria Superiore.",alta,estrazione
 imprese-didattiche-2026,ricerca_formazione,agenzia formativa,"in partenariato con un Istituto di Istruzione Secondaria Superiore della Toscana, che è capofila",come attuatori singoli o in partenariato con un’agenzia formativa,media,estrazione
+incentivi-120,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-120,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-1868,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-1868,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-1868,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-1868,impresa_agricola,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-1868,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-1868,impresa_artigiana_commerciale,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-1868,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-1868,impresa_turistica,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-1868,ricerca_formazione,Università/Ente di Ricerca,,Università/Ente di Ricerca,,catalogo
+incentivi-2036,altra_impresa,Consorzio,,Consorzio,,catalogo
+incentivi-2036,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-2036,impresa_artigiana_commerciale,Consorzio,,Consorzio,,catalogo
+incentivi-2036,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-2036,impresa_turistica,Consorzio,,Consorzio,,catalogo
+incentivi-2036,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-2036,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-2036,terzo_settore,Cooperative/Associazioni Non Profit,,Cooperative/Associazioni Non Profit,,catalogo
+incentivi-2504,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-2504,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-2504,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-2504,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-2678,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-2678,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-2678,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-2678,impresa_artigiana_commerciale,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-2678,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-2678,impresa_turistica,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-2678,ricerca_formazione,Università/Ente di Ricerca,,Università/Ente di Ricerca,,catalogo
+incentivi-3373,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-3373,altra_impresa,Impresa - prevalenza femminile,,Impresa - prevalenza femminile,,catalogo
+incentivi-3373,altra_impresa,Impresa - prevalenza giovanile,,Impresa - prevalenza giovanile,,catalogo
+incentivi-3373,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-3373,impresa_artigiana_commerciale,Impresa - prevalenza femminile,,Impresa - prevalenza femminile,,catalogo
+incentivi-3373,impresa_artigiana_commerciale,Impresa - prevalenza giovanile,,Impresa - prevalenza giovanile,,catalogo
+incentivi-3373,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-3373,impresa_turistica,Impresa - prevalenza femminile,,Impresa - prevalenza femminile,,catalogo
+incentivi-3373,impresa_turistica,Impresa - prevalenza giovanile,,Impresa - prevalenza giovanile,,catalogo
+incentivi-3373,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-3662,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-3662,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-3662,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-3662,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-3777,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-3777,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-3838,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-3904,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-3904,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-3904,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-4535,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-4804,altra_impresa,Consorzio,,Consorzio,,catalogo
+incentivi-4804,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-4804,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-4804,impresa_artigiana_commerciale,Consorzio,,Consorzio,,catalogo
+incentivi-4804,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-4804,impresa_artigiana_commerciale,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-4804,impresa_turistica,Consorzio,,Consorzio,,catalogo
+incentivi-4804,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-4804,impresa_turistica,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-4804,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-4819,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-4819,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-4819,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-4841,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-4841,cittadini_famiglie,Cittadino,,Cittadino,,catalogo
+incentivi-4841,ricerca_formazione,Università/Ente di Ricerca,,Università/Ente di Ricerca,,catalogo
+incentivi-4911,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-4911,altra_impresa,Impresa - SU/PMI innovativa,,Impresa - SU/PMI innovativa,,catalogo
+incentivi-4911,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-4911,impresa_artigiana_commerciale,Impresa - SU/PMI innovativa,,Impresa - SU/PMI innovativa,,catalogo
+incentivi-4911,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-4911,impresa_turistica,Impresa - SU/PMI innovativa,,Impresa - SU/PMI innovativa,,catalogo
+incentivi-4939,cittadini_famiglie,Cittadino,,Cittadino,,catalogo
+incentivi-5013,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-5013,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-5013,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-5013,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-5346,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-5346,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-7225,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7225,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-7225,ricerca_formazione,Università/Ente di Ricerca,,Università/Ente di Ricerca,,catalogo
+incentivi-7414,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7414,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-7414,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-7414,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-7415,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7415,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-7415,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-7415,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-7640,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7642,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7745,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7849,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7849,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-7849,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-7849,impresa_artigiana_commerciale,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-7908,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7933,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7933,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-7933,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-7933,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-7959,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7969,altra_impresa,Consorzio,,Consorzio,,catalogo
+incentivi-7969,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-7969,terzo_settore,Cooperative/Associazioni Non Profit,,Cooperative/Associazioni Non Profit,,catalogo
+incentivi-8026,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8026,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8026,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8028,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8028,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-8028,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8028,impresa_artigiana_commerciale,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-8028,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8028,impresa_turistica,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-8028,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-8300,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8300,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8300,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8300,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-8302,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8302,altra_impresa,Impresa - prevalenza femminile,,Impresa - prevalenza femminile,,catalogo
+incentivi-8302,altra_impresa,Impresa - prevalenza giovanile,,Impresa - prevalenza giovanile,,catalogo
+incentivi-8302,altra_impresa,Impresa da costituire - Femminile,,Impresa da costituire - Femminile,,catalogo
+incentivi-8302,altra_impresa,Impresa da costituire - Giovanile,,Impresa da costituire - Giovanile,,catalogo
+incentivi-8302,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8302,impresa_artigiana_commerciale,Impresa - prevalenza femminile,,Impresa - prevalenza femminile,,catalogo
+incentivi-8302,impresa_artigiana_commerciale,Impresa - prevalenza giovanile,,Impresa - prevalenza giovanile,,catalogo
+incentivi-8302,impresa_artigiana_commerciale,Impresa da costituire - Femminile,,Impresa da costituire - Femminile,,catalogo
+incentivi-8302,impresa_artigiana_commerciale,Impresa da costituire - Giovanile,,Impresa da costituire - Giovanile,,catalogo
+incentivi-8302,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8302,impresa_turistica,Impresa - prevalenza femminile,,Impresa - prevalenza femminile,,catalogo
+incentivi-8302,impresa_turistica,Impresa - prevalenza giovanile,,Impresa - prevalenza giovanile,,catalogo
+incentivi-8302,impresa_turistica,Impresa da costituire - Femminile,,Impresa da costituire - Femminile,,catalogo
+incentivi-8302,impresa_turistica,Impresa da costituire - Giovanile,,Impresa da costituire - Giovanile,,catalogo
+incentivi-8302,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-8473,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-8513,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8513,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-8543,altra_impresa,Consorzio,,Consorzio,,catalogo
+incentivi-8543,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8543,terzo_settore,Cooperative/Associazioni Non Profit,,Cooperative/Associazioni Non Profit,,catalogo
+incentivi-8545,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8546,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8566,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8581,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8581,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-8581,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8581,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8644,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8646,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8646,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-8646,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8646,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8651,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8651,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-8651,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8651,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8659,altra_impresa,Consorzio,,Consorzio,,catalogo
+incentivi-8659,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8659,altra_impresa,Impresa - SU/PMI innovativa,,Impresa - SU/PMI innovativa,,catalogo
+incentivi-8659,altra_impresa,Istituto finanziario,,Istituto finanziario,,catalogo
+incentivi-8659,impresa_agricola,Consorzio,,Consorzio,,catalogo
+incentivi-8659,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-8659,impresa_agricola,Impresa - SU/PMI innovativa,,Impresa - SU/PMI innovativa,,catalogo
+incentivi-8659,impresa_artigiana_commerciale,Consorzio,,Consorzio,,catalogo
+incentivi-8659,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8659,impresa_artigiana_commerciale,Impresa - SU/PMI innovativa,,Impresa - SU/PMI innovativa,,catalogo
+incentivi-8659,impresa_turistica,Consorzio,,Consorzio,,catalogo
+incentivi-8659,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8659,impresa_turistica,Impresa - SU/PMI innovativa,,Impresa - SU/PMI innovativa,,catalogo
+incentivi-8659,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-8659,ricerca_formazione,Università/Ente di Ricerca,,Università/Ente di Ricerca,,catalogo
+incentivi-8659,terzo_settore,Cooperative/Associazioni Non Profit,,Cooperative/Associazioni Non Profit,,catalogo
+incentivi-8688,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8693,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8693,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-8693,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8693,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8693,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-8702,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8737,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8738,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8761,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8761,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-8761,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8761,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8761,professionista_autonomo,Professionista,,Professionista,,catalogo
+incentivi-8809,altra_impresa,Consorzio,,Consorzio,,catalogo
+incentivi-8809,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8809,impresa_agricola,Consorzio,,Consorzio,,catalogo
+incentivi-8809,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-8809,impresa_artigiana_commerciale,Consorzio,,Consorzio,,catalogo
+incentivi-8809,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8809,impresa_turistica,Consorzio,,Consorzio,,catalogo
+incentivi-8809,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8811,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8811,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-8811,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8811,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8845,altra_impresa,Impresa,,Impresa,,catalogo
+incentivi-8845,altra_impresa,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-8845,impresa_agricola,Impresa,,Impresa,,catalogo
+incentivi-8845,impresa_agricola,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-8845,impresa_artigiana_commerciale,Impresa,,Impresa,,catalogo
+incentivi-8845,impresa_artigiana_commerciale,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-8845,impresa_turistica,Impresa,,Impresa,,catalogo
+incentivi-8845,impresa_turistica,Rete d'impresa,,Rete d'impresa,,catalogo
+incentivi-8845,ricerca_formazione,Università/Ente di Ricerca,,Università/Ente di Ricerca,,catalogo
+incentivi-8876,impresa_turistica,Consorzio,,Consorzio,,catalogo
 mercati-rionali-2026,comune,Comuni della Toscana,"su cui insiste un mercato rionale e che possano dimostrare, con propria relazione tecnico-descrittiva, la funzione economica, sociale, aggregativa e culturale, nonché il radicamento storico nel tessuto urbano","Possono presentare domanda i Comuni della Toscana su cui insiste un mercato rionale così come definiti al punto 1.1 del testo dell'avviso pubblico e che, con propria relazione tecnico-descrittiva, ne possano dimostrare la funzione economica, sociale, aggregativa e culturale, nonché il radicamento storico nel tessuto urbano.",alta,estrazione
 nidi-gratis-2026-2027,comune,Comuni,,"Possono partecipare a questo bando i Comuni, singolarmente o mediante esercizio associato svolto tramite Unioni di Comuni ovvero mediante convenzione di cui all'articolo 20 della legge regionale 68/2011.",alta,estrazione
 nidi-gratis-2026-2027,unione_comuni,Unioni di Comuni,in forma associata,"Possono partecipare a questo bando i Comuni, singolarmente o mediante esercizio associato svolto tramite Unioni di Comuni ovvero mediante convenzione di cui all'articolo 20 della legge regionale 68/2011.",alta,estrazione
@@ -175,6 +389,9 @@ sostegno-della-conciliazione-vita-lavoro-voucher-per-768d9b,professionista_auton
 sostegno-della-conciliazione-vita-lavoro-voucher-per-768d9b,professionista_autonomo,"libere/i professioniste/i iscritte/i alle Associazioni riconosciute o fondazioni con personalità giuridica, espressione di professionisti/e prestatori/trici d’opera intellettuale","iscritte nell’elenco tenuto dal Ministero dello Sviluppo Economico ai sensi della legge 14 gennaio 2013, n. 4 e/o della L.R. n. 73/2008, residente in Toscana, con partita Iva attiva e ISEE non superiore a 40 mila euro","libere/i professioniste/i iscritte/i alle Associazioni riconosciute o fondazioni con personalità giuridica, espressione di professionisti/e prestatori/trici d’opera intellettuale che esercitano professioni non ordinistiche",alta,estrazione
 sostegno-della-conciliazione-vita-lavoro-voucher-per-768d9b,professionista_autonomo,libere/i professioniste/i senza cassa iscritte/i alla gestione separata Inps,"residente in Toscana, con partita Iva attiva e ISEE non superiore a 40 mila euro",libere/i professioniste/i senza cassa iscritte/i alla gestione separata Inps.,alta,estrazione
 sostegno-della-conciliazione-vita-lavoro-voucher-per-768d9b,professionista_autonomo,titolari d’impresa individuale,"residente in Toscana, iscritto alla cassa o gestione previdenziale obbligatoria prevista per la tipologia di attività, con partita Iva attiva e ISEE non superiore a 40 mila euro",titolari d’impresa individuale;,alta,estrazione
+sport-missione-comune-2026,altro_ente_pubblico,Città Metropolitane,,"Le risorse possono essere utilizzate da Comuni, Unioni di Comuni, Comuni in forma associata, Città Metropolitane, Province e Regioni",alta,estrazione
+sport-missione-comune-2026,comune,Comuni,,"Le risorse possono essere utilizzate da Comuni, Unioni di Comuni, Comuni in forma associata, Città Metropolitane, Province e Regioni",alta,estrazione
+sport-missione-comune-2026,unione_comuni,Unioni di Comuni,,"Le risorse possono essere utilizzate da Comuni, Unioni di Comuni, Comuni in forma associata, Città Metropolitane, Province e Regioni",alta,estrazione
 srd-14-investimenti-produttivi-non-agricoli-in-aree-rurali,altra_impresa,"Micro e piccole imprese dei settori: commercio, turismo, arigianato e servizi",con codice ATECO ammissibile secondo l'allegato A del bando e unità produttiva ricadente nel territorio eligibile della SSL del Gal Montagnappennino,"Micro e piccole imprese dei settori: commercio, turismo, arigianato e servizi.",alta,estrazione
 srd-14-investimenti-produttivi-non-agricoli-in-aree-rurali,impresa_artigiana_commerciale,"Micro e piccole imprese dei settori: commercio, turismo, arigianato e servizi",con codice ATECO ammissibile secondo l'allegato A del bando e unità produttiva ricadente nel territorio eligibile della SSL del Gal Montagnappennino,"Micro e piccole imprese dei settori: commercio, turismo, arigianato e servizi.",alta,estrazione
 srd-14-investimenti-produttivi-non-agricoli-in-aree-rurali,impresa_turistica,"Micro e piccole imprese dei settori: commercio, turismo, arigianato e servizi",con codice ATECO ammissibile secondo l'allegato A del bando e unità produttiva ricadente nel territorio eligibile della SSL del Gal Montagnappennino,"Micro e piccole imprese dei settori: commercio, turismo, arigianato e servizi.",alta,estrazione

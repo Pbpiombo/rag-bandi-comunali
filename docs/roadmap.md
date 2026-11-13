@@ -62,6 +62,31 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   X, quanto…"): con P2 il recupero cerca anche dentro l'avviso nominato,
   ma restano casi non risolti e un frammento al limite
   (`docs/prova-verificatore.md`, P2).
+- **Sport Missione Comune 2026 e Cultura Missione Comune 2026**: estratti
+  il 13/11/2026 dalla fonte nuova `istituto-credito-sportivo` (elenco
+  spento). Da decidere: dove mettere il mutuo massimo per fascia di ente
+  (2, 4, 6 milioni) e "contributo fino al 100%" di Cultura Missione
+  Comune, che e' l'abbattimento degli interessi, non della spesa
+  (`docs/piano-fonti.md`, tappa 5, quarta serie).
+- **Fonte per le misure nazionali rivolte ai comuni**: oggi mancano
+  (Istituto per il Credito Sportivo, Dipartimento per lo Sport,
+  ministeri; il catalogo Incentivi Italia non le contiene, perche' non
+  sono aiuti alle imprese). Valutare le notizie di ANCI sui bandi per i
+  comuni come fonte o come segnale.
+- **Elenco dell'Istituto per il Credito Sportivo**: se un giorno si
+  attiva (oggi `attivo` = 0), la scansione deve rispettare il
+  `Crawl-delay: 2` del robots.txt: oggi `estrai_nuovi` aspetta 0,5 s tra
+  i download e 1 s tra le estrazioni.
+- **Nidi gratis 2026-2027**: le Unioni di Comuni risultano ammesse solo
+  "in forma associata". Potrebbe essere l'effetto del difetto di fusione
+  dei beneficiari corretto il 13/11/2026 (un soggetto senza condizioni
+  prendeva le condizioni di un altro con la stessa frase): controllare
+  la frase sulla pagina.
+- **Se c'è tempo: misure nazionali per le imprese escluse dalla regola
+  degli sportelli ma ancora attive** (Nuova Sabatini, Smart&Start, bando
+  ISI INAIL): verifica a mano di poche misure, con la frase della pagina
+  come prova (Incentivi Italia, tappa 5: sportelli senza chiusura aperti
+  da più di due anni, 17 righe da verificare).
 - **Dati ISTAT di Sambuca Pistoiese e San Marcello Piteglio** caricati
   (prompt per Claude Code pronto). Tutti e tre i comuni dalla stessa tabella.
 - **Blocco A, verificatore** (voci 1, 3, 4 e 11 di
@@ -171,6 +196,13 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 
 ## In coda
 
+- Dopo la demo. Incentivi Italia, link condivisi: oggi una riga con un
+  `Link_istituzionale` usato da più righe del file è da verificare a mano
+  (43 righe sul file del 12/11/2026). Molte sono misure sorelle sulla
+  stessa pagina di bando (sezioni regionali del bando ISI, bandi R&S 1 e
+  2, tax credit della stessa sessione). Regola da valutare: il link
+  condiviso è ammesso se le righe hanno lo stesso concedente e le stesse
+  date (`docs/piano-fonti.md`, tappa 5).
 - Zona sismica dei tre comuni: riferimento OPCM 3274/2003 aggiornata dalla DGRT
   421 del 26/05/2014, da verificare sull'allegato e su eventuali aggiornamenti.
 - Colonna `montano` nel profilo: i tre comuni sono totalmente montani

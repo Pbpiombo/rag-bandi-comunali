@@ -48,8 +48,10 @@ TIPI_BENEFICIARIO = {
 # Il tipo che richiede sempre le condizioni
 PER_REQUISITO = "qualsiasi_soggetto"
 
-# Da dove viene una riga di beneficiari_bando
-ORIGINI = ("estrazione", "ammette_comuni")
+# Da dove viene una riga di beneficiari_bando. 'catalogo': la tipologia
+# del catalogo Incentivi Italia (src/estrazione/incentivi.py), solo tipi
+# privati; la frase e' il valore del file, non una frase del bando.
+ORIGINI = ("estrazione", "ammette_comuni", "catalogo")
 
 # I tipi privati e tutti i tipi con un soggetto indicato, per le regole.
 # I tipi privati non comprendono cittadini_famiglie: "privati", "datori di

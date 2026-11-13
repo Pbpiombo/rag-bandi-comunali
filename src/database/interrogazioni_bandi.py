@@ -795,8 +795,11 @@ def descrivi_beneficiari(riga, beneficiari: list) -> str:
         if b["condizioni"] or come_requisito(b):
             voce += f", {caso_ammissione(b)}"
         # Le righe migrate hanno come frase il testo di beneficiari, che il
-        # dettaglio mostra gia'
-        if b["origine"] != "ammette_comuni":
+        # dettaglio mostra gia'. Quelle del catalogo hanno il valore del
+        # file, non una frase del bando.
+        if b["origine"] == "catalogo":
+            voce += f" (dal catalogo Incentivi Italia: «{b['frase']}»)"
+        elif b["origine"] != "ammette_comuni":
             voce += f" (frase del bando: «{b['frase']}»)"
         voci.append(voce)
 

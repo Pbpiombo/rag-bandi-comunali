@@ -14,7 +14,9 @@ Cinque tappe, nell'ordine:
 2. elenco "bandi aperti" della montagna, unica pagina regionale in più;
 3. bandi scaduti da meno di 12 mesi salvati come storico;
 4. fonte GAL MontagnAppennino;
-5. fonte Incentivi Italia, dal file open data, senza modello.
+5. fonte Incentivi Italia, dal file open data, senza modello per il
+   file; il modello legge solo le pagine dei bandi aperti per enti
+   pubblici (decisioni del 13/11/2026).
 
 La tappa 3 viene prima del GAL: i due bandi del GAL sono scaduti, e la
 corsa della tappa 4 li registrerebbe altrimenti come scarti definitivi.
@@ -716,7 +718,8 @@ metadati:
 C:\Users\Matteo_Papucci\Desktop\programmazione\dati-grezzi\incentivi-italia\2026-11-12\
 ```
 
-Non letto per questo piano: si legge all'inizio della tappa.
+Letto il 13/11/2026 per la misura (sotto), con script fuori dal
+repository, senza modello e senza scrivere nell'archivio.
 
 Vincoli:
 
@@ -727,7 +730,119 @@ Vincoli:
   poche righe inventate con la stessa struttura;
 - il catalogo e l'API del sito non si leggono: solo il file, scaricato
   a mano e passato per percorso;
-- nessuna chiamata al modello per leggere il file.
+- nessuna chiamata al modello per leggere il file. Il modello legge solo
+  le pagine d'ente delle righe aperte per enti pubblici (decisione 2 del
+  13/11/2026, punto 4).
+
+### Misura del 13/11/2026
+
+Data di riferimento 13/11/2026, file del 12/11/2026.
+
+**Il file rispetto alla nota.** 51 colonne, non 50; separatore `,`. La
+colonna della dimensione si chiama `Dimensione_beneficiari` (i metadati
+dicono `Dimensioni`): il lettore usa il nome del file. `Comuni` è diviso
+solo da `;`, mai da `\,` come dicono i metadati. Gli elenchi dei comuni
+contengono anche il vecchio nome "Abetone", ma nessuna riga ha solo i
+nomi precedenti alla fusione: la corrispondenza esatta sui tre nomi
+attuali non perde righe.
+
+**Regola A/B/C della nota.**
+
+| | totale | aperte | sportello senza chiusura | in arrivo | senza date | scadute da meno di 12 mesi | più vecchie |
+|---|---|---|---|---|---|---|---|
+| A | 28 | 2 | 1 | 0 | 0 | 9 | 16 |
+| B | 194 | 10 | 11 | 0 | 0 | 49 | 124 |
+| C | 860 | 57 | 45 | 2 | 2 | 173 | 581 |
+| A, B o C | 900 | 59 | 46 | 2 | 2 | 192 | 599 |
+
+Delle 301 righe non scadute da più di 12 mesi, raggruppate per ente
+concedente: 11 del territorio, 50 della Regione per tutta la regione, 146
+di enti nazionali, 14 di università e poli, **10 della Regione con un
+elenco di comuni senza i nostri** (bandi di altri GAL), **70 di enti
+locali di altri territori** (altre camere di commercio toscane, comuni e
+regioni di altre regioni etichettati con tutte le regioni o con la
+Toscana, film commission). Il rumore viene dal campo `Regioni`, non dal
+confronto dei nomi.
+
+**Campione controllato a mano:** 20 righe (10 aperte, 10 tra in arrivo e
+scadute da meno di 12 mesi, seme fisso). Si applicano al territorio 12,
+dipende 4, no 4. Le 17 nazionali: 11 sì, 4 dipende, 2 no (un comune
+piemontese e la Regione Marche etichettati con tutte le regioni). Le 3
+toscane o locali: 1 sì, 2 no (CCIAA Arezzo-Siena, FAR Maremma). Il campo
+`Tipologia_Soggetto` è più largo del bando: un fondo dell'Istituto per il
+Credito Sportivo indica "Ente Pubblico" mentre la descrizione esclude gli
+enti territoriali; un bando del MUR riservato agli HUB del PNRR indica
+"Impresa".
+
+**Altre misure.** 31 dei 46 sportelli senza chiusura sono aperti da prima
+del 2025; 7 righe hanno una chiusura di comodo tra il 2030 e il 2050. 227
+delle 900 righe hanno un `Link_istituzionale` usato anche da altre righe
+(73 tra le non vecchie). In `bandi` ci sono già 3 indirizzi del file (4
+righe: due FSE+ sicurezza, operatore forestale, AS01).
+
+**Regola nuova, applicata** (prima la data, poi i comuni, poi
+l'ente): delle righe non scadute da più di 12 mesi con la Toscana o uno
+dei nostri comuni, 62 scartate per elenco di comuni senza i nostri, 70
+per ente di altro territorio, 12 da verificare (tutte scadute da meno di
+12 mesi); **passano 209**: 7 del territorio, 53 regionali, 149 nazionali.
+Per stato: 43 aperte, 44 sportelli senza chiusura, 2 in arrivo, 120
+scadute da meno di 12 mesi.
+
+### Resa reale (13/11/2026)
+
+Importazione del file del 12/11/2026 (`importa_incentivi`), dopo il
+controllo delle pagine degli enti, senza modello:
+
+| stato | territorio | regionale | nazionale | totale |
+|---|---|---|---|---|
+| aperto | 1 | 1 | 3 | 5 |
+| sportello | 0 | 8 | 4 | 12 |
+| in arrivo | 0 | 0 | 0 | 0 |
+| storico | 5 | 6 | 26 | 37 |
+| **salvati** | **6** | **15** | **33** | **54** |
+
+Da verificare a mano 154: data di chiusura del catalogo non trovata
+sulla pagina 67; link usato da più righe 43; sportello senza chiusura
+aperto da più di 2 anni 17 (decisione 1 del 13/11/2026, seconda serie);
+concedente da verificare 12; robots.txt che vieta 7; pagina non
+scaricata 5; robots.txt non leggibile 2; sportello con "Chiuso" sulla
+pagina 1. Gia' in archivio da un'altra fonte 4 (AS01 compreso). Le 54
+righe hanno solo tipi privati (211 righe di `beneficiari_bando` con
+origine `catalogo`, nessuna di tipo pubblico).
+
+Pagine per enti pubblici lette con il modello (`estrai_incentivi`), 9:
+2 bandi salvati, 6 pagine che non sono bandi (sezioni informative, un
+indice di avvisi, la home di un ministero), 1 pagina non trovata (404).
+Costo reale 0,338 $ (0,038 $ a pagina). Enti pubblici: il fondo di
+garanzia per l'impiantistica sportiva ammette `altro_ente_pubblico` ed
+esclude gli enti territoriali; il bando automotive nessuno. Nessuno
+ammette i comuni: `bandi_aperti_per_ente` per Abetone Cutigliano e'
+rimasto identico.
+
+I due bandi salvati dal modello sono stati poi tolti dall'archivio e
+messi tra le righe da verificare (decisioni del 13/11/2026, terza serie):
+il fondo per l'impiantistica sportiva mescolava due misure della stessa
+pagina (la frase sugli enti pubblici era del comparto "patrimonio
+culturale"); il bando automotive aveva perso le imprese (frase non
+trovata nella pagina) e restava con la sola `ricerca_formazione`.
+
+**Numeri finali:** 54 bandi in archivio da Incentivi Italia, tutti dal
+file e con i soli tipi privati; 156 righe da verificare (le 154 del file
+e le 2 tolte); 6 pagine del modello che non sono bandi; 1 pagina da
+ritentare (404). Costo del modello 0,338 $, per nessun bando rimasto.
+
+**Perche' la resa e' bassa.** Su 209 righe del territorio ne entrano 54,
+e solo 5 aperte con una data di chiusura.
+Le date del catalogo sono spesso diverse da quelle delle pagine: proroghe
+non registrate (contributi all'autotrasporto: proroga al 15/10/2026 sulla
+pagina), date diverse (Sea Modal Shift: 17/11 nel catalogo, 9/11 sulla
+pagina), date di comodo (2035, 2050), pagine generiche al posto del bando
+(poli digitali, sezioni dei siti ministeriali). Il catalogo serve a
+segnalare: il dato da citare resta quello della pagina dell'ente.
+
+Anche il modello rende poco su queste pagine: 6 delle 9 non sono bandi,
+e i 2 bandi estratti non erano affidabili. Il Link_istituzionale del
+catalogo punta spesso a una sezione del sito, non alla pagina del bando.
 
 ### Come entra nell'archivio
 
@@ -737,13 +852,23 @@ Fonte `incentivi-italia` di tipo `file` (tappa 1), con una riga in
 1. **Lettura.** Separatore rilevato dal codice (`csv.Sniffer`), colonne
    per nome e mai per posizione, multivalore divisi su `\,` (Regioni,
    Dimensione, Settore, Tipologia) e `;` (Comuni), date `YYYY-MM-DD`.
-2. **Filtro territoriale.** La regola A/B/C della nota (comune esatto
-   come token, mai per sottostringa; ente concedente tra quelli del
-   territorio; Toscana senza elenco di comuni), **misurata prima di
-   fissarla**: lo script stampa quante righe passano per ciascuna
-   condizione e un campione di 30 righe da controllare a mano (azione
-   aperta 1 della nota). La regola si scrive nel codice solo dopo il
-   controllo, e il risultato va nel piano.
+2. **Regola territoriale** (decisione 1 del 13/11/2026, al posto di
+   A/B/C). Decide l'ente concedente, non il campo `Regioni`:
+   - la riga deve avere la Toscana in `Regioni`, oppure uno dei tre
+     comuni in `Comuni`;
+   - se `Comuni` non è vuoto, deve contenere uno dei tre comuni, come
+     token esatto e mai per sottostringa; altrimenti è scartata, anche
+     se l'ente è la Regione Toscana;
+   - `Soggetto_Concedente`, con il nome normalizzato (minuscole, spazi
+     compressi), si cerca in una tabella chiusa nel codice: `territorio`,
+     `regionale`, `nazionale` passano; `altro territorio` è scartato;
+     `da verificare` non si salva e va tra le "da verificare a mano";
+   - un concedente che non è nella tabella è `da verificare`, mai
+     classificato per somiglianza; lo script stampa i valori nuovi a ogni
+     aggiornamento del file.
+
+   La tabella è in `docs/concedenti-incentivi.md`, da approvare prima di
+   scriverla nel codice.
 3. **Stato dalle date del file, solo per scartare.** Righe con
    `Data_chiusura` passata da più di 365 giorni: scartate senza scaricare
    nulla (la stessa soglia dello storico). Le altre (aperte, in arrivo,
@@ -768,7 +893,22 @@ Fonte `incentivi-italia` di tipo `file` (tappa 1), con una riga in
      tra le "da verificare", con il motivo;
    - sportelli senza `Data_chiusura`: si salvano se la pagina risponde e
      non contiene parole di chiusura ("chiuso", "esaurite le risorse",
-     "graduatoria"); altrimenti "da verificare".
+     "graduatoria"); altrimenti "da verificare". Si salvano con
+     `a_sportello` = 1 e `pubblicato_il` = `Data_apertura`, così vale la
+     regola della tappa 5a del piano post-scansione (decisione 3 del
+     13/11/2026): pubblicati da più di due anni senza data di chiusura,
+     "probabilmente esaurito". Sul file del 12/11/2026: 28 dei 44
+     sportelli che passano la regola.
+   - **righe per enti pubblici** (decisione 2 del 13/11/2026): le righe
+     aperte, sportello o in arrivo con "Ente Pubblico" in
+     `Tipologia_Soggetto` non si salvano dal file. La pagina del
+     `Link_istituzionale` va all'estrazione con il modello, come gli
+     altri bandi (`estrai_bando`), con le stesse esclusioni: robots.txt,
+     link già in `bandi`, link condiviso con altre righe. Il catalogo
+     non basta a dire se un comune può partecipare. Sul file del
+     12/11/2026: 12 righe, 11 indirizzi, nessuna con il solo tipo "Ente
+     Pubblico"; 1 indirizzo già in `bandi`, 1 condiviso da due righe
+     (da verificare a mano): **9 pagine al modello, su 7 domini**.
 5. **Riga di `bandi`.** `id` = `incentivi-` + `ID_Incentivo`;
    `url` = `Link_istituzionale` canonico (è la fonte da citare);
    `ente` = `Soggetto_Concedente`; `titolo`, `apertura`, `scadenza`;
@@ -790,16 +930,27 @@ Fonte `incentivi-italia` di tipo `file` (tappa 1), con una riga in
    motivo che non comincia con "scaduto", così tornano a ogni
    aggiornamento del file.
 
-Se le righe "da verificare" sono molte, si decide dopo la misura se
-mandarle al modello come pagine candidate (al più 0,061 $ l'una) o
-controllarle a mano. Il piano non le manda al modello.
+Le righe "da verificare" non vanno al modello: si controllano a mano.
+Al modello vanno solo le pagine delle righe aperte per enti pubblici
+(punto 4).
+
+Da decidere: `pubblicato_origine` oggi ammette `pubblicazione` e `atto`;
+la `Data_apertura` del catalogo non è né l'una né l'altra. Proposta: un
+valore nuovo, `apertura`, in `ORIGINI_PUBBLICAZIONE` e nel vincolo dello
+schema (ricreazione del database, dopo l'esportazione dei CSV).
+
+Da decidere: le righe per enti pubblici scadute da meno di 12 mesi (31,
+31 indirizzi) entrerebbero nello storico con i tipi del catalogo. La
+decisione 2 riguarda solo le aperte e in arrivo.
 
 ### File
 
 | file | cosa | perché |
 |---|---|---|
-| `src/estrazione/incentivi.py` (nuovo) | lettura del file, controllo dell'intestazione, filtro, controllo della data sulla pagina, righe di `bandi` e `beneficiari_bando` | la fonte |
-| `scripts/ingestione/importa_incentivi.py` (nuovo) | `--file PERCORSO`, `--prova` (conta e stampa senza scrivere), `--misura` (conteggi per condizione A/B/C e campione), esportazione dei CSV in un `finally` | |
+| `src/estrazione/incentivi.py` (nuovo) | lettura del file, controllo dell'intestazione, regola territoriale con la tabella dei concedenti approvata, controllo della data sulla pagina, righe di `bandi` e `beneficiari_bando`, elenco delle pagine per enti pubblici da passare all'estrazione | la fonte |
+| `scripts/ingestione/importa_incentivi.py` (nuovo) | `--file PERCORSO`, `--prova` (conta e stampa senza scrivere), `--misura` (conteggi per classe di concedente e per stato, concedenti nuovi), esportazione dei CSV in un `finally` | |
+| `src/estrazione/bandi.py`, `src/database/schema.py` | origine `apertura` per `pubblicato_il`, se approvata | regola 5a sugli sportelli |
+| `docs/concedenti-incentivi.md` (nuovo, già scritto) | tabella dei concedenti da approvare | decisione 1 |
 | `src/estrazione/beneficiari.py` | origine `catalogo` in `ORIGINI`; corrispondenza dei valori del file | |
 | `src/database/schema.py` | il vincolo sulle origini segue `ORIGINI` | |
 | `data/processed/fonti.csv`, `elenchi.csv` | riga della fonte e della pagina open data | |
@@ -816,6 +967,14 @@ controllarle a mano. Il piano non le manda al modello.
 - multivalore `\,` e `;` divisi correttamente;
 - "San Marcello" e "Sambuca di Sicilia" non passano il filtro, "San
   Marcello Piteglio" sì;
+- comune di un'altra regione con tutte le regioni: scartato; Regione
+  Toscana con un elenco di comuni senza i nostri: scartata; concedente
+  sconosciuto: "da verificare", con l'avviso; stesso ente con maiuscole
+  diverse: stessa classe;
+- riga aperta con "Ente Pubblico": non salvata dal file, pagina passata
+  all'estrazione (modello finto);
+- sportello aperto da tre anni senza chiusura: salvato con
+  `pubblicato_il`, e lo stato dice "probabilmente esaurito";
 - scaduto da 2 anni: scartato senza scaricare la pagina (rete finta che
   fallisce se chiamata);
 - data trovata sulla pagina in ciascuna forma: salvato con la prova;
@@ -830,8 +989,9 @@ controllarle a mano. Il piano non le manda al modello.
 ### Regola di chiusura
 
 - `ruff check` e `python -m pytest`, con l'output;
-- `--misura` sul file vero: conteggi per condizione, campione
-  controllato a mano, regola fissata e scritta in questo piano;
+- `--misura` sul file vero: gli stessi conteggi della misura del
+  13/11/2026 (209 righe che passano, 12 per enti pubblici), nessun
+  concedente nuovo;
 - `--prova` sul file vero: quante righe passano il filtro, quante
   scartate per data, quante salvabili, quante "da verificare" e perché;
 - la verifica della nota ritrovata: CCIAA Pistoia-Prato presente; AS01
@@ -843,10 +1003,13 @@ controllarle a mano. Il piano non le manda al modello.
 
 ### Costo
 
-Nessuna chiamata al modello. Un giorno e mezzo, più il controllo a mano
-del campione. Il download delle pagine d'ente è proporzionale alle righe
-che passano il filtro e non sono scadute da più di un anno: il numero si
-conosce solo con `--misura`.
+Nessuna chiamata al modello per il file. Le pagine per enti pubblici: 9
+sul file del 12/11/2026, al più 9 × 0,061 = **0,55 $**; a ogni
+aggiornamento settimanale solo le righe nuove. Un giorno e mezzo di
+lavoro, più il controllo a mano delle "da verificare". Il download delle
+pagine d'ente per il controllo della data riguarda le 89 righe aperte,
+sportello o in arrivo e le 120 scadute da meno di 12 mesi che passano la
+regola, meno i link già in `bandi` e quelli condivisi.
 
 ---
 
@@ -859,8 +1022,8 @@ conosce solo con `--misura`.
 | 2. elenco della montagna | 0 | 0 $ | mezz'ora |
 | 3. storico degli scaduti | 0 | 0 $ | mezza giornata |
 | 4. GAL MontagnAppennino | 2 (AS01, SRD 14) | al più 0,12 $ | mezza giornata |
-| 5. Incentivi Italia | 0 | 0 $ | un giorno e mezzo |
-| **totale da fare** | **2** | **al più 0,12 $** | |
+| 5. Incentivi Italia | 9 (pagine per enti pubblici) | al più 0,55 $ | un giorno e mezzo |
+| **totale** | **11** | **al più 0,67 $** | |
 
 Stime con `COSTO_BANDO` = 0,061 $ come tetto per pagina (misurato il
 12/11/2026). La scansione regolare successiva non è compresa: con la
@@ -879,4 +1042,100 @@ Le alternative scartate, per confronto: rischio sismico come elenchi
 3. **Controllo degli elenchi dei programmi:** in roadmap, tra i
    requisiti dell'aggiornamento automatico (passo 4).
 4. **Incentivi Italia, righe "da verificare":** si decide dopo la
-   misura, alla tappa 5.
+   misura, alla tappa 5. Deciso il 13/11/2026: controllo a mano (sotto).
+
+## Decisioni (13/11/2026, dopo la misura di Incentivi Italia)
+
+1. **Regola territoriale basata sull'ente concedente** al posto di
+   A/B/C (tappa 5, punto 2). La tabella dei concedenti si approva in
+   `docs/concedenti-incentivi.md` prima di scriverla nel codice.
+2. **Bandi per gli enti pubblici:** la tipologia del catalogo non basta.
+   Le righe aperte o in arrivo che dal catalogo risultano rivolte a enti
+   pubblici non si mostrano ai comuni sulla base del solo file: si
+   estraggono con il modello dalla pagina del `Link_istituzionale`, come
+   gli altri bandi (tappa 5, punto 4). 9 pagine, al più 0,55 $.
+3. **Sportelli senza chiusura:** vale anche per questa fonte la regola
+   della tappa 5a ("probabilmente esaurito" se pubblicati da più di due
+   anni senza data di chiusura), con `pubblicato_il` = `Data_apertura`.
+4. **Le righe "da verificare"** non vanno al modello.
+
+## Decisioni (13/11/2026, dopo la prova di Incentivi Italia)
+
+1. **Sportelli senza chiusura aperti da piu' di due anni** (soglia di
+   `SOGLIA_SPORTELLO_ANNI`): dal file non si salvano, vanno tra le righe
+   da verificare. Sul file del 12/11/2026: 17 righe, tra cui Nuova
+   Sabatini e Smart&Start, ancora attive: vanno controllate a mano. Le
+   righe aperte per enti pubblici vanno comunque al modello.
+2. **Link condivisi:** restano da verificare. Dopo la demo, la regola
+   "stesso concedente e stesse date" (roadmap, In coda).
+3. **Scrittura e modello:** fatti il 13/11/2026 (resa reale sopra).
+   `pubblicato_origine` ammette `apertura`; `beneficiari_bando.origine`
+   ammette `catalogo`: database ricreato dai CSV, con backup e conteggi
+   identici prima e dopo, salvo le righe nuove di `fonti` ed `elenchi`.
+
+## Decisioni (13/11/2026, terza serie, dopo la lettura con il modello)
+
+1. **Fondo di garanzia per l'impiantistica sportiva e Automotive** tolti
+   dall'archivio e messi tra le righe da verificare, con il motivo
+   (`scripts/manutenzione/togli_bandi_incentivi.py`, nessuna chiamata al
+   modello). `estrai_incentivi` non rilegge le pagine gia' esaminate con
+   esito salvato o scartato; ritenta solo le fallite.
+2. **Sport Missione Comune 2026 e Cultura Missione Comune 2026**
+   (Istituto per il Credito Sportivo e Culturale): da recuperare prima
+   della demo. **Non sono nel catalogo** Incentivi Italia: sono
+   contributi in conto interessi su mutui degli enti territoriali, non
+   aiuti alle imprese. Le due righe dell'Istituto con il link condiviso
+   sono i comparti del fondo per il patrimonio culturale. Pagine
+   ufficiali trovate dalla home del sito: `/fondi-speciali-bandi-sport-2026/`,
+   `/fondi-speciali-bandi-cultura-2026/` e la notizia della proroga al
+   5/12/2026 (`/proroga-sport-missione-comune-cultura-missione-comune/`).
+   robots.txt del 13/11/2026: pagine HTML permesse (vietati PDF, immagini
+   e simili), `Crawl-delay: 2`. La pagina di Sport Missione Comune, letta
+   senza modello, conferma la regola di chiusura: domande "a partire dalle
+   ore 12,00 del 09/03/2026 e non oltre le ore 23,59 del 05/12/2026";
+   "Comuni, Unioni di Comuni, Comuni in forma associata, Città
+   Metropolitane, Province e Regioni"; "2 milioni di euro per i piccoli
+   Comuni (fino a 5.000 abitanti)". L'estrazione aspetta una fonte nuova
+   in `fonti.csv`: `estrai_bando` non estrae un dominio che non e' una
+   fonte, e attribuirle a `incentivi-italia` sarebbe falso.
+3. **Sport e Periferie 2026** (Dipartimento per lo Sport): non e' nel
+   catalogo. Secondo la pagina ufficiale e' chiuso: domande "a partire
+   dalle ore 12:00 del 4 giugno 2026 e fino alle ore 12:00 del 25 giugno
+   2026"; a luglio pubblicati gli elenchi dei comuni ammessi a
+   valutazione, con i termini per la documentazione progettuale dal
+   22/07/2026. Non salvato.
+4. **Misure nazionali per le imprese** escluse dalla regola degli
+   sportelli ma ancora attive (Nuova Sabatini, Smart&Start, ISI INAIL):
+   verifica a mano prima della demo, se c'e' tempo (roadmap).
+
+## Decisioni ed esito (13/11/2026, quarta serie: Missione Comune)
+
+1. **Fonte nuova `istituto-credito-sportivo`** (tipo `pagine`, url_base
+   https://www.creditosportivo.it, schema_link sulle pagine
+   `/fondi-speciali-bandi-…/`), con la home come elenco **spento**
+   (`attivo` = 0): le righe di `fonti.csv` ed `elenchi.csv` approvate con
+   il diff. Database ricreato: backup in
+   `dati-grezzi/backup/comune-2026-11-13-prima-di-credito-sportivo.sqlite`,
+   conteggi identici prima e dopo salvo le due righe nuove.
+2. **Estrazione con `estrai_bando --auto`**, una chiamata per pagina,
+   dopo la prova senza modello (fonte riconosciuta, robots.txt che
+   permette, nessun conflitto di identificativo, frasi della regola nel
+   testo): salvati `sport-missione-comune-2026` e
+   `cultura-missione-comune-2026`, a sportello fino al 2026-12-05.
+   Entrambi compaiono in `bandi_aperti_per_ente` per Abetone Cutigliano.
+3. **Difetto trovato e corretto** in `_valida_beneficiari`
+   (`src/estrazione/bandi.py`): due soggetti con lo stesso tipo e la
+   stessa frase si fondevano sommando le condizioni, e un soggetto
+   ammesso senza condizioni ("Comuni") prendeva quelle dell'altro
+   ("Comuni in forma associata"). Ora, se uno dei due e' senza
+   condizioni, la riga fusa non ne ha. Riga di Sport Missione Comune
+   corretta di conseguenza (condizioni vuote per `comune` e
+   `unione_comuni`), senza nuove chiamate. Da controllare nidi gratis
+   2026-2027, con lo stesso schema (roadmap).
+4. **Regola di chiusura di Sport Missione Comune:** scadenza 2026-12-05
+   si'; Comuni e Unioni ammessi si'; presente per Abetone si'. **Il mutuo
+   massimo di 2 milioni per i comuni fino a 5.000 abitanti non e' in
+   nessun campo**: la pagina da' tre fasce (2, 4, 6 milioni) per tipo e
+   dimensione dell'ente, ed e' l'importo del mutuo agevolabile, non il
+   contributo. Il modello lo ha riconosciuto (prova di `contributo_max`)
+   ma ha lasciato il valore vuoto. Da decidere dove registrarlo.

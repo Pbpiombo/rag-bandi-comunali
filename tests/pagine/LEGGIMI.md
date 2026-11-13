@@ -51,3 +51,17 @@ con le entità (`&rsquo;`, `&ldquo;`) come le scrive il sito. Le usa
 | `gal-as01.html` | https://www.montagnappennino.it/bando/aso1-investimenti-non-produttivi-e-per-lo-sviluppo-socio-economico-delle-ree-rurali/ | "PROROGATO alle ore 13.00 del 12 ottobre 2026"; etichetta "In corso" benché scaduto |
 | `gal-srd14.html` | https://www.montagnappennino.it/bando/srd-14-investimenti-produttivi-non-agricoli-in-aree-rurali/ | "ore 13.00 del 8 maggio 2026" |
 | `gal-vuota.html` | https://www.montagnappennino.it/bando/3450/ | pagina di bando vuota: etichette senza valori |
+
+## Pagine d'ente inventate per Incentivi Italia
+
+Pagine **inventate**, non scaricate: nessuna parte del file open data o dei
+siti degli enti entra nel repository. Le usa `tests/test_incentivi.py`, con le
+righe inventate di `tests/dati/incentivi_prova.csv`, per il controllo della
+data di chiusura sulla pagina dell'ente (`src/estrazione/incentivi.py`).
+
+| File | Perche' |
+|---|---|
+| `incentivi-con-data.html` | la data di chiusura del catalogo c'e' ("entro le ore 12:00 del 31/12/2026") |
+| `incentivi-proroga.html` | c'e' un'altra data (proroga): la data del catalogo non si trova |
+| `incentivi-sportello.html` | sportello senza parole di chiusura |
+| `incentivi-sportello-chiuso.html` | sportello "chiuso per esaurimento delle risorse" |

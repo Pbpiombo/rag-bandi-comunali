@@ -755,3 +755,45 @@ def test_il_prompt_chiede_i_soggetti_riservati_negli_interventi():
     assert "La frase comprende allora anche la parte che nomina quei soggetti." in (
         ISTRUZIONI
     )
+
+
+@pytest.mark.parametrize("ordine", [1, -1])
+def test_soggetto_senza_condizioni_prevale_nella_fusione(ordine):
+    # "Comuni" e "Comuni in forma associata" con la stessa frase: i Comuni
+    # sono ammessi anche da soli, in qualunque ordine li elenchi il modello
+    frase = "Possono partecipare Comuni, Unioni di Comuni, Comuni in forma associata."
+    voci = [
+        {"soggetto": "Comuni", "tipi": ["comune"], "frase": frase},
+        {
+            "soggetto": "Comuni in forma associata",
+            "tipi": ["comune", "unione_comuni"],
+            "condizioni": "in forma associata",
+            "frase": frase,
+        },
+        {"soggetto": "Unioni di Comuni", "tipi": ["unione_comuni"], "frase": frase},
+    ][::ordine]
+    righe = bandi._valida_beneficiari(voci, frase, [], [])
+    assert {r["tipo"]: r["condizioni"] for r in righe} == {
+        "comune": None,
+        "unione_comuni": None,
+    }
+
+
+def test_due_condizioni_diverse_si_tengono_entrambe():
+    frase = "Possono partecipare i Comuni montani e i Comuni sotto i 5.000 abitanti."
+    voci = [
+        {
+            "soggetto": "Comuni",
+            "tipi": ["comune"],
+            "condizioni": "montani",
+            "frase": frase,
+        },
+        {
+            "soggetto": "Comuni",
+            "tipi": ["comune"],
+            "condizioni": "sotto i 5.000 abitanti",
+            "frase": frase,
+        },
+    ]
+    righe = bandi._valida_beneficiari(voci, frase, [], [])
+    assert [r["condizioni"] for r in righe] == ["montani; sotto i 5.000 abitanti"]

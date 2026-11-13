@@ -160,10 +160,11 @@ CREATE TABLE IF NOT EXISTS bandi (
     classificato_il     TEXT,
     -- data di pubblicazione del bando: per i bandi a sportello senza
     -- chiusura e' l'unico indizio di quanto siano vecchi. L'origine dice se
-    -- e' la pubblicazione vera o la data dell'atto che approva il bando.
+    -- e' la pubblicazione vera o la data dell'atto che approva il bando;
+    -- 'apertura': la data di apertura del catalogo Incentivi Italia.
     pubblicato_il       TEXT,
     pubblicato_origine  TEXT
-                        CHECK (pubblicato_origine IN ('pubblicazione', 'atto')),
+                        CHECK (pubblicato_origine IN ('pubblicazione', 'atto', 'apertura')),
     -- una pagina in archivio che il modello giudica non un bando (es. una
     -- graduatoria): resta in archivio, ma non compare tra le opportunita'
     natura              TEXT NOT NULL DEFAULT 'bando'
