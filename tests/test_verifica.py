@@ -66,6 +66,17 @@ FRAMMENTI = [
             "riferimento_atto": "Decreto dirigenziale n. 9550 del 28/04/2026",
         },
     ),
+    # Codici ATECO come nelle condizioni dei bandi neve e del turismo
+    # (prova completa dall'app, 13 novembre 2026)
+    Document(
+        page_content=(
+            "Possono partecipare le imprese che operano nei settori ATECO ISTAT "
+            "2025: 49.34.00 Trasporto di passeggeri mediante funivie e sciovie, "
+            "93.11.90 Gestione di altri impianti sportivi, oppure con codice "
+            "Ateco primario I 55.1 (Alberghi e strutture simili)."
+        ),
+        metadata={"ente": "Regione Toscana", "pagina": 1},
+    ),
 ]
 
 # Un elenco con un solo bando, la cui riga scrive le date in ISO
@@ -396,6 +407,41 @@ CASI = [
             "del 28/04/2026, fonte: [5], Regione, pag. 2)."
         ),
         "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
+    },
+    # Prova completa dall'app, 13 novembre 2026: codici ATECO spezzati in
+    # numeri sciolti (11 "non trovato" su una risposta giusta) e date con
+    # il trattino tipografico U+2011
+    {
+        "nome": "N27 codici ATECO a tre livelli presenti nel frammento",
+        "risposta": (
+            "Sono ammesse le imprese con codice ATECO 49.34.00 o 93.11.90 "
+            "(fonte: [6], Regione Toscana)."
+        ),
+        "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N28 codice ATECO INVENTATO",
+        "risposta": "È ammesso il codice ATECO 49.39.00 (fonte: [6], Regione Toscana).",
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N29 codice ATECO con la lettera della sezione",
+        "risposta": (
+            "Serve il codice Ateco primario I 55.1 (fonte: [6], Regione Toscana)."
+        ),
+        "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N30 codice ATECO con la lettera della sezione SBAGLIATO",
+        "risposta": (
+            "Serve il codice Ateco primario I 55.2 (fonte: [6], Regione Toscana)."
+        ),
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N31 data con il trattino tipografico U+2011",
+        "risposta": "Le domande scadono il 2026‑11‑13 (fonte: [4], Regione).",
+        "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
     },
 ]
 

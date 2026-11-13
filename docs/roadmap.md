@@ -153,6 +153,12 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   sezione a parte, con la seconda prova con il modello. Revisione con lo
   stato di ogni voce chiusa; piani dell'estrattore e post-scansione con i
   rimandi agli esiti.
+- **Verificatore, codici ATECO e trattini** (13 novembre 2026, primo dei
+  quattro difetti della prova completa dall'app): i codici con i punti
+  ("49.34.00", "I 55.1") sono un valore solo, nella risposta e nella
+  fonte, invece di numeri sciolti (11 "non trovato" su una risposta
+  giusta); i trattini tipografici (U+2010-2013, U+2212) valgono "-" prima
+  del confronto. Casi N27-N31 nel collaudo; i 18 casi originali invariati.
 
 ## In corso
 

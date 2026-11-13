@@ -125,12 +125,38 @@ _GENERI_ARTICOLO = {
     "lett": "lett",
     "lettera": "lett",
 }
+# Codici di classificazione con i punti, come quelli ATECO: a tre livelli
+# ("49.34.00"), o con la lettera maiuscola della sezione ("I 55.1"). Sono
+# un valore solo: le loro cifre non sono numeri. Due livelli senza lettera
+# ("55.1") restano un numero, perche' non si distinguono da un decimale.
+_CODICE_TRE_LIVELLI = r"\d{2}\.\d{2}\.\d{1,2}"
+_CODICE_SEZIONE = r"[A-U]\s?\d{2}(?:\.\d{1,2}){1,2}"
+_CODICI_PUNTATI = (
+    re.compile(rf"(?<![\w.])(?:{_CODICE_SEZIONE}|{_CODICE_TRE_LIVELLI})(?!\d|\.\d)"),
+)
 _CODICI = (
     re.compile(r"\b[A-Z]\d{2}[A-Z]\d{10,12}\b", re.IGNORECASE),  # CUP
     re.compile(r"\b\d{8}-\d\b"),
+    *_CODICI_PUNTATI,
 )
 
+# Trattini tipografici che valgono "-": U+2010 trattino, U+2011 trattino
+# non separabile, U+2012 trattino delle cifre, U+2013 trattino medio, U+2212
+# meno. "2026‑11‑13" con U+2011 e' la data 2026-11-13. La lineetta U+2014
+# resta: e' punteggiatura, non un separatore di cifre.
+_TRATTINI = str.maketrans(dict.fromkeys("‐‑‒–−", "-"))
+
 _ANNO = re.compile(r"(?:19|20)\d{2}")
+
+
+def uniforma_trattini(testo: str) -> str:
+    """I trattini tipografici diventano "-"; la lunghezza del testo non cambia."""
+    return testo.translate(_TRATTINI)
+
+
+def codice(testo: str) -> str:
+    """Un codice in una sola forma: senza spazi, in maiuscolo ("i 55.1" -> "I55.1")."""
+    return re.sub(r"\s", "", testo).upper()
 
 
 def _decimale(cifre: str) -> Decimal:
@@ -317,7 +343,7 @@ def valori(testo: str) -> Valori:
     rilegge: le cifre di "28/04/2026" sono una data, non i numeri 28, 4 e
     2026.
     """
-    testo = testo.replace(" ", " ")
+    testo = uniforma_trattini(testo.replace(" ", " "))
     trovati = Valori()
     occupati: list[tuple[int, int]] = []
 
@@ -368,7 +394,12 @@ def valori(testo: str) -> Valori:
 
     for schema in _CODICI:
         for m in libere(schema):
-            trovati.codici.add(m.group(0).upper())
+            trovati.codici.add(codice(m.group(0)))
+            # "I 55.10.00" vale anche senza la lettera della sezione
+            if re.match(r"[A-Z]", m.group(0)) and re.search(
+                _CODICE_TRE_LIVELLI, m.group(0)
+            ):
+                trovati.codici.add(re.search(_CODICE_TRE_LIVELLI, m.group(0)).group(0))
 
     for m in libere(_ARTICOLO):
         base, con_comma = _articolo_da(m)

@@ -19,6 +19,7 @@ from src.normalizzazione import (
     Valori,
     articolo,
     atti_con_data,
+    codice,
     data,
     date_degli_atti,
     giorno_mese,
@@ -26,6 +27,7 @@ from src.normalizzazione import (
     orario,
     periodo,
     riferimento,
+    uniforma_trattini,
     valori,
 )
 
@@ -113,6 +115,11 @@ SCHEMI = {
     "codice": [
         r"\b([A-Z]\d{2}[A-Z]\d{10,12})\b",
         r"\b(\d{8}-\d)\b",
+        # Codici con i punti (ATECO): "49.34.00", "I 55.1". La lettera
+        # della sezione e' maiuscola anche se gli schemi ignorano le
+        # maiuscole: "a 12.5" non e' un codice
+        r"(?<![\w.])((?-i:[A-U])\s?\d{2}(?:\.\d{1,2}){1,2})(?!\d|\.\d)",
+        r"(?<![\w.])(\d{2}\.\d{2}\.\d{1,2})(?!\d|\.\d)",
     ],
     "riferimento": [
         r"\bn\.?\s*(\d+/\d{4})\b",
@@ -298,7 +305,7 @@ def presente(dato: Dato, fonte: Valori) -> bool:
         return periodo(dato.intero) in fonte.periodi
 
     if tipo == "codice":
-        return valore.upper() in fonte.codici
+        return codice(valore) in fonte.codici
 
     if tipo == "riferimento":
         art = articolo(dato.intero)
@@ -428,6 +435,9 @@ def verifica(
     frammento si controllano anche i numeri di decreto o delibera scritti
     nella citazione.
     """
+    # "2026‑11‑13" con il trattino U+2011 e' una data come "2026-11-13"; la
+    # lunghezza non cambia, quindi le posizioni restano quelle della risposta
+    risposta = uniforma_trattini(risposta)
     testi, testi_atti, voci_di = fonti_di(documenti, esiti_dati)
     valori_di = {etichetta: valori(testo) for etichetta, testo in testi.items()}
 

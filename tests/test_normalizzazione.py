@@ -298,3 +298,34 @@ def test_codici():
 
 def test_data_iso_e_in_lettere_coincidono():
     assert valori("scade il 2027-07-31").date == valori("scade il 31 luglio 2027").date
+
+
+# --- codici con i punti e trattini tipografici (prova del 13/11/2026) ---
+
+
+def test_codici_ateco_sono_un_valore_solo():
+    v = valori("settori ATECO 49.34.00, 93.11.90 e codice primario I 55.1 (alberghi)")
+    assert v.codici == {"49.34.00", "93.11.90", "I55.1"}
+    assert v.numeri == set()
+
+
+def test_codice_con_sezione_vale_anche_senza_lettera():
+    assert valori("codice I 55.10.00").codici == {"I55.10.00", "55.10.00"}
+
+
+@pytest.mark.parametrize(
+    ("testo", "numero_atteso"),
+    [
+        ("il valore 55.1 della tabella", Decimal("55.1")),
+        ("a 12.5 chilometri", Decimal("12.5")),
+    ],
+)
+def test_due_livelli_senza_lettera_maiuscola_restano_numeri(testo, numero_atteso):
+    v = valori(testo)
+    assert v.codici == set()
+    assert numero_atteso in v.numeri
+
+
+def test_trattini_tipografici_nelle_date_della_fonte():
+    assert "2026-11-13" in valori("scade il 2026\u201111\u201113").date
+    assert "2026-11-13" in valori("scade il 13\u201211\u20122026").date
