@@ -18,7 +18,7 @@ sistema risponde per quell'ente.
 ## In breve
 
 - **Cosa fa**: risponde sui bandi per l'ente scelto (aperti, in scadenza, per tipo di beneficiario, dettaglio di un bando) e sui documenti in archivio, citando la fonte di ogni dato.
-- **Fonti**: 107 bandi da 6 fonti (Regione Toscana, Incentivi Italia, GAL MontagnAppennino, Sviluppo Toscana, Istituto per il Credito Sportivo e Culturale, Ministero delle Infrastrutture), dati ISTAT dei tre comuni, 5 avvisi e studi in PDF.
+- **Fonti**: 109 bandi da 6 fonti (Regione Toscana, Incentivi Italia, GAL MontagnAppennino, Sviluppo Toscana, Istituto per il Credito Sportivo e Culturale, Ministero delle Infrastrutture), dati ISTAT dei tre comuni, 5 avvisi e studi in PDF.
 - **Controllo dei dati**: un verificatore meccanico cerca ogni dato citato nella fonte dichiarata; l'estrazione dei bandi è misurata con verifiche a mano sulle pagine ufficiali.
 - **Misure**: verifica a mano di 23 bandi, scadenza corretta in 21; seconda verifica sui 10 bandi riestratti: scadenza corretta in 10, beneficiari in 7 e parzialmente in 3. Due prove con il modello: 138 dati segnati come verificati, nessun falso positivo. Recupero: 13 frammenti attesi su 16 tra i primi 10, 5 su 5 nelle domande di controllo.
 - **Limiti principali**: il verificatore controlla che un dato esista nella fonte, non che sia completo o attribuito alla cosa giusta; le fonti non coprono tutto (prima misura su un elenco esterno, il 13 novembre prima dei recuperi: 8 bandi su 31); gli aggiornamenti si lanciano a mano.
@@ -130,7 +130,7 @@ viene ogni dato. Si acquisiscono da queste fonti:
 
 | Fonte | Come si legge | Bandi |
 |---|---|---|
-| Portale bandi Regione Toscana | pagine web, due elenchi | 54 |
+| Portale bandi Regione Toscana | pagine web, due elenchi | 56 |
 | Incentivi Italia | file open data del catalogo nazionale | 49 |
 | GAL MontagnAppennino | pagine web | 2 |
 | Sviluppo Toscana | pagine indicate a mano | 2 |
@@ -199,7 +199,7 @@ indicata, beneficiari non indicati sulla pagina, sportello probabilmente
 esaurito): solo i recenti, al più 10, con i contatti d'ufficio della
 pagina. I contatti li legge il codice (`src/estrazione/contatti.py`), mai
 nomi o email di persone: nel dubbio resta il collegamento alla pagina. Oggi
-li hanno 43 bandi su 107, e compaiono anche nel dettaglio.
+li hanno 44 bandi su 109, e compaiono anche nel dettaglio.
 
 ---
 
