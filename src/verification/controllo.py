@@ -49,12 +49,14 @@ ETICHETTA_BANDO = re.compile(r"^D\d+\.\d+$")
 _MESI = "|".join(MESI)
 _MOLTIPLICATORE = r"mila|milion[ei]|mln|miliard[oi]"
 
-# Il numero di un decreto o di una delibera in una citazione: "decreto
-# dirigenziale n. 18191 del 7/8/2026" -> 18191, "DGR 1081/2026" -> 1081.
+# Il numero di un decreto, di una delibera o di un protocollo in una
+# citazione: "decreto dirigenziale n. 18191 del 7/8/2026" -> 18191, "DGR
+# 1081/2026" -> 1081, "Avviso pubblico 2026, prot. 26286" -> 26286.
 # Non e' un numero d'atto quello di una data: "decreto del 29 ottobre",
 # "decreto 12/10/2026".
 SCHEMA_NUMERO_ATTO = re.compile(
-    r"(?:\b(?:decreto|delibera|deliberazione|dgrt?|dd)\b|d\.g\.r\.(?:t\.)?|d\.d\.)"
+    r"(?:\b(?:decreto|delibera|deliberazione|dgrt?|dd|protocollo)\b"
+    r"|d\.g\.r\.(?:t\.)?|d\.d\.|\bprot\.)"
     r"(?P<mezzo>[^\d()\[\]]{0,40}?)"
     rf"(?P<numero>\d{{2,6}})(?:/\d{{4}})?(?![\d/])(?!\s+(?:{_MESI}))",
     re.IGNORECASE,
@@ -81,8 +83,8 @@ _DATA_ATTO = (
     rf"|\d{{1,2}}\s*[°º]?\s+(?:{_MESI})\s+\d{{4}}"
 )
 SCHEMA_ATTO_TESTO = (
-    r"(?:\b(?:decreto|delibera|deliberazione|dgrt?|dd)\b"
-    r"|\bd\.g\.r\.(?:t\.)?|\bd\.d\.)"
+    r"(?:\b(?:decreto|delibera|deliberazione|dgrt?|dd|protocollo)\b"
+    r"|\bd\.g\.r\.(?:t\.)?|\bd\.d\.|\bprot\.)"
     rf"(?:\s+(?:{_QUALIFICA}))*"
     r"(?:\s*(?:n\.|n°|nº|n\b|numero))?"
     r"\s*(?P<numero>\d{2,6})(?:/\d{4})?(?![\d/]|[.,]\d)"
@@ -222,7 +224,7 @@ def trova_citazioni(risposta: str) -> list[tuple[int, str]]:
 
 
 def numeri_atto(citazione: str) -> list[str]:
-    """I numeri di decreto o delibera scritti in una citazione."""
+    """I numeri di decreto, delibera o protocollo scritti in una citazione."""
     numeri = []
     for m in SCHEMA_NUMERO_ATTO.finditer(citazione):
         # "decreto del 12 ..." o "decreto dell'11 ...": e' una data

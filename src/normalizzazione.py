@@ -94,15 +94,17 @@ _RIFERIMENTO = re.compile(r"(?<![\d/])(?P<n>\d{1,6})/(?P<a>\d{4})(?![\d/])")
 _RIFERIMENTO_INTERO = re.compile(r"(?:n\.?\s*)?(?P<n>\d{1,6})/(?P<a>\d{4})", re.I)
 
 # Un atto con numero e data: "decreto n. 1234 del 12/03/2026", "DGR 1081
-# del 7 settembre 2026". Le pagine scrivono lo stesso atto anche come
-# "1234/2026": il numero con l'anno della data vale come riferimento.
+# del 7 settembre 2026", "prot. 26286 del 3 novembre 2026". Le pagine
+# scrivono lo stesso atto anche come "1234/2026": il numero con l'anno
+# della data vale come riferimento.
 _DATA_QUALSIASI = (
     r"\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4}"
     rf"|\d{{1,2}}\s*[°º]?\s+(?:{_MESI})\s+\d{{4}}"
 )
 _ATTO_CON_DATA = re.compile(
     r"(?:\bn\s*[.°º]?|\bnumero|"
-    r"(?:\b(?:decreto|delibera|deliberazione|dgrt?|dd)\b|d\.g\.r\.(?:t\.)?|d\.d\.)"
+    r"(?:\b(?:decreto|delibera|deliberazione|dgrt?|dd|protocollo)\b"
+    r"|d\.g\.r\.(?:t\.)?|d\.d\.|\bprot\.)"
     r"[^\d()\[\]]{0,40}?)"
     rf"\s*(?P<n>\d{{1,6}})\s+del(?:l['’])?\s*(?P<data>{_DATA_QUALSIASI})(?!\d)",
     re.IGNORECASE,

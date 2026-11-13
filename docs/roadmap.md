@@ -204,6 +204,10 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   MISSIONE COMUNE 2026, con Proroga del termine di presentazione delle
   istanze», come Sport; il fondo strade passa dal nome del file a «Avviso
   pubblico 2026, prot. 26286 del 3 novembre 2026».
+- **Numeri di protocollo nel verificatore** (13 novembre 2026): "prot."
+  e "protocollo n." valgono come numeri d'atto, come decreti e delibere,
+  nelle citazioni, nel testo e nel legame con la data. Prima un protocollo
+  con una cifra sbagliata risultava verificato. Casi N32-N35 nel collaudo.
 
 ## In corso
 

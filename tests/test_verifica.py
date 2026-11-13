@@ -90,6 +90,19 @@ BANDO = Risultato(
     voci=[VoceBando(RIGA_BANDO, "Portale, decreto dirigenziale n. 18191")],
 )
 
+# Un bando il cui atto e' un avviso con numero di protocollo, come il fondo
+# strade del MIT (correggi_atti, 13 novembre 2026)
+ATTO_PROTOCOLLO = "Avviso pubblico 2026, prot. 26286 del 3 novembre 2026"
+RIGA_PROTOCOLLO = (
+    "«Fondo strade di prova» (Ministero) | scade il 2026-11-30 (fra 17 giorni) "
+    f"| atto: {ATTO_PROTOCOLLO}"
+)
+BANDO_PROTOCOLLO = Risultato(
+    f"Dettaglio:\n[#1] {RIGA_PROTOCOLLO}",
+    fonti=[f"Sito del Ministero, {ATTO_PROTOCOLLO}"],
+    voci=[VoceBando(RIGA_PROTOCOLLO, f"Sito del Ministero, {ATTO_PROTOCOLLO}")],
+)
+
 POPOLAZIONE = SimpleNamespace(
     testo="Dato più recente: 1834 abitanti al 1 gennaio 2026.",
     fonti=["ISTAT"],
@@ -443,6 +456,45 @@ CASI = [
         "risposta": "Le domande scadono il 2026‑11‑13 (fonte: [4], Regione).",
         "atteso": {"verificato": 1, "non_trovato": 0, "non_citato": 0},
     },
+    # Numeri di protocollo come numeri d'atto (13 novembre 2026): prima un
+    # protocollo con una cifra sbagliata risultava verificato
+    {
+        "nome": "N32 protocollo giusto nella citazione, con la sua data",
+        "risposta": (
+            "Si presenta entro il 30 novembre 2026 (fonte: [D1.1], Avviso "
+            "pubblico 2026, prot. 26286 del 3 novembre 2026)."
+        ),
+        "dati": [("dettaglio_bando", BANDO_PROTOCOLLO)],
+        # la scadenza, il protocollo e la sua data
+        "atteso": {"verificato": 3, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N33 protocollo con una cifra SBAGLIATA nella citazione",
+        "risposta": (
+            "Si presenta entro il 30 novembre 2026 (fonte: [D1.1], Avviso "
+            "pubblico 2026, prot. 26268 del 3 novembre 2026)."
+        ),
+        "dati": [("dettaglio_bando", BANDO_PROTOCOLLO)],
+        "atteso": {"verificato": 1, "non_trovato": 1, "non_citato": 0},
+    },
+    {
+        "nome": "N34 protocollo n. giusto nel testo, con la sua data",
+        "risposta": (
+            "L'avviso, protocollo n. 26286 del 3 novembre 2026, è online "
+            "(fonte: [D1.1], Avviso pubblico 2026)."
+        ),
+        "dati": [("dettaglio_bando", BANDO_PROTOCOLLO)],
+        "atteso": {"verificato": 2, "non_trovato": 0, "non_citato": 0},
+    },
+    {
+        "nome": "N35 prot. con una cifra SBAGLIATA nel testo",
+        "risposta": (
+            "L'avviso, prot. 26268 del 3 novembre 2026, è online "
+            "(fonte: [D1.1], Avviso pubblico 2026)."
+        ),
+        "dati": [("dettaglio_bando", BANDO_PROTOCOLLO)],
+        "atteso": {"verificato": 0, "non_trovato": 1, "non_citato": 0},
+    },
 ]
 
 
@@ -495,6 +547,8 @@ def test_atto_non_trovato_la_sua_data_non_si_giudica():
         ("DGRT n. 546", ("atto", "546")),
         ("D.G.R.T. n. 546", ("atto", "546")),
         ("DGR 1081/2026", ("atto", "1081")),
+        ("prot. 26286", ("atto", "26286")),
+        ("protocollo n. 26286", ("atto", "26286")),
         # parole libere tra la parola e il numero: non e' un atto
         ("il decreto stabilisce n. 10 posti", ("quantita", "10")),
         ("il decreto prevede € 322,00", ("importo", "322,00")),
