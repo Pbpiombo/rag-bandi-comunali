@@ -159,6 +159,13 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   fonte, invece di numeri sciolti (11 "non trovato" su una risposta
   giusta); i trattini tipografici (U+2010-2013, U+2212) valgono "-" prima
   del confronto. Casi N27-N31 nel collaudo; i 18 casi originali invariati.
+- **Popolazione dell'ente nei dati** (13 novembre 2026, secondo difetto):
+  a ogni domanda il programma aggiunge il blocco "popolazione dell'ente"
+  con l'ultima popolazione ISTAT, anno e fonte (`con_popolazione` in
+  `src/chains/rag.py`), citabile e verificato come gli altri dati; niente
+  per l'Unione. Provato con il modello: "mutuo massimo in Sport Missione
+  Comune" per Abetone sceglie la fascia dei 2 milioni con 1.834 abitanti,
+  9 dati verificati su 9.
 
 ## In corso
 

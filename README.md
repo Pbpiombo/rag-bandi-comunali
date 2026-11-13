@@ -80,6 +80,14 @@ usa per valutare l'ammissibilità, e lo cita come fonte quando lo fa. Un valore
 non verificato resta tale: il sistema lo dichiara, invece di trattarlo come un
 no.
 
+La popolazione dell'ente non sta nel profilo, che non è una fonte
+verificabile: a ogni domanda il programma aggiunge ai dati un blocco con
+l'ultima popolazione ISTAT del comune, con anno e fonte, che il modello cita
+come gli altri dati e il verificatore controlla. Serve a confrontare l'ente
+con le soglie dei bandi (es. i mutui di Missione Comune, 2 milioni fino a
+5.000 abitanti). Per l'Unione il blocco non c'è, e il modello dice che il
+dato non è disponibile.
+
 Il codice dell'ente lo sceglie l'utente dal menu, e il programma lo passa a ogni
 interrogazione. **Il modello non lo vede e non può sceglierlo**: decide quale
 interrogazione eseguire e con quali parametri, mai su quale ente. Ogni dato

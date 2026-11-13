@@ -16,12 +16,17 @@ from src.chains.router import (
 from src.config import MODEL_NAME
 from src.database.enti import profilo_ente
 from src.database.interrogazioni_bandi import data_di_oggi
+from src.database.repertorio import esegui
 from src.database.schema import connetti
 from src.database.stato_documenti import con_stato_bando
 from src.recupero_documenti import avvolgi
 from src.retrieval import RecuperoIbrido, normalizza_domanda
 
 K_DEFAULT = 10
+
+# Il nome del blocco dei dati con la popolazione aggiunta dal programma: lo
+# stesso che il prompt indica al modello
+BLOCCO_POPOLAZIONE = "popolazione dell'ente (aggiunta dal programma)"
 
 
 def recupera(recupero, domanda: str, k: int = K_DEFAULT) -> list:
@@ -97,6 +102,11 @@ capofila, se rientra in Toscana Diffusa. Usalo per valutare se l'ente \
 rientra tra i beneficiari di un bando. Quando lo usi, citalo nella forma \
 (fonte: profilo dell'ente). Un dato "non verificato" non è né sì né no: \
 dillo, invece di dedurlo.
+La popolazione dell'ente non è nel profilo: è nei DATI, nel blocco \
+"popolazione dell'ente". Quando un bando ha una soglia o delle fasce di \
+abitanti, confrontala con quel dato e citalo con la sua etichetta. Se il \
+blocco non c'è, la popolazione dell'ente non è disponibile: dillo, senza \
+stimarla e senza sommare quella dei comuni.
 
 BENEFICIARI DEI BANDI
 Se un bando indica "ammesso se ...", l'ente è ammesso a condizione: \
@@ -163,6 +173,23 @@ def con_stato_del_giorno(documenti: list[Document]) -> list[Document]:
         conn.close()
 
 
+def con_popolazione(esiti: list, codice_ente: str) -> list:
+    """Gli esiti del router, con la popolazione dell'ente se manca.
+
+    La aggiunge il programma, non il modello, a ogni domanda: serve a
+    confrontare l'ente con le soglie di abitanti dei bandi. Arriva come un
+    blocco di dati con fonte e anno, che il verificatore controlla come gli
+    altri. Non si aggiunge se il router l'ha gia' chiesta, ne' per un ente
+    senza dati di popolazione (l'Unione).
+    """
+    if any(nome.startswith("popolazione") for nome, _ in esiti):
+        return esiti
+    risultato = esegui("popolazione_ultima", {}, codice_ente)
+    if not risultato.trovato:
+        return esiti
+    return [*esiti, (BLOCCO_POPOLAZIONE, risultato)]
+
+
 def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
     """Assembla la chain LCEL: router, recupero ibrido, generazione."""
     conn = connetti()
@@ -189,7 +216,9 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
     def prepara(domanda: str) -> dict:
         decisione = decidi(router, domanda, codice_ente=codice_ente, profilo=profilo)
 
-        esiti = esegui_interrogazioni(decisione, codice_ente)
+        esiti = con_popolazione(
+            esegui_interrogazioni(decisione, codice_ente), codice_ente
+        )
         dati = formatta_dati(esiti) or "(nessun dato numerico richiesto)"
 
         if decisione.get("documenti", True):
