@@ -66,6 +66,9 @@ verificatore.
 
 **Quando.** Prima della demo.
 
+**Stato.** Chiusa il 12 novembre 2026 (blocco A, `docs/piano-verificatore.md`): il confronto è per valori interi e per tipo, non per sottostringa.
+
+
 ## 2. Estrattore: il valore non si confronta con la sua prova
 
 **Dove.** `src/estrazione/bandi.py:593-627` (`_verifica_prove`): si
@@ -112,6 +115,9 @@ citazioni e trattare i numeri d'atto del testo come dati, con
 
 **Quando.** Prima della demo.
 
+**Stato.** Chiusa il 12 novembre 2026 (blocco A, `docs/piano-verificatore.md`): i decreti citati nel testo e le loro date si controllano.
+
+
 ## 4. Date in formati diversi: falsi "non trovato"
 
 **Dove.** Le righe dei bandi scrivono le date in ISO
@@ -132,6 +138,9 @@ formato.
 
 **Quando.** Prima della demo.
 
+**Stato.** Chiusa il 12 novembre 2026 (blocco A, `docs/piano-verificatore.md`): le date si confrontano in ogni forma.
+
+
 ## 5. Importi estratti e mai mostrati, importi arrotondati
 
 **Dove.** `formatta_bando` (`interrogazioni_bandi.py:314-369`) e
@@ -151,6 +160,9 @@ conferma perché li confronta con la riga già arrotondata.
 equivalenza (`tests/dati/interrogazioni_comuni_dopo.json`).
 
 **Quando.** Prima della demo.
+
+**Stato.** Chiusa il 12 novembre 2026 (blocco B): contributo minimo e massimo nella riga del bando, importi con i centesimi.
+
 
 ## 6. `dettaglio_bando` sceglie a caso tra titoli simili
 
@@ -219,6 +231,9 @@ subito.
 **Quando.** Prima dell'aggiornamento automatico; l'etichetta prima della
 demo.
 
+**Stato.** In parte, 12 novembre 2026 (blocco B): l'etichetta dice "dati estratti il …". Resta aperta la protezione delle correzioni a mano da una riestrazione (roadmap, in coda).
+
+
 ## 9. Tre punti in cui database e CSV si separano
 
 **Dove.**
@@ -265,6 +280,9 @@ database dai CSV all'avvio, in una cartella temporanea; mezza giornata.
 
 **Quando.** Prima della demo.
 
+**Stato.** Aperta. Da verificare il 14 novembre 2026 con la prova
+completa dall'app online.
+
 ## 11. Pannello di verifica verde con zero dati verificati
 
 **Dove.** `app/app.py:74-83`: il messaggio verde compare quando non ci
@@ -282,6 +300,9 @@ citazione generica.
 con dati non citati o generici; il simbolo mancante.
 
 **Quando.** Prima della demo.
+
+**Stato.** Chiusa il 12 novembre 2026 (blocco A, `docs/piano-verificatore.md`): il pannello non è verde senza dati verificati.
+
 
 ## 12. `bandi_in_scadenza` esclude gli sportelli con data di chiusura
 
@@ -365,6 +386,9 @@ di quelle reali.
 
 **Quando.** Prima della demo.
 
+**Stato.** Chiusa il 13 novembre 2026: README allineato (sezione "In breve", catalogo dei bandi, fonti, limiti e misure), roadmap e piani aggiornati.
+
+
 ## 15. La fonte dei bandi è scritta nel codice
 
 **Dove.** `src/estrazione/elenco.py:14-16` (codice, URL dell'elenco e
@@ -383,3 +407,5 @@ regionale e vanno legate alla fonte.
 
 **Quando.** Prima dell'aggiornamento automatico (è il passo 1 della
 roadmap).
+
+**Stato.** Chiusa tra il 12 e il 13 novembre 2026 (piano fonti, tappe 1-5, `docs/piano-fonti.md`): fonti, elenchi e regole di lettura vengono dalle tabelle `fonti` ed `elenchi`.

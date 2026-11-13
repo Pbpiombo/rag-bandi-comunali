@@ -139,11 +139,25 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   d'esempio "Quali bandi per il Comune scadono nei prossimi 30 giorni?"
   passa da 5 a 7 bandi: si aggiungono Sport e Cultura Missione Comune
   (chiusura il 5 dicembre).
+- **Recupero dei bandi aperti mancanti** (13 novembre 2026,
+  `docs/ricognizione-fonti.md`, sezione 8): Sviluppo Toscana e Ministero
+  delle Infrastrutture come fonti, con le pagine indicate a mano
+  (l'elenco di Sviluppo Toscana non è ancora acceso); i due bandi neve,
+  Punti Digitale Facile, fondo strade MIT per i piccoli comuni. Abetone
+  Cutigliano passa da 7 a 9 bandi aperti.
+- **Blocco B, voce 14** (13 novembre 2026): README allineato a quello che
+  l'app fa oggi. Sezione "In breve" in cima; catalogo dei bandi (fonti,
+  interrogazioni, storico, "Da approfondire", contatti); estrazione
+  assistita e automatica distinte; limiti aggiornati (Unioni e dati dei
+  comuni superati, copertura e ricerca per parole nuovi); misure in una
+  sezione a parte, con la seconda prova con il modello. Revisione con lo
+  stato di ogni voce chiusa; piani dell'estrattore e post-scansione con i
+  rimandi agli esiti.
 
 ## In corso
 
-Recupero dei bandi aperti mancanti emersi dalla ricognizione di ANCI
-Toscana (prima voce della sezione successiva).
+Nessun compito in corso: le prossime voci sono quelle della sezione
+successiva.
 
 ## Prima della demo con il consulente pilota
 
@@ -151,18 +165,11 @@ Toscana (prima voce della sezione successiva).
 neve (16 e 23 novembre), e la domanda d'esempio sulle imprese turistiche
 perde i suoi esempi migliori.
 
-- **Recupero dei bandi aperti mancanti** (`docs/ricognizione-fonti.md`,
-  sezione 8):
-  - Sviluppo Toscana come elenco in più della Regione: date dalla pagina,
-    mai dall'etichetta del sito; escluse rendicontazioni e varianti. Con i
-    due bandi neve (spese di funzionamento e di investimento) e Digitale
-    P.A.;
-  - fondo strade MIT per i piccoli comuni: fonte nuova con elenco spento,
-    come l'Istituto per il Credito Sportivo;
-  - Punti Digitale Facile, con una scansione della Regione;
-  - Toscana Art Bonus, da estrarre quando esce l'avviso (dal 1° dicembre).
-- **Blocco B, voce ancora aperta** (`docs/revisione-2026-11-12.md`):
-  README e docs/ allineati al codice (voce 14).
+- **Prova completa dall'app online** (chiude la voce 10 della revisione,
+  `docs/revisione-2026-11-12.md`).
+- **Toscana Art Bonus**, da estrarre quando esce l'avviso (dal 1°
+  dicembre), dal recupero dei bandi aperti mancanti
+  (`docs/ricognizione-fonti.md`, sezione 8).
 - **Controllo degli scarti**: un file con le righe da verificare e gli
   scarti definitivi, con titolo, ente e motivo, ordinati mettendo in cima
   quelli che nominano comuni, enti locali, montagna, impianti, sport,
@@ -357,7 +364,9 @@ perde i suoi esempi migliori.
   rinnovabili del 2014 (stato e "contributo fino all'80%"). Dopo la
   riclassificazione e' senza scadenza e non a sportello: la pagina non ne
   parla.
-- Fuso orario: `date.today()` in 9 punti (DTZ011).
+- Fuso orario: `date.today()` in 6 punti (DTZ011), mentre altri 2 punti
+  usano già `Europe/Rome` (`salva.py`, `grezzi.py`): a ridosso della
+  mezzanotte uno stesso salvataggio può avere due date diverse.
 - Segnalazioni ruff ISC004 e BLE001 negli script.
 - Due xfail di `pulisci`: numeri separati da virgola, intestazione con spazi.
 - Regola "imprese senza settore" applicata anche nel codice, non solo nel

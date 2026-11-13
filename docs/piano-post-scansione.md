@@ -283,3 +283,14 @@ In coda: scadenze multiple (GOL), tirocini classificati
 `qualsiasi_soggetto`, categoria per professionisti e lavoratori autonomi,
 microzonazione fuori dall'elenco (sostituisce la riga esistente),
 appartenenza dei comuni all'Unione nel profilo.
+
+Stato al 13 novembre 2026 (`docs/roadmap.md`, "Fatto"):
+
+- scadenze multiple: fatto (5c, tabella `scadenze_bando`);
+- tirocini e `qualsiasi_soggetto`: fatto (5b, `qualsiasi_soggetto` solo
+  per i requisiti);
+- professionisti e lavoratori autonomi: fatto (5b, tipo
+  `professionista_autonomo`);
+- microzonazione: fatto il 12 novembre, bandi del 2026 trovati, tutti
+  scaduti;
+- appartenenza dei comuni all'Unione nel profilo: ancora in coda.

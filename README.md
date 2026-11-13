@@ -4,7 +4,7 @@ Assistente per la programmazione territoriale dei piccoli comuni montani.
 Trova i bandi a cui un ente può partecipare, spiega cosa serve per presentare
 domanda, e **cita la fonte di ogni dato che riporta**.
 
-Il progetto nasce da un interesse personale e da contatti con chi lavora sui bandi nei comuni montani. È un progetto di portfolio, ma la struttura è pensata per diventare uno strumento reale: costruita per un’Unione di comuni, si può estendere ad altri enti e ad altre fonti di bandi
+Il progetto nasce da un interesse personale e da contatti con chi lavora sui bandi nei comuni montani. È un progetto di portfolio, ma la struttura è pensata per diventare uno strumento reale: costruita per un’Unione di comuni, si può estendere ad altri enti e ad altre fonti di bandi.
 
 
 **[Prova la demo online](https://rag-bandi-comunali-yxhfmuxc5k4cg96rnxeeka.streamlit.app/)**
@@ -15,13 +15,21 @@ nell'area interna Garfagnana - Lunigiana - Media Valle del Serchio - Appennino
 Pistoiese. L'utente sceglie da un menu l'ente per cui sta lavorando, e il
 sistema risponde per quell'ente.
 
+## In breve
+
+- **Cosa fa**: risponde sui bandi per l'ente scelto (aperti, in scadenza, per tipo di beneficiario, dettaglio di un bando) e sui documenti in archivio, citando la fonte di ogni dato.
+- **Fonti**: 112 bandi da 6 fonti (Regione Toscana, Incentivi Italia, GAL MontagnAppennino, Sviluppo Toscana, Istituto per il Credito Sportivo e Culturale, Ministero delle Infrastrutture), dati ISTAT dei tre comuni, 5 avvisi e studi in PDF.
+- **Controllo dei dati**: un verificatore meccanico cerca ogni dato citato nella fonte dichiarata; l'estrazione dei bandi è misurata con verifiche a mano sulle pagine ufficiali.
+- **Misure**: verifica a mano di 23 bandi, scadenza corretta in 21; seconda verifica sui 10 bandi riestratti: scadenza corretta in 10, beneficiari in 7 e parzialmente in 3. Due prove con il modello: 138 dati segnati come verificati, nessun falso positivo. Recupero: 13 frammenti attesi su 16 tra i primi 10, 5 su 5 nelle domande di controllo.
+- **Limiti principali**: il verificatore controlla che un dato esista nella fonte, non che sia completo o attribuito alla cosa giusta; le fonti non coprono tutto (prima misura su un elenco esterno, il 13 novembre prima dei recuperi: 8 bandi su 31); gli aggiornamenti si lanciano a mano.
+
 ---
 
 ## Il problema
 
 Le opportunità di finanziamento per un comune sono sparse in decine di
 documenti: avvisi regionali, linee guida nazionali, delibere, studi di settore.
-Chi deve scrivere un piano d'azione ha due problemi: trovare l'informazione, e
+Chi segue i bandi per un ente o per un'impresa ha due problemi: trovare l'informazione, e
 non sbagliarla. Un importo o una scadenza errati in un atto amministrativo sono
 un danno reale.
 
@@ -39,7 +47,8 @@ Tre presidi sovrapposti, di cui l'ultimo non probabilistico.
    affermazione; se i frammenti non contengono la risposta, il sistema lo
    dichiara invece di costruire qualcosa.
 3. **Verifica meccanica.** Ogni dato citato viene cercato nel testo della fonte
-   dichiarata. O c'è, o non c'è.
+   dichiarata, come valore intero: "8%" non si conferma con "80%". O c'è, o
+   non c'è.
 
 Il terzo strato è coperto da test automatici, con casi positivi e negativi, che
 dimostrano che il controllo intercetta davvero gli errori invece di limitarsi a
@@ -100,7 +109,67 @@ l'oggetto di recupero come parametro e non sa quale dei due stia usando: chiede
 è uno solo, condiviso da tutti gli enti, perché i documenti sono gli stessi.
 
 Le risposte delle due versioni sono state confrontate sulle stesse domande e
-coincidono nei dati citati.
+coincidono nei dati citati. L'ordine dei frammenti invece può cambiare: su
+alcune domande Chroma mette il frammento decisivo più in alto di Postgres
+(il costo giornaliero di un avviso è 1° su Chroma e 4° su Postgres), per la
+diversa ricerca lessicale.
+
+### Il catalogo dei bandi
+
+I bandi stanno nel database, uno per riga, con chi può presentare domanda,
+gli interventi ammessi, le date, gli importi e la frase della pagina da cui
+viene ogni dato. Si acquisiscono da queste fonti:
+
+| Fonte | Come si legge | Bandi |
+|---|---|---|
+| Portale bandi Regione Toscana | pagine web, due elenchi | 54 |
+| Incentivi Italia | file open data del catalogo nazionale | 54 |
+| GAL MontagnAppennino | pagine web | 2 |
+| Sviluppo Toscana | pagine indicate a mano | 2 |
+| Istituto per il Credito Sportivo e Culturale | pagine indicate a mano | 2 |
+| Ministero delle Infrastrutture e dei Trasporti | pagine indicate a mano | 1 |
+
+"Pagine indicate a mano" vuol dire che l'elenco della fonte non si scansiona
+in automatico: le pagine dei bandi si acquisiscono una per una, per
+indirizzo. In archivio ci sono anche 3 pagine che non sono bandi (due
+graduatorie e una manifestazione di interesse), tenute per dire perché non
+lo sono. Le schede di ANCI Toscana servono a
+scoprire i bandi, ma non sono una fonte: i dati si prendono sempre dalla
+pagina ufficiale dell'ente. I social non si leggono, e `robots.txt` si
+rispetta sempre.
+
+Il router sceglie una di queste interrogazioni:
+
+- **bandi aperti per l'ente**: quelli a cui l'ente scelto può presentare
+  domanda, con gli sportelli in un gruppo a parte e l'invito a verificare
+  le risorse;
+- **bandi in scadenza** entro un numero di giorni: anche gli sportelli con
+  una data di chiusura nella finestra, segnalati come "a sportello, chiude
+  il …, salvo esaurimento delle risorse";
+- **bandi per tipo di beneficiario**: imprese agricole, turistiche,
+  artigiane, terzo settore, cittadini e gli altri tipi della lista chiusa;
+- **bandi per tema**: se il tema in archivio non corrisponde, si cercano le
+  parole nei titoli, e lo si dice;
+- **dettaglio di un bando**, cercato per titolo. Fino a 3 bandi che
+  corrispondono, il dettaglio di ciascuno; oltre, un elenco breve senza
+  sceglierne uno. Se nessun titolo corrisponde, si cercano le parole nei
+  beneficiari e negli interventi ("impianti di risalita" trova i bandi
+  neve); se non le trova nemmeno lì, si propongono i 5 titoli più simili.
+
+**Lo stato di un bando si calcola a ogni domanda** dalla scadenza, anche nei
+frammenti dei documenti. I bandi scaduti non si cancellano: servono a
+riconoscere proroghe e bandi ricorrenti. Gli elenchi per tema mostrano, in
+un blocco separato, quelli scaduti da meno di 12 mesi; il dettaglio di un
+bando scaduto comincia con "scaduto il …, non più aperto".
+
+**Da approfondire.** Gli elenchi contengono solo i bandi con i dati
+essenziali. Sotto la risposta, una sezione scritta dall'app e non dal
+modello elenca i bandi pertinenti a cui manca un dato (scadenza non
+indicata, beneficiari non indicati sulla pagina, sportello probabilmente
+esaurito): solo i recenti, al più 10, con i contatti d'ufficio della
+pagina. I contatti li legge il codice (`src/estrazione/contatti.py`), mai
+nomi o email di persone: nel dubbio resta il collegamento alla pagina. Oggi
+li hanno 43 bandi su 112, e compaiono anche nel dettaglio.
 
 ---
 
@@ -249,6 +318,9 @@ per ogni riga:
 | `fonti.csv` | i siti da cui si acquisiscono i bandi, con il tipo (pagine web o file scaricato) e le regole per leggerli |
 | `elenchi.csv` | le pagine elenco di ogni fonte da cui si scoprono i bandi, anche più d'una per fonte |
 | `bandi.csv` | il catalogo dei bandi estratti |
+| `beneficiari_bando.csv` | chi può presentare domanda per ogni bando: tipo, soggetto, condizioni, frase della pagina |
+| `interventi_bando.csv` | interventi e spese ammissibili, ciascuno con la sua frase |
+| `scadenze_bando.csv` | le date dei bandi a finestre o con più scadenze |
 | `scansioni.csv` | il registro delle pagine delle fonti già esaminate |
 
 Popolazione e superficie dei tre comuni si caricano da ISTAT con uno script,
@@ -270,7 +342,8 @@ Ogni dato numerico è legato al suo ente con una chiave esterna verso la tabella
 `enti`: una riga con un codice ente inesistente viene rifiutata al caricamento,
 invece di finire nel database collegata a nessuno.
 
-Dopo ogni estrazione, bandi e scansioni vengono riversati dal database nei CSV.
+Dopo ogni estrazione, le tabelle dei bandi (bandi, beneficiari, interventi,
+scadenze) e le scansioni vengono riversate dal database nei CSV.
 Il database è quindi **usa e getta**: quando cambia la struttura di una tabella
 si cancella e si ricrea senza perdere nulla.
 
@@ -296,24 +369,39 @@ python -m scripts.ingestione.scopri_bandi --promettenti
 # estrae un singolo bando, con conferma
 python -m scripts.ingestione.estrai_bando <url> <identificativo> --salva-testo
 
-# estrae in sequenza i bandi nuovi, con soglia automatica
+# estrae in sequenza i bandi nuovi e li salva da solo
+python -u -m scripts.ingestione.estrai_nuovi --prova
 python -u -m scripts.ingestione.estrai_nuovi --limite 10
+
+# Incentivi Italia: il file open data, scaricato a mano fuori dal repository
+python -u -m scripts.ingestione.importa_incentivi --file PERCORSO --prova
+python -u -m scripts.ingestione.estrai_incentivi --file PERCORSO --prova
+
+# contatti d'ufficio dei bandi già in archivio, senza modello
+python -u -m scripts.manutenzione.aggiungi_contatti --prova
 ```
 
-L'estrazione è **assistita, non automatica**: ogni campo arriva con un livello
-di confidenza e la frase del documento da cui è stato ricavato. I campi critici
-(scadenza, ammissibilità del beneficiario) richiedono conferma.
+Ogni campo estratto arriva con un livello di confidenza e la frase della
+pagina da cui è stato ricavato, e il codice controlla che la frase ci sia
+davvero. Le due vie di estrazione si comportano in modo diverso:
+
+- `estrai_bando` è **assistita**: mostra i campi e chiede conferma prima di
+  salvare;
+- `estrai_nuovi` ed `estrai_incentivi` sono **automatiche**: salvano senza
+  conferma, scartano solo le pagine che non sono bandi o sono scadute da più
+  di un anno, e mettono da parte quelle con la scadenza incerta.
+  L'affidabilità dell'estrazione automatica si misura a campione, con le
+  verifiche a mano descritte in fondo.
+
+`importa_incentivi` non chiama il modello: legge il file e salva le misure
+che non riguardano gli enti pubblici; quelle aperte agli enti pubblici le
+legge `estrai_incentivi` dalla pagina ufficiale, come gli altri bandi.
 
 Un bando con dati essenziali mancanti non si scarta e non si nasconde. Se la
 pagina non dice chi può presentare domanda (es. "nell'avviso sono indicati i
 requisiti"), il bando si salva con i beneficiari vuoti e la frase che rimanda
-all'avviso. Le liste dell'app contengono solo i bandi con i dati completi; sotto
-la risposta, la sezione **Da approfondire**, scritta dall'app e non dal modello,
-elenca i bandi pertinenti con un problema (scadenza non indicata, beneficiari
-non indicati sulla pagina, sportello probabilmente esaurito): solo i recenti,
-al più 10, con i contatti d'ufficio della pagina. I contatti li legge il codice
-(`src/estrazione/contatti.py`), mai nomi o email di persone: nel dubbio resta il
-collegamento alla pagina.
+all'avviso, e compare nella sezione **Da approfondire** dell'app (vedi "Il
+catalogo dei bandi").
 
 Ogni risposta del modello si conserva tale e quale, con il testo che gli è
 stato inviato, in `dati-grezzi/estrazioni/` accanto al progetto, fuori dal
@@ -329,10 +417,14 @@ streamlit run app/app.py
 python -m scripts.tutorial.step3_verifica "Quali bandi sono aperti per il Comune?"
 ```
 
-Nell'app si sceglie l'ente dal menu nella barra laterale. L'interfaccia mostra
-la risposta, il pannello di verifica dei dati citati con il contesto di
-ciascuno, e le fonti navigabili: cliccando su un frammento se ne legge il testo
-originale.
+Nell'app si sceglie l'ente dal menu nella barra laterale, che riassume anche
+cosa c'è in archivio per quell'ente. Sopra la casella delle domande ci
+sono sette domande d'esempio pensate per il consulente pilota: bandi aperti e
+in scadenza per il Comune, un bando nominato, bandi per le imprese turistiche
+e agricole, un dato di un avviso, la popolazione. L'interfaccia mostra la
+risposta, la sezione "Da approfondire", il pannello di verifica dei dati
+citati con il contesto di ciascuno, e le fonti navigabili: cliccando su un
+frammento se ne legge il testo originale.
 
 Gli script da riga di comando non hanno un menu, e lavorano sull'ente indicato
 da `ENTE_PREDEFINITO` in `src/config.py`.
@@ -347,16 +439,32 @@ Esegue le stesse domande su entrambe le versioni e stampa le risposte affiancate
 con l'esito della verifica, per controllare che la scelta del vector store non
 cambi i dati citati.
 
+```bash
+python -m scripts.diagnostica.prova_recupero
+```
+
+L'insieme di prova del recupero, senza modello: 20 domande, ciascuna con il
+documento e la frase che devono comparire tra i primi 10 frammenti, misurate
+su Postgres e su Chroma. Va rilanciato a ogni modifica del recupero o
+dell'archivio.
+
 ### Test
 
 ```bash
 python -m pytest
 ```
 
-Test automatici su verificatore, pulizia e divisione del testo, interrogazioni,
-lettura degli enti e descrizione del profilo. Sono gratuiti e istantanei: non
-chiamano il modello e non toccano il database vero, ma lavorano su un database
-SQLite creato in memoria con lo stesso schema.
+Test automatici su verificatore, pulizia e divisione del testo, recupero,
+interrogazioni, profilo degli enti, router, estrattore e regole di
+salvataggio, fonti, Incentivi Italia, contatti, dati ISTAT. Sono gratuiti e
+istantanei: non chiamano il modello e non toccano il database vero, ma
+lavorano su un database SQLite creato in memoria con lo stesso schema. Il
+codice che legge pagine web si prova su pagine salvate in `tests/pagine/`,
+non sui siti.
+
+Un test di equivalenza confronta il testo delle interrogazioni sui bandi,
+su un archivio di prova fisso, con un riferimento salvato (`tests/dati/interrogazioni_comuni_dopo.json`):
+ogni cambiamento del testo che arriva al modello si vede, e va approvato.
 
 I difetti noti e non ancora corretti sono scritti come test `xfail`: falliscono
 apposta, e quando il difetto viene corretto pytest segnala che l'etichetta va
@@ -372,9 +480,11 @@ Le regole di `ruff` sono fissate in `pyproject.toml`, insieme alla versione in
 ```
 src/
 ├── config.py              configurazione ed ente predefinito
+├── normalizzazione.py     numeri, date e riferimenti ridotti a valori confrontabili
 ├── vectorstore.py         punto unico di accesso a Chroma
 ├── retrieval.py           recupero ibrido su Chroma (denso + BM25, fusione RRF)
 ├── pgstore.py             recupero ibrido su Postgres (pgvector + full-text)
+├── recupero_documenti.py  ricerca ristretta ai documenti nominati nella domanda
 ├── ingestion/
 │   ├── pdf_ingest.py      lettura dei PDF e scrittura su Chroma
 │   └── testo.py           pulizia del testo e divisione in chunk
@@ -390,21 +500,27 @@ src/
 scripts/
 ├── ingestione/            popolamento degli archivi
 ├── interrogazione/        ricerche dirette sugli archivi
-├── diagnostica/           ispezione e confronto
+├── manutenzione/          correzioni, caricamenti ISTAT, contatti, Supabase sveglio
+├── diagnostica/           ispezione, confronto e prova del recupero
 └── tutorial/              passaggi di costruzione, in ordine
 
 tests/
 ├── conftest.py            database di prova in memoria, condiviso dai test
+├── dati/, pagine/         riferimenti e pagine web salvate
 └── test_*.py              un file per componente
 
 app/                       interfaccia Streamlit
+docs/                      roadmap, piani, revisioni, verifiche a mano
+.github/workflows/         lettura periodica su Supabase
 data/
-├── raw/                   PDF originali (non versionati)
+├── raw/                   PDF e file ISTAT originali (non versionati)
 ├── processed/             CSV dei dati strutturati, fonte di verità
 └── db/                    SQLite, rigenerabile dai CSV
 ```
 
 In `src/` la logica riusabile, in `scripts/` i punti da cui viene lanciata.
+Fuori dal repository, in `dati-grezzi/` accanto al progetto, stanno le
+risposte grezze del modello, gli esiti delle prove e le copie di sicurezza.
 
 ---
 
@@ -483,31 +599,42 @@ Vale la pena elencarli con la stessa precisione di ciò che il sistema fa.
 - **Il recupero può mancare il frammento decisivo.** Una domanda
   sull'ammissibilità può non recuperare il paragrafo dei beneficiari, anche se è
   in archivio; il sistema allora risponde con cautela invece di concludere.
-- **Prova del recupero su 20 domande, ciascuna in 4 forme: tra i primi 10
-  ci sono 13 frammenti attesi su 16 nelle 15 domande di prova e 5 su 5
-  nelle 5 di controllo, su Postgres e su Chroma.** Le domande di controllo
-  sono state scritte dopo aver deciso tutto sulle altre 15. Quando una
-  domanda nomina un avviso per titolo ("nel bando X, quanto…") si cerca
-  anche dentro quell'avviso. Restano due casi non risolti: una domanda che
-  usa parole diverse dal testo ("contributi" dove il bando dice
-  "contributo concedibile") e una che chiede di due avvisi insieme. Un
-  frammento è al limite: il termine di presentazione di un avviso è 8° su
-  Postgres e 10° su Chroma.
+- **Il recupero ha casi non risolti.** Quando una domanda nomina un avviso
+  per titolo ("nel bando X, quanto…") si cerca anche dentro quell'avviso.
+  Restano due casi: una domanda che usa parole diverse dal testo
+  ("contributi" dove il bando dice "contributo concedibile") e una che
+  chiede di due avvisi insieme. Un frammento è al limite: il termine di
+  presentazione di un avviso è 8° su Postgres e 10° su Chroma.
+- **Le fonti non coprono tutti i bandi.** Sei fonti; mancano il Bollettino
+  ufficiale della Regione e le sezioni "Avvisi" dei siti dei comuni. Nella
+  prima misura su un elenco esterno (le schede di ANCI Toscana, 13 novembre
+  2026) erano in archivio 8 bandi pertinenti su 31. I 3 bandi aperti
+  mancanti che riguardavano i comuni o il territorio, più un quarto trovato
+  su Sviluppo Toscana, sono stati recuperati lo stesso giorno; la misura
+  non è stata ripetuta.
+- **La ricerca di un bando per nome confronta parole, non significati.**
+  "Rifugi" trova un bando che nomina le case rifugio per le donne vittime di
+  violenza; "piste da sci" non trova niente, anche se i bandi neve
+  riguardano le stazioni sciistiche.
 - **Una domanda riguarda un ente alla volta.** Non esiste ancora una vista su
   tutta l'area, del tipo "quali bandi può usare ciascuno dei nostri comuni".
-- **I bandi distinguono solo se ammettono i comuni.** Non è registrato se
-  ammettono le Unioni: per l'Unione l'ammissibilità va verificata sul testo.
-- **Dati numerici solo per Abetone Cutigliano.** Per gli altri enti il sistema
-  dichiara che il dato non è disponibile.
-- **L'estrazione è assistita.** I campi critici richiedono lettura umana delle
-  prove: è la condizione a cui i valori risultano affidabili.
-- **I dati si aggiornano a mano.** Ogni riga porta la data in cui è stata
+- **Nessun dato numerico per l'Unione.** Popolazione e superficie ci sono
+  per i tre comuni; per l'Unione il sistema dichiara che il dato non è
+  disponibile, invece di sommare quelli dei comuni.
+- **L'estrazione automatica salva senza lettura umana.** La frase di ogni
+  dato si controlla sulla pagina, ma l'affidabilità del contenuto è misurata
+  a campione, non garantita bando per bando.
+- **Gli aggiornamenti si lanciano a mano.** Scansioni delle fonti, caricamento
+  dei dati ISTAT e dei contatti partono da uno script: non c'è ancora un
+  aggiornamento periodico. Ogni riga porta la data in cui è stata estratta o
   verificata.
 - **Le date di riferimento seguono l'orologio del server**, non il fuso
   italiano: a ridosso della mezzanotte lo stato di una scadenza può risultare
   sfasato.
-- **Le scadenze post-aggiudicazione non sono gestite.** Rendicontazioni, SAL,
-  relazioni periodiche: il sistema le legge nei documenti ma non le traccia.
+- **Le scadenze dopo la domanda si tracciano solo in parte.** Le fasi
+  successive scritte nella pagina del bando (es. il parere del CONI entro
+  una data) si mostrano come informazione; rendicontazioni, SAL e relazioni
+  periodiche il sistema le legge nei documenti ma non le traccia.
 - **La ricerca lessicale su Postgres unisce i termini con OR.** Trova sempre
   qualcosa, ma può promuovere un frammento che ripete un termine comune senza
   essere pertinente. BM25 pesa i termini per rarità e su questo si comporta
@@ -515,27 +642,37 @@ Vale la pena elencarli con la stessa precisione di ciò che il sistema fa.
 - **Nessuna memoria conversazionale.** Ogni domanda è indipendente: un seguito
   come "e quanto possono chiedere?" non eredita il soggetto da quella prima.
 
-Verifica dell'11 novembre 2026 su 23 bandi (20 scelti a caso e 3
-aperti per enti pubblici), confrontando i dati estratti con la pagina
-ufficiale di ciascun bando; le righe con errori sono state
+## Misure
+
+**Estrazione dei bandi.** Verifica dell'11 novembre 2026 su 23 bandi (20
+scelti a caso e 3 aperti per enti pubblici), confrontando i dati estratti
+con la pagina ufficiale di ciascun bando; le righe con errori sono state
 ricontrollate dall'autore sulle pagine e sui testi dei bandi. Scadenza
 corretta in 21, sportello e atto in 23, beneficiari corretti in 17,
 parzialmente in 3, errati in 3. Gli errori si concentrano sui bandi a
 più scadenze e sulla classificazione dei beneficiari privati e dei
-soggetti pubblici generici.
+soggetti pubblici generici (`docs/verifica-manuale-2026-11-11.csv`).
 
 Seconda verifica del 12 novembre 2026 sui 10 bandi riestratti dopo le
 correzioni: scadenza corretta in 10, sportello in 8, atto in 8 (2
 parziali), beneficiari corretti in 7 e parzialmente in 3, nessuno
-errato.
+errato (`docs/verifica-manuale-2026-11-12.csv`).
 
-Prova del 12 novembre 2026 con il modello su 9 domande: 100 dati
-segnati come verificati, nessun falso positivo; 2 falsi negativi,
-entrambi per una data presa dall'intestazione del blocco di dati.
+**Verificatore, con il modello.** Prova del 12 novembre 2026 su 9
+domande: 100 dati segnati come verificati, nessun falso positivo; 2 falsi
+negativi, entrambi per una data presa dall'intestazione del blocco di
+dati, poi corretti. Seconda prova dello stesso giorno, dall'app, su 3
+domande scelte per le correzioni del recupero e dello stato dei bandi: 38
+dati verificati, nessun errore (`docs/prova-verificatore.md`).
+
+**Recupero dei documenti.** Prova su 20 domande, ciascuna in 4 forme: tra
+i primi 10 ci sono 13 frammenti attesi su 16 nelle 15 domande di prova e 5
+su 5 nelle 5 di controllo, su Postgres e su Chroma. Le domande di
+controllo sono state scritte dopo aver deciso tutto sulle altre 15.
 
 ## Dove va
 
-Trovare i bandi non è il collo di bottiglia degli enti piccoli: lo è avere chi segue la redazione della domanda. L’obiettivo è un sistema che, scelto un bando, guidi la costruzione della domanda passo per passo: quali documenti servono, quali si possono compilare in autonomia, quando serve un tecnico e di che tipo. Intorno a questo, un aggiornamento periodico delle fonti con avviso via mail quando compare un bando pertinente, e un calendario delle scadenze con promemoria sugli step preliminari.
+Trovare i bandi giusti, con le date vere, è il primo passo; il secondo è seguire la domanda. L’obiettivo è un sistema che, scelto un bando, guidi la costruzione della domanda passo per passo: quali documenti servono, quali si possono compilare in autonomia, quando serve un tecnico e di che tipo. Intorno a questo, un aggiornamento periodico delle fonti con avviso via mail quando compare un bando pertinente, e un calendario delle scadenze con promemoria sugli step preliminari.
 
 ## Stato
 

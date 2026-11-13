@@ -196,5 +196,8 @@ unione_comuni 7/1, impresa_turistica 5/4, qualsiasi_soggetto 4/3,
 impresa_artigiana_commerciale 4/3. Aperti per almeno un tipo di ente
 pubblico: 5.
 
-Verifica a mano di 20 bandi scelti a caso (seme 20261111): risultato da
-aggiungere.
+Verifica a mano di 20 bandi scelti a caso (seme 20261111): fatta l'11
+novembre 2026 su 23 bandi (i 20 a caso e 3 aperti per enti pubblici), con
+la seconda verifica del 12 novembre sui 10 riestratti. Risultati in
+`docs/verifica-manuale-2026-11-11.csv`, `docs/verifica-manuale-2026-11-12.csv`
+e nel README (sezione "Misure"); correzioni in `docs/piano-post-scansione.md`.
