@@ -781,6 +781,9 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
     Prima gli aperti, poi lo storico: gli scaduti da non piu' di
     GIORNI_STORICO giorni. Gli scaduti piu' vecchi non si elencano. Se non
     resta nessun bando da elencare, trovato e' False.
+
+    Il tema in archivio e' una categoria generale: se non trova niente, si
+    cercano le parole nei titoli (trova_bandi), e lo si dice in testa.
     """
     oggi = data_di_oggi().isoformat()
 
@@ -789,6 +792,16 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
         "ORDER BY scadenza DESC",
         (f"%{tema.lower()}%",),
     ).fetchall()
+    intestazione = f"Bandi sul tema '{tema}' in archivio:\n"
+
+    if not righe:
+        nei_titoli = [r for r in trova_bandi(conn, tema) if r["natura"] == "bando"]
+        # Lo stesso ordine della query sul tema: in SQLite i NULL vanno in
+        # fondo con DESC
+        righe = sorted(nei_titoli, key=lambda r: r["scadenza"] or "", reverse=True)
+        intestazione = (
+            f"Nessun bando con il tema '{tema}'; questi bandi lo nominano nel titolo:\n"
+        )
 
     if not righe:
         temi = conn.execute(
@@ -829,7 +842,7 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
             for r, scadenze in gruppo
         )
 
-    testo = f"Bandi sul tema '{tema}' in archivio:\n"
+    testo = intestazione
     testo += elenco(aperti) if aperti else NESSUNO_APERTO_TEMA.format(oggi=oggi)
     if storici:
         testo += f"\n{GRUPPO_STORICO}\n{elenco(storici)}"
@@ -1042,6 +1055,35 @@ def trova_bandi(conn: sqlite3.Connection, cercato: str) -> list:
     return [r for r in tutti if _quota_parole(parole, r["titolo"]) == 1]
 
 
+def trova_nel_testo(conn: sqlite3.Connection, cercato: str) -> list:
+    """I bandi che nominano tutte le parole cercate fuori dal titolo.
+
+    Il testo di un bando e' l'insieme dei suoi beneficiari (soggetto,
+    frase, condizioni) e delle descrizioni dei suoi interventi: un bando
+    neve nomina gli "impianti di risalita" nelle condizioni, non nel titolo.
+    """
+    parole = _parole(cercato)
+    if not parole:
+        return []
+
+    testi: dict[str, list[str]] = {}
+    for r in conn.execute(
+        "SELECT id_bando, coalesce(soggetto, '') || ' ' || frase || ' ' || "
+        "coalesce(condizioni, '') AS testo FROM beneficiari_bando "
+        "UNION ALL SELECT id_bando, descrizione FROM interventi_bando"
+    ):
+        testi.setdefault(r["id_bando"], []).append(r["testo"])
+
+    ids = [i for i, t in testi.items() if _quota_parole(parole, " ".join(t)) == 1]
+    if not ids:
+        return []
+    return conn.execute(
+        f"SELECT * FROM bandi WHERE id IN ({', '.join('?' for _ in ids)}) "
+        "ORDER BY titolo, id",
+        ids,
+    ).fetchall()
+
+
 def titoli_simili(conn: sqlite3.Connection, cercato: str) -> list:
     """I bandi con il titolo piu' vicino al testo cercato, dal piu' vicino."""
     parole = _parole(cercato)
@@ -1086,26 +1128,37 @@ def _riga_breve(conn: sqlite3.Connection, riga, oggi: str) -> str:
 def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
     """Tutti i dati strutturati di un bando, cercato per id o titolo.
 
-    Un bando: il suo dettaglio. Fino a MAX_DETTAGLI: il dettaglio di
+    Si cerca prima nei titoli (trova_bandi); se nessun titolo corrisponde,
+    nei beneficiari e negli interventi (trova_nel_testo), e lo si dice in
+    testa. Un bando: il suo dettaglio. Fino a MAX_DETTAGLI: il dettaglio di
     ciascuno, numerato. Oltre: l'elenco breve, senza sceglierne uno
     (trovato=False). Nessuno: i titoli piu' simili, mai l'elenco completo.
     """
     trovati = trova_bandi(conn, id_bando)
+    nel_testo = False
+    if not trovati:
+        trovati = trova_nel_testo(conn, id_bando)
+        nel_testo = True
     if not trovati:
         return _nessun_bando(conn, id_bando)
 
     oggi = data_di_oggi().isoformat()
     numerate = RigheBandi()
     quanti = len(trovati)
+    if nel_testo:
+        testa = (
+            f"Nessun titolo corrisponde a '{id_bando}'; questi bandi lo "
+            f"nominano nei beneficiari o negli interventi ({quanti})."
+        )
+        tutti, nessuno = " Ecco il dettaglio di tutti.", " Nessuno è stato scelto."
+    else:
+        testa = f"Più bandi corrispondono a '{id_bando}' ({quanti}):"
+        tutti, nessuno = " ecco il dettaglio di tutti.", " nessuno è stato scelto."
 
     if quanti <= MAX_DETTAGLI:
         righe = [numerate.numera(r, _dettaglio(conn, r, oggi)) for r in trovati]
-        if quanti > 1:
-            righe.insert(
-                0,
-                f"Più bandi corrispondono a '{id_bando}' ({quanti}): "
-                "ecco il dettaglio di tutti.",
-            )
+        if nel_testo or quanti > 1:
+            righe.insert(0, testa + (tutti if quanti > 1 else ""))
         return Risultato(
             "\n".join(righe),
             fonti=list(dict.fromkeys(fonte_bando(r) for r in trovati)),
@@ -1114,8 +1167,7 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
 
     mostrati = trovati[:MAX_CORRISPONDENZE]
     intestazione = (
-        f"Più bandi corrispondono a '{id_bando}' ({quanti}): nessuno è stato "
-        "scelto. Per il dettaglio serve il titolo di uno di questi."
+        f"{testa}{nessuno} Per il dettaglio serve il titolo di uno di questi."
     )
     righe = [
         intestazione,

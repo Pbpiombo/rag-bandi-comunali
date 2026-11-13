@@ -122,11 +122,17 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   più a caso tra titoli simili. Fino a 3 bandi il dettaglio di ciascuno,
   oltre un elenco breve; nessun bando, i 5 titoli più simili invece di
   tutti gli identificativi. Provato su "neve" e "Missione Comune" (due
-  dettagli ciascuno). Due limiti emersi dalla prova, da decidere: la
-  ricerca guarda solo i titoli (per "impianti di risalita" propone
-  impianti di rifiuti ed energia, non i bandi neve che li nominano nei
-  beneficiari); "bandi sulla conciliazione" va a `bandi_per_tema`, che
-  cerca nel tema e non nei titoli, e non trova i 5 bandi.
+  dettagli ciascuno).
+- **Ricerca fuori dal tema e dal titolo** (13 novembre 2026), i due limiti
+  emersi dalla prova della voce 6: `bandi_per_tema`, se il tema non trova
+  niente, cerca le parole nei titoli e lo dice in testa ("bandi sulla
+  conciliazione": i 5 bandi, tutti con tema "sociale"); `dettaglio_bando`,
+  se nessun titolo corrisponde, cerca tutte le parole nei beneficiari
+  (soggetto, frase, condizioni) e negli interventi, con le stesse regole
+  (fino a 3 il dettaglio, oltre l'elenco), e solo dopo i titoli simili
+  ("impianti di risalita": i due bandi neve). Limite: il confronto è tra
+  parole, non tra significati ("rifugi" trova un bando che nomina le case
+  rifugio per le donne vittime di violenza).
 
 ## In corso
 

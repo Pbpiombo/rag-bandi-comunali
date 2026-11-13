@@ -1235,3 +1235,126 @@ def test_nessun_titolo_simile(db):
         "Nessun bando corrisponde a 'piste da sci', e nessun titolo in "
         "archivio è simile."
     )
+
+
+# --- ricerca fuori dal tema e fuori dal titolo ---
+
+# Un beneficiario: senza, il bando va tra quelli da approfondire
+COMUNI = [("comune", None, None)]
+
+
+def test_tema_assente_cerca_nei_titoli(db):
+    bando(
+        db,
+        "welfare",
+        COMUNI,
+        titolo="Conciliazione vita-lavoro: welfare",
+        tema="sociale",
+    )
+    bando(db, "voucher", COMUNI, titolo="Conciliazione: voucher", tema="sociale")
+    bando(db, "altro", titolo="Bando parcheggi", tema="territorio")
+
+    r = ib.bandi_per_tema(db, "conciliazione")
+
+    righe = r.testo.splitlines()
+    assert righe[0] == (
+        "Nessun bando con il tema 'conciliazione'; questi bandi lo nominano nel titolo:"
+    )
+    assert len(r.voci) == 2
+    assert "parcheggi" not in r.testo
+    assert r.trovato
+
+
+def test_tema_presente_non_cerca_nei_titoli(db):
+    bando(db, "a", COMUNI, titolo="Conciliazione", tema="sociale")
+    bando(db, "b", COMUNI, titolo="Bando per la socialità", tema="cultura")
+
+    r = ib.bandi_per_tema(db, "sociale")
+
+    assert r.testo.startswith("Bandi sul tema 'sociale' in archivio:")
+    assert len(r.voci) == 1
+
+
+def test_tema_e_titoli_assenti(db):
+    bando(db, "a", titolo="Bando parcheggi", tema="territorio")
+
+    r = ib.bandi_per_tema(db, "conciliazione")
+
+    assert not r.trovato
+    assert r.testo.startswith("Nessun bando sul tema 'conciliazione'. Temi in")
+
+
+def interventi(conn, id_bando, *descrizioni):
+    for numero, descrizione in enumerate(descrizioni, start=1):
+        conn.execute(
+            "INSERT INTO interventi_bando (id_bando, numero, genere, descrizione, "
+            "frase) VALUES (?, ?, 'intervento', ?, 'frase')",
+            (id_bando, numero, descrizione),
+        )
+
+
+def test_un_bando_che_lo_nomina_nei_beneficiari(db):
+    condizioni = "gestire impianti di risalita in Toscana"
+    bando(db, "funz", [("impresa_turistica", condizioni, "Imprese")], titolo="Neve")
+    bando(db, "altro", [("comune", None, None)], titolo="Parcheggi")
+
+    r = ib.dettaglio_bando(db, "impianti di risalita")
+
+    righe = r.testo.splitlines()
+    assert righe[0] == (
+        "Nessun titolo corrisponde a 'impianti di risalita'; questi bandi lo "
+        "nominano nei beneficiari o negli interventi (1)."
+    )
+    assert righe[1].startswith("[#1] «Neve»")
+    assert r.trovato
+    assert len(r.voci) == 1
+
+
+def test_due_bandi_tra_beneficiari_e_interventi(db):
+    bando(db, "funz", [("impresa_turistica", "gestire impianti di risalita", None)])
+    bando(db, "inv", titolo="Neve investimenti")
+    interventi(db, "inv", "modernizzazione degli impianti di risalita")
+
+    r = ib.dettaglio_bando(db, "impianti di risalita")
+
+    assert r.testo.splitlines()[0] == (
+        "Nessun titolo corrisponde a 'impianti di risalita'; questi bandi lo "
+        "nominano nei beneficiari o negli interventi (2). Ecco il dettaglio di "
+        "tutti."
+    )
+    assert r.testo.count("dotazione complessiva") == 2
+
+
+def test_piu_di_tre_bandi_nel_testo_danno_l_elenco(db):
+    for numero in range(4):
+        bando(db, f"i{numero}", titolo=f"Bando {numero}")
+        interventi(db, f"i{numero}", "impianti di risalita")
+
+    r = ib.dettaglio_bando(db, "impianti di risalita")
+
+    assert r.testo.splitlines()[0] == (
+        "Nessun titolo corrisponde a 'impianti di risalita'; questi bandi lo "
+        "nominano nei beneficiari o negli interventi (4). Nessuno è stato "
+        "scelto. Per il dettaglio serve il titolo di uno di questi."
+    )
+    assert not r.trovato
+    assert "dotazione complessiva" not in r.testo
+
+
+def test_tutte_le_parole_nel_testo(db):
+    bando(db, "funz", [("impresa_turistica", "gestire impianti sportivi", None)])
+    interventi(db, "funz", "piste da sci")
+
+    r = ib.dettaglio_bando(db, "impianti di risalita")
+
+    assert r.testo.startswith("Nessun bando corrisponde a 'impianti di risalita'")
+
+
+def test_il_titolo_ha_la_precedenza_sul_testo(db):
+    bando(db, "titolo", titolo="Impianti di risalita 2026")
+    bando(db, "testo", [("impresa_turistica", "gestire impianti di risalita", None)])
+
+    r = ib.dettaglio_bando(db, "impianti di risalita")
+
+    assert len(r.voci) == 1
+    assert r.testo.startswith("[#1] «Impianti di risalita 2026»")
