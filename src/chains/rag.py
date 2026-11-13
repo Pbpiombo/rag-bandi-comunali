@@ -108,6 +108,13 @@ La popolazione dell'ente non è nel profilo: è nei DATI, nel blocco \
 abitanti, confrontala con quel dato e citalo con la sua etichetta. Se il \
 blocco non c'è, la popolazione dell'ente non è disponibile: dillo, senza \
 stimarla e senza sommare quella dei comuni.
+Nel confronto ci sono due dati di due fonti diverse: la soglia si cita \
+con l'etichetta del bando e la popolazione con quella del suo blocco, \
+ciascuna subito dopo il proprio numero. Mai una sola citazione per tutti \
+e due. Esempio, con il bando in [D1.3] e la popolazione in [D2]:
+  Il bando ammette i comuni fino a 5.000 abitanti (fonte: [D1.3], <atto \
+del bando>); il Comune ne ha 1.834 (fonte: [D2], <fonte indicata>), \
+quindi rientra nella soglia.
 
 BENEFICIARI DEI BANDI
 Se un bando indica "ammesso se ...", l'ente è ammesso a condizione: \

@@ -165,7 +165,11 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   `src/chains/rag.py`), citabile e verificato come gli altri dati; niente
   per l'Unione. Provato con il modello: "mutuo massimo in Sport Missione
   Comune" per Abetone sceglie la fascia dei 2 milioni con 1.834 abitanti,
-  9 dati verificati su 9.
+  9 dati verificati su 9. Poi una regola con esempio nel prompt: nel
+  confronto, soglia citata con l'etichetta del bando e popolazione con la
+  sua, ciascuna dopo il proprio numero (una prova aveva dato rosso per
+  "fino a 5.000 abitanti … 1.834 (fonte: [D2])"). Tre prove su "bandi
+  aperti" per Abetone: verde, verde, arancione, nessun rosso.
 - **Corrispondenza parziale nella ricerca per nome** (13 novembre 2026):
   `dettaglio_bando` dava "non trovo" sul "fondo strade MIT" perché "MIT"
   non è nel titolo. Ora, se nessun titolo contiene tutte le parole e uno
