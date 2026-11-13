@@ -89,6 +89,35 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   vanno a `dettaglio_bando` e trovano un solo bando ciascuna; "bandi per il
   commercio" resta `bandi_per_tema`, "bandi aperti per il Comune" resta
   `bandi_aperti_per_ente`.
+- **Supabase che non va in pausa** (13 novembre 2026): workflow
+  `.github/workflows/tieni_sveglio.yml`, una lettura ogni 3 giorni con
+  `scripts/manutenzione/tieni_sveglio.py` (connessione in sola lettura,
+  secret `DATABASE_URL` con la stringa del pooler). Primo lancio manuale
+  da GitHub riuscito.
+- **Domande d'esempio dell'app** (13 novembre 2026): 7 domande per il
+  consulente, su due righe (`app/app.py`): bandi aperti e in scadenza per
+  il Comune, Sport Missione Comune, imprese turistiche, aziende agricole,
+  costo giornaliero dell'avviso per il rafforzamento amministrativo,
+  popolazione. Router e interrogazioni provati su ciascuna, senza il
+  modello di risposta. Limiti: la domanda sulla popolazione non ha dati
+  per l'Unione, solo per i tre comuni; la domanda su Sport Missione
+  Comune nomina un bando, ma la risposta sta nei dati del bando, non nei
+  frammenti. L'esempio del router passa da "impianti di risalita"
+  (nessun bando con quel titolo, il router lo usava anche per le domande
+  sulle imprese turistiche) ad "aziende apistiche".
+- **Dati ISTAT dei tre comuni** (13 novembre 2026):
+  `scripts/manutenzione/carica_istat.py` (`--scarica`, `--prova`,
+  `--scrivi`). Popolazione al 1° gennaio 2019-2026 di Abetone Cutigliano,
+  Sambuca Pistoiese e San Marcello Piteglio dalla stessa tabella, il
+  bilancio demografico mensile di demo.istat.it (2025 e 2026 provvisori);
+  indirizzo della pagina e data di scaricamento nella fonte di ogni riga.
+  Gli 8 valori di Abetone coincidono con quelli già in archivio; i valori
+  2019-2024 coincidono con i file annuali `D7B<anno>.csv.zip`. Superficie
+  dei tre comuni dal file ISTAT "Altimetria Comuni al 31 dicembre 2021",
+  colonna `AREA_KMQ`. **Dato verificato modificato**: la superficie di
+  Abetone Cutigliano passa da 74,94 a 74,99 kmq, per avere i tre comuni
+  dallo stesso file; la fonte del 74,94 era solo "ISTAT", senza tabella.
+  File scaricati in `data/raw/istat/`, non versionata.
 
 ## In corso
 
@@ -96,6 +125,10 @@ Recupero dei bandi aperti mancanti emersi dalla ricognizione di ANCI
 Toscana (prima voce della sezione successiva).
 
 ## Prima della demo con il consulente pilota
+
+**Mandare la demo entro il 23 novembre 2026**: dopo scadono i due bandi
+neve (16 e 23 novembre), e la domanda d'esempio sulle imprese turistiche
+perde i suoi esempi migliori.
 
 - **Recupero dei bandi aperti mancanti** (`docs/ricognizione-fonti.md`,
   sezione 8):
@@ -107,10 +140,6 @@ Toscana (prima voce della sezione successiva).
     come l'Istituto per il Credito Sportivo;
   - Punti Digitale Facile, con una scansione della Regione;
   - Toscana Art Bonus, da estrarre quando esce l'avviso (dal 1° dicembre).
-- **Supabase che non va in pausa** dopo inattività: workflow
-  `.github/workflows/tieni_sveglio.yml` scritto (una lettura ogni 3 giorni,
-  `scripts/manutenzione/tieni_sveglio.py`). Da fare: creare il secret
-  `DATABASE_URL` e provare il workflow con il lancio manuale.
 - **Blocco B, voci ancora aperte** (`docs/revisione-2026-11-12.md`):
   `dettaglio_bando` che non sceglie a caso tra titoli simili (voce 6);
   sportelli con data di chiusura in `bandi_in_scadenza` (voce 12); README e
@@ -142,13 +171,8 @@ Toscana (prima voce della sezione successiva).
 - **Insieme di prova dell'estrattore**: dai bandi delle due verifiche a
   mano, con i valori controllati sulla pagina, per misurare quanti campi
   coincidono dopo ogni modifica al prompt o alle regole.
-- **Domande d'esempio dell'app**: sostituite con domande sui bandi pensate
-  per il consulente. Non devono nominare un avviso per titolo ("nel bando
-  X, quanto…"): con P2 il recupero cerca anche dentro l'avviso nominato,
-  ma restano casi non risolti e un frammento al limite
-  (`docs/prova-verificatore.md`, P2).
-- **Dati ISTAT di Sambuca Pistoiese e San Marcello Piteglio** caricati
-  (prompt per Claude Code pronto). Tutti e tre i comuni dalla stessa tabella.
+- **Limite di spesa mensile nella console di Anthropic**: si imposta a mano
+  nella console, non dal codice (spostata qui dalla coda).
 - **Se c'è tempo: Nuova Sabatini, Smart&Start, ISI INAIL verificati a
   mano**, con la frase della pagina come prova: misure nazionali per le
   imprese escluse dalla regola degli sportelli ma ancora attive
@@ -240,6 +264,17 @@ Toscana (prima voce della sezione successiva).
 
 ## In coda
 
+- Dopo la demo. Altitudine dei tre comuni (minima, massima, del centro)
+  dallo stesso file "Altimetria Comuni al 31 dicembre 2021", con
+  un'interrogazione per i dati del territorio. Serve alla domanda
+  sull'altitudine scartata tra gli esempi.
+- Dopo la demo. Tetto giornaliero complessivo di domande, con un contatore
+  su Supabase, prima di pubblicare il link dell'app: il limite per
+  sessione da solo non basta.
+- Dopo la demo. Nota sotto la casella delle domande: le domande vanno a un
+  servizio di AI, niente dati personali.
+- Dopo la demo. Post su LinkedIn dopo la risposta del consulente pilota,
+  con video o schermate, link al repository e al README.
 - Dopo la demo. Registro delle decisioni (`docs/decisioni.md`): una scheda
   per decisione (problema, alternative, misura, scelta, perché, cosa resta
   aperto), scritto per poterlo spiegare a voce.
@@ -312,7 +347,6 @@ Toscana (prima voce della sezione successiva).
 - Righe di `scansioni` con slug tagliati: da ripulire.
 - Link simbolici `.claude/skills` e `.agents/skills` verso `.venv` nel repo.
 - Fine riga CRLF/LF.
-- Limite di spesa mensile nella console di Anthropic.
 - Appartenenza dei comuni all'Unione nel profilo dell'ente.
 - Dalla scansione completa dell'11 novembre 2026:
   - `COSTO_NON_BANDO` in `estrai_nuovi` da rimisurare su pagine che non

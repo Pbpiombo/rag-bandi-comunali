@@ -1,2 +1,4 @@
-codice_ente,chiave,valore,unita,fonte
-90060100477,superficie,74.94,kmq,ISTAT
+﻿codice_ente,chiave,valore,unita,fonte
+80009370471,superficie,77.24,kmq,"ISTAT, Altimetria Comuni al 31 dicembre 2021, colonna AREA_KMQ | https://www.istat.it/wp-content/uploads/2026/02/Altimetria_Comuni-al-31_12_2021.xlsx | scaricato il 2026-11-13"
+90060100477,superficie,74.99,kmq,"ISTAT, Altimetria Comuni al 31 dicembre 2021, colonna AREA_KMQ | https://www.istat.it/wp-content/uploads/2026/02/Altimetria_Comuni-al-31_12_2021.xlsx | scaricato il 2026-11-13"
+90060110476,superficie,134.73,kmq,"ISTAT, Altimetria Comuni al 31 dicembre 2021, colonna AREA_KMQ | https://www.istat.it/wp-content/uploads/2026/02/Altimetria_Comuni-al-31_12_2021.xlsx | scaricato il 2026-11-13"

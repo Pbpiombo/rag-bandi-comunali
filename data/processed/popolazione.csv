@@ -1,9 +1,25 @@
-codice_ente,anno,residenti,fonte,data_rilevazione
-90060100477,2019,2019,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2019-01-01
-90060100477,2020,2037,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2020-01-01
-90060100477,2021,1973,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2021-01-01
-90060100477,2022,1902,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2022-01-01
-90060100477,2023,1836,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2023-01-01
-90060100477,2024,1814,ISTAT bilancio demografico mensile - popolazione al 1 gennaio,2024-01-01
-90060100477,2025,1829,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio),2025-01-01
-90060100477,2026,1834,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio),2026-01-01
+﻿codice_ente,anno,residenti,fonte,data_rilevazione
+80009370471,2019,1539,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2019&l=it | scaricato il 2026-11-13,2019-01-01
+80009370471,2020,1514,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2020&l=it | scaricato il 2026-11-13,2020-01-01
+80009370471,2021,1444,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2021&l=it | scaricato il 2026-11-13,2021-01-01
+80009370471,2022,1446,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2022&l=it | scaricato il 2026-11-13,2022-01-01
+80009370471,2023,1446,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2023&l=it | scaricato il 2026-11-13,2023-01-01
+80009370471,2024,1426,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2024&l=it | scaricato il 2026-11-13,2024-01-01
+80009370471,2025,1404,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio) | https://demo.istat.it/app/?i=D7B&a=2025&l=it | scaricato il 2026-11-13,2025-01-01
+80009370471,2026,1406,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio) | https://demo.istat.it/app/?i=D7B&a=2026&l=it | scaricato il 2026-11-13,2026-01-01
+90060100477,2019,2019,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2019&l=it | scaricato il 2026-11-13,2019-01-01
+90060100477,2020,2037,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2020&l=it | scaricato il 2026-11-13,2020-01-01
+90060100477,2021,1973,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2021&l=it | scaricato il 2026-11-13,2021-01-01
+90060100477,2022,1902,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2022&l=it | scaricato il 2026-11-13,2022-01-01
+90060100477,2023,1836,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2023&l=it | scaricato il 2026-11-13,2023-01-01
+90060100477,2024,1814,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2024&l=it | scaricato il 2026-11-13,2024-01-01
+90060100477,2025,1829,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio) | https://demo.istat.it/app/?i=D7B&a=2025&l=it | scaricato il 2026-11-13,2025-01-01
+90060100477,2026,1834,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio) | https://demo.istat.it/app/?i=D7B&a=2026&l=it | scaricato il 2026-11-13,2026-01-01
+90060110476,2019,7951,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2019&l=it | scaricato il 2026-11-13,2019-01-01
+90060110476,2020,7867,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2020&l=it | scaricato il 2026-11-13,2020-01-01
+90060110476,2021,7709,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2021&l=it | scaricato il 2026-11-13,2021-01-01
+90060110476,2022,7671,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2022&l=it | scaricato il 2026-11-13,2022-01-01
+90060110476,2023,7626,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2023&l=it | scaricato il 2026-11-13,2023-01-01
+90060110476,2024,7585,ISTAT bilancio demografico mensile - popolazione al 1 gennaio | https://demo.istat.it/app/?i=D7B&a=2024&l=it | scaricato il 2026-11-13,2024-01-01
+90060110476,2025,7493,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio) | https://demo.istat.it/app/?i=D7B&a=2025&l=it | scaricato il 2026-11-13,2025-01-01
+90060110476,2026,7410,ISTAT bilancio demografico mensile - popolazione al 1 gennaio (dato provvisorio) | https://demo.istat.it/app/?i=D7B&a=2026&l=it | scaricato il 2026-11-13,2026-01-01

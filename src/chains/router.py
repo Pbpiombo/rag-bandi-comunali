@@ -72,8 +72,8 @@ ESEMPI
 "Ci sono bandi aperti per le aziende agricole del territorio?"
 {{"documenti": false, "interrogazioni": [{{"nome": "bandi_per_beneficiario", "parametri": {{"tipo": "impresa_agricola"}}}}]}}
 
-"Quanto si può ottenere dal bando per gli impianti di risalita?"
-{{"documenti": true, "interrogazioni": [{{"nome": "dettaglio_bando", "parametri": {{"id_bando": "impianti di risalita"}}}}]}}
+"Quanto si può ottenere dal bando per le aziende apistiche?"
+{{"documenti": true, "interrogazioni": [{{"nome": "dettaglio_bando", "parametri": {{"id_bando": "aziende apistiche"}}}}]}}
 
 "Quali sono i requisiti per accedere al bando?"
 {{"documenti": true, "interrogazioni": []}}

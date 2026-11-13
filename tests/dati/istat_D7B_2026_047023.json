@@ -1,0 +1,322 @@
+{
+ "Status": true,
+ "Messaggio": null,
+ "type": "json",
+ "html": {
+  "class": "w3-table w3-responsive w3-striped"
+ },
+ "caption": "Bilancio demografico mensile anno 2026 (dati provvisori) \n<br>Comune: Abetone Cutigliano",
+ "nota": "Note: p = dato provvisorio. \n<br>v = dati in corso di validazione. I dati saranno rivisti nel bilancio demografico definitivo dell’anno, in seguito al rilascio dei dati dell'ultimo censimento permanente.",
+ "datatable": {
+  "data": [
+   {
+    "codistat": "047023",
+    "denominazione": "Abetone Cutigliano",
+    "mese": 1,
+    "nomemese": "1",
+    "sesso": 1,
+    "pop_iniziale": 911,
+    "nati_vivi": 0,
+    "morti": 2,
+    "saldo_naturale": -2,
+    "imm_altrocomune": 2,
+    "emi_altrocomune": 2,
+    "saldomig_interno": 0,
+    "imm_estero": 0,
+    "emi_estero": 0,
+    "saldomig_estero": 0,
+    "var_terr": 0,
+    "pop_finale": 909,
+    "iscr_altrimotivi": 0,
+    "canc_altrimotivi": 0,
+    "saldo_altrimotivi": 0,
+    "flag": "p"
+   },
+   {
+    "codistat": "047023",
+    "denominazione": "Abetone Cutigliano",
+    "mese": 1,
+    "nomemese": "1",
+    "sesso": 2,
+    "pop_iniziale": 923,
+    "nati_vivi": 1,
+    "morti": 3,
+    "saldo_naturale": -2,
+    "imm_altrocomune": 0,
+    "emi_altrocomune": 1,
+    "saldomig_interno": -1,
+    "imm_estero": 0,
+    "emi_estero": 0,
+    "saldomig_estero": 0,
+    "var_terr": 0,
+    "pop_finale": 920,
+    "iscr_altrimotivi": 0,
+    "canc_altrimotivi": 0,
+    "saldo_altrimotivi": 0,
+    "flag": "p"
+   },
+   {
+    "codistat": "047023",
+    "denominazione": "Abetone Cutigliano",
+    "mese": 1,
+    "nomemese": "1",
+    "sesso": 9,
+    "pop_iniziale": 1834,
+    "nati_vivi": 1,
+    "morti": 5,
+    "saldo_naturale": -4,
+    "imm_altrocomune": 2,
+    "emi_altrocomune": 3,
+    "saldomig_interno": -1,
+    "imm_estero": 0,
+    "emi_estero": 0,
+    "saldomig_estero": 0,
+    "var_terr": 0,
+    "pop_finale": 1829,
+    "iscr_altrimotivi": 0,
+    "canc_altrimotivi": 0,
+    "saldo_altrimotivi": 0,
+    "flag": "p"
+   },
+   {
+    "codistat": "047023",
+    "denominazione": "Abetone Cutigliano",
+    "mese": 2,
+    "nomemese": "2",
+    "sesso": 1,
+    "pop_iniziale": 909,
+    "nati_vivi": 0,
+    "morti": 0,
+    "saldo_naturale": 0,
+    "imm_altrocomune": 0,
+    "emi_altrocomune": 1,
+    "saldomig_interno": -1,
+    "imm_estero": 0,
+    "emi_estero": 0,
+    "saldomig_estero": 0,
+    "var_terr": 0,
+    "pop_finale": 908,
+    "iscr_altrimotivi": 1,
+    "canc_altrimotivi": 0,
+    "saldo_altrimotivi": 1,
+    "flag": "p"
+   },
+   {
+    "codistat": "047023",
+    "denominazione": "Abetone Cutigliano",
+    "mese": 2,
+    "nomemese": "2",
+    "sesso": 2,
+    "pop_iniziale": 920,
+    "nati_vivi": 0,
+    "morti": 2,
+    "saldo_naturale": -2,
+    "imm_altrocomune": 2,
+    "emi_altrocomune": 3,
+    "saldomig_interno": -1,
+    "imm_estero": 2,
+    "emi_estero": 1,
+    "saldomig_estero": 1,
+    "var_terr": 0,
+    "pop_finale": 918,
+    "iscr_altrimotivi": 0,
+    "canc_altrimotivi": 0,
+    "saldo_altrimotivi": 0,
+    "flag": "p"
+   },
+   {
+    "codistat": "047023",
+    "denominazione": "Abetone Cutigliano",
+    "mese": 2,
+    "nomemese": "2",
+    "sesso": 9,
+    "pop_iniziale": 1829,
+    "nati_vivi": 0,
+    "morti": 2,
+    "saldo_naturale": -2,
+    "imm_altrocomune": 2,
+    "emi_altrocomune": 4,
+    "saldomig_interno": -2,
+    "imm_estero": 2,
+    "emi_estero": 1,
+    "saldomig_estero": 1,
+    "var_terr": 0,
+    "pop_finale": 1826,
+    "iscr_altrimotivi": 1,
+    "canc_altrimotivi": 0,
+    "saldo_altrimotivi": 1,
+    "flag": "p"
+   }
+  ],
+  "columns": [
+   {
+    "data": "nomemese",
+    "title": "Mese"
+   },
+   {
+    "data": "sesso",
+    "title": "Sesso"
+   },
+   {
+    "data": "pop_iniziale",
+    "title": "Popolazione inizio periodo"
+   },
+   {
+    "data": "nati_vivi",
+    "title": "Nati vivi"
+   },
+   {
+    "data": "morti",
+    "title": "Morti"
+   },
+   {
+    "data": "saldo_naturale",
+    "title": "Saldo naturale"
+   },
+   {
+    "data": "imm_altrocomune",
+    "title": "Immigrati da altro comune"
+   },
+   {
+    "data": "emi_altrocomune",
+    "title": "Emigrati per altro comune"
+   },
+   {
+    "data": "saldomig_interno",
+    "title": "Saldo migratorio interno"
+   },
+   {
+    "data": "imm_estero",
+    "title": "Immigrati dall'estero"
+   },
+   {
+    "data": "emi_estero",
+    "title": "Emigrati per l'estero"
+   },
+   {
+    "data": "saldomig_estero",
+    "title": "Saldo migratorio con l'estero"
+   },
+   {
+    "data": "var_terr",
+    "title": "Unità in più/meno dovute a variazioni territoriali"
+   },
+   {
+    "data": "pop_finale",
+    "title": "Popolazione fine periodo"
+   },
+   {
+    "data": "iscr_altrimotivi",
+    "title": "Iscritti per altri motivi (v)"
+   },
+   {
+    "data": "canc_altrimotivi",
+    "title": "Cancellati per altri motivi (v)"
+   },
+   {
+    "data": "flag",
+    "title": "Informazioni"
+   }
+  ],
+  "targets": {
+   "messageBottom": [],
+   "targets_html": [],
+   "targets_num": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "targets_num_sex": [
+    1
+   ],
+   "targets_num_age": [],
+   "targets_num_fmt": [],
+   "targets_html_num": [],
+   "targets_html_num_fmt": [],
+   "targets_string": [],
+   "targets_date": [],
+   "targets_nome_mese": [],
+   "targets_num_mese": [
+    0
+   ],
+   "targets_num_custom": [],
+   "targets_num_custom_decode": [],
+   "dx": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "sx": [
+    0,
+    1
+   ],
+   "cx": [
+    16
+   ],
+   "PDForientation": "landscape",
+   "PDFpageSize": "A3",
+   "colvis_colonne": [],
+   "colvis_className": "w3-hide"
+  },
+  "options": {
+   "dom": "Bfrtip",
+   "paging": false,
+   "pageLength": 10,
+   "lengthMenu": [
+    [
+     10,
+     50,
+     100,
+     200,
+     500,
+     1000,
+     5000,
+     10000,
+     -1
+    ],
+    [
+     10,
+     50,
+     100,
+     200,
+     500,
+     1000,
+     5000,
+     10000,
+     "Tutti i record"
+    ]
+   ],
+   "lengthChange": true,
+   "order": [],
+   "ordering": true,
+   "keys": true
+  },
+  "language": {
+   "url": "../config/datatables_it.json",
+   "thousands": ".",
+   "decimal": ","
+  }
+ }
+}

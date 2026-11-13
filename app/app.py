@@ -35,11 +35,20 @@ SIMBOLI = {
 }
 
 ESEMPI = [
+    "Quali bandi sono aperti per il Comune?",
+    "Quali bandi per il Comune scadono nei prossimi 30 giorni?",
+    (
+        "Chi può partecipare a Sport Missione Comune e qual è il mutuo massimo "
+        "per un piccolo comune?"
+    ),
+    "Quali bandi aperti ci sono per le imprese turistiche?",
+    "Ci sono contributi aperti per le aziende agricole e forestali?",
     "Qual è il costo massimo giornaliero per un incarico professionale?",
-    "Quanti abitanti ha il Comune?",
-    "Il calo demografico giustifica la richiesta di fondi per le aree interne?",
-    "Entro quando va presentata la relazione annuale?",
+    "Quanti abitanti ha il Comune e come è cambiata la popolazione dal 2019?",
 ]
+
+# Bottoni degli esempi per riga: con 7 domande una riga sola e' troppo stretta
+ESEMPI_PER_RIGA = 4
 
 
 USA_POSTGRES = os.getenv("USA_POSTGRES", "1") == "1"
@@ -202,11 +211,15 @@ def main() -> None:
         st.session_state.domanda = ""
 
     st.markdown("###### Esempi")
-    colonne = st.columns(len(ESEMPI))
-    for colonna, esempio in zip(colonne, ESEMPI, strict=True):
-        with colonna:
-            if st.button(esempio, use_container_width=True):
-                st.session_state.domanda = esempio
+    for inizio in range(0, len(ESEMPI), ESEMPI_PER_RIGA):
+        riga = ESEMPI[inizio : inizio + ESEMPI_PER_RIGA]
+        # Sempre ESEMPI_PER_RIGA colonne: i bottoni dell'ultima riga restano
+        # larghi quanto quelli sopra
+        colonne = st.columns(ESEMPI_PER_RIGA)
+        for colonna, esempio in zip(colonne, riga, strict=False):
+            with colonna:
+                if st.button(esempio, use_container_width=True):
+                    st.session_state.domanda = esempio
 
     domanda = st.text_area(
         "Domanda",

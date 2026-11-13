@@ -1,0 +1,286 @@
+{
+ "Status": true,
+ "Messaggio": null,
+ "type": "json",
+ "html": {
+  "class": "w3-table w3-responsive w3-striped"
+ },
+ "caption": "Bilancio demografico mensile anno 2019 \n<br>Comune: Sambuca Pistoiese",
+ "nota": "",
+ "datatable": {
+  "data": [
+   {
+    "codistat": "047018",
+    "denominazione": "Sambuca Pistoiese",
+    "mese": 1,
+    "nomemese": "1",
+    "sesso": 1,
+    "pop_iniziale": 789,
+    "nati_vivi": 0,
+    "morti": 3,
+    "saldo_naturale": -3,
+    "imm_altrocomune": 6,
+    "emi_altrocomune": 3,
+    "saldomig_interno": 3,
+    "imm_estero": 0,
+    "emi_estero": 0,
+    "saldomig_estero": 0,
+    "var_terr": 0,
+    "pop_finale": 789,
+    "flag": null
+   },
+   {
+    "codistat": "047018",
+    "denominazione": "Sambuca Pistoiese",
+    "mese": 1,
+    "nomemese": "1",
+    "sesso": 2,
+    "pop_iniziale": 750,
+    "nati_vivi": 0,
+    "morti": 1,
+    "saldo_naturale": -1,
+    "imm_altrocomune": 3,
+    "emi_altrocomune": 1,
+    "saldomig_interno": 2,
+    "imm_estero": 0,
+    "emi_estero": 1,
+    "saldomig_estero": -1,
+    "var_terr": 0,
+    "pop_finale": 750,
+    "flag": null
+   },
+   {
+    "codistat": "047018",
+    "denominazione": "Sambuca Pistoiese",
+    "mese": 1,
+    "nomemese": "1",
+    "sesso": 9,
+    "pop_iniziale": 1539,
+    "nati_vivi": 0,
+    "morti": 4,
+    "saldo_naturale": -4,
+    "imm_altrocomune": 9,
+    "emi_altrocomune": 4,
+    "saldomig_interno": 5,
+    "imm_estero": 0,
+    "emi_estero": 1,
+    "saldomig_estero": -1,
+    "var_terr": 0,
+    "pop_finale": 1539,
+    "flag": null
+   },
+   {
+    "codistat": "047018",
+    "denominazione": "Sambuca Pistoiese",
+    "mese": 2,
+    "nomemese": "2",
+    "sesso": 1,
+    "pop_iniziale": 789,
+    "nati_vivi": 0,
+    "morti": 1,
+    "saldo_naturale": -1,
+    "imm_altrocomune": 3,
+    "emi_altrocomune": 0,
+    "saldomig_interno": 3,
+    "imm_estero": 0,
+    "emi_estero": 0,
+    "saldomig_estero": 0,
+    "var_terr": 0,
+    "pop_finale": 791,
+    "flag": null
+   },
+   {
+    "codistat": "047018",
+    "denominazione": "Sambuca Pistoiese",
+    "mese": 2,
+    "nomemese": "2",
+    "sesso": 9,
+    "pop_iniziale": 1539,
+    "nati_vivi": 3,
+    "morti": 2,
+    "saldo_naturale": 1,
+    "imm_altrocomune": 5,
+    "emi_altrocomune": 1,
+    "saldomig_interno": 4,
+    "imm_estero": 0,
+    "emi_estero": 0,
+    "saldomig_estero": 0,
+    "var_terr": 0,
+    "pop_finale": 1544,
+    "flag": null
+   },
+   {
+    "codistat": "047018",
+    "denominazione": "Sambuca Pistoiese",
+    "mese": 2,
+    "nomemese": "2",
+    "sesso": 2,
+    "pop_iniziale": 750,
+    "nati_vivi": 3,
+    "morti": 1,
+    "saldo_naturale": 2,
+    "imm_altrocomune": 2,
+    "emi_altrocomune": 1,
+    "saldomig_interno": 1,
+    "imm_estero": 0,
+    "emi_estero": 0,
+    "saldomig_estero": 0,
+    "var_terr": 0,
+    "pop_finale": 753,
+    "flag": null
+   }
+  ],
+  "columns": [
+   {
+    "data": "nomemese",
+    "title": "Mese"
+   },
+   {
+    "data": "sesso",
+    "title": "Sesso"
+   },
+   {
+    "data": "pop_iniziale",
+    "title": "Popolazione inizio periodo"
+   },
+   {
+    "data": "nati_vivi",
+    "title": "Nati vivi"
+   },
+   {
+    "data": "morti",
+    "title": "Morti"
+   },
+   {
+    "data": "saldo_naturale",
+    "title": "Saldo naturale"
+   },
+   {
+    "data": "imm_altrocomune",
+    "title": "Immigrati da altro comune"
+   },
+   {
+    "data": "emi_altrocomune",
+    "title": "Emigrati per altro comune"
+   },
+   {
+    "data": "saldomig_interno",
+    "title": "Saldo migratorio interno"
+   },
+   {
+    "data": "imm_estero",
+    "title": "Immigrati dall'estero"
+   },
+   {
+    "data": "emi_estero",
+    "title": "Emigrati per l'estero"
+   },
+   {
+    "data": "saldomig_estero",
+    "title": "Saldo migratorio con l'estero"
+   },
+   {
+    "data": "var_terr",
+    "title": "Unità in più/meno dovute a variazioni territoriali"
+   },
+   {
+    "data": "pop_finale",
+    "title": "Popolazione fine periodo"
+   }
+  ],
+  "targets": {
+   "messageBottom": [],
+   "targets_html": [],
+   "targets_num": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "targets_num_sex": [
+    1
+   ],
+   "targets_num_age": [],
+   "targets_num_fmt": [],
+   "targets_html_num": [],
+   "targets_html_num_fmt": [],
+   "targets_string": [],
+   "targets_date": [],
+   "targets_nome_mese": [],
+   "targets_num_mese": [
+    0
+   ],
+   "targets_num_custom": [],
+   "targets_num_custom_decode": [],
+   "dx": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ],
+   "sx": [
+    0,
+    1
+   ],
+   "cx": [],
+   "PDForientation": "landscape",
+   "PDFpageSize": "A3",
+   "colvis_colonne": [],
+   "colvis_className": "w3-hide"
+  },
+  "options": {
+   "dom": "Bfrtip",
+   "paging": false,
+   "pageLength": 10,
+   "lengthMenu": [
+    [
+     10,
+     50,
+     100,
+     200,
+     500,
+     1000,
+     5000,
+     10000,
+     -1
+    ],
+    [
+     10,
+     50,
+     100,
+     200,
+     500,
+     1000,
+     5000,
+     10000,
+     "Tutti i record"
+    ]
+   ],
+   "lengthChange": true,
+   "order": [],
+   "ordering": true,
+   "keys": true
+  },
+  "language": {
+   "url": "../config/datatables_it.json",
+   "thousands": ".",
+   "decimal": ","
+  }
+ }
+}

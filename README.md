@@ -251,6 +251,21 @@ per ogni riga:
 | `bandi.csv` | il catalogo dei bandi estratti |
 | `scansioni.csv` | il registro delle pagine delle fonti già esaminate |
 
+Popolazione e superficie dei tre comuni si caricano da ISTAT con uno script,
+che salva i file scaricati in `data/raw/istat/` e scrive nella fonte di ogni
+riga l'indirizzo e la data:
+
+```bash
+python -m scripts.manutenzione.carica_istat --scarica   # scarica i file ISTAT
+python -m scripts.manutenzione.carica_istat --prova     # mostra le differenze, non scrive
+python -m scripts.manutenzione.carica_istat --scrivi    # scrive ed esporta i CSV
+```
+
+La popolazione al 1° gennaio viene dal bilancio demografico mensile di
+demo.istat.it, la superficie dal file "Altimetria Comuni al 31 dicembre 2021".
+`--scrivi` si rifiuta se cambierebbe la popolazione di un anno definitivo già
+in archivio: possono cambiare solo gli anni provvisori.
+
 Ogni dato numerico è legato al suo ente con una chiave esterna verso la tabella
 `enti`: una riga con un codice ente inesistente viene rifiutata al caricamento,
 invece di finire nel database collegata a nessuno.
