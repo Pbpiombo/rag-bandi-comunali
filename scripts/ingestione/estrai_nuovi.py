@@ -54,6 +54,7 @@ from src.estrazione.bandi import (
     valida,
 )
 from src.estrazione.elenco import id_da_slug, leggi_elenchi, scopri
+from src.estrazione.grezzi import conservatore
 from src.estrazione.pagina import a_testo, ritaglia, scarica
 from src.estrazione.registro import da_non_riesaminare, registra, riepilogo
 from src.estrazione.salva import salva
@@ -287,14 +288,17 @@ def esamina(estrattore, voce, testo: str | None) -> tuple[str, str, str]:
     """
     if testo is None:
         testo = ritaglia(a_testo(scarica(voce.url)))
-    estrazione = estrai(estrattore, testo)
+    id_bando = id_da_slug(voce.slug, voce.url)
+    estrazione = estrai(
+        estrattore, testo, conserva=conservatore(id_bando, voce.url, testo)
+    )
     riga, problemi, avvisi = valida(estrazione, testo)
     avvisi = "; ".join(avvisi)
 
     if problemi:
         return "fallito", "; ".join(problemi), avvisi
 
-    riga["id"] = id_da_slug(voce.slug, voce.url)
+    riga["id"] = id_bando
     salvare, motivo = decidi_automatico(estrazione, riga)
 
     if salvare:

@@ -25,6 +25,12 @@ PROCESSED_DIR = DATA_DIR / "processed"
 CHROMA_DIR = DATA_DIR / "db" / "chroma"
 SQLITE_PATH = DATA_DIR / "db" / "comune.sqlite"
 
+# Dati grezzi, fuori dal repository: la cartella accanto al progetto.
+# ESTRAZIONI_DIR: la risposta del modello per ogni estrazione di un bando
+# (src/estrazione/grezzi.py), per rifare la validazione senza ripagarlo.
+DATI_GREZZI_DIR = ROOT_DIR.parent / "dati-grezzi"
+ESTRAZIONI_DIR = DATI_GREZZI_DIR / "estrazioni"
+
 # --- Parametri di ingestione ---
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 COLLECTION_NAME = "abetone_documenti"
@@ -36,4 +42,4 @@ CHUNK_OVERLAP = 250
 SOGLIA_CHUNK = 150
 
 # Ente selezionato all'apertura dell'app e usato dagli script da riga di comando.
-ENTE_PREDEFINITO = ("90060100477")
+ENTE_PREDEFINITO = "90060100477"

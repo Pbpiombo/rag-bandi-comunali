@@ -217,7 +217,7 @@ def test_riclassifica_tiene_le_date_vecchie_se_le_nuove_sono_vuote(
     )
     # la nuova estrazione e' quella della pagina salvata: una sola data
     monkeypatch.setattr(rb, "prendi", lambda _: pagina_salvata("tpl"))
-    monkeypatch.setattr(rb, "estrai", lambda _e, _t: interpreta(risposta("tpl")))
+    monkeypatch.setattr(rb, "estrai", lambda _e, _t, **_k: interpreta(risposta("tpl")))
     (precedente,) = rb.da_riclassificare()
 
     esito = rb.riclassifica(None, precedente)
@@ -384,7 +384,7 @@ def test_riclassifica_tiene_le_date_manuali_e_le_elenca(db_su_file, monkeypatch)
     _bando_con_date_manuali(db_su_file)
     # la nuova estrazione non trova date multiple e indica il 21/10/2021
     monkeypatch.setattr(rb, "prendi", lambda _: pagina_salvata("tpl"))
-    monkeypatch.setattr(rb, "estrai", lambda _e, _t: interpreta(risposta("tpl")))
+    monkeypatch.setattr(rb, "estrai", lambda _e, _t, **_k: interpreta(risposta("tpl")))
     (precedente,) = rb.da_riestrarre(["tpl"])[0]
 
     esito = rb.riclassifica(None, precedente)

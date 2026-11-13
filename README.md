@@ -281,6 +281,13 @@ L'estrazione è **assistita, non automatica**: ogni campo arriva con un livello
 di confidenza e la frase del documento da cui è stato ricavato. I campi critici
 (scadenza, ammissibilità del beneficiario) richiedono conferma.
 
+Ogni risposta del modello si conserva tale e quale, con il testo che gli è
+stato inviato, in `dati-grezzi/estrazioni/` accanto al progetto, fuori dal
+repository: un file `AAAA-MM-GG_<id del bando>.json` per estrazione, anche
+quando l'estrazione fallisce. `src/estrazione/grezzi.py` (`rileggi`) permette
+di rifare la validazione dopo una modifica alle regole senza ripagare il
+modello.
+
 ### Interrogare
 
 ```bash

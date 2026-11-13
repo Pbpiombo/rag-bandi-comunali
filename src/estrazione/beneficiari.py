@@ -51,7 +51,9 @@ PER_REQUISITO = "qualsiasi_soggetto"
 # Da dove viene una riga di beneficiari_bando. 'catalogo': la tipologia
 # del catalogo Incentivi Italia (src/estrazione/incentivi.py), solo tipi
 # privati; la frase e' il valore del file, non una frase del bando.
-ORIGINI = ("estrazione", "ammette_comuni", "catalogo")
+# 'manuale': riga inserita a mano, con la frase letta sulla pagina del
+# bando, come le date 'manuale' di scadenze_bando.
+ORIGINI = ("estrazione", "ammette_comuni", "catalogo", "manuale")
 
 # I tipi privati e tutti i tipi con un soggetto indicato, per le regole.
 # I tipi privati non comprendono cittadini_famiglie: "privati", "datori di

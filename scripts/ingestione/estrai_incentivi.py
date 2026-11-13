@@ -54,6 +54,7 @@ from src.estrazione.bandi import (
     valida,
 )
 from src.estrazione.beneficiari import TIPI_PUBBLICI
+from src.estrazione.grezzi import conservatore
 from src.estrazione.pagina import a_testo, ritaglia, scarica
 from src.estrazione.registro import registra
 from src.estrazione.salva import salva
@@ -110,13 +111,14 @@ def esamina_pagina(estrattore, esame: inc.Esame, robots: inc.Robots, fonte: str)
     except (OSError, HTTPException, ValueError) as errore:
         return "fallito", f"pagina non scaricata ({errore})", "", None
 
-    estrazione = estrai(estrattore, testo)
+    id_bando = f"incentivi-{esame.incentivo.id}"
+    estrazione = estrai(estrattore, testo, conserva=conservatore(id_bando, url, testo))
     riga, problemi, avvisi = valida(estrazione, testo)
     avvisi = "; ".join(avvisi)
     if problemi:
         return "fallito", "; ".join(problemi), avvisi, None
 
-    riga["id"] = f"incentivi-{esame.incentivo.id}"
+    riga["id"] = id_bando
     salvare, motivo = decidi_automatico(estrazione, riga)
     if not salvare:
         return "scartato", motivo, avvisi, riga

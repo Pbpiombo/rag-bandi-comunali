@@ -49,6 +49,7 @@ from src.estrazione.bandi import (
     scadenza_dalle_righe,
     valida,
 )
+from src.estrazione.grezzi import conservatore
 from src.estrazione.pagina import prendi
 from src.estrazione.salva import (
     COLONNE,
@@ -229,7 +230,11 @@ def riclassifica(estrattore, precedente: dict) -> dict:
             "motivo": f"pagina non scaricata ({errore})",
         }
 
-    estrazione = estrai(estrattore, testo)
+    estrazione = estrai(
+        estrattore,
+        testo,
+        conserva=conservatore(precedente["id"], precedente["url"], testo),
+    )
     riga, problemi, avvisi = valida(estrazione, testo)
     esito["avvisi"] = avvisi
 

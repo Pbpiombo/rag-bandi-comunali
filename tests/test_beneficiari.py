@@ -81,6 +81,17 @@ def test_origine_fuori_lista_e_rifiutata(con_bando):
         )
 
 
+@pytest.mark.parametrize(
+    "origine", ["estrazione", "ammette_comuni", "catalogo", "manuale"]
+)
+def test_ogni_origine_della_lista_e_accettata(con_bando, origine):
+    con_bando.execute(
+        "INSERT INTO beneficiari_bando (id_bando, tipo, frase, origine) "
+        "VALUES ('tpl', 'comune', 'frase', ?)",
+        (origine,),
+    )
+
+
 def test_un_bando_ha_piu_tipi_dalla_stessa_frase(con_bando):
     for tipo in ("comune", "unione_comuni", "altro_ente_pubblico"):
         _beneficiario(con_bando, tipo, condizioni="competenti")

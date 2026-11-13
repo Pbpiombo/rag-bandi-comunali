@@ -2,6 +2,7 @@
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -408,16 +409,40 @@ def interpreta(dati: dict) -> Estrazione:
     )
 
 
-def estrai(estrattore, testo: str, debug: bool = False) -> Estrazione:
-    """Estrae i dati dal testo della pagina, con confidenza e prove."""
-    grezzo = estrattore.invoke({"testo": testo})
-
+def _dati_grezzi(grezzo: str) -> dict:
+    """Il JSON della risposta del modello; ValueError se non lo e'."""
     try:
-        dati = json.loads(pulisci_json(grezzo))
+        return json.loads(pulisci_json(grezzo))
     except json.JSONDecodeError as errore:
         raise ValueError(
             f"Risposta non interpretabile come JSON: {errore}\n{grezzo[:300]}"
         ) from errore
+
+
+def interpreta_grezzo(grezzo: str) -> Estrazione:
+    """Dalla risposta del modello, tale e quale, a un'Estrazione."""
+    return interpreta(_dati_grezzi(grezzo))
+
+
+def estrai(
+    estrattore,
+    testo: str,
+    *,
+    conserva: Callable[[str], object] | None,
+    debug: bool = False,
+) -> Estrazione:
+    """Estrae i dati dal testo della pagina, con confidenza e prove.
+
+    conserva: la funzione che riceve la risposta grezza del modello, subito
+    dopo la chiamata e prima di interpretarla (src/estrazione/grezzi.py,
+    conservatore); None per non conservarla. E' obbligatoria: chi chiama
+    il modello decide sempre se la risposta si conserva.
+    """
+    grezzo = estrattore.invoke({"testo": testo})
+    if conserva is not None:
+        conserva(grezzo)
+
+    dati = _dati_grezzi(grezzo)
 
     if debug:
         print("--- JSON GREZZO ---")

@@ -7,6 +7,9 @@ Uso:
 Nella prima forma la pagina viene scaricata; nella seconda si parte da un
 testo gia' salvato, utile per rileggere una pagina senza riscaricarla.
 
+La risposta grezza del modello si conserva in dati-grezzi/estrazioni,
+fuori dal repository (src/estrazione/grezzi.py).
+
 La fonte del bando si ricava dal dominio dell'URL, confrontato con
 url_base delle fonti nel database: un URL di un sito che non e' una
 fonte non si estrae.
@@ -34,6 +37,7 @@ from src.estrazione.bandi import (
     valida,
 )
 from src.estrazione.elenco import fonte_di
+from src.estrazione.grezzi import conservatore
 from src.estrazione.pagina import prendi
 from src.estrazione.salva import ConflittoBando, conflitto, esiste, salva
 
@@ -199,7 +203,12 @@ def main() -> None:
     print(f"Testo utile: {len(testo)} caratteri\n")
 
     estrattore = costruisci_estrattore()
-    estrazione = estrai(estrattore, testo, debug="--debug" in sys.argv)
+    estrazione = estrai(
+        estrattore,
+        testo,
+        conserva=conservatore(id_bando, url, testo),
+        debug="--debug" in sys.argv,
+    )
 
     mostra(estrazione)
 

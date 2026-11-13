@@ -56,6 +56,12 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
 - **Microzonazione sismica e atto dei parcheggi** (12 novembre 2026): bandi
   sismici del 2026 trovati, tutti scaduti; atto di parcheggi-2026 corretto
   con `correggi_atti` (`docs/piano-fonti.md`, tappa 2).
+- **Risposta grezza del modello conservata per ogni estrazione** (13
+  novembre 2026): `dati-grezzi/estrazioni/AAAA-MM-GG_<id>.json`, fuori dal
+  repository, scritta subito dopo la chiamata e prima dell'interpretazione;
+  `estrai` la richiede a ogni chiamante (`src/estrazione/grezzi.py`, README).
+  Origine `manuale` per le righe di `beneficiari_bando` inserite a mano
+  (prima: neve investimenti 2026, "– Imprese;").
 - **Ricognizione di ANCI Toscana** (13 novembre 2026): prima misura di
   copertura, 8 bandi su 31 pertinenti in archivio, 8 su 20 sulle fonti già
   acquisite; Sviluppo Toscana come elenco in più (`docs/ricognizione-fonti.md`,
@@ -97,11 +103,6 @@ Toscana (prima voce della sezione successiva).
   ricognizione ANCI è la prima misura.
 - **Regola "niente si scarta in silenzio"**: righe da verificare e scarti in
   un elenco che si rilegge a ogni aggiornamento.
-- **Risposta grezza del modello conservata per ogni estrazione**, in
-  `dati-grezzi/estrazioni`, fuori dal repository: per rifare la
-  validazione senza ripagare il modello (oggi c'è solo per premi
-  imboschimenti e i due Missione Comune, `docs/piano-fonti.md`, quinta
-  serie). Serve anche all'insieme di prova dell'estrattore.
 - **Insieme di prova dell'estrattore**: dai bandi delle due verifiche a
   mano, con i valori controllati sulla pagina, per misurare quanti campi
   coincidono dopo ogni modifica al prompt o alle regole.
@@ -153,6 +154,10 @@ Toscana (prima voce della sezione successiva).
      con il modulo di normalizzazione del blocco A;
    - voce 7: le pagine scadute da poco tornano candidate, per le proroghe;
    - voce 8: le correzioni a mano su `bandi` protette dalla riestrazione;
+     anche le righe di `beneficiari_bando` con origine `manuale`, come le
+     date `manuale` di `scadenze_bando`: oggi `salva` sostituisce tutte le
+     righe dei beneficiari di un bando riestratto, e la riga "– Imprese;"
+     di neve investimenti 2026 andrebbe persa;
    - voce 9: nessuna desincronizzazione tra database e CSV (righe scartate
      al caricamento, ricreazione su database esistente, esportazione solo
      a fine corsa);

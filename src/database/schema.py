@@ -175,7 +175,8 @@ CREATE TABLE IF NOT EXISTS bandi (
 -- Chi puo' presentare domanda, per tipo di beneficiario (lista chiusa in
 -- src/estrazione/beneficiari.py), con le condizioni e la frase del bando.
 -- origine 'ammette_comuni': riga ricavata dal vecchio campo si'/no, che
--- diceva solo se i Comuni erano ammessi.
+-- diceva solo se i Comuni erano ammessi; 'manuale': riga inserita a mano,
+-- con la frase letta sulla pagina del bando.
 CREATE TABLE IF NOT EXISTS beneficiari_bando (
     id_bando        TEXT NOT NULL REFERENCES bandi(id),
     tipo            TEXT NOT NULL CHECK (tipo IN ({TIPI})),

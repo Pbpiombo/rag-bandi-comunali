@@ -40,7 +40,9 @@ def test_modello_vero_sulle_pagine_salvate(estrattore, nome):
     testo = (PAGINE / f"{nome}.txt").read_text(encoding="utf-8")
 
     contatore = UsageMetadataCallbackHandler()
-    estrazione = estrai(estrattore.with_config(callbacks=[contatore]), testo)
+    estrazione = estrai(
+        estrattore.with_config(callbacks=[contatore]), testo, conserva=None
+    )
     riga, problemi, avvisi = valida(estrazione, testo)
 
     # Il risultato e i token, stampati prima dei controlli: con -s si vedono
