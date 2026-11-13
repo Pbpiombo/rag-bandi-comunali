@@ -11,6 +11,9 @@ campo per campo ha trovato tre lacune, verificate sulla pagina della
 Regione:
 - professionisti tra i beneficiari, ma senza il tipo
   professionista_autonomo (tre bandi BEI);
+- minibond: Pmi di qualunque settore, classificate solo come
+  altra_impresa; si aggiungono impresa_artigiana_commerciale e
+  impresa_turistica, con la frase della pagina come condizione;
 - i due massimali dei minibond, 20.000 euro per la consulenza e 30 mila
   per le commissioni di garanzia, che il bando tenuto non riporta. Il
   contributo massimo resta vuoto: sono due massimali distinti, e la
@@ -49,6 +52,17 @@ TURISMO = "settore-turismo-sovvenzioni-per-abbattere-gli-interes-3b9deb"
 EU_BLENDING = "bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-8cd3ac"
 FINO_50MILA = "bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-7057d9"
 MINIBOND = "contributi-a-copertura-di-spese-di-emissione-obbligaz-d5ca7a"
+
+SOGGETTO_MINIBOND = (
+    "Pmi nella forma di società di capitali, società cooperative a "
+    "responsabilità limitata e per azioni"
+)
+FRASE_MINIBOND = (
+    "le Pmi nella forma di società di capitali, nonché di società cooperative "
+    "a responsabilità limitata e per azioni, diverse dalle banche, che "
+    "intendono avviare un'operazione di emissione di titoli obbligazionari "
+    "e/o di debito."
+)
 
 CONDIZIONI_EU_BLENDING = (
     "operare nei settori ammissibili ai sensi della delibera di giunta "
@@ -96,6 +110,15 @@ BENEFICIARI = [
             "compresi i liberi professionisti, la cui costituzione è avvenuta nel "
             "corso dei 36 mesi precedenti la data di presentazione della domanda"
         ),
+    ),
+    # Minibond: le Pmi in forma di societa' di capitali o cooperative, di
+    # qualunque settore. La tenuta aveva solo altra_impresa, e il bando
+    # non compariva tra quelli per le imprese turistiche, artigiane e
+    # commerciali (decisione del 13 novembre 2026, dopo il fermo di
+    # togli_doppioni)
+    *(
+        (MINIBOND, tipo, SOGGETTO_MINIBOND, FRASE_MINIBOND, FRASE_MINIBOND)
+        for tipo in ("impresa_artigiana_commerciale", "impresa_turistica")
     ),
 ]
 

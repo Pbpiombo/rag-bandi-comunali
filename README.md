@@ -18,7 +18,7 @@ sistema risponde per quell'ente.
 ## In breve
 
 - **Cosa fa**: risponde sui bandi per l'ente scelto (aperti, in scadenza, per tipo di beneficiario, dettaglio di un bando) e sui documenti in archivio, citando la fonte di ogni dato.
-- **Fonti**: 108 bandi da 6 fonti (Regione Toscana, Incentivi Italia, GAL MontagnAppennino, Sviluppo Toscana, Istituto per il Credito Sportivo e Culturale, Ministero delle Infrastrutture), dati ISTAT dei tre comuni, 5 avvisi e studi in PDF.
+- **Fonti**: 107 bandi da 6 fonti (Regione Toscana, Incentivi Italia, GAL MontagnAppennino, Sviluppo Toscana, Istituto per il Credito Sportivo e Culturale, Ministero delle Infrastrutture), dati ISTAT dei tre comuni, 5 avvisi e studi in PDF.
 - **Controllo dei dati**: un verificatore meccanico cerca ogni dato citato nella fonte dichiarata; l'estrazione dei bandi è misurata con verifiche a mano sulle pagine ufficiali.
 - **Misure**: verifica a mano di 23 bandi, scadenza corretta in 21; seconda verifica sui 10 bandi riestratti: scadenza corretta in 10, beneficiari in 7 e parzialmente in 3. Due prove con il modello: 138 dati segnati come verificati, nessun falso positivo. Recupero: 13 frammenti attesi su 16 tra i primi 10, 5 su 5 nelle domande di controllo.
 - **Limiti principali**: il verificatore controlla che un dato esista nella fonte, non che sia completo o attribuito alla cosa giusta; le fonti non coprono tutto (prima misura su un elenco esterno, il 13 novembre prima dei recuperi: 8 bandi su 31); gli aggiornamenti si lanciano a mano.
@@ -131,7 +131,7 @@ viene ogni dato. Si acquisiscono da queste fonti:
 | Fonte | Come si legge | Bandi |
 |---|---|---|
 | Portale bandi Regione Toscana | pagine web, due elenchi | 54 |
-| Incentivi Italia | file open data del catalogo nazionale | 50 |
+| Incentivi Italia | file open data del catalogo nazionale | 49 |
 | GAL MontagnAppennino | pagine web | 2 |
 | Sviluppo Toscana | pagine indicate a mano | 2 |
 | Istituto per il Credito Sportivo e Culturale | pagine indicate a mano | 2 |
@@ -151,7 +151,7 @@ motivo e la data del controllo, e l'importazione non la salva più. Prima
 di togliere un doppione (`scripts/manutenzione/togli_doppioni.py`) si
 confrontano le due versioni campo per campo e si controlla che la versione
 tenuta compaia in ogni interrogazione in cui compariva l'altra; se no, la
-rimozione si annulla. Il 13 novembre 2026 ne sono stati tolti 4.
+rimozione si annulla. Il 13 novembre 2026 ne sono stati tolti 5.
 
 Le schede di ANCI Toscana servono a
 scoprire i bandi, ma non sono una fonte: i dati si prendono sempre dalla
@@ -199,7 +199,7 @@ indicata, beneficiari non indicati sulla pagina, sportello probabilmente
 esaurito): solo i recenti, al più 10, con i contatti d'ufficio della
 pagina. I contatti li legge il codice (`src/estrazione/contatti.py`), mai
 nomi o email di persone: nel dubbio resta il collegamento alla pagina. Oggi
-li hanno 43 bandi su 108, e compaiono anche nel dettaglio.
+li hanno 43 bandi su 107, e compaiono anche nel dettaglio.
 
 ---
 

@@ -127,6 +127,36 @@ CORREZIONI = {
         "Decreto dirigenziale 18191 del 7 agosto 2026",
         ["Testo decreto 18191 del 07-08-2026"],
     ),
+    # Aggiunte il 13 novembre 2026, dopo la prova completa dall'app. Cultura
+    # Missione Comune non aveva atto: si scrive come quello di Sport
+    # Missione Comune, dalla stessa pagina dell'Istituto per il Credito
+    # Sportivo.
+    "cultura-missione-comune-2026": (
+        "riferimento_atto",
+        None,
+        (
+            "Avviso pubblico CULTURA MISSIONE COMUNE 2026, con Proroga del termine "
+            "di presentazione delle istanze"
+        ),
+        [
+            "Avviso pubblico CULTURA MISSIONE COMUNE 2026",
+            (
+                "Avviso n. 1 Cultura Missione Comune 2026 Proroga del termine di "
+                "presentazione delle istanze"
+            ),
+        ],
+    ),
+    # Il fondo strade aveva come atto il nome del file allegato: protocollo
+    # e data vengono da quel nome, che e' sulla pagina, e dal titolo
+    "fondo-strade-piccoli-comuni-2026": (
+        "riferimento_atto",
+        "avviso_pubblico_prot_26286_del_03_11_2026",
+        "Avviso pubblico 2026, prot. 26286 del 3 novembre 2026",
+        [
+            "Fondo piccoli Comuni: online l'Avviso pubblico 2026",
+            "Allegati: avviso_pubblico_prot_26286_del_03_11_2026.pdf",
+        ],
+    ),
     # sportello e data di chiusura non si contraddicono: la nota le riporta
     "conciliazione-vita-lavoro-contributi-per-lavoratrici-3d10eb": (
         "scadenza_nota",

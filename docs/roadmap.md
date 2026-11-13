@@ -192,10 +192,18 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   `cittadini_famiglie` sbagliata); poi `togli_doppioni --scrivi`, con
   confronto campo per campo e controllo delle interrogazioni: tolti 4
   (turismo BEI, EU-Blending 2026, finanziamenti fino a 50 mila, donne
-  datori di lavoro). Fermato il minibond (`incentivi-8026`): la versione
-  della Regione non ha i tipi impresa artigiana/commerciale e turistica
-  del catalogo. `data/processed/doppioni.csv` è il primo pezzo della
+  datori di lavoro). Il minibond (`incentivi-8026`) si era fermato: la
+  versione della Regione non aveva i tipi impresa artigiana/commerciale e
+  turistica; aggiunti con la frase della pagina (Pmi in forma di società
+  di capitali o cooperative, di qualunque settore), poi tolto anche lui:
+  5 doppioni tolti. `data/processed/doppioni.csv` è il primo pezzo della
   regola dei due domini (vedi "In coda").
+- **Atti di Cultura Missione Comune e del fondo strade MIT** (13 novembre
+  2026, quarto difetto della prova completa), con `correggi_atti` e le
+  frasi della pagina: Cultura senza atto diventa «Avviso pubblico CULTURA
+  MISSIONE COMUNE 2026, con Proroga del termine di presentazione delle
+  istanze», come Sport; il fondo strade passa dal nome del file a «Avviso
+  pubblico 2026, prot. 26286 del 3 novembre 2026».
 
 ## In corso
 
@@ -368,6 +376,10 @@ perde i suoi esempi migliori.
   sono per imprese o terzo settore.
 - Dopo la demo. Revisione dei test: segnalare quelli che ricopiano il
   codice invece di proteggere un comportamento.
+- Dopo la demo. Simulazione senza modello: quanti bandi per "PMI" o
+  "imprese" senza settore sono classificati solo come `altra_impresa`, e
+  quindi non compaiono nelle ricerche per settore (turistiche, artigiane
+  e commerciali, agricole). Caso del 13/11/2026: il minibond.
 - Dopo la demo. Regola che riconosce "professionisti" da solo come
   `professionista_autonomo` (oggi solo "liberi professionisti"), da
   provare sui casi in cui la parola indica consulenze e non beneficiari;
