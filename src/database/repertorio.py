@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from src.database.interrogazioni_bandi import (
     NOMI_ENTE,
+    SENZA_RIGHE_BENEFICIARI,
     SOLO_BANDI,
     bandi_aperti_per_ente,
     bandi_in_scadenza,
@@ -16,8 +17,10 @@ from src.database.interrogazioni_bandi import (
     bandi_per_tema,
     data_di_oggi,
     dettaglio_bando,
+    dividi,
     filtro_ente,
     gruppi_aperti,
+    recente,
     tipo_ente,
 )
 from src.database.interrogazioni_dati import (
@@ -222,30 +225,32 @@ def _stato_bandi(conn, codice_ente: str) -> str:
 
     oggi = data_di_oggi().isoformat()
     filtro, parametri = filtro_ente(tipo)
-    righe = conn.execute(
-        f"SELECT * FROM bandi WHERE {filtro} AND {SOLO_BANDI} "
-        "AND (scadenza IS NULL OR scadenza >= ?)",
+    tutte = conn.execute(
+        f"SELECT * FROM bandi WHERE ({filtro} OR {SENZA_RIGHE_BENEFICIARI}) "
+        f"AND {SOLO_BANDI} AND (scadenza IS NULL OR scadenza >= ?)",
         (*parametri, oggi),
     ).fetchall()
+    # Come le liste: i bandi con un dato mancante o incerto (scadenza o
+    # beneficiari non indicati, sportello probabilmente esaurito) non sono
+    # tra gli aperti. Si contano a parte, solo i recenti: gli stessi che la
+    # sezione "Da approfondire" dell'app puo' mostrare.
+    righe, con_problema = dividi(conn, tutte, oggi)
+    da_vedere = sum(recente(r, oggi) for r, _ in con_problema)
     # Aperti di sicuro: con scadenza futura o a sportello, e per i bandi a
-    # finestre con una finestra aperta. Senza scadenza e non a sportello:
-    # non si sa, si contano a parte; cosi' i bandi tra due finestre
-    a_scadenza, a_sportello, da_verificare, prossima = gruppi_aperti(conn, righe, oggi)
+    # finestre con una finestra aperta; a parte quelli tra due finestre
+    a_scadenza, a_sportello, _, prossima = gruppi_aperti(conn, righe, oggi)
     aperti = len(a_scadenza) + len(a_sportello)
     non_classificati = sum(
         r["classificato_il"] is None for r in (*a_scadenza, *a_sportello)
     )
-    senza_scadenza = len(da_verificare)
     testo = (
         f"bandi: {totale} in archivio, di cui {aperti} aperti a cui "
         f"{NOMI_ENTE[tipo]['uno']} può presentare domanda"
     )
     if tipo == "unione_comuni" and non_classificati:
         testo += f" ({non_classificati} con beneficiari non ancora classificati)"
-    if senza_scadenza:
-        testo += (
-            f", più {senza_scadenza} con scadenza non indicata, da verificare sul bando"
-        )
+    if da_vedere:
+        testo += f", più {da_vedere} da approfondire"
     if prossima:
         testo += f", più {len(prossima)} chiusi ora, con una prossima finestra"
     return testo

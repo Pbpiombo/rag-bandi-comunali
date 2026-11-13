@@ -161,9 +161,15 @@ def contatti_da_testo(testo: str, titolo: str | None = None) -> str | None:
             telefoni += _telefoni(riga, prima)
         prima = riga
 
+    # Lo stesso numero scritto in forme diverse (800327723 e 800 327 723)
+    # compare una volta, nella prima forma trovata
+    unici: dict[str, str] = {}
+    for numero in telefoni:
+        unici.setdefault(re.sub(r"\D", "", numero.removeprefix("+39")), numero)
+
     pezzi = []
     if email:
         pezzi.append("email: " + ", ".join(dict.fromkeys(email)))
-    if telefoni:
-        pezzi.append("telefono: " + ", ".join(dict.fromkeys(telefoni)))
+    if unici:
+        pezzi.append("telefono: " + ", ".join(unici.values()))
     return "; ".join(pezzi) or None

@@ -303,14 +303,29 @@ def test_il_dettaglio_dice_che_la_scadenza_non_e_indicata(db):
     assert ib.SENZA_SCADENZA in ib.dettaglio_bando(db, "senza").testo
 
 
-def test_stato_bandi_conta_a_parte_i_senza_scadenza(db):
-    bando(db, "senza", [("comune", None, None)], scadenza=None)
-    bando(db, "sportello", [("comune", None, None)], a_sportello=1, scadenza=None)
-    bando(db, "scadenza", [("comune", None, None)])
+def test_stato_bandi_conta_a_parte_i_da_approfondire(db):
+    comune = [("comune", None, None)]
+    bando(db, "sportello", comune, a_sportello=1, scadenza=None)
+    bando(db, "scadenza", comune)
+    # da approfondire, recenti: senza scadenza, sportello esaurito, senza
+    # beneficiari (per tutti gli enti)
+    bando(db, "senza", comune, scadenza=None, pubblicato_il="2026-10-01")
+    bando(
+        db,
+        "esaurito",
+        comune,
+        a_sportello=1,
+        scadenza=None,
+        titolo="Fondo 2025",
+        pubblicato_il="2023-01-01",
+    )
+    bando(db, "muto", [], pubblicato_il="2026-10-01")
+    # da approfondire ma vecchio: non si mostra e non si conta
+    bando(db, "vecchio", comune, scadenza=None, titolo="Festival 2021")
 
     assert _stato_bandi(db, COMUNE) == (
-        "bandi: 3 in archivio, di cui 2 aperti a cui un Comune può presentare "
-        "domanda, più 1 con scadenza non indicata, da verificare sul bando"
+        "bandi: 6 in archivio, di cui 2 aperti a cui un Comune può presentare "
+        "domanda, più 3 da approfondire"
     )
 
 

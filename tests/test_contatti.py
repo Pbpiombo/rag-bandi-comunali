@@ -132,6 +132,16 @@ def test_senza_contatti_restituisce_none():
     assert contatti_da_testo("Il bando finanzia interventi sulle strade.") is None
 
 
+def test_lo_stesso_numero_in_forme_diverse_compare_una_volta():
+    testo = (
+        "Numero verde 800327723\n"
+        "Assistenza: numero verde 800 327 723\n"
+        "Servizio clienti: +39 06 1234567, oppure 06-1234567\n"
+    )
+
+    assert contatti_da_testo(testo) == "telefono: 800327723, +39 06 1234567"
+
+
 def test_gli_indirizzi_ripetuti_compaiono_una_volta():
     testo = "Scrivere a info@esempio.it\nOppure a INFO@esempio.it.\n"
 

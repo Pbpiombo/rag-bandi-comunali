@@ -72,6 +72,11 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   rimando all'avviso; sezione "Da approfondire" dell'app (solo recenti, al
   più 10); contatti d'ufficio letti dal codice (`src/estrazione/contatti.py`).
   `scripts/manutenzione/aggiungi_contatti.py` provato solo con `--prova`.
+  Riepilogo della barra laterale allineato: i bandi da approfondire non
+  sono tra gli aperti, si contano a parte, solo i recenti. Contatti
+  scritti per 43 bandi su 112 con `aggiungi_contatti --scrivi`, dopo la
+  rilettura dell'esito della prova
+  (`dati-grezzi/contatti/2026-11-13_prova-contatti.csv`).
 - **Ricognizione di ANCI Toscana** (13 novembre 2026): prima misura di
   copertura, 8 bandi su 31 pertinenti in archivio, 8 su 20 sulle fonti già
   acquisite; Sviluppo Toscana come elenco in più (`docs/ricognizione-fonti.md`,
@@ -115,6 +120,10 @@ Toscana (prima voce della sezione successiva).
     i requisiti del bambino), alta formazione ("Università pubbliche" con
     la frase sul partenariato). Da correggere alla prossima riestrazione
     di quei bandi;
+  - `incentivi-2504`: la sua pagina ha i contatti di un polo digitale del
+    Friuli Venezia Giulia (IP4FVG); verificare perché è in archivio, se
+    la regola territoriale di Incentivi Italia lo lascia passare per
+    errore;
   - i bandi con dati mancanti non recenti (pubblicati da più di due anni,
     o con l'anno nel titolo più vecchio dell'anno scorso), che la sezione
     "Da approfondire" dell'app non mostra: es. festival 2021 e 2022,
@@ -122,12 +131,6 @@ Toscana (prima voce della sezione successiva).
 - **Prova di copertura**: elenco esterno di bandi rilevanti per il
   territorio nel 2026 (schede ANCI, BURT, consulente pilota). La
   ricognizione ANCI è la prima misura.
-- **Contatti per i bandi in archivio**: `aggiungi_contatti --scrivi`,
-  dopo aver riletto l'esito di `--prova` del 13/11/2026 (email scartate,
-  bandi senza contatti).
-- **Riepilogo dell'archivio nella barra laterale** (`stato_archivio`):
-  conta ancora i bandi senza scadenza e gli sportelli probabilmente
-  esauriti come prima; da allineare alla sezione "Da approfondire".
 - **Regola "niente si scarta in silenzio"**: righe da verificare e scarti in
   un elenco che si rilegge a ogni aggiornamento.
 - **Insieme di prova dell'estrattore**: dai bandi delle due verifiche a
