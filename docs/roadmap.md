@@ -64,10 +64,12 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   (`docs/prova-verificatore.md`, P2).
 - **Sport Missione Comune 2026 e Cultura Missione Comune 2026**: estratti
   il 13/11/2026 dalla fonte nuova `istituto-credito-sportivo` (elenco
-  spento). Da decidere: dove mettere il mutuo massimo per fascia di ente
-  (2, 4, 6 milioni) e "contributo fino al 100%" di Cultura Missione
-  Comune, che e' l'abbattimento degli interessi, non della spesa
-  (`docs/piano-fonti.md`, tappa 5, quarta serie).
+  spento). Mutuo massimo per fascia di ente nel testo dei beneficiari,
+  con la frase della pagina; `contributo_perc` di Cultura Missione Comune
+  svuotato (era l'abbattimento degli interessi). Fatto il 13/11/2026.
+- **Insieme di prova dell'estrattore**: dai bandi delle due verifiche a
+  mano, con i valori controllati sulla pagina, per misurare quanti campi
+  coincidono dopo ogni modifica al prompt o alle regole.
 - **Fonte per le misure nazionali rivolte ai comuni**: oggi mancano
   (Istituto per il Credito Sportivo, Dipartimento per lo Sport,
   ministeri; il catalogo Incentivi Italia non le contiene, perche' non
@@ -77,11 +79,6 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   attiva (oggi `attivo` = 0), la scansione deve rispettare il
   `Crawl-delay: 2` del robots.txt: oggi `estrai_nuovi` aspetta 0,5 s tra
   i download e 1 s tra le estrazioni.
-- **Nidi gratis 2026-2027**: le Unioni di Comuni risultano ammesse solo
-  "in forma associata". Potrebbe essere l'effetto del difetto di fusione
-  dei beneficiari corretto il 13/11/2026 (un soggetto senza condizioni
-  prendeva le condizioni di un altro con la stessa frase): controllare
-  la frase sulla pagina.
 - **Se c'è tempo: misure nazionali per le imprese escluse dalla regola
   degli sportelli ma ancora attive** (Nuova Sabatini, Smart&Start, bando
   ISI INAIL): verifica a mano di poche misure, con la frase della pagina
@@ -196,6 +193,10 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 
 ## In coda
 
+- Dopo la demo. Campo strutturato per gli importi per fascia di ente (es.
+  mutuo massimo di 2, 4 o 6 milioni secondo tipo e dimensione dell'ente,
+  Sport e Cultura Missione Comune): oggi la frase della pagina sta nel
+  testo dei beneficiari.
 - Dopo la demo. Incentivi Italia, link condivisi: oggi una riga con un
   `Link_istituzionale` usato da più righe del file è da verificare a mano
   (43 righe sul file del 12/11/2026). Molte sono misure sorelle sulla

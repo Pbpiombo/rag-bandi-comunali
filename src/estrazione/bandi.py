@@ -286,7 +286,11 @@ un beneficiario ammesso.
 la dotazione complessiva del bando, il costo del singolo progetto, \
 il contributo concedibile, la percentuale. contributo_perc e' la quota del \
 costo coperta dal contributo, non la quota garantita di un prestito o di \
-una garanzia. Se non distingui con certezza, usa null e confidenza "bassa".
+una garanzia. L'abbattimento degli interessi di un mutuo non e' un \
+contributo sul costo: "contributi per l'abbattimento totale degli \
+interessi" non da' contributo_perc 100, e l'importo massimo del mutuo \
+agevolabile non e' contributo_max ne' costo_max. Se non distingui con \
+certezza, usa null e confidenza "bassa".
 
 5. Se un dato non e' nel testo, usa null. NON dedurre, NON completare con \
 conoscenze tue."""

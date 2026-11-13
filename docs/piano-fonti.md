@@ -1139,3 +1139,32 @@ Le alternative scartate, per confronto: rischio sismico come elenchi
    dimensione dell'ente, ed e' l'importo del mutuo agevolabile, non il
    contributo. Il modello lo ha riconosciuto (prova di `contributo_max`)
    ma ha lasciato il valore vuoto. Da decidere dove registrarlo.
+
+## Decisioni ed esito (13/11/2026, quinta serie)
+
+1. **Mutuo massimo per fascia di ente**: la frase della pagina, testuale,
+   aggiunta al testo dei beneficiari di Sport e Cultura Missione Comune
+   ("L'importo massimo di mutuo agevolabile per ciascuna istanza e
+   complessivo è: 2 milioni di euro per i piccoli Comuni (fino a 5.000
+   abitanti); 4 milioni …; 6 milioni …"), letta dalla pagina al momento
+   (`scripts/manutenzione/importi_missione_comune.py`). Campo strutturato
+   per gli importi per fascia: roadmap, dopo la demo.
+2. **Cultura Missione Comune**: `contributo_perc` svuotato (era 100,
+   l'abbattimento totale degli interessi), con la frase della pagina
+   nella nota. Prompt dell'estrattore, regola IMPORTI: l'abbattimento
+   degli interessi di un mutuo non e' un contributo sul costo, e il mutuo
+   massimo agevolabile non e' `contributo_max` ne' `costo_max`.
+3. **Simulazione della fusione corretta dei beneficiari**, senza modello
+   e senza scrivere. Le risposte grezze del modello sono conservate solo
+   per tre bandi: premi imboschimenti (`dati-grezzi\estrazioni\`) e i due
+   Missione Comune (output del 13/11/2026). Su questi la simulazione e'
+   esatta: cambia solo Sport Missione Comune, gia' corretto. Per gli
+   altri bandi l'archivio ha solo le righe gia' fuse: controllo della
+   firma del difetto (riga con condizioni la cui frase elenca il tipo
+   due volte, una voce nuda e una con la condizione) sulle 149 righe con
+   condizioni: 1 candidata, amianto edifici pubblici, falso positivo (la
+   condizione "con sede nel territorio della Regione Toscana" vale per
+   tutti gli enti locali della frase). Nidi gratis 2026-2027: non e' il
+   difetto; la frase ammette le Unioni come "esercizio associato" dei
+   Comuni, con una sola voce, e i Comuni restano senza condizioni.
+   Nessuna riga da correggere; la decisione resta all'utente.

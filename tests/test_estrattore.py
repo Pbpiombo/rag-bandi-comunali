@@ -797,3 +797,8 @@ def test_due_condizioni_diverse_si_tengono_entrambe():
     ]
     righe = bandi._valida_beneficiari(voci, frase, [], [])
     assert [r["condizioni"] for r in righe] == ["montani; sotto i 5.000 abitanti"]
+
+
+def test_il_prompt_distingue_l_abbattimento_degli_interessi():
+    assert "L'abbattimento degli interessi di un mutuo non e' un" in ISTRUZIONI
+    assert "non da' contributo_perc 100" in ISTRUZIONI
