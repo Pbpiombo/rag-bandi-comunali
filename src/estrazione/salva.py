@@ -37,7 +37,12 @@ COLONNE = [
     "pubblicato_origine",
     "natura",
     "natura_motivo",
+    "beneficiari_rimando",
+    "contatti",
+    "contatti_letti_il",
 ]
+
+COLONNE_CONTATTI = ("contatti", "contatti_letti_il")
 
 COLONNE_BENEFICIARI = [
     "tipo",
@@ -245,9 +250,19 @@ def salva(riga: dict, url: str, fonte: str, codice_fonte: str) -> list[str]:
     riga["natura"] = "bando"
     riga["natura_motivo"] = None
 
+    # I contatti li legge valida dalla pagina: chi salva senza la chiave
+    # (es. il catalogo Incentivi Italia) non cancella quelli gia' letti
+    letti = "contatti" in riga
+    if letti:
+        riga["contatti_letti_il"] = oggi
+
     segnaposto = ", ".join("?" for _ in COLONNE)
     elenco = ", ".join(COLONNE)
-    aggiorna = ", ".join(f"{c} = excluded.{c}" for c in COLONNE if c != "id")
+    aggiorna = ", ".join(
+        f"{c} = excluded.{c}"
+        for c in COLONNE
+        if c != "id" and (letti or c not in COLONNE_CONTATTI)
+    )
 
     conn = connetti()
     try:

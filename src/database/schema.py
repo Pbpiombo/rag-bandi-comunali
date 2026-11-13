@@ -135,7 +135,12 @@ CREATE TABLE IF NOT EXISTS bandi (
     a_sportello         INTEGER NOT NULL DEFAULT 0
                         CHECK (a_sportello IN (0, 1)),
 
-    beneficiari         TEXT NOT NULL,
+    -- vuoto se la pagina non dice chi puo' presentare domanda: il bando si
+    -- salva comunque e compare tra quelli da approfondire
+    beneficiari         TEXT,
+    -- la frase della pagina che rimanda all'avviso per i requisiti, se i
+    -- beneficiari non sono sulla pagina
+    beneficiari_rimando TEXT,
     territorio          TEXT,
     premialita          TEXT,
 
@@ -169,7 +174,11 @@ CREATE TABLE IF NOT EXISTS bandi (
     -- graduatoria): resta in archivio, ma non compare tra le opportunita'
     natura              TEXT NOT NULL DEFAULT 'bando'
                         CHECK (natura IN ('bando', 'non_bando')),
-    natura_motivo       TEXT
+    natura_motivo       TEXT,
+    -- contatti d'ufficio letti dal codice sulla pagina (src/estrazione/
+    -- contatti.py): mai nomi o email di persone. Vuoto: vedi la pagina
+    contatti            TEXT,
+    contatti_letti_il   TEXT
 );
 
 -- Chi puo' presentare domanda, per tipo di beneficiario (lista chiusa in
@@ -306,6 +315,9 @@ TABELLE_DA_CSV = {
         "pubblicato_origine",
         "natura",
         "natura_motivo",
+        "beneficiari_rimando",
+        "contatti",
+        "contatti_letti_il",
     ],
     # beneficiari_bando, interventi_bando e scadenze_bando dopo bandi, a cui
     # fanno riferimento

@@ -240,46 +240,53 @@ def test_sportello_in_un_gruppo_separato_dopo_le_scadenze(db):
     assert righe[gruppo + 1].endswith(BASE + "sportello")
 
 
-# --- scadenza non indicata ---
+# --- scadenza non indicata: fuori dalle liste, da approfondire ---
 
 
-def test_senza_scadenza_in_un_gruppo_separato_dopo_lo_sportello(db):
-    bando(db, "senza", [("comune", None, None)], scadenza=None)
+def test_senza_scadenza_non_sta_nella_lista_ma_da_approfondire(db):
+    bando(
+        db, "senza", [("comune", None, None)], scadenza=None, pubblicato_il="2026-10-01"
+    )
     bando(db, "sportello", [("comune", None, None)], a_sportello=1, scadenza=None)
     bando(db, "scadenza", [("comune", None, None)])
 
-    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
-    righe = testo.splitlines()
+    r = ib.bandi_aperti_per_ente(db, COMUNE)
+    righe = r.testo.splitlines()
 
     assert righe[0].endswith("2 in archivio:")
     assert righe[1].endswith(BASE + "scadenza")
     assert righe[2] == ib.GRUPPO_SPORTELLO
     assert righe[3].endswith(BASE + "sportello")
-    assert righe[4] == "Scadenza non indicata, da verificare sul bando:"
-    assert righe[5].endswith(BASE + "senza")
-    assert "| scadenza non indicata, da verificare sul bando |" in righe[5]
+    assert len(righe) == 4
+    assert not righe_del_bando(r.testo, "senza")
+    assert [(a.titolo, a.problema) for a in r.da_approfondire] == [
+        ("Bando senza", ib.PROBLEMA_SCADENZA)
+    ]
 
 
 def test_solo_bandi_senza_scadenza(db):
-    bando(db, "senza", [("comune", None, None)], scadenza=None)
+    bando(
+        db, "senza", [("comune", None, None)], scadenza=None, pubblicato_il="2026-10-01"
+    )
 
     r = ib.bandi_aperti_per_ente(db, COMUNE)
 
-    assert r.trovato
-    assert r.testo.startswith(
-        "Nessun bando aperto di sicuro per i Comuni alla data del 2026-11-11"
+    assert not r.trovato
+    assert r.testo == (
+        "Nessun bando aperto con dati completi per i Comuni alla data del 2026-11-11."
     )
-    assert righe_del_bando(r.testo, "senza")
-    assert len(r.fonti) == 1
+    assert r.fonti == []
+    assert [a.url for a in r.da_approfondire] == [BASE + "senza"]
 
 
-def test_per_beneficiario_con_i_tre_gruppi(db):
+def test_per_beneficiario_senza_scadenza_da_approfondire(db):
     agricolo = [("impresa_agricola", None, None)]
-    bando(db, "senza", agricolo, scadenza=None)
+    bando(db, "senza", agricolo, scadenza=None, pubblicato_il="2026-10-01")
     bando(db, "sportello", agricolo, a_sportello=1, scadenza=None)
     bando(db, "scadenza", agricolo)
 
-    righe = ib.bandi_per_beneficiario(db, "impresa_agricola").testo.splitlines()
+    r = ib.bandi_per_beneficiario(db, "impresa_agricola")
+    righe = r.testo.splitlines()
 
     assert righe[0] == (
         "Bandi aperti per imprese agricole (alla data del 2026-11-11), 2 in archivio:"
@@ -287,8 +294,8 @@ def test_per_beneficiario_con_i_tre_gruppi(db):
     assert righe[1].endswith(BASE + "scadenza")
     assert righe[2] == ib.GRUPPO_SPORTELLO
     assert righe[3].endswith(BASE + "sportello")
-    assert righe[4] == ib.GRUPPO_SENZA_SCADENZA
-    assert righe[5].endswith(BASE + "senza")
+    assert len(righe) == 4
+    assert [a.titolo for a in r.da_approfondire] == ["Bando senza"]
 
 
 def test_il_dettaglio_dice_che_la_scadenza_non_e_indicata(db):
@@ -510,13 +517,14 @@ def test_ogni_riga_ha_il_suo_segnaposto_e_la_sua_voce(db):
 
     r = ib.bandi_aperti_per_ente(db, COMUNE)
 
-    ordine = ["scadenza", "sportello", "senza"]
+    # il bando senza scadenza non e' nella lista: non ha un segnaposto
+    ordine = ["scadenza", "sportello"]
     for k, id_bando in enumerate(ordine, start=1):
         (riga,) = righe_del_bando(r.testo, id_bando)
         assert riga.startswith(f"- [#{k}] «Bando {id_bando}»")
         assert r.voci[k - 1].testo == riga.removeprefix(f"- [#{k}] ")
         assert r.voci[k - 1].fonte.startswith("prova, ")
-    assert len(r.voci) == 3
+    assert len(r.voci) == 2
 
 
 def test_la_riga_del_bando_contiene_il_suo_atto(db):
@@ -938,3 +946,135 @@ def test_la_fonte_dice_estratti_il(db):
 
     assert fonte == "prova, Decreto 1 del 2026 (dati estratti il 2026-11-11)"
     assert "verificati" not in fonte
+
+
+# --- da approfondire ---
+
+RIMANDO = "Nell'avviso pubblico sono indicati i requisiti"
+
+
+def muto(db, id_bando, **campi):
+    """Un bando salvato con i beneficiari vuoti: la pagina non li dice."""
+    bando(db, id_bando, [], **campi)
+    db.execute("UPDATE bandi SET beneficiari = NULL WHERE id = ?", (id_bando,))
+
+
+def test_un_bando_senza_beneficiari_e_da_approfondire_per_tutti(db):
+    muto(
+        db,
+        "muto",
+        pubblicato_il="2026-10-01",
+        beneficiari_rimando=RIMANDO,
+        contatti="email: bandi@regione.toscana.it",
+    )
+    bando(db, "chiaro", [("comune", None, None)])
+
+    for r in (
+        ib.bandi_aperti_per_ente(db, COMUNE),
+        ib.bandi_aperti_per_ente(db, UNIONE),
+        ib.bandi_per_beneficiario(db, "impresa_agricola"),
+        ib.bandi_per_beneficiario(db, "cittadini_famiglie"),
+        ib.bandi_in_scadenza(db, COMUNE),
+    ):
+        assert not righe_del_bando(r.testo, "muto")
+        assert [(a.titolo, a.problema, a.contatti) for a in r.da_approfondire] == [
+            ("Bando muto", ib.PROBLEMA_RIMANDO, "email: bandi@regione.toscana.it")
+        ]
+
+
+def test_senza_rimando_il_problema_e_solo_beneficiari_non_indicati(db):
+    muto(db, "muto", pubblicato_il="2026-10-01")
+
+    (voce,) = ib.bandi_aperti_per_ente(db, COMUNE).da_approfondire
+
+    assert voce.problema == ib.PROBLEMA_BENEFICIARI
+    assert voce.contatti is None
+
+
+def test_uno_sportello_probabilmente_esaurito_e_da_approfondire(db):
+    bando(
+        db,
+        "vecchio",
+        [("comune", None, None)],
+        a_sportello=1,
+        scadenza=None,
+        titolo="Fondo rotativo 2025",
+        pubblicato_il="2023-01-10",
+    )
+
+    r = ib.bandi_aperti_per_ente(db, COMUNE)
+
+    assert not righe_del_bando(r.testo, "vecchio")
+    assert [a.problema for a in r.da_approfondire] == [ib.PROBLEMA_ESAURITO]
+
+
+@pytest.mark.parametrize(
+    ("titolo", "pubblicato", "mostrato"),
+    [
+        ("Bando muto", "2024-11-11", True),  # esattamente due anni
+        ("Bando muto", "2024-11-10", False),
+        ("Bando muto", None, False),
+        ("Festival 2021", None, False),
+        ("Festival 2025", None, True),  # l'anno scorso
+        ("Avviso 2023-2026", "2020-01-01", True),
+    ],
+)
+def test_solo_i_bandi_recenti_sono_da_approfondire(db, titolo, pubblicato, mostrato):
+    muto(db, "muto", titolo=titolo, pubblicato_il=pubblicato)
+
+    r = ib.bandi_aperti_per_ente(db, COMUNE)
+
+    assert bool(r.da_approfondire) == mostrato
+
+
+def test_al_piu_dieci_da_approfondire_i_piu_recenti_in_cima(db):
+    for giorno in range(1, 13):
+        muto(
+            db,
+            f"muto{giorno:02d}",
+            pubblicato_il=f"2026-10-{giorno:02d}",
+        )
+
+    voci = ib.bandi_aperti_per_ente(db, COMUNE).da_approfondire
+
+    assert [v.titolo for v in voci] == [f"Bando muto{g:02d}" for g in range(12, 2, -1)]
+
+
+def test_per_tema_gli_aperti_con_un_problema_sono_da_approfondire(db):
+    muto(db, "muto", tema="cultura", pubblicato_il="2026-10-01")
+    bando(db, "chiaro", [("comune", None, None)], tema="cultura")
+
+    r = ib.bandi_per_tema(db, "cultura")
+
+    assert righe_del_bando(r.testo, "chiaro")
+    assert not righe_del_bando(r.testo, "muto")
+    assert [a.titolo for a in r.da_approfondire] == ["Bando muto"]
+
+
+def test_il_dettaglio_dice_problema_beneficiari_e_contatti(db):
+    muto(
+        db,
+        "muto",
+        pubblicato_il="2026-10-01",
+        beneficiari_rimando=RIMANDO,
+        contatti="email: bandi@regione.toscana.it",
+    )
+
+    testo = ib.dettaglio_bando(db, "muto").testo
+
+    assert "| beneficiari: non indicati sulla pagina |" in testo
+    assert (
+        "beneficiari ammessi: non indicati sulla pagina; la pagina rimanda "
+        f"all'avviso: «{RIMANDO}»"
+    ) in testo
+    assert "| contatti: email: bandi@regione.toscana.it" in testo
+    assert f"| da approfondire: {ib.PROBLEMA_RIMANDO}" in testo
+
+
+def test_il_dettaglio_di_un_bando_chiaro_non_ha_problemi_ne_contatti_vuoti(db):
+    bando(db, "chiaro", [("comune", None, None)])
+
+    testo = ib.dettaglio_bando(db, "chiaro").testo
+
+    assert "da approfondire" not in testo
+    assert "contatti:" not in testo

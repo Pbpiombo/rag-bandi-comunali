@@ -196,6 +196,33 @@ def test_nessun_beneficiario_verificato_e_un_problema():
     assert "beneficiari_ammessi: nessun beneficiario con frase verificata" in problemi
 
 
+def test_il_soggetto_che_non_compare_nella_sua_frase_si_scarta():
+    # Festival 2021, 13/11/2026: la frase rimanda all'avviso e non nomina
+    # nessuno, il soggetto e' una deduzione del modello
+    rimando = (
+        "Nell'avviso pubblico sono indicati i requisiti (sia del soggetto "
+        "organizzatore, sia del progetto di festival)"
+    )
+    dati = risposta("musei")
+    voce = dati["beneficiari_ammessi"][0]
+    voce["soggetto"] = "soggetto organizzatore di Festival di spettacolo dal vivo"
+    voce["frase"] = rimando
+    _, _, problemi, avvisi, _ = esegui("musei", dati, aggiunta=f"\n{rimando}.")
+    assert any("il soggetto non compare nella sua frase" in a for a in avvisi)
+    assert "beneficiari_ammessi: nessun beneficiario con frase verificata" in problemi
+
+
+def test_il_soggetto_copiato_dalla_frase_passa_anche_con_maiuscole_e_spazi():
+    frase = "Possono partecipare i musei accreditati della Toscana."
+    dati = risposta("musei")
+    voce = dati["beneficiari_ammessi"][0]
+    voce["soggetto"] = "i  Musei ACCREDITATI della Toscana"
+    voce["frase"] = frase
+    _, riga, _, avvisi, _ = esegui("musei", dati, aggiunta=f"\n{frase}")
+    assert not any("non compare nella sua frase" in a for a in avvisi)
+    assert riga["beneficiari_ammessi"]
+
+
 def test_qualsiasi_soggetto_senza_condizioni_si_scarta():
     dati = risposta("musei")
     dati["beneficiari_ammessi"][0]["condizioni"] = None
@@ -399,6 +426,33 @@ def test_frase_nel_testo_ignora_spazi_maiuscole_apostrofi_e_punto_finale():
     assert not frase_nel_testo("ammontano a euro 2.000.000,00", pagina)
 
 
+# Un elenco HTML con il ";" fuori dall'elemento della voce: a_testo lascia
+# uno spazio prima, il modello copia la frase senza (borse di mobilita'
+# professionale, 13/11/2026)
+ELENCO_CON_SPAZI = (
+    "Per accedere al sostegno è necessario essere:\n"
+    "maggiorenne ;\nresidente in Toscana ;\n"
+    "iscritto/a ad un Centro per l'impiego della Toscana , al momento della stipula"
+)
+
+
+@pytest.mark.parametrize(
+    "frase",
+    [
+        "è necessario essere: maggiorenne; residente in Toscana; iscritto/a",
+        "è necessario essere : maggiorenne ; residente in Toscana",
+        "Centro per l'impiego della Toscana, al momento della stipula",
+    ],
+)
+def test_frase_nel_testo_ignora_lo_spazio_prima_della_punteggiatura(frase):
+    assert frase_nel_testo(frase, ELENCO_CON_SPAZI)
+
+
+def test_lo_spazio_prima_della_punteggiatura_non_rende_uguali_parole_diverse():
+    assert not frase_nel_testo("maggiorenne; residente in Lombardia", ELENCO_CON_SPAZI)
+    assert not frase_nel_testo("residente in Toscanaiscritto", ELENCO_CON_SPAZI)
+
+
 def test_il_prompt_contiene_tutti_i_tipi_e_le_regole():
     for codice in TIPI_BENEFICIARIO:
         assert f"- {codice}:" in ISTRUZIONI
@@ -460,6 +514,107 @@ def test_salva_scrive_beneficiari_e_interventi_e_sostituisce_i_migrati(db_su_fil
     )
     # classificato_il e' la data del salvataggio
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", bando[3])
+
+
+# --- bandi senza beneficiari sulla pagina, contatti ---
+
+RIMANDO = (
+    "Nell'avviso pubblico sono indicati i requisiti necessari per presentare "
+    "domanda di contributo"
+)
+
+
+def _senza_beneficiari(prova: str) -> dict:
+    """La risposta dei musei come per una pagina che non dice chi e' ammesso."""
+    dati = risposta("musei")
+    dati["beneficiari"] = {"valore": None, "confidenza": "alta", "prova": prova}
+    dati["beneficiari_ammessi"] = []
+    return dati
+
+
+def test_un_bando_senza_beneficiari_sulla_pagina_si_salva_vuoto():
+    _, riga, problemi, avvisi, decisione = esegui(
+        "musei", _senza_beneficiari(RIMANDO), aggiunta=f"\n{RIMANDO}."
+    )
+
+    assert problemi == []
+    assert riga["beneficiari"] is None
+    assert riga["beneficiari_ammessi"] == []
+    assert riga["beneficiari_rimando"] == RIMANDO
+    assert any("beneficiari non indicati sulla pagina" in a for a in avvisi)
+    assert decisione is not None
+
+
+def test_un_rimando_che_non_e_nella_pagina_non_si_tiene():
+    _, riga, problemi, *_ = esegui("musei", _senza_beneficiari("Frase inventata."))
+
+    assert problemi == []
+    assert riga["beneficiari_rimando"] is None
+
+
+def test_beneficiari_indicati_ma_nessuno_verificato_resta_un_problema():
+    dati = _senza_beneficiari(RIMANDO)
+    dati["beneficiari"]["valore"] = "le associazioni"
+    _, _, problemi, *_ = esegui("musei", dati, aggiunta=f"\n{RIMANDO}.")
+
+    assert "beneficiari_ammessi: nessun beneficiario con frase verificata" in problemi
+
+
+def test_i_contatti_d_ufficio_della_pagina_vanno_nella_riga():
+    aggiunta = "\nPer informazioni: bandimusei@regione.toscana.it\n"
+    _, riga, *_ = esegui("musei", aggiunta=aggiunta)
+
+    # toscanamusei@ e' gia' nella pagina salvata: "musei" e' nel titolo
+    assert riga["contatti"] == (
+        "email: toscanamusei@regione.toscana.it, bandimusei@regione.toscana.it"
+    )
+
+
+def _bando_in_archivio(db_su_file, url: str) -> None:
+    c = sqlite3.connect(db_su_file)
+    c.execute(
+        "INSERT INTO bandi (id, titolo, ente, beneficiari, url, fonte, codice_fonte, "
+        "verificato_il, contatti, contatti_letti_il) VALUES ('musei', 'vecchio', "
+        "'Regione', 'Musei', ?, 'prova', 'regione-toscana', '2026-01-01', "
+        "'email: info@esempio.it', '2026-01-01')",
+        (url,),
+    )
+    c.commit()
+    c.close()
+
+
+def test_salvare_un_bando_senza_beneficiari_lo_classifica_senza_righe(db_su_file):
+    url = "https://www.regione.toscana.it/-/musei"
+    _bando_in_archivio(db_su_file, url)
+    _, riga, *_ = esegui("musei", _senza_beneficiari(RIMANDO), aggiunta=f"\n{RIMANDO}.")
+    riga["id"] = "musei"
+
+    salva(riga, url, "Portale bandi Regione Toscana", "regione-toscana")
+
+    c = sqlite3.connect(db_su_file)
+    bando = c.execute(
+        "SELECT beneficiari, beneficiari_rimando, classificato_il FROM bandi"
+    ).fetchone()
+    righe = c.execute("SELECT COUNT(*) FROM beneficiari_bando").fetchone()[0]
+    c.close()
+    assert bando[:2] == (None, RIMANDO)
+    assert bando[2] is not None
+    assert righe == 0
+
+
+def test_chi_salva_senza_contatti_non_cancella_quelli_letti(db_su_file):
+    url = "https://www.regione.toscana.it/-/musei"
+    _bando_in_archivio(db_su_file, url)
+    _, riga, *_ = esegui("musei")
+    riga["id"] = "musei"
+    del riga["contatti"]
+
+    salva(riga, url, "Portale bandi Regione Toscana", "regione-toscana")
+
+    c = sqlite3.connect(db_su_file)
+    contatti = c.execute("SELECT contatti, contatti_letti_il FROM bandi").fetchone()
+    c.close()
+    assert contatti == ("email: info@esempio.it", "2026-01-01")
 
 
 # --- bandi a finestre o con piu' scadenze ---

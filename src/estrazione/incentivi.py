@@ -596,16 +596,29 @@ class Robots:
         regole.parse(testo.splitlines())
         return regole
 
-    def permesso(self, url: str) -> bool | None:
-        """Il percorso si puo' scaricare; None se robots.txt non si legge."""
+    def _regole_di(self, url: str) -> RobotFileParser | bool | None:
         parti = urlsplit(url)
         dominio_url = urlunsplit((parti.scheme, parti.netloc, "", "", ""))
         if dominio_url not in self._regole:
             self._regole[dominio_url] = self._leggi(dominio_url)
-        regole = self._regole[dominio_url]
+        return self._regole[dominio_url]
+
+    def permesso(self, url: str) -> bool | None:
+        """Il percorso si puo' scaricare; None se robots.txt non si legge."""
+        regole = self._regole_di(url)
         if isinstance(regole, bool) or regole is None:
             return regole
         return regole.can_fetch("*", url)
+
+    def attesa(self, url: str) -> float:
+        """I secondi da aspettare tra due download dal dominio (Crawl-delay).
+
+        0 se robots.txt non ne indica.
+        """
+        regole = self._regole_di(url)
+        if isinstance(regole, RobotFileParser):
+            return float(regole.crawl_delay("*") or 0)
+        return 0.0
 
 
 def indirizzo_ascii(url: str) -> str:

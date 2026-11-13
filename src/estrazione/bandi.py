@@ -21,6 +21,7 @@ from src.estrazione.beneficiari import (
     solo_ente_religioso,
     tipi_da_termini,
 )
+from src.estrazione.contatti import contatti_da_testo
 from src.estrazione.scadenza import nello_storico
 
 # I campi semplici del bando: nome -> (tipo, critico, con_prova).
@@ -169,7 +170,10 @@ che dice che si presenta fino a esaurimento delle risorse, copiata"}}
 Aggiungi la chiave "origine": "pubblicazione" se il testo indica la \
 pubblicazione (es. sul BURT), "atto" se usi la data dell'atto che approva \
 il bando perche' la pubblicazione non e' indicata
-- beneficiari: la frase del bando che definisce chi puo' presentare domanda
+- beneficiari: la frase del bando che definisce chi puo' presentare domanda. \
+Se la pagina non dice chi puo' presentare domanda (es. "nell'avviso sono \
+indicati i requisiti"), valore null e come prova la frase che rimanda \
+all'avviso, se c'e'; beneficiari_ammessi resta allora un elenco vuoto
 - costo_min, costo_max: importo minimo e massimo del PROGETTO ammissibile
 - contributo_perc: percentuale massima di contributo, solo il numero
 - contributo_min, contributo_max: importo minimo e massimo del CONTRIBUTO
@@ -195,10 +199,12 @@ modulistica
 BENEFICIARI AMMESSI
 "beneficiari_ammessi": un elenco, un elemento per ogni soggetto che il \
 bando ammette a presentare domanda:
-  {{"soggetto": "il soggetto come lo scrive il bando",
+  {{"soggetto": "il soggetto con le parole della frase, copiate: non \
+riformularlo, non abbreviarlo",
     "tipi": ["uno o piu' codici della lista sotto"],
     "condizioni": "le condizioni per essere ammesso, oppure null",
-    "frase": "la frase del bando che lo dice, copiata esattamente",
+    "frase": "la frase del bando che lo dice, copiata esattamente: un \
+tratto continuo della pagina, in un elenco la sola voce del soggetto",
     "confidenza": "alta", "media" o "bassa"}}
 Tipi ammessi, SOLO questi codici:
 {_elenco_tipi()}
@@ -227,7 +233,9 @@ Usa {PER_REQUISITO} solo se il bando definisce chi partecipa con un \
 requisito e non nomina nessun tipo di soggetto, neanche generico (privati, \
 soggetti pubblici, datori di lavoro): es. "i musei accreditati", "i \
 titolari di". Scrivi il requisito nelle condizioni. Non dedurre un tipo \
-che il bando non nomina.
+che il bando non nomina. Mai {PER_REQUISITO} con una frase che non nomina \
+nessun soggetto (es. una frase che rimanda all'avviso): allora l'elenco \
+resta vuoto.
 Condizioni: tutto cio' che restringe l'ammissione di quel soggetto, \
 scritto come requisito di chi presenta domanda, in modo che completi la \
 frase "ammesso se ...". Non descrivere l'oggetto del bando, ma cosa deve \
@@ -267,7 +275,12 @@ date, "scadenza" del bando e' l'ultima scadenza di genere "domanda".
 REGOLE CRITICHE
 
 1. FRASI. Ogni "frase" e ogni "prova" va copiata dal testo, parola per \
-parola: viene cercata nella pagina, e se non si trova il dato viene scartato.
+parola: viene cercata nella pagina, e se non si trova il dato viene scartato. \
+La frase e' un solo tratto continuo della pagina: non unire pezzi presi da \
+punti diversi, non saltare righe in mezzo, non aggiungere parole. In un \
+elenco copia solo la voce che nomina il soggetto o il dato (es. "– Imprese;"), \
+non la voce insieme ai requisiti scritti piu' sotto: i requisiti vanno nelle \
+condizioni.
 
 2. SCADENZA. Cerca la data entro cui si presenta la DOMANDA, non quella di \
 rendicontazione o di conclusione lavori. Se il testo segnala una proroga, \
@@ -534,6 +547,18 @@ def normalizza_valore(nome: str, valore) -> tuple[object, str | None]:
     return str(valore).strip(), None
 
 
+def _rimando_all_avviso(campi: list[Campo], testo: str) -> str | None:
+    """La prova del campo beneficiari vuoto: la frase che rimanda all'avviso.
+
+    Solo se la frase compare nella pagina; altrimenti None.
+    """
+    campo = next((c for c in campi if c.nome == "beneficiari"), None)
+    prova = (campo.prova or "").strip() if campo else ""
+    if prova and prova != "campo assente" and frase_nel_testo(prova, testo):
+        return prova
+    return None
+
+
 def _valida_beneficiari(
     voci: list, testo: str, problemi: list[str], avvisi: list[str]
 ) -> list[dict]:
@@ -576,6 +601,15 @@ def _valida_beneficiari(
             avvisi.append(
                 f"beneficiario '{nome}': frase non trovata nella pagina, "
                 f"scartato ('{frase[:80]}')"
+            )
+            continue
+
+        if soggetto and not frase_nel_testo(soggetto, frase):
+            # La frase deve nominare il soggetto: una frase che rimanda
+            # all'avviso o elenca requisiti non dice chi e' ammesso
+            avvisi.append(
+                f"beneficiario '{nome}': il soggetto non compare nella sua "
+                f"frase, scartato ('{frase[:80]}')"
             )
             continue
 
@@ -907,7 +941,7 @@ def valida(estrazione: Estrazione, testo: str) -> tuple[dict, list[str], list[st
         else:
             avvisi.append(f"{messaggio}, lasciato vuoto")
 
-    for obbligatorio in ("titolo", "ente", "beneficiari"):
+    for obbligatorio in ("titolo", "ente"):
         if not riga.get(obbligatorio):
             problemi.append(f"{obbligatorio}: campo obbligatorio mancante")
 
@@ -937,8 +971,24 @@ def valida(estrazione: Estrazione, testo: str) -> tuple[dict, list[str], list[st
     riga["beneficiari_ammessi"] = _valida_beneficiari(
         estrazione.beneficiari, testo, problemi, avvisi
     )
-    if not riga["beneficiari_ammessi"]:
+    riga["beneficiari_rimando"] = None
+    if riga["beneficiari_ammessi"]:
+        if not riga.get("beneficiari"):
+            problemi.append("beneficiari: campo obbligatorio mancante")
+    elif riga.get("beneficiari") or estrazione.beneficiari:
+        # Il modello ha indicato dei beneficiari, ma nessuno ha una frase
+        # verificata: un errore dell'estrazione, non una pagina muta
         problemi.append("beneficiari_ammessi: nessun beneficiario con frase verificata")
+    else:
+        # La pagina non dice chi puo' presentare domanda: il bando si salva
+        # con i beneficiari vuoti e compare tra quelli da approfondire
+        riga["beneficiari_rimando"] = _rimando_all_avviso(estrazione.campi, testo)
+        avvisi.append(
+            "beneficiari non indicati sulla pagina, salvati vuoti"
+            + (" (la pagina rimanda all'avviso)" if riga["beneficiari_rimando"] else "")
+        )
+
+    riga["contatti"] = contatti_da_testo(testo, riga.get("titolo"))
 
     riga["interventi"] = _valida_interventi(estrazione.interventi, testo, avvisi)
 

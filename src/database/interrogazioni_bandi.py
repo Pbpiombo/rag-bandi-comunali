@@ -7,10 +7,11 @@ vecchio campo si'/no: per loro si sa se ammettono i Comuni, non gli altri
 tipi di beneficiari.
 """
 
+import re
 import sqlite3
 from datetime import date
 
-from src.database.modelli import Risultato, VoceBando
+from src.database.modelli import Approfondimento, Risultato, VoceBando
 from src.estrazione.beneficiari import (
     PER_REQUISITO,
     TIPI_BENEFICIARIO,
@@ -58,6 +59,25 @@ NOTA_UNIONE = "beneficiari non ancora classificati: verificare se ammette le Uni
 # Un bando senza scadenza e non a sportello: la pagina non dice fino a
 # quando si puo' presentare domanda, e non si sa se e' ancora aperto
 SENZA_SCADENZA = "scadenza non indicata, da verificare sul bando"
+
+# "Da approfondire": i bandi pertinenti con un dato essenziale mancante o
+# incerto. Non stanno nelle liste: l'app li mostra sotto la risposta, senza
+# passare dal modello. Solo i recenti, al piu' MAX_DA_APPROFONDIRE.
+PROBLEMA_SCADENZA = "scadenza non indicata"
+PROBLEMA_ESAURITO = "sportello probabilmente esaurito"
+PROBLEMA_BENEFICIARI = "beneficiari non indicati sulla pagina"
+PROBLEMA_RIMANDO = "beneficiari non indicati sulla pagina, requisiti nell'avviso"
+MAX_DA_APPROFONDIRE = 10
+ANNI_DA_APPROFONDIRE = 2
+ANNO_NEL_TITOLO = re.compile(r"(?<!\d)(20\d{2})(?!\d)")
+BENEFICIARI_NON_INDICATI = "non indicati sulla pagina"
+
+# Un bando classificato senza righe di beneficiari: la pagina non dice chi
+# puo' presentare domanda. Compare tra i bandi da approfondire per tutti.
+SENZA_RIGHE_BENEFICIARI = (
+    "(bandi.classificato_il IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "
+    "beneficiari_bando AS b WHERE b.id_bando = bandi.id))"
+)
 GRUPPO_SPORTELLO = "A sportello, finché ci sono risorse:"
 GRUPPO_SENZA_SCADENZA = "Scadenza non indicata, da verificare sul bando:"
 # Un bando a finestre tra una finestra chiusa e la prossima
@@ -149,6 +169,17 @@ def _anni_fa(oggi: str, anni: int) -> str:
         return giorno.replace(year=giorno.year - anni).isoformat()
     except ValueError:  # 29 febbraio
         return giorno.replace(year=giorno.year - anni, day=28).isoformat()
+
+
+def probabilmente_esaurito(riga, oggi: str) -> bool:
+    """Uno sportello senza data di chiusura pubblicato da oltre la soglia."""
+    pubblicato = riga["pubblicato_il"]
+    return bool(
+        riga["a_sportello"]
+        and not riga["scadenza"]
+        and pubblicato
+        and pubblicato < _anni_fa(oggi, SOGLIA_SPORTELLO_ANNI)
+    )
 
 
 def stato_sportello(riga, oggi: str) -> str:
@@ -372,7 +403,7 @@ def formatta_bando(
     if riga["scadenza_nota"]:
         pezzi.append(f"nota: {riga['scadenza_nota']}")
 
-    pezzi.append(f"beneficiari: {riga['beneficiari']}")
+    pezzi.append(f"beneficiari: {riga['beneficiari'] or BENEFICIARI_NON_INDICATI}")
 
     if nota:
         pezzi.append(nota)
@@ -468,6 +499,84 @@ def senza_scadenza(riga) -> bool:
     return not riga["a_sportello"] and not riga["scadenza"]
 
 
+def senza_beneficiari(riga, beneficiari: list) -> bool:
+    """La pagina non dice chi puo' presentare domanda.
+
+    Un bando classificato senza righe di beneficiari: si e' salvato con i
+    beneficiari vuoti. I bandi non ancora classificati non contano.
+    """
+    return riga["classificato_il"] is not None and not beneficiari
+
+
+def problema(conn: sqlite3.Connection, riga, oggi: str) -> str | None:
+    """Il dato essenziale che manca o e' incerto, in poche parole; None se chiaro.
+
+    Si calcola a ogni domanda, non si memorizza. Un bando con un problema
+    non sta nelle liste principali: va nella sezione "Da approfondire".
+    """
+    pezzi = []
+    if senza_beneficiari(riga, beneficiari_di(conn, riga["id"])):
+        pezzi.append(
+            PROBLEMA_RIMANDO if riga["beneficiari_rimando"] else PROBLEMA_BENEFICIARI
+        )
+    domande, _, _ = finestre(scadenze_di(conn, riga["id"]), oggi)
+    if not domande:
+        if senza_scadenza(riga):
+            pezzi.append(PROBLEMA_SCADENZA)
+        elif probabilmente_esaurito(riga, oggi):
+            pezzi.append(PROBLEMA_ESAURITO)
+    return "; ".join(pezzi) or None
+
+
+def anni_nel_titolo(titolo: str) -> list[int]:
+    """Gli anni scritti nel titolo (es. "bando 2026-2027" -> [2026, 2027])."""
+    return [int(a) for a in ANNO_NEL_TITOLO.findall(titolo or "")]
+
+
+def recente(riga, oggi: str) -> bool:
+    """Pubblicato negli ultimi anni, o con un anno recente nel titolo.
+
+    Solo i bandi recenti compaiono in "Da approfondire": i piu' vecchi
+    (es. festival 2021) finiscono nel controllo degli scarti.
+    """
+    pubblicato = riga["pubblicato_il"]
+    if pubblicato and pubblicato >= _anni_fa(oggi, ANNI_DA_APPROFONDIRE):
+        return True
+    anni = anni_nel_titolo(riga["titolo"])
+    return bool(anni) and max(anni) >= date.fromisoformat(oggi).year - 1
+
+
+def _quando(riga) -> str:
+    """La data per ordinare dal piu' recente: pubblicazione, o anno del titolo."""
+    anni = anni_nel_titolo(riga["titolo"])
+    return riga["pubblicato_il"] or (f"{max(anni)}-01-01" if anni else "")
+
+
+def da_approfondire(con_problema: list, oggi: str) -> list[Approfondimento]:
+    """Le voci della sezione "Da approfondire": recenti, al piu' MAX, in ordine.
+
+    con_problema: coppie (riga del bando, problema).
+    """
+    recenti = [(r, p) for r, p in con_problema if recente(r, oggi)]
+    recenti.sort(key=lambda coppia: _quando(coppia[0]), reverse=True)
+    return [
+        Approfondimento(r["titolo"], r["url"], p, r["contatti"])
+        for r, p in recenti[:MAX_DA_APPROFONDIRE]
+    ]
+
+
+def dividi(conn: sqlite3.Connection, righe: list, oggi: str) -> tuple[list, list]:
+    """I bandi chiari, e quelli con un problema con il loro problema."""
+    chiari, con_problema = [], []
+    for r in righe:
+        p = problema(conn, r, oggi)
+        if p:
+            con_problema.append((r, p))
+        else:
+            chiari.append(r)
+    return chiari, con_problema
+
+
 def gruppi_aperti(conn: sqlite3.Connection, righe: list, oggi: str) -> tuple:
     """Divide i bandi non scaduti in quattro gruppi.
 
@@ -543,27 +652,32 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
     oggi = data_di_oggi().isoformat()
     filtro, parametri = filtro_ente(tipo)
 
-    righe = conn.execute(
+    tutte = conn.execute(
         f"""
         SELECT * FROM bandi
-        WHERE {filtro}
+        WHERE ({filtro} OR {SENZA_RIGHE_BENEFICIARI})
           AND {SOLO_BANDI}
           AND (scadenza IS NULL OR scadenza >= ?)
         ORDER BY a_sportello, scadenza
         """,
         (*parametri, oggi),
     ).fetchall()
+    righe, con_problema = dividi(conn, tutte, oggi)
+    approfondire = da_approfondire(con_problema, oggi)
 
     if not righe:
         totale = conn.execute(
             f"SELECT COUNT(*) FROM bandi WHERE {filtro} AND {SOLO_BANDI}", parametri
         ).fetchone()[0]
-        return Risultato(
+        testo = (
             f"Nessun bando aperto per {nomi['tutti']} alla data del {oggi}. "
             f"In archivio ce ne sono {totale} rivolti a {nomi['tutti']}, "
-            "tutti scaduti.",
-            trovato=False,
+            "tutti scaduti."
+            if not con_problema
+            else f"Nessun bando aperto con dati completi per {nomi['tutti']} "
+            f"alla data del {oggi}."
         )
+        return Risultato(testo, trovato=False, da_approfondire=approfondire)
 
     gruppi = gruppi_aperti(conn, righe, oggi)
     aperti = len(gruppi[0]) + len(gruppi[1])
@@ -580,7 +694,12 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
         lambda gruppo: _elenco(conn, gruppo, oggi, tipo, numerate),
     )
 
-    return Risultato(testo, fonti=fonti_dei_gruppi(righe, gruppi), voci=numerate.voci)
+    return Risultato(
+        testo,
+        fonti=fonti_dei_gruppi(righe, gruppi),
+        voci=numerate.voci,
+        da_approfondire=approfondire,
+    )
 
 
 def bandi_in_scadenza(
@@ -600,7 +719,7 @@ def bandi_in_scadenza(
     candidati = conn.execute(
         f"""
         SELECT * FROM bandi
-        WHERE {filtro}
+        WHERE ({filtro} OR {SENZA_RIGHE_BENEFICIARI})
           AND {SOLO_BANDI}
           AND a_sportello = 0
           AND scadenza >= ?
@@ -613,12 +732,15 @@ def bandi_in_scadenza(
         scadenza = scadenza_vicina(r, scadenze_di(conn, r["id"]), oggi.isoformat())
         if scadenza and scadenza <= limite:
             in_scadenza.append((scadenza, r))
-    righe = [r for _, r in sorted(in_scadenza, key=lambda coppia: coppia[0])]
+    ordinate = [r for _, r in sorted(in_scadenza, key=lambda coppia: coppia[0])]
+    righe, con_problema = dividi(conn, ordinate, oggi.isoformat())
+    approfondire = da_approfondire(con_problema, oggi.isoformat())
 
     if not righe:
         return Risultato(
             f"Nessun bando per {plurale} in scadenza nei prossimi {giorni} giorni.",
             trovato=False,
+            da_approfondire=approfondire,
         )
 
     numerate = RigheBandi()
@@ -628,6 +750,7 @@ def bandi_in_scadenza(
         f"Bandi per {plurale} in scadenza entro {giorni} giorni:\n{elenco}",
         fonti=[fonte_bando(r) for r in righe],
         voci=numerate.voci,
+        da_approfondire=approfondire,
     )
 
 
@@ -680,11 +803,15 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
     # lo storico non si confonde con le opportunita' di oggi. La
     # numerazione prosegue. Gli scaduti piu' vecchi non entrano.
     giorno = date.fromisoformat(oggi)
-    aperti, storici = [], []
+    aperti, storici, con_problema = [], [], []
     for r in righe:
         scadenze = scadenze_di(conn, r["id"])
         if not scaduto(r, scadenze, oggi):
-            aperti.append((r, scadenze))
+            p = problema(conn, r, oggi)
+            if p:
+                con_problema.append((r, p))
+            else:
+                aperti.append((r, scadenze))
         elif nello_storico(r["scadenza"], giorno):
             storici.append((r, scadenze))
 
@@ -711,6 +838,7 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
         fonti=[fonte_bando(r) for r, _ in [*aperti, *storici]],
         voci=numerate.voci,
         trovato=bool(aperti or storici),
+        da_approfondire=da_approfondire(con_problema, oggi),
     )
 
 
@@ -724,16 +852,18 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
         )
     oggi = data_di_oggi().isoformat()
 
-    righe = conn.execute(
+    tutte = conn.execute(
         f"""
         SELECT * FROM bandi
-        WHERE {HA_TIPO}
+        WHERE ({HA_TIPO} OR {SENZA_RIGHE_BENEFICIARI})
           AND {SOLO_BANDI}
           AND (scadenza IS NULL OR scadenza >= ?)
         ORDER BY a_sportello, scadenza
         """,
         (tipo, oggi),
     ).fetchall()
+    righe, con_problema = dividi(conn, tutte, oggi)
+    approfondire = da_approfondire(con_problema, oggi)
 
     # I bandi aperti non classificati: se ammettono questo tipo non si sa,
     # salvo per i Comuni, che hanno la riga migrata
@@ -754,6 +884,7 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
         return Risultato(
             f"Nessun bando aperto per {nome} alla data del {oggi}.{avvertenza}",
             trovato=False,
+            da_approfondire=approfondire,
         )
 
     numerate = RigheBandi()
@@ -784,6 +915,7 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
         testo_gruppi(intestazione, gruppi, elenco) + avvertenza,
         fonti=fonti_dei_gruppi(righe, gruppi),
         voci=numerate.voci,
+        da_approfondire=approfondire,
     )
 
 
@@ -807,6 +939,12 @@ def descrivi_beneficiari(riga, beneficiari: list) -> str:
         if not voci:
             voci.append("non i Comuni")
         voci.append(NON_CLASSIFICATI)
+    elif not voci:
+        voci.append(BENEFICIARI_NON_INDICATI)
+        if riga["beneficiari_rimando"]:
+            voci.append(
+                f"la pagina rimanda all'avviso: «{riga['beneficiari_rimando']}»"
+            )
     return "; ".join(voci)
 
 
@@ -891,6 +1029,14 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
         f"{euro(riga['dotazione'])} euro" if riga["dotazione"] else "non indicata"
     )
     pezzi.append(f"dotazione complessiva: {dotazione}")
+
+    # Solo i contatti d'ufficio letti dal codice; senza, vale l'url del bando
+    if riga["contatti"]:
+        pezzi.append(f"contatti: {riga['contatti']}")
+    if not scaduto(riga, scadenze, oggi):
+        da_vedere = problema(conn, riga, oggi)
+        if da_vedere:
+            pezzi.append(f"da approfondire: {da_vedere}")
 
     # Un solo bando, una sola voce: l'atto e' gia' nella riga del bando
     numerate = RigheBandi()

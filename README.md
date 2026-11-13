@@ -281,6 +281,17 @@ L'estrazione è **assistita, non automatica**: ogni campo arriva con un livello
 di confidenza e la frase del documento da cui è stato ricavato. I campi critici
 (scadenza, ammissibilità del beneficiario) richiedono conferma.
 
+Un bando con dati essenziali mancanti non si scarta e non si nasconde. Se la
+pagina non dice chi può presentare domanda (es. "nell'avviso sono indicati i
+requisiti"), il bando si salva con i beneficiari vuoti e la frase che rimanda
+all'avviso. Le liste dell'app contengono solo i bandi con i dati completi; sotto
+la risposta, la sezione **Da approfondire**, scritta dall'app e non dal modello,
+elenca i bandi pertinenti con un problema (scadenza non indicata, beneficiari
+non indicati sulla pagina, sportello probabilmente esaurito): solo i recenti,
+al più 10, con i contatti d'ufficio della pagina. I contatti li legge il codice
+(`src/estrazione/contatti.py`), mai nomi o email di persone: nel dubbio resta il
+collegamento alla pagina.
+
 Ogni risposta del modello si conserva tale e quale, con il testo che gli è
 stato inviato, in `dati-grezzi/estrazioni/` accanto al progetto, fuori dal
 repository: un file `AAAA-MM-GG_<id del bando>.json` per estrazione, anche

@@ -300,6 +300,15 @@ def test_robots_assente_permette_non_leggibile_da_verificare():
     assert inc.Robots(scarica=errore(500)).permesso(url) is None
 
 
+def test_robots_dice_quanto_aspettare_tra_due_download():
+    url = "https://www.esempio.it/bando"
+    con_attesa = inc.Robots(scarica=lambda _url: "User-agent: *\nCrawl-delay: 2\n")
+    senza = inc.Robots(scarica=lambda _url: "User-agent: *\nDisallow:\n")
+
+    assert con_attesa.attesa(url) == 2.0
+    assert senza.attesa(url) == 0.0
+
+
 def test_link_con_lettere_accentate_codificato(righe):
     e = esami(righe)["900001"]
     e.incentivo.link = (

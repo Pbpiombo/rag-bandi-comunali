@@ -194,14 +194,27 @@ def normalizza(testo: str) -> str:
     return re.sub(r"\s+", " ", testo).strip()
 
 
+# Uno spazio prima di ; , : . non conta nel confronto delle frasi: nelle
+# pagine viene dall'HTML (la voce di un elenco in un elemento, il ";"
+# fuori), e il modello copia la frase senza ("maggiorenne ;" contro
+# "maggiorenne;", borse di mobilita' professionale, 13/11/2026)
+SPAZIO_PRIMA_DELLA_PUNTEGGIATURA = re.compile(r"\s+([;,:.])")
+
+
+def per_confronto(testo: str) -> str:
+    """Testo normalizzato per il confronto delle frasi con la pagina."""
+    return SPAZIO_PRIMA_DELLA_PUNTEGGIATURA.sub(r"\1", normalizza(testo))
+
+
 def frase_nel_testo(frase: str, testo: str) -> bool:
     """La frase compare nel testo della pagina, a meno di spazi e maiuscole.
 
     La punteggiatura finale della frase non conta: il modello la omette
-    spesso anche quando copia la frase esattamente.
+    spesso anche quando copia la frase esattamente. Nemmeno lo spazio
+    prima di ; , : . in uno dei due testi.
     """
-    cercata = normalizza(frase).rstrip(".;:,")
-    return bool(cercata) and cercata in normalizza(testo)
+    cercata = per_confronto(frase).rstrip(".;:,")
+    return bool(cercata) and cercata in per_confronto(testo)
 
 
 def tipi_da_termini(testo: str, regole: dict = TERMINI) -> set[str]:

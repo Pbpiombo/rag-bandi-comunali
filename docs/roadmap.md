@@ -62,6 +62,16 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   `estrai` la richiede a ogni chiamante (`src/estrazione/grezzi.py`, README).
   Origine `manuale` per le righe di `beneficiari_bando` inserite a mano
   (prima: neve investimenti 2026, "– Imprese;").
+- **Correzioni dalla diagnosi dei falliti** (13 novembre 2026): spazio
+  prima di `; , : .` ignorato nel confronto delle frasi (borse di
+  mobilità); il soggetto di un beneficiario deve comparire nella sua frase,
+  solo per le estrazioni nuove; prompt con la frase come tratto continuo
+  della pagina (neve investimenti, provato senza salvare: "– Imprese;").
+- **Bandi con dati mancanti** (13 novembre 2026): un bando senza
+  beneficiari sulla pagina si salva con i beneficiari vuoti e la frase di
+  rimando all'avviso; sezione "Da approfondire" dell'app (solo recenti, al
+  più 10); contatti d'ufficio letti dal codice (`src/estrazione/contatti.py`).
+  `scripts/manutenzione/aggiungi_contatti.py` provato solo con `--prova`.
 - **Ricognizione di ANCI Toscana** (13 novembre 2026): prima misura di
   copertura, 8 bandi su 31 pertinenti in archivio, 8 su 20 sulle fonti già
   acquisite; Sviluppo Toscana come elenco in più (`docs/ricognizione-fonti.md`,
@@ -97,10 +107,27 @@ Toscana (prima voce della sezione successiva).
 - **Controllo degli scarti**: un file con le righe da verificare e gli
   scarti definitivi, con titolo, ente e motivo, ordinati mettendo in cima
   quelli che nominano comuni, enti locali, montagna, impianti, sport,
-  scuole, turismo, imprese agricole o turistiche.
+  scuole, turismo, imprese agricole o turistiche. Da includere:
+  - le 6 righe di `beneficiari_bando` in archivio la cui frase non nomina
+    il soggetto (controllo del 13/11/2026, attivo solo sulle estrazioni
+    nuove): "Bando 2026 Pmi" (4 righe, frase "I suddetti soggetti devono
+    operare nei settori ammissibili…"), scuole paritarie ("Famiglie" con
+    i requisiti del bambino), alta formazione ("Università pubbliche" con
+    la frase sul partenariato). Da correggere alla prossima riestrazione
+    di quei bandi;
+  - i bandi con dati mancanti non recenti (pubblicati da più di due anni,
+    o con l'anno nel titolo più vecchio dell'anno scorso), che la sezione
+    "Da approfondire" dell'app non mostra: es. festival 2021 e 2022,
+    rievocazioni 2021.
 - **Prova di copertura**: elenco esterno di bandi rilevanti per il
   territorio nel 2026 (schede ANCI, BURT, consulente pilota). La
   ricognizione ANCI è la prima misura.
+- **Contatti per i bandi in archivio**: `aggiungi_contatti --scrivi`,
+  dopo aver riletto l'esito di `--prova` del 13/11/2026 (email scartate,
+  bandi senza contatti).
+- **Riepilogo dell'archivio nella barra laterale** (`stato_archivio`):
+  conta ancora i bandi senza scadenza e gli sportelli probabilmente
+  esauriti come prima; da allineare alla sezione "Da approfondire".
 - **Regola "niente si scarta in silenzio"**: righe da verificare e scarti in
   un elenco che si rilegge a ogni aggiornamento.
 - **Insieme di prova dell'estrattore**: dai bandi delle due verifiche a

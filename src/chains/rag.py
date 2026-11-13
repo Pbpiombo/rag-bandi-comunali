@@ -104,6 +104,10 @@ riporta la condizione, non rispondere con un semplice sì. Se indica \
 "beneficiari non ancora classificati", non sai se l'ente è ammesso: dillo \
 e invita a verificare sul bando. Un bando "a sportello" resta aperto \
 finché ci sono risorse: riporta l'invito a verificarne la disponibilità.
+Gli elenchi di bandi contengono solo i bandi con i dati essenziali: \
+quelli con la scadenza o i beneficiari non indicati li mostra l'app a \
+parte, sotto la risposta. Non dire che non esistono altri bandi: di' che \
+sono quelli in archivio con dati completi.
 
 STATO DEL BANDO NEI FRAMMENTI
 Se l'intestazione di un frammento riporta "stato del bando", lo stato è \

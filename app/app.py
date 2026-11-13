@@ -109,6 +109,28 @@ def mostra_verifica(esito: dict) -> None:
                 st.markdown(riga)
 
 
+def mostra_da_approfondire(esito: dict) -> None:
+    """I bandi pertinenti con un dato mancante o incerto, scritti dall'app.
+
+    Vengono dalle interrogazioni del turno, non dal modello: non sono nella
+    risposta e il verificatore non li controlla. Un bando compare una volta.
+    """
+    voci = {}
+    for _, risultato in esito.get("esiti_dati") or []:
+        for voce in risultato.da_approfondire:
+            voci.setdefault(voce.url, voce)
+    if not voci:
+        return
+
+    st.markdown("#### Da approfondire")
+    st.caption(
+        "Bandi pertinenti con dati mancanti o incerti: da verificare sulla pagina."
+    )
+    for voce in voci.values():
+        contatti = voce.contatti or "vedi la pagina"
+        st.markdown(f"- [{voce.titolo}]({voce.url}) — {voce.problema} · {contatti}")
+
+
 def mostra_fonti(esito: dict) -> None:
     """I frammenti documentali e i dati numerici usati."""
     dati = esito.get("esiti_dati") or []
@@ -226,6 +248,7 @@ def main() -> None:
     with sinistra:
         st.markdown("#### Risposta")
         st.markdown(esito["risposta"])
+        mostra_da_approfondire(esito)
         st.divider()
         st.markdown("#### Verifica")
         mostra_verifica(esito)
