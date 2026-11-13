@@ -135,6 +135,9 @@ Domande preparate, su casi concreti degli ultimi 12 mesi:
    presentare domanda?
 8. Quali bandi sono inutili per i tuoi clienti anche se formalmente
    applicabili?
+9. Quanto tempo ti prende, in una settimana tipo, controllare i bandi e
+   verificarne date e requisiti?
+10. Usate un'applicazione o un servizio per trovare i bandi? Quale?
 
 Priorità: 1, 4, 7. La 7 decide se l'app privilegia bandi aperti o in
 arrivo.
@@ -309,3 +312,130 @@ apporto.
 6. Pista L.R. Toscana 45/2025 art. 6 (Buggiano): probabilmente ristori
    per la chiusura di ponti e viadotti (anche Pescia, Uzzano, San
    Marcello Piteglio), da verificare.
+
+## 8. ANCI TOSCANA (13/11/2026)
+
+ANCI Toscana come strumento per trovare enti e bandi, non come fonte.
+Le schede ANCI non si salvano e non si citano: ogni dato sotto viene
+dalla pagina ufficiale dell'ente. Nessuna chiamata al modello, nessuna
+scrittura nell'archivio (letto in sola lettura).
+
+### 8.1 Il sito
+
+- robots.txt di ancitoscana.it: `User-agent: *` con `Disallow:` vuoto,
+  tutto permesso; nessun blocco per i crawler di IA. WordPress, API
+  `wp-json` leggibile.
+- Schede dei bandi: categoria `bandi` (`/categorie/bandi/`), schede
+  dello Sportello Montagna; 35 nel 2026, più 2 senza categoria. La
+  categoria `notizie-montagna` nel 2026 non contiene bandi.
+- Newsletter (generale e Sportello Montagna): solo iscrizione con un
+  modulo Google, nessun archivio pubblico trovato. C'è anche un canale
+  WhatsApp, escluso (social).
+- Enti emittenti delle schede 2026 che non sono nella tabella `fonti`:
+  ministeri (MIT, Istruzione, Cultura, MIMIT, MASAF/GSE), INAIL, Sport
+  e Salute, Presidenza del Consiglio (disabilità), Fondo per la
+  Repubblica Digitale, Fondimpresa, Cesvot, Sviluppo Toscana,
+  Commissione europea ed European Urban Initiative, sei GAL fuori
+  territorio. robots.txt controllati il 13/11/2026: tutti permettono
+  le pagine segnalate; urban-initiative.eu vieta per nome ClaudeBot e
+  anthropic-ai.
+
+### 8.2 Stato dalla pagina ufficiale
+
+Date lette dalle pagine il 13/11/2026 (`scarica`, `a_testo`, e
+`scadenza_dichiarata` per le pagine regionali), non dalle schede ANCI.
+Elenco generale della Regione riletto lo stesso giorno: 159 voci.
+
+| bando | pagina ufficiale | apertura | chiusura | stato al 13/11 | perché la scansione non l'ha visto |
+|---|---|---|---|---|---|
+| Punti Digitale Facile, avviso 2026 | regione.toscana.it | 12/11/2026 | 26/11/2026 ore 12 | **aperto** | pubblicato sul BURT l'11/11, giorno della scansione: non era ancora nell'elenco; oggi c'è, candidato alla prossima |
+| Sistema neve 2026, spese di funzionamento | sviluppo.toscana.it | 19/10/2026 ore 10 | 16/11/2026 ore 16 | **aperto** | solo su sviluppo.toscana.it, non nell'elenco della Regione |
+| Fondo investimenti stradali nei piccoli comuni 2026 (comuni fino a 5.000 abitanti) | mit.gov.it | 10/11/2026 ore 12 | 30/11/2026 ore 12 | **aperto** | il MIT non è una fonte |
+| Toscana Art Bonus, avviso per Comuni e Unioni in un Progetto di Paesaggio | toscana-notizie.it (comunicato del 12/11/2026) | 01/12/2026 | 31/03/2027 | **in arrivo** | avviso approvato dalla Giunta, "presto verrà pubblicato": non c'è ancora la pagina del bando. Date dal comunicato, da ricontrollare sull'avviso |
+| Pro Loco, identità locali | regione.toscana.it | BURT 14/10/2026 | 03/11/2026 ore 13 | scaduto il 03/11/2026 | |
+| Pro Loco, annualità 2026 | regione.toscana.it | BURT 08/07/2026 | 07/08/2026 ore 13 | scaduto il 07/08/2026 | |
+| Progetti culturali per la popolazione carceraria 2026-27 | regione.toscana.it | 29/07/2026 | 07/09/2026 ore 12 | scaduto il 07/09/2026 | |
+| Verifiche tecniche sismiche su edifici pubblici | regione.toscana.it | 02/07/2026 ore 12 | 01/08/2026 | scaduto il 01/08/2026 | |
+| Farmacie disagiate 2026 | regione.toscana.it | | 03/07/2026 (frase nel testo, nessun campo di scadenza) | scaduto il 03/07/2026 | |
+| SRE01 Giovani agricoltori 2026 | regione.toscana.it | 04/05/2026 | 22/06/2026 ore 13 (prorogato due volte) | scaduto il 22/06/2026 | |
+| Campi estivi con pernottamento 2026 | regione.toscana.it | 10/06/2026 | 30/06/2026 ore 23.59 | scaduto il 30/06/2026 | |
+| Festival di spettacolo dal vivo 2026 | regione.toscana.it | BURT 25/02/2026 | 03/04/2026 ore 15 | scaduto il 03/04/2026 | |
+| Interventi in ambito sociale 2026 | regione.toscana.it | 22/01/2026 | 18/03/2026 ore 23.59 (prorogato) | scaduto il 18/03/2026 | |
+| Centri commerciali naturali 2026 | sviluppo.toscana.it | 27/07/2026 ore 12 | 01/10/2026 ore 12 | scaduto il 01/10/2026 | |
+| Arredi didattici innovativi per nidi e scuole dell'infanzia | istruzione.it | avviso 03/02/2026 | 03/03/2026 ore 18 | scaduto il 03/03/2026 | |
+
+Perché mancano gli scaduti regionali: la Regione è stata scansionata
+solo il 15/09/2026 (42 pagine) e l'11/11/2026 (135). Otto bandi
+avevano già chiuso prima del 15/09; Pro Loco identità è stato aperto
+e chiuso tra le due scansioni (14/10–03/11). Oggi nessuno è più
+nell'elenco dei bandi aperti. Tutti sono scaduti da meno di 12 mesi:
+con la regola dello storico sarebbero salvabili, se la scansione li
+trovasse. L'etichetta "Stato" delle pagine regionali dice "In corso"
+per quasi tutti: non conta, vale la scadenza.
+
+### 8.3 Sviluppo Toscana
+
+- Pubblica i bandi regionali che gestisce su
+  `https://www.sviluppo.toscana.it/bando/<slug>/`. Elenco HTML
+  leggibile: `/bandi/`, con filtro `?_stato=aperto`, `in-scadenza`,
+  `in-arrivo`; 12 voci per pagina, pagine successive in
+  `/bandi/page/N/?_stato=…`.
+- robots.txt: su `www.sviluppo.toscana.it` risponde 404 (nessuna
+  regola); su `sviluppo.toscana.it` vieta solo `/lib/` e `/bc/`.
+- Oggi, per l'etichetta del sito: 39 "aperto", 1 "in scadenza" (neve,
+  spese di funzionamento), 2 "in arrivo" (Energia immobili imprese,
+  Energia imprese processi produttivi). Delle 39 "aperto", 29 sono
+  procedure di rendicontazione o varianti per bandi già chiusi (slug
+  con `_rend`, `_var`, `rendicontazione`, `varianti`), non bandi
+  aperti a nuove domande. L'etichetta non è affidabile: la rete degli
+  incubatori risulta "aperto" con il termine al 30/04/2024.
+- **Bandi aperti a nuove domande, secondo le date della pagina: 9.**
+  Con una data di chiusura: neve spese di investimento 2026 (fino al
+  23/11/2026), neve spese di funzionamento 2026 (fino al 16/11/2026),
+  IGP (fino al 31/12/2026). A sportello: Digitale P.A., datalake
+  SmarToscana (riaperto con decreto 22706 del 09/10/2026, domande dal
+  22/10/2026, per Comuni e Unioni di Comuni), 1.3.2 PMI BEI ed. 2026,
+  1.3.2 PMI fino a 50.000 € ed. 2026, Minibond, PMI turismo, Campiano
+  Montieri 2024 (territorio di altri comuni). FUNT 2025 riguarda
+  progetti già ammessi dal Ministero del Turismo.
+- Già in archivio, dalle pagine della Regione o dal catalogo Incentivi
+  Italia: IGP, le due 1.3.2, Minibond, PMI turismo. **Mancano i due
+  bandi neve e Digitale P.A.**, che nell'elenco generale della Regione
+  non ci sono: Digitale P.A. è per i comuni e l'Unione, i bandi neve
+  per i gestori degli impianti della Montagna Pistoiese.
+
+### 8.4 Prima misura di copertura
+
+Schede ANCI 2026 (37), contate per bando segnalato. Esclusi: sei GAL
+fuori territorio (10 bandi), bandi europei (LIFE, CERV, European Urban
+Initiative: segnalati da ANCI, esclusi per la demo), Sport Act
+(Interreg Marittimo, area che esclude Pistoia), le schede di
+programmazione che non sono bandi (cronoprogrammi FESR e FEASR, misure
+PRAF 2026).
+
+| gruppo | pertinenti | in archivio | mancano | perché mancano |
+|---|---|---|---|---|
+| Regione Toscana | 18 | 6 | 12 | 9 scaduti prima della scansione o tra le due scansioni (8.2); 2 solo su sviluppo.toscana.it (neve funzionamento, aperto; centri commerciali naturali, scaduto); 1 pubblicato il giorno della scansione (Digitale facile, aperto) |
+| GAL MontagnAppennino | 2 | 2 | 0 | |
+| Cesvot con fondi regionali (Siete presente, giovanisi.it) | 1 | 0 | 1 | ente non nella tabella `fonti` |
+| enti nazionali | 10 | 0 | 10 | ente non nella tabella `fonti`. Nuova Sabatini e ISI INAIL sono nel catalogo Incentivi Italia, tra le righe da verificare a mano |
+| **totale** | **31** | **8** | **23** | |
+
+In archivio: amianto, mercati rionali, nidi gratis, Toscana Diffusa,
+produzione di spettacolo dal vivo, riuso, AS01, SRD 14. Gli enti
+nazionali sono MIT (fondo strade, aperto), Istruzione (arredi,
+scaduto), Cultura (jazz 2027), MIMIT (Nuova Sabatini), INAIL (ISI),
+MASAF con GSE (Parco Agrisolare), Presidenza del Consiglio (Vita &
+Opportunità), Sport e Salute (Fabbrica spazi civici), Fondo per la
+Repubblica Digitale (Zenit), Fondimpresa (formazione IA). Lo stato
+dalla pagina ufficiale è stato letto solo per MIT e Istruzione.
+
+Toscana Art Bonus non viene da una scheda ANCI e non è nel conteggio.
+
+Lettura: copertura 8 su 31 (26%). Sui soli bandi regionali e del GAL,
+le fonti già acquisite, 8 su 20: le mancanze vengono dalla frequenza
+delle scansioni (due in due mesi) e da Sviluppo Toscana, non dalle
+fonti mancanti. Oggi sono aperti e assenti dall'archivio tre bandi
+segnalati da ANCI che riguardano i comuni o il territorio (Digitale
+facile, neve funzionamento, fondo strade MIT), più due trovati su
+Sviluppo Toscana e non segnalati (Digitale P.A., neve investimenti).

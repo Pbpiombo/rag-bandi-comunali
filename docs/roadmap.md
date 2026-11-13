@@ -1,6 +1,6 @@
 # Roadmap
 
-Stato al 11 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
+Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
 
 ## Fatto
 
@@ -24,108 +24,114 @@ Stato al 11 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   aperto (0 su 31). Costo circa 5,1 $, contro 1,6–2,9 $ stimati. Corretti
   durante la corsa lo sportello senza prova e gli importi con il punto
   decimale. Misure in `docs/piano-estrattore.md`.
-
-- **Piano fonti, tappa 1** (12 novembre 2026, voce 15 della revisione):
-  fonti, elenchi e regole di lettura dal database (`fonti.csv`,
-  `elenchi.csv`), tipi di fonte "pagine" e "file". Esito in
-  `docs/piano-fonti.md`.
-- **Piano fonti, tappe 2 e 3** (12 novembre 2026): elenco "bandi aperti"
-  della montagna; bandi scaduti da meno di 12 mesi salvati come storico,
-  mai tra gli aperti, in un blocco a parte nelle liste per tema e
-  trovabili per nome. Premi imboschimenti (SRA28) salvato come storico.
-- **Piano fonti, tappa 4** (12 novembre 2026): fonte GAL MontagnAppennino.
-  AS01 e SRD 14 salvati come storico (2 chiamate, 0,106 $). Problemi
-  emersi, da correggere: interventi riservati a un tipo di beneficiario
-  (AS01, viabilità e reti idriche solo per gli enti pubblici) non
-  registrati; enti religiosi senza un tipo proprio. Dettagli in
-  `docs/piano-fonti.md`.
-- **Correzioni dopo la tappa 4** (12 novembre 2026): il prompt
-  dell'estrattore riporta nella descrizione di un intervento i soggetti
-  che possono chiederlo ("…, solo enti pubblici"); enti religiosi ed
-  ecclesiastici sono terzo_settore con la condizione "ente religioso",
-  mai qualsiasi_soggetto; voce 5 della revisione (contributo minimo e
-  massimo nella riga del bando e nel dettaglio, importi con i centesimi
-  non arrotondati); voce 8 ("dati estratti il" invece di "dati verificati
-  il"). AS01 riestratto con `riclassifica_bandi --id` (0,079 $).
+- **Due verifiche a mano** (11 e 12 novembre 2026): bandi scelti a caso
+  dalla scansione completa, `docs/verifica-manuale-2026-11-11.csv` e
+  `docs/verifica-manuale-2026-11-12.csv`; correzioni in
+  `docs/piano-post-scansione.md`.
+- **Tappa 5b e scadenze multiple**: tipo `professionista_autonomo`,
+  `qualsiasi_soggetto` solo per i requisiti, bandi a finestre o con più
+  scadenze (`docs/piano-post-scansione.md`, 5b e 5c).
+- **Blocco A, verificatore** (voci 1, 3, 4 e 11 della revisione):
+  `docs/piano-verificatore.md`.
+- **Recupero**: normalizzazione della domanda, P2 (ricerca ristretta ai
+  documenti nominati), insieme di prova di `scripts/diagnostica/prova_recupero.py`
+  (`docs/prova-verificatore.md`).
+- **P3, stato del bando nei frammenti** (12 novembre 2026): stato calcolato a
+  ogni domanda, regola nel prompt, verificato (`src/database/stato_documenti.py`,
+  `docs/prova-verificatore.md`).
+- **Blocco B, voci 5 e 8** (12 novembre 2026): contributo minimo e massimo
+  nella riga del bando, importi non arrotondati; "estratti il" al posto di
+  "verificati il" (`docs/revisione-2026-11-12.md`).
+- **Piano fonti, tappe 1-5** (12 e 13 novembre 2026): fonti, elenchi e regole
+  dal database; elenco "bandi aperti" della montagna; storico dei bandi
+  scaduti da meno di 12 mesi; fonte GAL MontagnAppennino (AS01, SRD 14);
+  fonte Incentivi Italia dal file open data. `docs/piano-fonti.md`.
+- **Correzioni dopo la tappa 4** (12 novembre 2026): interventi riservati
+  nella descrizione, enti religiosi come terzo settore, AS01 riestratto
+  (`docs/piano-fonti.md`).
+- **Istituto per il Credito Sportivo** (13 novembre 2026): fonte nuova con
+  elenco spento; Sport Missione Comune 2026 e Cultura Missione Comune 2026
+  estratti, mutuo massimo per fascia nel testo dei beneficiari
+  (`docs/piano-fonti.md`, quarta e quinta serie).
+- **Microzonazione sismica e atto dei parcheggi** (12 novembre 2026): bandi
+  sismici del 2026 trovati, tutti scaduti; atto di parcheggi-2026 corretto
+  con `correggi_atti` (`docs/piano-fonti.md`, tappa 2).
+- **Ricognizione di ANCI Toscana** (13 novembre 2026): prima misura di
+  copertura, 8 bandi su 31 pertinenti in archivio, 8 su 20 sulle fonti già
+  acquisite; Sviluppo Toscana come elenco in più (`docs/ricognizione-fonti.md`,
+  sezione 8).
 
 ## In corso
 
-Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
+Recupero dei bandi aperti mancanti emersi dalla ricognizione di ANCI
+Toscana (prima voce della sezione successiva).
 
 ## Prima della demo con il consulente pilota
 
-- **Tappa 5b del piano post-scansione**: tipi di beneficiari per i privati,
-  cioè il tipo nuovo `professionista_autonomo` (5b.1) e `qualsiasi_soggetto`
-  solo per i requisiti (5b.2). Dettagli in `docs/piano-post-scansione.md`.
+- **Recupero dei bandi aperti mancanti** (`docs/ricognizione-fonti.md`,
+  sezione 8):
+  - Sviluppo Toscana come elenco in più della Regione: date dalla pagina,
+    mai dall'etichetta del sito; escluse rendicontazioni e varianti. Con i
+    due bandi neve (spese di funzionamento e di investimento) e Digitale
+    P.A.;
+  - fondo strade MIT per i piccoli comuni: fonte nuova con elenco spento,
+    come l'Istituto per il Credito Sportivo;
+  - Punti Digitale Facile, con una scansione della Regione;
+  - Toscana Art Bonus, da estrarre quando esce l'avviso (dal 1° dicembre).
+- **Supabase che non va in pausa** dopo inattività: tenerlo sveglio o
+  cambiare piano.
+- **Router**: quando una domanda nomina un bando usa `dettaglio_bando`
+  invece di `bandi_per_tema`. Caso: "mercati rionali" cercato come tema non
+  trova il bando, classificato con il tema "commercio", e il modello riporta
+  che l'archivio non ha corrispondenze.
+- **Blocco B, voci ancora aperte** (`docs/revisione-2026-11-12.md`):
+  `dettaglio_bando` che non sceglie a caso tra titoli simili (voce 6);
+  sportelli con data di chiusura in `bandi_in_scadenza` (voce 12); README e
+  docs/ allineati al codice (voce 14).
+- **Controllo degli scarti**: un file con le righe da verificare e gli
+  scarti definitivi, con titolo, ente e motivo, ordinati mettendo in cima
+  quelli che nominano comuni, enti locali, montagna, impianti, sport,
+  scuole, turismo, imprese agricole o turistiche.
+- **Prova di copertura**: elenco esterno di bandi rilevanti per il
+  territorio nel 2026 (schede ANCI, BURT, consulente pilota). La
+  ricognizione ANCI è la prima misura.
+- **Regola "niente si scarta in silenzio"**: righe da verificare e scarti in
+  un elenco che si rilegge a ogni aggiornamento.
+- **Risposta grezza del modello conservata per ogni estrazione**, in
+  `dati-grezzi/estrazioni`, fuori dal repository: per rifare la
+  validazione senza ripagare il modello (oggi c'è solo per premi
+  imboschimenti e i due Missione Comune, `docs/piano-fonti.md`, quinta
+  serie). Serve anche all'insieme di prova dell'estrattore.
+- **Insieme di prova dell'estrattore**: dai bandi delle due verifiche a
+  mano, con i valori controllati sulla pagina, per misurare quanti campi
+  coincidono dopo ogni modifica al prompt o alle regole.
 - **Domande d'esempio dell'app**: sostituite con domande sui bandi pensate
   per il consulente. Non devono nominare un avviso per titolo ("nel bando
   X, quanto…"): con P2 il recupero cerca anche dentro l'avviso nominato,
   ma restano casi non risolti e un frammento al limite
   (`docs/prova-verificatore.md`, P2).
-- **Sport Missione Comune 2026 e Cultura Missione Comune 2026**: estratti
-  il 13/11/2026 dalla fonte nuova `istituto-credito-sportivo` (elenco
-  spento). Mutuo massimo per fascia di ente nel testo dei beneficiari,
-  con la frase della pagina; `contributo_perc` di Cultura Missione Comune
-  svuotato (era l'abbattimento degli interessi). Fatto il 13/11/2026.
-- **Insieme di prova dell'estrattore**: dai bandi delle due verifiche a
-  mano, con i valori controllati sulla pagina, per misurare quanti campi
-  coincidono dopo ogni modifica al prompt o alle regole.
-- **Fonte per le misure nazionali rivolte ai comuni**: oggi mancano
-  (Istituto per il Credito Sportivo, Dipartimento per lo Sport,
-  ministeri; il catalogo Incentivi Italia non le contiene, perche' non
-  sono aiuti alle imprese). Valutare le notizie di ANCI sui bandi per i
-  comuni come fonte o come segnale.
-- **Elenco dell'Istituto per il Credito Sportivo**: se un giorno si
-  attiva (oggi `attivo` = 0), la scansione deve rispettare il
-  `Crawl-delay: 2` del robots.txt: oggi `estrai_nuovi` aspetta 0,5 s tra
-  i download e 1 s tra le estrazioni.
-- **Se c'è tempo: misure nazionali per le imprese escluse dalla regola
-  degli sportelli ma ancora attive** (Nuova Sabatini, Smart&Start, bando
-  ISI INAIL): verifica a mano di poche misure, con la frase della pagina
-  come prova (Incentivi Italia, tappa 5: sportelli senza chiusura aperti
-  da più di due anni, 17 righe da verificare).
 - **Dati ISTAT di Sambuca Pistoiese e San Marcello Piteglio** caricati
   (prompt per Claude Code pronto). Tutti e tre i comuni dalla stessa tabella.
-- **Blocco A, verificatore** (voci 1, 3, 4 e 11 di
-  `docs/revisione-2026-11-12.md`): confronto su valori interi e non su
-  sottostringhe; date in tutte le forme ricondotte a una sola; numeri di
-  decreto e delibera nel testo della risposta controllati come dati;
-  pannello di verifica non verde se non ha verificato niente;
-  `step3_verifica` riparato. Piano in `docs/piano-verificatore.md`.
-- **Blocco B, dati mostrati e documenti** (voci 5, 6, 10, 12 e 14 della
-  revisione, e l'etichetta "dati verificati il" della voce 8): contributo
-  minimo e massimo e territorio nelle righe dei bandi, importi senza
-  arrotondamento; `dettaglio_bando` che non sceglie a caso tra titoli
-  simili; database della demo allineato ai CSV; sportelli con data di
-  chiusura in `bandi_in_scadenza`; README e docs/ allineati al codice;
-  "estratti il" al posto di "verificati il" per le date di estrazione;
-  stato del bando (scaduto o aperto) nei frammenti documentali, spostato
-  qui dal passo 5 dopo la prova del 12 novembre 2026, in cui il bando
-  mercati rionali, scaduto, è stato presentato come attuale (proposta P3
-  in `docs/prova-verificatore.md`). **Fatto il 12 novembre 2026**: stato
-  calcolato a ogni domanda e scritto nell'intestazione del frammento,
-  regola nel prompt, verificatore che confronta anche quella riga
-  (`src/database/stato_documenti.py`). Provato con il modello: stato
-  citato e verificato (`docs/prova-verificatore.md`).
-  Quando una domanda nomina un bando, il router deve usare
-  `dettaglio_bando` invece di `bandi_per_tema`. Caso: "mercati rionali"
-  cercato come tema non trova il bando, classificato con il tema
-  "commercio", e il modello riporta che l'archivio non ha
-  corrispondenze.
+- **Se c'è tempo: Nuova Sabatini, Smart&Start, ISI INAIL verificati a
+  mano**, con la frase della pagina come prova: misure nazionali per le
+  imprese escluse dalla regola degli sportelli ma ancora attive
+  (Incentivi Italia, tappa 5: sportelli senza chiusura aperti da più di
+  due anni, 17 righe da verificare).
 
 ## Prossimi passi, in ordine
 
-1. **Fine del passo 3**: indirizzo dell'elenco e regole del portale lette dalla
-   tabella `fonti`; fonte nuova GAL MontagnAppennino; verifica a mano di 20
-   bandi scelti a caso, con il risultato nel README.
-2. **Scheda per bando**: per chi è e per cosa si può usare, divisa per tipo di
+1. **Scheda per bando**: per chi è e per cosa si può usare, divisa per tipo di
    beneficiario, con le clausole citate. Quello che il bando dice e i possibili
    usi proposti dal sistema restano visibilmente separati.
-3. **Riepilogo**: bandi nuovi con le loro schede, filtrati sulle sue
+2. **Riepilogo**: bandi nuovi con le loro schede, filtrati sulle sue
    ricerche scritte in un file. Prima mandato a mano, poi automatico.
-4. **Aggiornamento ogni due settimane**: GitHub Actions lancia la scansione,
-   salva CSV e database, manda il riepilogo. Oltre ai bandi nuovi, si
-   ricontrollano i bandi aperti e quelli chiusi da poco, per le proroghe:
+3. **Aggiornamento almeno una volta a settimana**: GitHub Actions lancia la
+   scansione, salva CSV e database, manda il riepilogo. La frequenza non può
+   essere più bassa: dalla ricognizione ANCI del 13 novembre 2026, con due
+   sole scansioni della Regione (15/09 e 11/11) il bando Pro Loco identità
+   locali è stato aperto e chiuso tra l'una e l'altra, e Punti Digitale
+   Facile è uscito il giorno stesso della scansione. Oltre ai bandi nuovi,
+   si ricontrollano i bandi aperti e quelli chiusi da poco, per le proroghe:
    la riclassificazione dell'11 novembre 2026 ha trovato le risorse
    genetiche forestali prorogate al 13 novembre, mentre l'archivio le dava
    scadute il 30 settembre. Per ogni pagina si conserva un'impronta del
@@ -157,10 +163,10 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
      hanno in più rispetto all'elenco generale. Il 12 novembre 2026
      erano contenuti per intero nell'elenco generale, e per questo non
      sono stati aggiunti come elenchi (`docs/piano-fonti.md`, tappa 2).
-5. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
+4. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
    tra gli interventi ammissibili. Caso di prova: "devo rifare la piazza"
-   → bando mercati rionali. (Lo stato del bando nei frammenti è passato al
-   blocco B, prima della demo.)
+   → bando mercati rionali. (Lo stato del bando nei frammenti è già fatto,
+   P3.)
 
    **PDF dei bandi**: solo bandi aperti, o chiusi da poco se ricorrenti, e
    rivolti ai tipi di beneficiari serviti. Per ogni bando solo il testo
@@ -172,31 +178,59 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
    l'OCR sbaglia i numeri, e il verificatore li darebbe per buoni. File
    .pdf.p7m da aprire prima della lettura. Se pagina e testo del bando
    non coincidono, vale il testo del bando.
-6. **Privati nell'app**: selettore pubblico/privato e tipo di privato a
+5. **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione
    ("Adeguamento e ampliamento della viabilità rurale, solo enti
    pubblici", AS01 del GAL), e un terzo settore che chiede quali
    interventi può fare non riceve un filtro, solo il testo.
-7. **Sezione riservata**: accesso, iscrizioni con mail e ricerche salvate su
+6. **Sezione riservata**: accesso, iscrizioni con mail e ricerche salvate su
    Supabase, tasto "aggiorna adesso" che lancia il processo su GitHub,
    segnalazione manuale di un bando. Parte pubblica limitata a 3 domande per
    sessione, con un tetto giornaliero complessivo e un invito a scrivere per
    l'accesso.
-8. **Newsletter come segnali**: casella dedicata iscritta alle newsletter di
+7. **Newsletter come segnali**: casella dedicata iscritta alle newsletter di
    Regione, fondazioni e GAL; i link estratti passano dalla verifica sulla
    pagina ufficiale.
-9. **Percorso guidato per gli iscritti**: passi definiti dal bando (requisiti,
+8. **Percorso guidato per gli iscritti**: passi definiti dal bando (requisiti,
    documenti, scadenze intermedie, contatti), controllo dei documenti con ogni
    requisito citato. Percorso a passi fissi, non un agente libero.
-10. **Docker** per Postgres con pgvector in locale.
+9. **Docker** per Postgres con pgvector in locale.
 
 ## In coda
 
+- Dopo la demo. Registro delle decisioni (`docs/decisioni.md`): una scheda
+  per decisione (problema, alternative, misura, scelta, perché, cosa resta
+  aperto), scritto per poterlo spiegare a voce.
+- Dopo la demo. Controlli automatici su GitHub: `ruff` e `pytest` a ogni
+  push.
+- Dopo la demo. Fonti di scoperta da valutare, nell'ordine: BURT parte III
+  (per misurare la copertura della fonte regionale e recuperare i bandi
+  aperti e chiusi tra due scansioni), Uncem, associazioni di categoria
+  della montagna, Toscana Notizie, Cesvot, Giovanisì, ANCI nazionale.
+  Stessa regola di ANCI Toscana: segnalano, i dati si prendono dalla
+  pagina ufficiale.
+
+  Buco ancora aperto: nella misura di copertura del 13/11/2026 mancano
+  tutti i 10 bandi di enti nazionali segnalati da ANCI Toscana
+  (`docs/ricognizione-fonti.md`, 8.4). Il fondo strade MIT è nel recupero
+  prima della demo; degli altri nove, quelli rivolti anche ai comuni sono
+  arredi didattici (Istruzione), jazz 2027 (Cultura, autonomie
+  territoriali) e Vita & Opportunità (comuni come partner); gli altri sei
+  sono per imprese o terzo settore.
+- Dopo la demo. Revisione dei test: segnalare quelli che ricopiano il
+  codice invece di proteggere un comportamento.
 - Dopo la demo. Campo strutturato per gli importi per fascia di ente (es.
   mutuo massimo di 2, 4 o 6 milioni secondo tipo e dimensione dell'ente,
   Sport e Cultura Missione Comune): oggi la frase della pagina sta nel
   testo dei beneficiari.
+- Dopo la demo. Aggiunta di fonti dall'interfaccia, in tre passi:
+  l'utente segnala una fonte; il sistema prova da solo robots.txt,
+  lettura dell'elenco e due o tre bandi d'esempio, con il costo; una
+  persona approva prima che la fonte entri in `fonti.csv`.
+- Dopo la demo. Lista di controllo scritta per ogni fonte nuova:
+  robots.txt, elenco leggibile, tre bandi verificati a mano sulla
+  pagina, costo per bando, regola di chiusura.
 - Dopo la demo. Incentivi Italia, link condivisi: oggi una riga con un
   `Link_istituzionale` usato da più righe del file è da verificare a mano
   (43 righe sul file del 12/11/2026). Molte sono misure sorelle sulla
@@ -204,6 +238,10 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   2, tax credit della stessa sessione). Regola da valutare: il link
   condiviso è ammesso se le righe hanno lo stesso concedente e le stesse
   date (`docs/piano-fonti.md`, tappa 5).
+- Elenco dell'Istituto per il Credito Sportivo: se un giorno si attiva
+  (oggi `attivo` = 0), la scansione deve rispettare il `Crawl-delay: 2`
+  del robots.txt: oggi `estrai_nuovi` aspetta 0,5 s tra i download e 1 s
+  tra le estrazioni.
 - Zona sismica dei tre comuni: riferimento OPCM 3274/2003 aggiornata dalla DGRT
   421 del 26/05/2014, da verificare sull'allegato e su eventuali aggiornamenti.
 - Colonna `montano` nel profilo: i tre comuni sono totalmente montani
@@ -221,18 +259,7 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
 - Righe di `scansioni` con slug tagliati: da ripulire.
 - Link simbolici `.claude/skills` e `.agents/skills` verso `.venv` nel repo.
 - Fine riga CRLF/LF.
-- Supabase in pausa dopo inattività: tenerlo sveglio o cambiare piano.
 - Limite di spesa mensile nella console di Anthropic.
-- ~~Bando microzonazione sismica (DGR 1081 del 7/9/2026, premialità
-  Toscana Diffusa)~~: trovato il 12 novembre 2026 nella sezione rischio
-  sismico, un livello sotto le schede: scaduto il 17/10/2026, come gli
-  altri due bandi sismici del 2026 (microzonazione di livello 4 il 27/06,
-  verifiche tecniche l'01/08). Le pagine della sezione non sono state
-  aggiunte come elenchi: sono schede, non bandi (`docs/piano-fonti.md`,
-  tappa 2).
-- Scadenze multiple nello stesso bando (es. assegno formazione GOL, Misura
-  1 al 31 luglio 2026 o 2027, Misura 2 al 30 giugno 2027): oggi
-  l'estrattore ne tiene una sola.
 - Appartenenza dei comuni all'Unione nel profilo dell'ente.
 - Dalla scansione completa dell'11 novembre 2026:
   - `COSTO_NON_BANDO` in `estrai_nuovi` da rimisurare su pagine che non
@@ -248,9 +275,6 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
     mano (elenco nel rapporto della scansione);
   - i 9 bandi salvati nella prima corsa, prima della correzione degli
     importi con il punto decimale, possono avere importi vuoti.
-- ~~Atto senza data in parcheggi-2026~~: corretto il 12 novembre 2026 con
-  `correggi_atti` ("Decreto dirigenziale 18191 del 7 agosto 2026", dal
-  link "Testo decreto 18191 del 07-08-2026" della pagina).
 - `data/db/comune.sqlite` sotto git: compare modificato a ogni ricreazione
   anche con i dati identici. Prima di toglierlo dal repository, l'app deve
   ricrearlo dai CSV all'avvio, perché la demo su Streamlit Cloud lo legge
@@ -275,22 +299,13 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   lessicale: BM25 in memoria contro `ts_rank_cd` con la domanda in OR e
   le radici delle parole in italiano. Una domanda va in senso opposto (i
   1.904 comuni: 2ª su Postgres, 4ª su Chroma).
-- P2, ricerca ristretta ai documenti nominati: collegata. Il 12 novembre
-  2026 è stata scollegata e poi ricollegata. Con la domanda normalizzata
-  senza "?" finale faceva uscire su Postgres il termine di presentazione
-  (7ª → assente). Con il "?" sempre aggiunto rispetta la regola: 13
-  frammenti su 16 invece di 11 nelle 15 domande di prova, e nessuna uscita
-  nelle 5 di controllo, scritte dopo. Provate e scartate: ripulitura di
-  tutte le parole del titolo e fusione con RRF (dettagli nel modulo).
-  Restano da seguire:
-  - i casi aperti: i contributi dei mercati rionali, con parole diverse
-    dal testo, e la domanda su due avvisi;
-  - il termine di presentazione al limite: 8ª su Postgres, 10ª su Chroma;
-  - la domanda di controllo sulla rendicontazione dei mercati rionali,
-    che con P2 scende dalla 5ª alla 7ª su Postgres.
-
-  Rilanciare `scripts/diagnostica/prova_recupero.py` a ogni modifica del
-  recupero o dell'archivio.
+- P2, casi rimasti aperti (`docs/prova-verificatore.md`): i contributi dei
+  mercati rionali, con parole diverse dal testo, e la domanda su due
+  avvisi; il termine di presentazione al limite (8ª su Postgres, 10ª su
+  Chroma); la domanda di controllo sulla rendicontazione dei mercati
+  rionali, che con P2 scende dalla 5ª alla 7ª su Postgres. Rilanciare
+  `scripts/diagnostica/prova_recupero.py` a ogni modifica del recupero o
+  dell'archivio.
 - Indice HNSW su Postgres e ricerca ristretta a un documento. Su `chunk`
   c'è `chunk_embedding_idx` (HNSW, `hnsw.ef_search` = 40). Con 316
   frammenti il pianificatore sceglie la scansione sequenziale, quindi la
@@ -309,17 +324,6 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
     tre comuni, che pubblicano bandi per le imprese (es. contributi dal
     Fondo per i comuni delle aree interne). Prima di tutto verificare il
     robots.txt di ciascun dominio;
-  - ~~le linee di bando regionali per le imprese emerse~~: verificate il
-    12 novembre 2026. Voucher garanzia già in archivio (4 bandi);
-    impianti di risalita e custodi della montagna solo tra i bandi chiusi
-    della sezione montagna; bandi neve solo il "sistema neve 2017".
-    Aggiunto l'elenco "bandi aperti" della montagna, vuoto quel giorno
-    (`docs/piano-fonti.md`, tappa 2);
-  - ~~verificare se la pagina dei bandi aperti già acquisita copre i bandi
-    del PR FESR e del PR FSE+ Toscana 2021-27~~: sì, il 12 novembre 2026
-    gli elenchi dei due programmi e dello sviluppo rurale erano contenuti
-    per intero in quello generale. Il controllo si ripete con
-    l'aggiornamento periodico (passo 4);
   - nella tabella `enti`, valutare la partita IVA come secondo
     identificativo degli enti (nei dati PNRR compaiono con l'una o con
     l'altra).
@@ -342,3 +346,6 @@ Verifica a mano di 20 bandi scelti a caso dalla scansione completa.
   repository: email, ricerche e documenti degli utenti stanno su Supabase.
 - **La combinazione di bandi non la decide il sistema**: mostra la clausola di
   cumulabilità di ciascuno, la valutazione resta a chi segue la domanda.
+- **ANCI Toscana e le altre fonti di scoperta segnalano, non sono fonti**:
+  i dati si prendono dalla pagina ufficiale dell'ente; le schede ANCI non
+  si salvano e non si citano.
