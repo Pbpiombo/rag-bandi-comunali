@@ -9,6 +9,7 @@ tipi di beneficiari.
 
 import re
 import sqlite3
+import unicodedata
 from datetime import date
 
 from src.database.modelli import Approfondimento, Risultato, VoceBando
@@ -965,32 +966,183 @@ def descrivi_scadenze(scadenze: list) -> str:
     return "; ".join(voci)
 
 
-def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
-    """Tutti i dati strutturati di un singolo bando."""
-    riga = conn.execute(
-        "SELECT * FROM bandi WHERE id = ? OR titolo LIKE ?",
-        (id_bando, f"%{id_bando}%"),
-    ).fetchone()
+# Ricerca di un bando per nome (dettaglio_bando). Il router passa una parte
+# del titolo, non l'identificativo: piu' bandi possono corrispondere.
+# Fino a MAX_DETTAGLI si danno tutti i dettagli; oltre, un elenco breve di
+# al piu' MAX_CORRISPONDENZE righe, senza sceglierne uno.
+MAX_DETTAGLI = 3
+MAX_CORRISPONDENZE = 10
+# Nessun bando: al piu' MAX_SIMILI titoli, con almeno SOGLIA_SIMILI delle
+# parole cercate presenti nel titolo
+MAX_SIMILI = 5
+SOGLIA_SIMILI = 0.5
+# Parole che non distinguono un bando da un altro
+PAROLE_VUOTE = frozenset(
+    "bando bandi avviso avvisi contributi contributo per il lo la di dei degli "
+    "delle del della e a i gli le nel nella nei al alle ai con su da in un una "
+    "che cosa".split()
+)
+# Due parole lunghe almeno tanto si considerano simili se iniziano con le
+# stesse PREFISSO_SIMILE lettere: "parcheggio" e "parcheggi"
+PREFISSO_SIMILE = 5
 
-    if riga is None:
-        ids = conn.execute("SELECT id FROM bandi").fetchall()
+
+def _normale(testo: str) -> str:
+    """Minuscolo e senza accenti, per confrontare titoli e testo cercato."""
+    scomposto = unicodedata.normalize("NFKD", testo.casefold())
+    return scomposto.encode("ascii", "ignore").decode()
+
+
+def _parole(testo: str) -> list[str]:
+    """Le parole che distinguono un titolo: almeno 3 lettere, non vuote."""
+    return [
+        p
+        for p in re.findall(r"[a-z0-9]+", _normale(testo))
+        if len(p) >= 3 and p not in PAROLE_VUOTE
+    ]
+
+
+def _simili(a: str, b: str) -> bool:
+    if a == b:
+        return True
+    corta = min(len(a), len(b))
+    return corta >= PREFISSO_SIMILE and a[:PREFISSO_SIMILE] == b[:PREFISSO_SIMILE]
+
+
+def _quota_parole(cercate: list[str], titolo: str) -> float:
+    """La quota delle parole cercate che ha una parola simile nel titolo."""
+    nel_titolo = _parole(titolo)
+    presenti = sum(any(_simili(p, t) for t in nel_titolo) for p in cercate)
+    return presenti / len(cercate)
+
+
+def trova_bandi(conn: sqlite3.Connection, cercato: str) -> list:
+    """I bandi che corrispondono al testo cercato, in tre passi.
+
+    1. identificativo esatto: vince sempre;
+    2. il testo compare nel titolo (senza maiuscole e accenti);
+    3. tutte le parole del testo hanno una parola simile nel titolo, in
+       qualunque ordine.
+    Ci si ferma al primo passo che trova qualcosa.
+    """
+    riga = conn.execute("SELECT * FROM bandi WHERE id = ?", (cercato,)).fetchone()
+    if riga is not None:
+        return [riga]
+
+    tutti = conn.execute("SELECT * FROM bandi ORDER BY titolo, id").fetchall()
+    testo = _normale(cercato).strip()
+    if testo:
+        nel_titolo = [r for r in tutti if testo in _normale(r["titolo"])]
+        if nel_titolo:
+            return nel_titolo
+
+    parole = _parole(cercato)
+    if not parole:
+        return []
+    return [r for r in tutti if _quota_parole(parole, r["titolo"]) == 1]
+
+
+def titoli_simili(conn: sqlite3.Connection, cercato: str) -> list:
+    """I bandi con il titolo piu' vicino al testo cercato, dal piu' vicino."""
+    parole = _parole(cercato)
+    if not parole:
+        return []
+    tutti = conn.execute("SELECT id, titolo FROM bandi ORDER BY titolo, id")
+    punteggi = [(_quota_parole(parole, r["titolo"]), r) for r in tutti]
+    vicini = [(q, r) for q, r in punteggi if q >= SOGLIA_SIMILI]
+    vicini.sort(key=lambda coppia: -coppia[0])
+    return [r for _, r in vicini[:MAX_SIMILI]]
+
+
+def _nessun_bando(conn: sqlite3.Connection, cercato: str) -> Risultato:
+    simili = titoli_simili(conn, cercato)
+    if not simili:
         return Risultato(
-            f"Nessun bando corrisponde a '{id_bando}'. "
-            f"Identificativi in archivio: {', '.join(r['id'] for r in ids)}.",
+            f"Nessun bando corrisponde a '{cercato}', e nessun titolo in "
+            "archivio è simile.",
             trovato=False,
         )
+    elenco = "; ".join(f"«{r['titolo']}» (id: {r['id']})" for r in simili)
+    return Risultato(
+        f"Nessun bando corrisponde a '{cercato}'. Titoli più simili in "
+        f"archivio, dal più vicino: {elenco}.",
+        trovato=False,
+    )
+
+
+def _riga_breve(conn: sqlite3.Connection, riga, oggi: str) -> str:
+    """Una riga dell'elenco dei bandi che corrispondono, senza dettaglio."""
+    if riga["natura"] == "non_bando":
+        return f"«{riga['titolo']}» non e' un bando | url: {riga['url']}"
+    scadenze = scadenze_di(conn, riga["id"])
+    stato = (
+        f"stato: scaduto il {riga['scadenza']}, non più aperto | "
+        if scaduto(riga, scadenze, oggi)
+        else ""
+    )
+    return stato + formatta_bando(riga, oggi, scadenze=scadenze)
+
+
+def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
+    """Tutti i dati strutturati di un bando, cercato per id o titolo.
+
+    Un bando: il suo dettaglio. Fino a MAX_DETTAGLI: il dettaglio di
+    ciascuno, numerato. Oltre: l'elenco breve, senza sceglierne uno
+    (trovato=False). Nessuno: i titoli piu' simili, mai l'elenco completo.
+    """
+    trovati = trova_bandi(conn, id_bando)
+    if not trovati:
+        return _nessun_bando(conn, id_bando)
 
     oggi = data_di_oggi().isoformat()
+    numerate = RigheBandi()
+    quanti = len(trovati)
+
+    if quanti <= MAX_DETTAGLI:
+        righe = [numerate.numera(r, _dettaglio(conn, r, oggi)) for r in trovati]
+        if quanti > 1:
+            righe.insert(
+                0,
+                f"Più bandi corrispondono a '{id_bando}' ({quanti}): "
+                "ecco il dettaglio di tutti.",
+            )
+        return Risultato(
+            "\n".join(righe),
+            fonti=list(dict.fromkeys(fonte_bando(r) for r in trovati)),
+            voci=numerate.voci,
+        )
+
+    mostrati = trovati[:MAX_CORRISPONDENZE]
+    intestazione = (
+        f"Più bandi corrispondono a '{id_bando}' ({quanti}): nessuno è stato "
+        "scelto. Per il dettaglio serve il titolo di uno di questi."
+    )
+    righe = [
+        intestazione,
+        *("- " + numerate.numera(r, _riga_breve(conn, r, oggi)) for r in mostrati),
+    ]
+    if quanti > MAX_CORRISPONDENZE:
+        righe.append(
+            f"E altri {quanti - MAX_CORRISPONDENZE}: il testo cercato è troppo "
+            "generico."
+        )
+    return Risultato(
+        "\n".join(righe),
+        fonti=list(dict.fromkeys(fonte_bando(r) for r in mostrati)),
+        trovato=False,
+        voci=numerate.voci,
+    )
+
+
+def _dettaglio(conn: sqlite3.Connection, riga, oggi: str) -> str:
+    """Il testo del dettaglio di un bando, senza il segnaposto."""
     if riga["natura"] == "non_bando":
         # La pagina e' in archivio ma non e' un'opportunita': si dice
         # perche', senza i dati del bando
-        numerate = RigheBandi()
-        testo = numerate.numera(
-            riga,
+        return (
             f"«{riga['titolo']}» non e' un bando: {riga['natura_motivo']} "
-            f"| url: {riga['url']}",
+            f"| url: {riga['url']}"
         )
-        return Risultato(testo, fonti=[fonte_bando(riga)], voci=numerate.voci)
 
     scadenze = scadenze_di(conn, riga["id"])
     # Lo stato prima di tutto, calcolato ora: un bando dello storico non
@@ -1038,7 +1190,5 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
         if da_vedere:
             pezzi.append(f"da approfondire: {da_vedere}")
 
-    # Un solo bando, una sola voce: l'atto e' gia' nella riga del bando
-    numerate = RigheBandi()
-    testo = numerate.numera(riga, " | ".join(pezzi))
-    return Risultato(testo, fonti=[fonte_bando(riga)], voci=numerate.voci)
+    # Un bando, una sola voce: l'atto e' gia' nella riga del bando
+    return " | ".join(pezzi)

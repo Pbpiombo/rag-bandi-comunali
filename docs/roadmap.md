@@ -118,6 +118,15 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   Abetone Cutigliano passa da 74,94 a 74,99 kmq, per avere i tre comuni
   dallo stesso file; la fonte del 74,94 era solo "ISTAT", senza tabella.
   File scaricati in `data/raw/istat/`, non versionata.
+- **Blocco B, voce 6** (13 novembre 2026): `dettaglio_bando` non sceglie
+  più a caso tra titoli simili. Fino a 3 bandi il dettaglio di ciascuno,
+  oltre un elenco breve; nessun bando, i 5 titoli più simili invece di
+  tutti gli identificativi. Provato su "neve" e "Missione Comune" (due
+  dettagli ciascuno). Due limiti emersi dalla prova, da decidere: la
+  ricerca guarda solo i titoli (per "impianti di risalita" propone
+  impianti di rifiuti ed energia, non i bandi neve che li nominano nei
+  beneficiari); "bandi sulla conciliazione" va a `bandi_per_tema`, che
+  cerca nel tema e non nei titoli, e non trova i 5 bandi.
 
 ## In corso
 
@@ -141,7 +150,6 @@ perde i suoi esempi migliori.
   - Punti Digitale Facile, con una scansione della Regione;
   - Toscana Art Bonus, da estrarre quando esce l'avviso (dal 1° dicembre).
 - **Blocco B, voci ancora aperte** (`docs/revisione-2026-11-12.md`):
-  `dettaglio_bando` che non sceglie a caso tra titoli simili (voce 6);
   sportelli con data di chiusura in `bandi_in_scadenza` (voce 12); README e
   docs/ allineati al codice (voce 14).
 - **Controllo degli scarti**: un file con le righe da verificare e gli

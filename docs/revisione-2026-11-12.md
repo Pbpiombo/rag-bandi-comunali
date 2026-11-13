@@ -168,6 +168,13 @@ e id con `trovato=False` invece di sceglierne uno; un test.
 
 **Quando.** Prima della demo.
 
+**Stato.** Chiusa il 13 novembre 2026. La ricerca procede per
+identificativo esatto, testo nel titolo (senza maiuscole e accenti), poi
+tutte le parole nel titolo in qualunque ordine. Fino a 3 bandi: il
+dettaglio di ciascuno, numerato; oltre: un elenco breve di al più 10
+righe, senza sceglierne uno (`trovato=False`). Nessun bando: al più 5
+titoli simili, mai l'elenco completo degli identificativi.
+
 ## 7. Le pagine scadute non si riesaminano mai
 
 **Dove.** `src/estrazione/registro.py:12` e `:50-70`: ogni motivo che

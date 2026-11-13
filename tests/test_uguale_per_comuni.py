@@ -49,6 +49,10 @@ Aggiornato di nuovo il 12 novembre 2026 (voci 5 e 8 della revisione),
   percentuale (7 bandi), e gli importi con i centesimi non si
   arrotondano piu' (dotazione di GOL: 84.552.097,68).
 
+Aggiornato il 13 novembre 2026 (voce 6 della revisione), 1 voce su 35:
+- dettaglio_bando(inesistente) non elenca piu' tutti gli identificativi
+  in archivio: restituisce i titoli piu' simili, e qui nessuno lo e'.
+
 Il test migra quei bandi con lo script di migrazione, li carica nello
 schema attuale ed esegue le stesse interrogazioni: il testo, le fonti e
 l'esito devono coincidere con il riferimento.

@@ -1093,3 +1093,145 @@ def test_il_dettaglio_di_un_bando_chiaro_non_ha_problemi_ne_contatti_vuoti(db):
 
     assert "da approfondire" not in testo
     assert "contatti:" not in testo
+
+
+# --- dettaglio_bando: ricerca per titolo, piu' bandi, nessun bando ---
+
+
+def test_l_identificativo_esatto_vince_sui_titoli(db):
+    bando(db, "neve", titolo="Bando neve")
+    bando(db, "neve-investimenti", titolo="Bando neve investimenti")
+
+    r = ib.dettaglio_bando(db, "neve")
+
+    assert r.trovato
+    assert len(r.voci) == 1
+    assert "«Bando neve»" in r.testo
+    assert "Più bandi" not in r.testo
+
+
+def test_due_bandi_danno_il_dettaglio_di_entrambi(db):
+    bando(db, "funz", titolo="Bando Neve Spese di Funzionamento 2026")
+    bando(db, "inv", titolo="Bando Neve Spese di Investimento 2026")
+
+    r = ib.dettaglio_bando(db, "neve")
+
+    righe = r.testo.splitlines()
+    assert righe[0] == (
+        "Più bandi corrispondono a 'neve' (2): ecco il dettaglio di tutti."
+    )
+    assert righe[1].startswith("[#1] «Bando Neve Spese di Funzionamento 2026»")
+    assert righe[2].startswith("[#2] «Bando Neve Spese di Investimento 2026»")
+    assert r.testo.count("dotazione complessiva") == 2
+    assert r.trovato
+    assert len(r.voci) == 2
+    # Stessa fonte per i due bandi nel database di prova: non si ripete
+    assert len(r.fonti) == 1
+
+
+def test_tre_bandi_danno_ancora_i_dettagli(db):
+    for numero in range(3):
+        bando(db, f"c{numero}", titolo=f"Conciliazione vita-lavoro {numero}")
+
+    r = ib.dettaglio_bando(db, "conciliazione")
+
+    assert r.trovato
+    assert r.testo.count("dotazione complessiva") == 3
+
+
+def test_quattro_bandi_danno_l_elenco_senza_dettaglio(db):
+    for numero in range(4):
+        bando(db, f"c{numero}", titolo=f"Conciliazione vita-lavoro {numero}")
+
+    r = ib.dettaglio_bando(db, "conciliazione")
+
+    righe = r.testo.splitlines()
+    assert righe[0] == (
+        "Più bandi corrispondono a 'conciliazione' (4): nessuno è stato "
+        "scelto. Per il dettaglio serve il titolo di uno di questi."
+    )
+    assert [riga[:7] for riga in righe[1:]] == [f"- [#{k}] " for k in (1, 2, 3, 4)]
+    assert "dotazione complessiva" not in r.testo
+    assert not r.trovato
+    assert len(r.voci) == 4
+
+
+def test_l_elenco_si_ferma_a_dieci(db):
+    for numero in range(12):
+        bando(db, f"f{numero:02}", titolo=f"Formazione continua {numero:02}")
+
+    r = ib.dettaglio_bando(db, "formazione")
+
+    assert len(r.voci) == ib.MAX_CORRISPONDENZE
+    assert r.testo.endswith("E altri 2: il testo cercato è troppo generico.")
+
+
+def test_l_elenco_dice_quali_bandi_sono_scaduti(db):
+    for numero in range(4):
+        bando(db, f"c{numero}", titolo=f"Conciliazione {numero}")
+    db.execute("UPDATE bandi SET scadenza = '2026-10-01' WHERE id = 'c0'")
+
+    r = ib.dettaglio_bando(db, "conciliazione")
+
+    assert "- [#1] stato: scaduto il 2026-10-01, non più aperto |" in r.testo
+
+
+def test_parole_in_ordine_diverso(db):
+    bando(db, "sport", titolo="Bando Sport Missione Comune 2026")
+    bando(db, "cultura", titolo="Cultura Missione Comune 2026")
+
+    r = ib.dettaglio_bando(db, "Missione Comune Sport")
+
+    assert len(r.voci) == 1
+    assert "«Bando Sport Missione Comune 2026»" in r.testo
+
+
+def test_parole_vuote_e_plurali(db):
+    bando(db, "parcheggi", titolo="Bando parcheggi 2026")
+
+    assert ib.dettaglio_bando(db, "il bando per il parcheggio").trovato
+
+
+def test_senza_maiuscole_e_accenti(db):
+    bando(db, "motoria", titolo="Contributi per l'Attività Motoria")
+
+    assert len(ib.dettaglio_bando(db, "attivita motoria").voci) == 1
+
+
+def test_nessun_bando_da_i_titoli_piu_simili(db):
+    # 3 parole su 4, 2 su 4, nessuna: il terzo resta fuori
+    bando(db, "piste", titolo="Impianti di risalita e piste 2025")
+    bando(db, "neve", titolo="Impianti di trattamento: innevamento")
+    bando(db, "parcheggi", titolo="Bando parcheggi 2026")
+
+    r = ib.dettaglio_bando(db, "impianti di risalita, innevamento e piste")
+
+    assert not r.trovato
+    assert r.voci == []
+    assert r.testo == (
+        "Nessun bando corrisponde a 'impianti di risalita, innevamento e piste'. "
+        "Titoli più simili in archivio, dal più vicino: "
+        "«Impianti di risalita e piste 2025» (id: piste); "
+        "«Impianti di trattamento: innevamento» (id: neve)."
+    )
+
+
+def test_al_piu_cinque_titoli_simili(db):
+    for numero in range(7):
+        bando(db, f"i{numero}", titolo=f"Impianti sportivi {numero}")
+
+    r = ib.dettaglio_bando(db, "impianti di risalita")
+
+    assert r.testo.count("(id: i") == ib.MAX_SIMILI
+
+
+def test_nessun_titolo_simile(db):
+    bando(db, "parcheggi", titolo="Bando parcheggi 2026")
+
+    r = ib.dettaglio_bando(db, "piste da sci")
+
+    assert not r.trovato
+    assert r.testo == (
+        "Nessun bando corrisponde a 'piste da sci', e nessun titolo in "
+        "archivio è simile."
+    )
