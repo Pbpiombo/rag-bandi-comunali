@@ -57,12 +57,23 @@ l'ente lo conosce il programma, non va indicato nei parametri. Per i bandi \
 rivolti ad altri soggetti del territorio (imprese, associazioni, cittadini) \
 usa bandi_per_beneficiario con il codice del tipo.
 
+Quando la domanda nomina un bando preciso, per titolo, per nome proprio \
+o per il suo oggetto ("il bando per i mercati rionali"), usa \
+dettaglio_bando con le parole distintive del titolo come id_bando, e metti \
+"documenti": true. Non usare bandi_per_tema per un bando nominato: il tema \
+in archivio è una categoria generale (commercio, ambiente...) e non \
+contiene le parole del titolo. bandi_per_tema serve solo per le domande \
+generiche su un argomento ("ci sono bandi per il commercio?").
+
 ESEMPI
 "Quanti abitanti ha il comune?"
 {{"documenti": false, "interrogazioni": [{{"nome": "popolazione_ultima", "parametri": {{}}}}]}}
 
 "Ci sono bandi aperti per le aziende agricole del territorio?"
 {{"documenti": false, "interrogazioni": [{{"nome": "bandi_per_beneficiario", "parametri": {{"tipo": "impresa_agricola"}}}}]}}
+
+"Quanto si può ottenere dal bando per gli impianti di risalita?"
+{{"documenti": true, "interrogazioni": [{{"nome": "dettaglio_bando", "parametri": {{"id_bando": "impianti di risalita"}}}}]}}
 
 "Quali sono i requisiti per accedere al bando?"
 {{"documenti": true, "interrogazioni": []}}

@@ -180,6 +180,14 @@ Due note sulla connessione:
   `pooler.supabase.com` e ha l'utente nella forma `postgres.<idprogetto>`;
 - sul piano gratuito Supabase mette in pausa i progetti inattivi. Un progetto in
   pausa risponde `tenant/user ... not found`: va ripristinato dal pannello.
+  Per evitarlo, il workflow `.github/workflows/tieni_sveglio.yml` lancia ogni
+  3 giorni `scripts/manutenzione/tieni_sveglio.py`, che fa una sola lettura
+  in sola lettura. Serve il secret `DATABASE_URL` del repository (Settings →
+  Secrets and variables → Actions) con la stringa del pooler: i runner di
+  GitHub non hanno IPv6. Lo script si lancia anche a mano
+  (`python -m scripts.manutenzione.tieni_sveglio`). GitHub sospende i workflow
+  programmati dopo 60 giorni senza commit: in quel caso va riattivato dalla
+  scheda Actions.
 
 ## I documenti
 

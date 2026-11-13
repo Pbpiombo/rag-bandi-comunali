@@ -1,0 +1,35 @@
+# Una lettura su Postgres ogni 3 giorni, perche' Supabase non metta in
+# pausa il progetto (piano gratuito). Si lancia anche a mano dalla scheda
+# Actions (workflow_dispatch).
+#
+# Serve il secret DATABASE_URL (Settings > Secrets and variables > Actions)
+# con la stringa del connection pooler: i runner di GitHub non hanno IPv6.
+
+name: Tieni sveglio Supabase
+
+on:
+  schedule:
+    - cron: "17 6 */3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lettura:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Dipendenze minime
+        run: pip install "psycopg[binary]>=3.1" "python-dotenv>=1.0"
+
+      - name: Lettura
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.manutenzione.tieni_sveglio

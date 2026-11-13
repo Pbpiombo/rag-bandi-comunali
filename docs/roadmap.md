@@ -81,6 +81,14 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   copertura, 8 bandi su 31 pertinenti in archivio, 8 su 20 sulle fonti già
   acquisite; Sviluppo Toscana come elenco in più (`docs/ricognizione-fonti.md`,
   sezione 8).
+- **Router e bandi nominati** (13 novembre 2026): se la domanda nomina un
+  bando (titolo, nome proprio o oggetto) il router usa `dettaglio_bando`
+  con le parole del titolo, non `bandi_per_tema`. Prima "mercati rionali"
+  era cercato come tema e non trovava il bando, classificato "commercio".
+  Provato su 5 domande: mercati rionali, parcheggi e Sport Missione Comune
+  vanno a `dettaglio_bando` e trovano un solo bando ciascuna; "bandi per il
+  commercio" resta `bandi_per_tema`, "bandi aperti per il Comune" resta
+  `bandi_aperti_per_ente`.
 
 ## In corso
 
@@ -99,12 +107,10 @@ Toscana (prima voce della sezione successiva).
     come l'Istituto per il Credito Sportivo;
   - Punti Digitale Facile, con una scansione della Regione;
   - Toscana Art Bonus, da estrarre quando esce l'avviso (dal 1° dicembre).
-- **Supabase che non va in pausa** dopo inattività: tenerlo sveglio o
-  cambiare piano.
-- **Router**: quando una domanda nomina un bando usa `dettaglio_bando`
-  invece di `bandi_per_tema`. Caso: "mercati rionali" cercato come tema non
-  trova il bando, classificato con il tema "commercio", e il modello riporta
-  che l'archivio non ha corrispondenze.
+- **Supabase che non va in pausa** dopo inattività: workflow
+  `.github/workflows/tieni_sveglio.yml` scritto (una lettura ogni 3 giorni,
+  `scripts/manutenzione/tieni_sveglio.py`). Da fare: creare il secret
+  `DATABASE_URL` e provare il workflow con il lancio manuale.
 - **Blocco B, voci ancora aperte** (`docs/revisione-2026-11-12.md`):
   `dettaglio_bando` che non sceglie a caso tra titoli simili (voce 6);
   sportelli con data di chiusura in `bandi_in_scadenza` (voce 12); README e
