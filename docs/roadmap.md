@@ -133,6 +133,12 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   ("impianti di risalita": i due bandi neve). Limite: il confronto è tra
   parole, non tra significati ("rifugi" trova un bando che nomina le case
   rifugio per le donne vittime di violenza).
+- **Blocco B, voce 12** (13 novembre 2026): gli sportelli con la data di
+  chiusura nella finestra entrano in `bandi_in_scadenza`, con "a
+  sportello, chiude il …, salvo esaurimento delle risorse". La domanda
+  d'esempio "Quali bandi per il Comune scadono nei prossimi 30 giorni?"
+  passa da 5 a 7 bandi: si aggiungono Sport e Cultura Missione Comune
+  (chiusura il 5 dicembre).
 
 ## In corso
 
@@ -155,9 +161,8 @@ perde i suoi esempi migliori.
     come l'Istituto per il Credito Sportivo;
   - Punti Digitale Facile, con una scansione della Regione;
   - Toscana Art Bonus, da estrarre quando esce l'avviso (dal 1° dicembre).
-- **Blocco B, voci ancora aperte** (`docs/revisione-2026-11-12.md`):
-  sportelli con data di chiusura in `bandi_in_scadenza` (voce 12); README e
-  docs/ allineati al codice (voce 14).
+- **Blocco B, voce ancora aperta** (`docs/revisione-2026-11-12.md`):
+  README e docs/ allineati al codice (voce 14).
 - **Controllo degli scarti**: un file con le righe da verificare e gli
   scarti definitivi, con titolo, ente e motivo, ordinati mettendo in cima
   quelli che nominano comuni, enti locali, montagna, impianti, sport,

@@ -1358,3 +1358,65 @@ def test_il_titolo_ha_la_precedenza_sul_testo(db):
 
     assert len(r.voci) == 1
     assert r.testo.startswith("[#1] «Impianti di risalita 2026»")
+
+
+# --- sportelli con data di chiusura nelle scadenze (voce 12) ---
+
+
+def test_sportello_con_chiusura_nella_finestra(db):
+    bando(db, "sport", [("comune", None, None)], a_sportello=1, scadenza="2026-12-05")
+    bando(db, "graduatoria", [("comune", None, None)], scadenza="2026-11-30")
+
+    testo = ib.bandi_in_scadenza(db, COMUNE, 30).testo
+
+    [riga] = righe_del_bando(testo, "sport")
+    assert (
+        "| a sportello, chiude il 2026-12-05 (fra 24 giorni), salvo esaurimento "
+        "delle risorse |"
+    ) in riga
+    assert "verificare la disponibilità" not in riga
+    # in ordine di chiusura, tra i bandi a graduatoria
+    assert testo.index("Bando graduatoria") < testo.index("Bando sport")
+
+
+def test_sportello_che_chiude_dopo_la_finestra(db):
+    bando(db, "tardi", [("comune", None, None)], a_sportello=1, scadenza="2027-07-18")
+
+    r = ib.bandi_in_scadenza(db, COMUNE, 30)
+
+    assert not r.trovato
+
+
+def test_sportello_senza_chiusura_resta_fuori(db):
+    bando(db, "aperto", [("comune", None, None)], a_sportello=1, scadenza=None)
+
+    assert not ib.bandi_in_scadenza(db, COMUNE, 30).trovato
+
+
+def test_sportello_a_finestre_chiude_con_la_finestra_aperta(db):
+    # Come Sport Missione Comune: finestra fino al 5/12, poi una fase
+    # successiva che non riapre il bando
+    bando(db, "coni", [("comune", None, None)], a_sportello=1, scadenza="2026-12-18")
+    scadenze(
+        db,
+        "coni",
+        [
+            ("domanda", "istanza", "2026-03-09", "2026-12-05"),
+            ("fase_successiva", "parere CONI", None, "2026-12-18"),
+        ],
+    )
+
+    testo = ib.bandi_in_scadenza(db, COMUNE, 30).testo
+
+    [riga] = righe_del_bando(testo, "coni")
+    assert "a sportello, chiude il 2026-12-05 (fra 24 giorni)" in riga
+
+
+def test_gli_altri_elenchi_non_cambiano_per_gli_sportelli(db):
+    bando(db, "sport", [("comune", None, None)], a_sportello=1, scadenza="2026-12-05")
+
+    testo = ib.bandi_aperti_per_ente(db, COMUNE).testo
+
+    assert (
+        "a sportello fino al 2026-12-05, verificare la disponibilità delle risorse"
+    ) in testo

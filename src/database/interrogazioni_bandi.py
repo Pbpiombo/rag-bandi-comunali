@@ -376,18 +376,29 @@ def fasi_successive(scadenze: list, oggi: str) -> str | None:
 
 
 def formatta_bando(
-    riga, oggi: str, nota: str | None = None, scadenze: list = ()
+    riga,
+    oggi: str,
+    nota: str | None = None,
+    scadenze: list = (),
+    chiusura_sportello: str | None = None,
 ) -> str:
     """Una riga di bando in forma leggibile.
 
     nota: come e' ammesso l'ente, o perche' va verificato; si aggiunge
     dopo i beneficiari. scadenze: le righe di scadenze_bando, per i bandi
-    con piu' date.
+    con piu' date. chiusura_sportello: per gli elenchi delle scadenze, la
+    data di chiusura di uno sportello, che prende il posto dello stato.
     """
     pezzi = [f"«{riga['titolo']}» ({riga['ente']})"]
 
     stato_date = stato_finestre(riga, scadenze, oggi)
-    if stato_date:
+    if chiusura_sportello:
+        quando = tra_quanto(_fra(chiusura_sportello, oggi))
+        pezzi.append(
+            f"a sportello, chiude il {chiusura_sportello} ({quando}), "
+            "salvo esaurimento delle risorse"
+        )
+    elif stato_date:
         pezzi.append(stato_date)
     elif riga["a_sportello"]:
         pezzi.append(stato_sportello(riga, oggi))
@@ -482,13 +493,26 @@ class RigheBandi:
         return f"[#{len(self.voci)}] {testo}"
 
 
-def _elenco(conn, righe, oggi: str, tipo: str, numerate: RigheBandi) -> str:
+def _elenco(
+    conn,
+    righe,
+    oggi: str,
+    tipo: str,
+    numerate: RigheBandi,
+    chiusure: dict | None = None,
+) -> str:
+    """chiusure: id -> data di chiusura degli sportelli, per le scadenze."""
+    chiusure = chiusure or {}
     return "\n".join(
         "- "
         + numerate.numera(
             r,
             formatta_bando(
-                r, oggi, nota_per_ente(conn, r, tipo), scadenze_di(conn, r["id"])
+                r,
+                oggi,
+                nota_per_ente(conn, r, tipo),
+                scadenze_di(conn, r["id"]),
+                chiusura_sportello=chiusure.get(r["id"]),
             ),
         )
         for r in righe
@@ -706,7 +730,12 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
 def bandi_in_scadenza(
     conn: sqlite3.Connection, codice_ente: str, giorni: int = 60
 ) -> Risultato:
-    """I bandi per l'ente che scadono entro un certo numero di giorni."""
+    """I bandi per l'ente che scadono entro un certo numero di giorni.
+
+    Entrano anche gli sportelli con una data di chiusura nella finestra,
+    segnalati come sportelli: possono chiudere prima, se finiscono le
+    risorse. Gli sportelli senza data di chiusura restano fuori.
+    """
     tipo = tipo_ente(conn, codice_ente)
     if tipo is None:
         return _ente_non_gestito(codice_ente)
@@ -722,7 +751,6 @@ def bandi_in_scadenza(
         SELECT * FROM bandi
         WHERE ({filtro} OR {SENZA_RIGHE_BENEFICIARI})
           AND {SOLO_BANDI}
-          AND a_sportello = 0
           AND scadenza >= ?
         ORDER BY scadenza
         """,
@@ -745,7 +773,8 @@ def bandi_in_scadenza(
         )
 
     numerate = RigheBandi()
-    elenco = _elenco(conn, righe, oggi.isoformat(), tipo, numerate)
+    chiusure = {r["id"]: s for s, r in in_scadenza if r["a_sportello"]}
+    elenco = _elenco(conn, righe, oggi.isoformat(), tipo, numerate, chiusure)
 
     return Risultato(
         f"Bandi per {plurale} in scadenza entro {giorni} giorni:\n{elenco}",

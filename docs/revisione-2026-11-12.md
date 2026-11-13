@@ -301,6 +301,14 @@ nella riga (c'è già, `stato_sportello`); aggiornare
 
 **Quando.** Prima della demo.
 
+**Stato.** Chiusa il 13 novembre 2026. Gli sportelli con la data di
+chiusura nella finestra entrano in `bandi_in_scadenza`, in ordine di
+chiusura tra gli altri bandi, con "a sportello, chiude il …, salvo
+esaurimento delle risorse"; per uno sportello a finestre conta la
+finestra aperta. Gli sportelli senza data restano fuori. Gli altri
+elenchi non cambiano; il riferimento di equivalenza nemmeno (nei 21
+bandi del riferimento non ci sono sportelli con data di chiusura).
+
 ## 13. Test assenti dove l'errore costa di più
 
 **Dove.**
