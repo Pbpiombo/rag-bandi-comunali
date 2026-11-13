@@ -64,6 +64,10 @@ dettaglio_bando con le parole distintive del titolo come id_bando, e metti \
 in archivio è una categoria generale (commercio, ambiente...) e non \
 contiene le parole del titolo. bandi_per_tema serve solo per le domande \
 generiche su un argomento ("ci sono bandi per il commercio?").
+Se la domanda nomina l'ente che emette il bando (MIT, Ministero, Regione, \
+GAL, ICS, Invitalia...), quel nome non va in id_bando: i titoli dei bandi \
+non lo contengono. "Il fondo strade MIT per i piccoli comuni" diventa \
+id_bando "fondo strade piccoli comuni".
 
 ESEMPI
 "Quanti abitanti ha il comune?"

@@ -166,6 +166,14 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   per l'Unione. Provato con il modello: "mutuo massimo in Sport Missione
   Comune" per Abetone sceglie la fascia dei 2 milioni con 1.834 abitanti,
   9 dati verificati su 9.
+- **Corrispondenza parziale nella ricerca per nome** (13 novembre 2026):
+  `dettaglio_bando` dava "non trovo" sul "fondo strade MIT" perché "MIT"
+  non è nel titolo. Ora, se nessun titolo contiene tutte le parole e uno
+  solo ne manca una (con almeno 3 parole cercate), se ne dà il dettaglio
+  con in testa la parola mancante; a pari merito, i titoli simili come
+  prima. Il router non mette più in id_bando il nome dell'ente che emette
+  il bando (MIT, Regione, GAL, ICS...). Provato con il modello per
+  Abetone: risposta corretta, 10 dati verificati su 10.
 
 ## In corso
 

@@ -162,7 +162,11 @@ Il router sceglie una di queste interrogazioni:
   corrispondono, il dettaglio di ciascuno; oltre, un elenco breve senza
   sceglierne uno. Se nessun titolo corrisponde, si cercano le parole nei
   beneficiari e negli interventi ("impianti di risalita" trova i bandi
-  neve); se non le trova nemmeno lì, si propongono i 5 titoli più simili.
+  neve). Poi la corrispondenza parziale: se a un solo titolo manca una
+  sola delle parole cercate, se ne dà il dettaglio dicendo quale parola
+  manca ("fondo strade MIT piccoli comuni" trova il fondo per le strade
+  dei piccoli Comuni, che non contiene "MIT"). Altrimenti si propongono i
+  5 titoli più simili.
 
 **Lo stato di un bando si calcola a ogni domanda** dalla scadenza, anche nei
 frammenti dei documenti. I bandi scaduti non si cancellano: servono a

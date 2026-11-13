@@ -1027,6 +1027,10 @@ PAROLE_VUOTE = frozenset(
 # Due parole lunghe almeno tanto si considerano simili se iniziano con le
 # stesse PREFISSO_SIMILE lettere: "parcheggio" e "parcheggi"
 PREFISSO_SIMILE = 5
+# Corrispondenza parziale: un solo titolo a cui manca una sola parola
+# cercata, purche' ne contenga almeno due (con meno parole cercate, una
+# mancante e' troppo)
+MIN_PAROLE_PARZIALE = 3
 
 
 def _normale(testo: str) -> str:
@@ -1113,6 +1117,37 @@ def trova_nel_testo(conn: sqlite3.Connection, cercato: str) -> list:
     ).fetchall()
 
 
+def corrispondenza_parziale(conn: sqlite3.Connection, cercato: str) -> tuple | None:
+    """Il solo titolo a cui manca una sola delle parole cercate, e la parola.
+
+    Si usa quando nessun titolo le contiene tutte: "fondo strade MIT piccoli
+    comuni" ritrova il «Fondo investimenti stradali nei piccoli Comuni», che
+    non contiene "MIT". Se piu' titoli mancano di una sola parola, a pari
+    merito, non se ne sceglie nessuno (None), come se ne mancassero due.
+    """
+    parole = _parole(cercato)
+    if len(parole) < MIN_PAROLE_PARZIALE:
+        return None
+    candidati = []
+    for r in conn.execute("SELECT * FROM bandi ORDER BY titolo, id"):
+        nel_titolo = _parole(r["titolo"])
+        mancanti = [p for p in parole if not any(_simili(p, t) for t in nel_titolo)]
+        if len(mancanti) == 1:
+            candidati.append((r, mancanti[0]))
+    if len(candidati) != 1:
+        return None
+    riga, manca = candidati[0]
+    return riga, _forma_scritta(cercato, manca)
+
+
+def _forma_scritta(cercato: str, parola: str) -> str:
+    """La parola come e' scritta nel testo cercato ("MIT", non "mit")."""
+    for p in re.findall(r"\w+", cercato):
+        if _normale(p) == parola:
+            return p
+    return parola
+
+
 def titoli_simili(conn: sqlite3.Connection, cercato: str) -> list:
     """I bandi con il titolo piu' vicino al testo cercato, dal piu' vicino."""
     parole = _parole(cercato)
@@ -1159,20 +1194,34 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
 
     Si cerca prima nei titoli (trova_bandi); se nessun titolo corrisponde,
     nei beneficiari e negli interventi (trova_nel_testo), e lo si dice in
-    testa. Un bando: il suo dettaglio. Fino a MAX_DETTAGLI: il dettaglio di
-    ciascuno, numerato. Oltre: l'elenco breve, senza sceglierne uno
-    (trovato=False). Nessuno: i titoli piu' simili, mai l'elenco completo.
+    testa. Poi il solo titolo a cui manca una parola
+    (corrispondenza_parziale), con la parola mancante in testa. Un bando: il
+    suo dettaglio. Fino a MAX_DETTAGLI: il dettaglio di ciascuno, numerato.
+    Oltre: l'elenco breve, senza sceglierne uno (trovato=False). Nessuno: i
+    titoli piu' simili, mai l'elenco completo.
     """
     trovati = trova_bandi(conn, id_bando)
     nel_testo = False
     if not trovati:
         trovati = trova_nel_testo(conn, id_bando)
         nel_testo = True
-    if not trovati:
-        return _nessun_bando(conn, id_bando)
-
     oggi = data_di_oggi().isoformat()
     numerate = RigheBandi()
+    if not trovati:
+        parziale = corrispondenza_parziale(conn, id_bando)
+        if parziale is None:
+            return _nessun_bando(conn, id_bando)
+        riga, manca = parziale
+        testa = (
+            f"Corrispondenza parziale per '{id_bando}': il titolo non contiene "
+            f"'{manca}'."
+        )
+        return Risultato(
+            testa + "\n" + numerate.numera(riga, _dettaglio(conn, riga, oggi)),
+            fonti=[fonte_bando(riga)],
+            voci=numerate.voci,
+        )
+
     quanti = len(trovati)
     if nel_testo:
         testa = (

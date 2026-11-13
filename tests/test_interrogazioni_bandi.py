@@ -1199,20 +1199,22 @@ def test_senza_maiuscole_e_accenti(db):
 
 
 def test_nessun_bando_da_i_titoli_piu_simili(db):
-    # 3 parole su 4, 2 su 4, nessuna: il terzo resta fuori
-    bando(db, "piste", titolo="Impianti di risalita e piste 2025")
-    bando(db, "neve", titolo="Impianti di trattamento: innevamento")
+    # 4 parole su 6 (ne mancano due: niente corrispondenza parziale), 3 su
+    # 6, nessuna: il terzo resta fuori
+    bando(db, "piste", titolo="Impianti di risalita, piste e rifugi 2025")
+    bando(db, "neve", titolo="Impianti di innevamento e sentieri")
     bando(db, "parcheggi", titolo="Bando parcheggi 2026")
+    cercato = "impianti di risalita, innevamento, piste, rifugi e sentieri"
 
-    r = ib.dettaglio_bando(db, "impianti di risalita, innevamento e piste")
+    r = ib.dettaglio_bando(db, cercato)
 
     assert not r.trovato
     assert r.voci == []
     assert r.testo == (
-        "Nessun bando corrisponde a 'impianti di risalita, innevamento e piste'. "
+        f"Nessun bando corrisponde a '{cercato}'. "
         "Titoli più simili in archivio, dal più vicino: "
-        "«Impianti di risalita e piste 2025» (id: piste); "
-        "«Impianti di trattamento: innevamento» (id: neve)."
+        "«Impianti di risalita, piste e rifugi 2025» (id: piste); "
+        "«Impianti di innevamento e sentieri» (id: neve)."
     )
 
 
@@ -1235,6 +1237,62 @@ def test_nessun_titolo_simile(db):
         "Nessun bando corrisponde a 'piste da sci', e nessun titolo in "
         "archivio è simile."
     )
+
+
+# --- corrispondenza parziale: un solo titolo a cui manca una parola ---
+
+STRADE = "Fondo investimenti stradali nei piccoli Comuni - Avviso pubblico 2026"
+
+
+def test_manca_una_parola_e_un_solo_titolo_dettaglio(db):
+    bando(db, "strade", COMUNI, titolo=STRADE)
+    bando(db, "parcheggi", titolo="Fondo parcheggi 2026")
+
+    r = ib.dettaglio_bando(db, "fondo strade MIT piccoli comuni")
+
+    righe = r.testo.splitlines()
+    assert righe[0] == (
+        "Corrispondenza parziale per 'fondo strade MIT piccoli comuni': il "
+        "titolo non contiene 'MIT'."
+    )
+    assert righe[1].startswith(f"[#1] «{STRADE}»")
+    assert "dotazione complessiva" in r.testo
+    assert r.trovato
+    assert len(r.voci) == 1
+
+
+def test_manca_una_parola_a_pari_merito_titoli_simili(db):
+    bando(db, "strade", titolo=STRADE)
+    bando(db, "ponti", titolo="Fondo ponti nei piccoli Comuni")
+
+    r = ib.dettaglio_bando(db, "fondo strade ponti piccoli comuni")
+
+    assert not r.trovato
+    assert r.voci == []
+    assert r.testo.startswith(
+        "Nessun bando corrisponde a 'fondo strade ponti piccoli comuni'. "
+        "Titoli più simili in archivio"
+    )
+    assert "(id: strade)" in r.testo
+    assert "(id: ponti)" in r.testo
+
+
+def test_mancano_due_parole_titoli_simili(db):
+    bando(db, "strade", titolo=STRADE)
+
+    r = ib.dettaglio_bando(db, "fondo strade MIT ANAS piccoli comuni")
+
+    assert not r.trovato
+    assert r.testo == (
+        "Nessun bando corrisponde a 'fondo strade MIT ANAS piccoli comuni'. "
+        f"Titoli più simili in archivio, dal più vicino: «{STRADE}» (id: strade)."
+    )
+
+
+def test_con_due_parole_cercate_nessuna_corrispondenza_parziale(db):
+    bando(db, "strade", titolo=STRADE)
+
+    assert not ib.dettaglio_bando(db, "strade MIT").trovato
 
 
 # --- ricerca fuori dal tema e fuori dal titolo ---
