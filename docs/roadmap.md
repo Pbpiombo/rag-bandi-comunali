@@ -220,6 +220,18 @@ Toscana (prima voce della sezione successiva).
   sono per imprese o terzo settore.
 - Dopo la demo. Revisione dei test: segnalare quelli che ricopiano il
   codice invece di proteggere un comportamento.
+- Dopo la demo. Regola per i bandi pubblicati su due domini (Regione e
+  Sviluppo Toscana, poi BURT e le altre fonti), da scrivere prima di
+  accendere l'elenco di Sviluppo Toscana (oggi `attivo` = 0). Caso del
+  13/11/2026: Digitale P.A. su sviluppo.toscana.it è lo stesso bando di
+  "Contributi agli enti locali per lo sviluppo di progettualità sui dati"
+  già in archivio dalla Regione (decreto 22706 del 9/10/2026); con l'elenco
+  acceso sarebbero doppioni anche IGP, le due 1.3.2 PMI, PMI turismo e
+  Minibond.
+- Dopo la demo. Soglie di popolazione dei bandi (es. comuni fino a 5.000
+  abitanti, fondo strade MIT) confrontate con i dati ISTAT del comune:
+  oggi la soglia sta solo nelle condizioni dei beneficiari, e il bando
+  compare a tutti i comuni.
 - Dopo la demo. Campo strutturato per gli importi per fascia di ente (es.
   mutuo massimo di 2, 4 o 6 milioni secondo tipo e dimensione dell'ente,
   Sport e Cultura Missione Comune): oggi la frase della pagina sta nel

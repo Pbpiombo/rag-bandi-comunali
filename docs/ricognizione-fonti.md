@@ -399,10 +399,13 @@ per quasi tutti: non conta, vale la scadenza.
   Montieri 2024 (territorio di altri comuni). FUNT 2025 riguarda
   progetti già ammessi dal Ministero del Turismo.
 - Già in archivio, dalle pagine della Regione o dal catalogo Incentivi
-  Italia: IGP, le due 1.3.2, Minibond, PMI turismo. **Mancano i due
-  bandi neve e Digitale P.A.**, che nell'elenco generale della Regione
-  non ci sono: Digitale P.A. è per i comuni e l'Unione, i bandi neve
-  per i gestori degli impianti della Montagna Pistoiese.
+  Italia: IGP, le due 1.3.2, Minibond, PMI turismo, e Digitale P.A.
+  (correzione del 13/11/2026: è lo stesso bando di "Contributi agli enti
+  locali per lo sviluppo di progettualità sui dati: il bando 2026", già
+  in archivio dalla pagina della Regione, decreto 22706 del 9/10/2026).
+  **Mancavano i due bandi neve**, per i gestori degli impianti delle
+  aree sciabili, Montagna Pistoiese compresa: salvati il 13/11/2026 dalla
+  fonte `sviluppo-toscana`.
 
 ### 8.4 Prima misura di copertura
 
@@ -437,5 +440,7 @@ le fonti già acquisite, 8 su 20: le mancanze vengono dalla frequenza
 delle scansioni (due in due mesi) e da Sviluppo Toscana, non dalle
 fonti mancanti. Oggi sono aperti e assenti dall'archivio tre bandi
 segnalati da ANCI che riguardano i comuni o il territorio (Digitale
-facile, neve funzionamento, fondo strade MIT), più due trovati su
-Sviluppo Toscana e non segnalati (Digitale P.A., neve investimenti).
+facile, neve funzionamento, fondo strade MIT), più neve investimenti,
+trovato su Sviluppo Toscana e non segnalato. Digitale P.A., indicato qui
+come mancante, era già in archivio dalla pagina della Regione (8.3).
+I quattro bandi sono stati salvati il 13/11/2026.
