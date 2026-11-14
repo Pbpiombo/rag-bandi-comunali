@@ -201,8 +201,14 @@ def con_popolazione(esiti: list, codice_ente: str) -> list:
     return [*esiti, (BLOCCO_POPOLAZIONE, risultato)]
 
 
-def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
-    """Assembla la chain LCEL: router, recupero ibrido, generazione."""
+def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None, router=None):
+    """Assembla la chain LCEL: router, recupero ibrido, generazione.
+
+    router: facoltativo, qualunque oggetto con invoke(entrata) -> testo,
+    come la catena di costruisci_router. Senza, si usa quello dell'app.
+    Lo passa l'insieme di prova (scripts/diagnostica/prova_insieme.py),
+    che chiama il router tre volte per domanda.
+    """
     conn = connetti()
     try:
         profilo = profilo_ente(conn, codice_ente)
@@ -216,7 +222,8 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None):
     # su 5 di controllo, in quattro forme, con la domanda normalizzata:
     # scripts/diagnostica/prova_recupero.py.
     recupero = avvolgi(recupero)
-    router = costruisci_router()
+    if router is None:
+        router = costruisci_router()
 
     modello = ChatAnthropic(
         model=MODEL_NAME,
