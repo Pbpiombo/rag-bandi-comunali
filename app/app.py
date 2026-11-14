@@ -116,15 +116,7 @@ def mostra_verifica(esito: dict) -> None:
     verificati = [e for e in da_mostrare if e.stato == "verificato"]
 
     for e in problematici:
-        riga = f"{SIMBOLI[e.stato]}  **{e.valore}**  ({e.tipo})"
-        if e.contesto:
-            riga += f"  ·  _{e.contesto}_"
-        if e.frammenti:
-            riga += f" → fonti {con_collegamenti(', '.join(e.frammenti), collegamenti)}"
-        if e.stato == "non_trovato":
-            st.markdown(f":red[{riga}]")
-        else:
-            st.markdown(f":orange[{riga}]")
+        st.markdown(riga_esito(e, collegamenti))
         # Per una citazione generica il dettaglio indica il bando giusto
         if e.dettaglio:
             st.caption(f"    {con_collegamenti(e.dettaglio, collegamenti)}")
@@ -132,13 +124,29 @@ def mostra_verifica(esito: dict) -> None:
     if verificati:
         with st.expander(f"{len(verificati)} dati verificati", expanded=False):
             for e in verificati:
-                riga = f"{SIMBOLI[e.stato]}  **{e.valore}**  ({e.tipo})"
-                if e.contesto:
-                    riga += f"  ·  _{e.contesto}_"
-                if e.frammenti:
-                    fonti = con_collegamenti(", ".join(e.frammenti), collegamenti)
-                    riga += f" → fonti {fonti}"
-                st.markdown(riga)
+                st.markdown(riga_esito(e, collegamenti))
+
+
+def riga_esito(e, collegamenti: dict) -> str:
+    """La riga Markdown di un dato nel pannello di verifica.
+
+    Valore, tipo, contesto e fonti, con le etichette dei bandi come
+    collegamenti; in rosso un dato non trovato, in arancione gli altri
+    problemi, senza colore un dato verificato. Il contesto e' un ritaglio
+    della risposta e puo' tagliare una citazione a meta' ("], decreto)"):
+    le sue parentesi quadre si proteggono, altrimenti chiuderebbero il
+    colore in anticipo. Le etichette dei bandi nelle fonti no: sono i
+    collegamenti.
+    """
+    riga = f"{SIMBOLI[e.stato]}  **{e.valore}**  ({e.tipo})"
+    if e.contesto:
+        riga += f"  ·  _{testo_per_collegamento(e.contesto)}_"
+    if e.frammenti:
+        riga += f" → fonti {con_collegamenti(', '.join(e.frammenti), collegamenti)}"
+    if e.stato == "verificato":
+        return riga
+    colore = "red" if e.stato == "non_trovato" else "orange"
+    return f":{colore}[{riga}]"
 
 
 def testo_per_collegamento(testo: str) -> str:
