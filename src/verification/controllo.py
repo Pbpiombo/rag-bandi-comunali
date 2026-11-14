@@ -348,18 +348,26 @@ def contesto_di(testo: str, posizione: int, ampiezza: int = 40) -> str:
     return " ".join(testo[inizio:fine].split())
 
 
+# La finestra di bandi_in_scadenza nell'intestazione: "in scadenza entro
+# 30 giorni"
+SCHEMA_FINESTRA = re.compile(r"\bentro\s+\d{1,3}\s+giorni\b", re.IGNORECASE)
+
+
 def date_dell_intestazione(testo: str) -> str:
-    """Le date dell'intestazione di un elenco di bandi, in ISO.
+    """Le date e la finestra dell'intestazione di un elenco di bandi.
 
     L'intestazione e' il testo prima della prima riga: "Bandi aperti a cui
     un Comune può presentare domanda (alla data del 2026-11-12), 12 in
     archivio:". La data dell'archivio vale per ogni riga del blocco, e si
-    cita con l'etichetta di un bando. I numeri no: "12 in archivio" non
-    deve verificare un 12 qualsiasi attribuito a un bando.
+    cita con l'etichetta di un bando; cosi' la finestra di un elenco in
+    scadenza ("entro 30 giorni"), che ogni riga rispetta. Gli altri numeri
+    no: "12 in archivio" non deve verificare un 12 qualsiasi attribuito a
+    un bando. Le date in ISO; la finestra come e' scritta.
     """
     trovato = SEGNAPOSTO.search(testo)
     intestazione = testo[: trovato.start()] if trovato else ""
-    return " ".join(sorted(valori(intestazione).date))
+    finestre = [m.group(0) for m in SCHEMA_FINESTRA.finditer(intestazione)]
+    return " ".join([*sorted(valori(intestazione).date), *finestre])
 
 
 def fonti_di(
