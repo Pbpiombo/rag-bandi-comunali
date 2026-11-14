@@ -317,6 +317,16 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
     sportello. Valutare la ricerca per bisogno, già nei prossimi passi
     (voce 4).
 
+### Primo compito di dati dopo la demo
+
+- **Bandi senza tema**: 49 bandi in archivio non hanno tema, tutti da
+  Incentivi Italia (`OpenData_Incentivi.csv`); 12 sono aperti al
+  14 novembre 2026 (calcolato con `scaduto`). `bandi_per_tema` non li
+  trova mai, nemmeno con un tema dell'elenco chiuso `TEMI`
+  (`src/estrazione/beneficiari.py`). Assegnare il tema, con la fonte, a
+  partire dagli aperti. Viene dalla correzione 2 di
+  `docs/piano-correzioni-lotto1.md`.
+
 ## Prossimi passi, in ordine
 
 1. **Scheda per bando**: per chi è e per cosa si può usare, divisa per tipo di

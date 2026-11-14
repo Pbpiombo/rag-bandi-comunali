@@ -95,8 +95,8 @@ metodo dei lotti.
 Il router ha scelto temi inesistenti ("edilizia scolastica", "dissesto
 idrogeologico", "montagna") e un tipo di beneficiario inesistente
 ("impresa_femminile"): C04, C11, P11, P25. Nel prompt del router il tipo è
-un elenco chiuso, il tema è testo libero con esempi ("casa" compreso, che in
-archivio non c'è). L'elenco chiuso dei temi esiste solo nel prompt
+un elenco chiuso, il tema è testo libero con esempi ("casa" compreso; in archivio c'è un bando con
+tema casa, il tema dell'elenco senza bandi è "pesca"). L'elenco chiuso dei temi esiste solo nel prompt
 dell'estrattore (`src/estrazione/bandi.py`).
 
 Diagnosi in sola lettura: per C04 e C11 l'archivio non ha bandi aperti

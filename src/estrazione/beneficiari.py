@@ -45,6 +45,25 @@ TIPI_BENEFICIARIO = {
     ),
 }
 
+# I temi dei bandi: la lista chiusa. L'estrattore la riceve nel prompt, il
+# router nella descrizione di bandi_per_tema: un tema fuori elenco non
+# trova niente (docs/piano-correzioni-lotto1.md, correzione 2). L'ordine
+# e' quello del prompt dell'estrattore, che non cambia.
+TEMI = (
+    "commercio",
+    "casa",
+    "ambiente",
+    "formazione",
+    "istruzione",
+    "cultura",
+    "territorio",
+    "mobilita",
+    "agricoltura",
+    "turismo",
+    "pesca",
+    "sociale",
+)
+
 # Il tipo che richiede sempre le condizioni
 PER_REQUISITO = "qualsiasi_soggetto"
 

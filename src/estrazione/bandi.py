@@ -15,6 +15,7 @@ from src.estrazione.beneficiari import (
     ENTE_RELIGIOSO,
     GENERICI,
     PER_REQUISITO,
+    TEMI,
     TERMINI,
     TIPI_BENEFICIARIO,
     frase_nel_testo,
@@ -183,8 +184,7 @@ CAMPI SEMPLICI
 Per questi campi produci solo il valore, oppure null:
 - titolo: il titolo completo del bando
 - ente: chi emana il bando
-- tema: una sola parola tra commercio, casa, ambiente, formazione, \
-istruzione, cultura, territorio, mobilita, agricoltura, turismo, pesca, sociale
+- tema: una sola parola tra {", ".join(TEMI)}
 - programma: il programma di finanziamento, es. PR FESR 2021-2027
 - apertura: data di apertura delle domande, formato AAAA-MM-GG
 - scadenza_nota: proroghe, orari, condizioni sulla scadenza

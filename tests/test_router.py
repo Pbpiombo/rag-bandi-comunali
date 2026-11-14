@@ -205,3 +205,38 @@ def test_app_non_scrive_il_dettaglio_del_router():
     assert "decisione['errore']" not in sorgente
     assert 'decisione["errore"]' not in sorgente
     assert "grezzo" not in sorgente
+
+
+# --- Parametri dal repertorio chiuso (correzione 2, docs/piano-correzioni-lotto1.md) ---
+
+
+def test_descrizione_di_bandi_per_tema_elenca_tutti_i_temi():
+    from src.database.repertorio import PER_NOME
+    from src.estrazione.beneficiari import TEMI
+
+    descrizione = PER_NOME["bandi_per_tema"].parametri["tema"]
+    assert descrizione == "stringa, uno dei temi: " + ", ".join(TEMI)
+
+
+def test_prompt_estrattore_ha_gli_stessi_temi():
+    import re
+
+    from src.estrazione.bandi import ISTRUZIONI
+    from src.estrazione.beneficiari import TEMI
+
+    righe = re.findall(r"^- tema: una sola parola tra (.*)$", ISTRUZIONI, re.M)
+    assert len(righe) == 1
+    assert tuple(righe[0].split(", ")) == TEMI
+
+
+def test_regola_d_impresa_nelle_istruzioni_del_router():
+    # Controllo debole: il comportamento si misura registrando il lotto
+    from src.chains.router import ISTRUZIONI_ROUTER
+
+    testo = " ".join(ISTRUZIONI_ROUTER.split())
+    assert (
+        "Per chi vuole avviare o gestire un'impresa senza un settore preciso "
+        "usa altra_impresa; non esistono codici per genere, età o fase "
+        "dell'impresa." in testo
+    )
+    assert '"tipo": "altra_impresa"' in testo

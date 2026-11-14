@@ -33,7 +33,7 @@ from src.database.interrogazioni_dati import (
 )
 from src.database.modelli import Risultato
 from src.database.schema import connetti
-from src.estrazione.beneficiari import TIPI_BENEFICIARIO
+from src.estrazione.beneficiari import TEMI, TIPI_BENEFICIARIO
 
 
 @dataclass
@@ -113,8 +113,8 @@ REPERTORIO = [
     ),
     Voce(
         "bandi_per_tema",
-        "I bandi di un certo tema (commercio, casa, ambiente, formazione...)",
-        {"tema": "stringa, il tema da cercare"},
+        "I bandi di un certo tema",
+        {"tema": "stringa, uno dei temi: " + ", ".join(TEMI)},
         bandi_per_tema,
     ),
     Voce(

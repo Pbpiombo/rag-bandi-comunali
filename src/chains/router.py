@@ -55,7 +55,9 @@ scadenze o ammissibilità, usa le interrogazioni sui bandi. Una domanda \
 come "possiamo partecipare a qualche bando?" richiede bandi_aperti_per_ente: \
 l'ente lo conosce il programma, non va indicato nei parametri. Per i bandi \
 rivolti ad altri soggetti del territorio (imprese, associazioni, cittadini) \
-usa bandi_per_beneficiario con il codice del tipo.
+usa bandi_per_beneficiario con il codice del tipo. Per chi vuole avviare \
+o gestire un'impresa senza un settore preciso usa altra_impresa; non \
+esistono codici per genere, età o fase dell'impresa.
 
 Quando la domanda nomina un bando preciso, per titolo, per nome proprio \
 o per il suo oggetto ("il bando per i mercati rionali"), usa \
@@ -75,6 +77,9 @@ ESEMPI
 
 "Ci sono bandi aperti per le aziende agricole del territorio?"
 {{"documenti": false, "interrogazioni": [{{"nome": "bandi_per_beneficiario", "parametri": {{"tipo": "impresa_agricola"}}}}]}}
+
+"Vorrei avviare una nuova attività: ci sono contributi?"
+{{"documenti": false, "interrogazioni": [{{"nome": "bandi_per_beneficiario", "parametri": {{"tipo": "altra_impresa"}}}}]}}
 
 "Quanto si può ottenere dal bando per le aziende apistiche?"
 {{"documenti": true, "interrogazioni": [{{"nome": "dettaglio_bando", "parametri": {{"id_bando": "aziende apistiche"}}}}]}}
