@@ -48,6 +48,13 @@ ESEMPI = [
     "Quanti abitanti ha il Comune e come è cambiata la popolazione dal 2019?",
 ]
 
+# La sezione dei bandi tenuti fuori dagli elenchi: non valutati, non
+# "pertinenti" (correzione C3)
+TITOLO_DA_APPROFONDIRE = "Bandi che non ho potuto valutare"
+DIDASCALIA_DA_APPROFONDIRE = (
+    "Sulla pagina manca un dato essenziale, indicato per ciascuno."
+)
+
 # Bottoni degli esempi per riga: con 7 domande una riga sola e' troppo stretta
 ESEMPI_PER_RIGA = 4
 
@@ -186,10 +193,12 @@ def mostra_bandi_citati(esito: dict) -> None:
 
 
 def mostra_da_approfondire(esito: dict) -> None:
-    """I bandi pertinenti con un dato mancante o incerto, scritti dall'app.
+    """I bandi con un dato essenziale mancante o incerto, scritti dall'app.
 
     Vengono dalle interrogazioni del turno, non dal modello: non sono nella
     risposta e il verificatore non li controlla. Un bando compare una volta.
+    Non sono stati valutati, quindi il titolo non li dice pertinenti
+    (correzione C3, docs/piano-correzioni-lotto1.md).
     """
     voci = {}
     for _, risultato in esito.get("esiti_dati") or []:
@@ -198,13 +207,30 @@ def mostra_da_approfondire(esito: dict) -> None:
     if not voci:
         return
 
-    st.markdown("#### Da approfondire")
-    st.caption(
-        "Bandi pertinenti con dati mancanti o incerti: da verificare sulla pagina."
-    )
+    st.markdown(f"#### {TITOLO_DA_APPROFONDIRE}")
+    st.caption(DIDASCALIA_DA_APPROFONDIRE)
     for voce in voci.values():
         contatti = voce.contatti or "vedi la pagina"
         st.markdown(f"- [{voce.titolo}]({voce.url}) — {voce.problema} · {contatti}")
+
+
+def gruppi_separati(testo: str) -> str:
+    """Il testo di un blocco di dati, con le righe fuori elenco come paragrafi.
+
+    Le intestazioni dei gruppi ("A sportello, finché ci sono risorse:") e
+    le avvertenze seguono una voce "- …" senza riga vuota: in markdown sono
+    la continuazione di quella voce, e nell'app finivano in coda al bando
+    precedente (correzione C4, docs/piano-correzioni-lotto1.md). Una riga
+    vuota prima e dopo ne fa un paragrafo. Solo per l'app: il testo dato
+    al modello e al verificatore non cambia.
+    """
+    righe = []
+    for numero, riga in enumerate(testo.split("\n")):
+        if numero and riga.strip() and not riga.startswith("- "):
+            righe += ["", riga, ""]
+        else:
+            righe.append(riga)
+    return "\n".join(righe)
 
 
 def mostra_fonti(esito: dict) -> None:
@@ -218,7 +244,7 @@ def mostra_fonti(esito: dict) -> None:
         for numero, (nome, risultato) in enumerate(dati, start=1):
             with st.expander(f"[D{numero}]  {nome}", expanded=False):
                 # Le righe dei bandi con le etichette [Dn.k] citate nella risposta
-                st.write(con_etichette(risultato.testo, numero))
+                st.write(gruppi_separati(con_etichette(risultato.testo, numero)))
                 for f in risultato.fonti:
                     st.caption(f"fonte: {f}")
 

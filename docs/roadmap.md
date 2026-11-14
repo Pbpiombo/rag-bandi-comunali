@@ -259,6 +259,24 @@ perde i suoi esempi migliori.
   imprese escluse dalla regola degli sportelli ma ancora attive
   (Incentivi Italia, tappa 5: sportelli senza chiusura aperti da più di
   due anni, 17 righe da verificare).
+- **"Da approfondire" uguale per ogni domanda** (correzione C3,
+  `docs/piano-correzioni-lotto1.md`; era la voce 3 di "Dopo la demo:
+  dalla prova completa del 14 novembre"): la cooperazione internazionale
+  compare anche per le imprese turistiche e le aziende agricole. Deve
+  seguire il tema o il beneficiario della domanda.
+- **Il modello descrive i suoi meccanismi** (correzione C1,
+  `docs/piano-correzioni-lotto1.md`; era la voce 6 della stessa lista):
+  "occorrerebbe interrogare nuovamente l'archivio con beneficiario...";
+  una riga nel prompt.
+- **Versioni delle dipendenze fissate**: le dipendenze dirette di
+  `requirements.txt` fissate sulle versioni che girano oggi online
+  (streamlit 1.67.0 e le altre dai log di Streamlit Cloud del 14 novembre
+  2026; Python 3.14.10 online). Poi l'ambiente locale allineato (oggi
+  streamlit 1.63) e i test rilanciati. Oggi `streamlit>=1.40`: online e
+  in locale girano versioni diverse, e una prova in locale non vale per
+  l'app online (correzione C4, `docs/piano-correzioni-lotto1.md`).
+- **HF_TOKEN nei secrets di Streamlit Cloud**: il modello degli embedding
+  si scarica senza token a ogni avvio dell'app online.
 
 ## Dopo la demo: dalla prova completa del 14 novembre
 
@@ -276,46 +294,41 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
    `dettaglio_bando` e `documenti: true` compaiono 10 frammenti (CENSIS,
    coesione, progetto del Comune) sotto la risposta su Sport Missione
    Comune. Mostrare solo i frammenti citati.
-3. **"Da approfondire" uguale per ogni domanda**: la cooperazione
-   internazionale compare anche per le imprese turistiche e le aziende
-   agricole. Deve seguire il tema o il beneficiario della domanda.
-4. **Pannello, conteggio dei verificati gonfiato dalle citazioni
+3. **Pannello, conteggio dei verificati gonfiato dalle citazioni
    ripetute**: lo stesso decreto contato 4 volte. Mostrare e contare una
    volta ogni coppia valore-fonte. Valutare una forma di citazione più
    breve nel prompt, con una misura prima e dopo.
-5. **Router, "Anomalia del router: risposta non interpretabile"** (in
+4. **Router, "Anomalia del router: risposta non interpretabile"** (in
    correzione prima della demo). Compare all'utente su una domanda fuori
    ambito (apertura degli impianti sciistici). Da unire alla voce già in
    coda sulle domande fuori ambito con frase fissa.
-6. **Il modello descrive i suoi meccanismi** ("occorrerebbe interrogare
-   nuovamente l'archivio con beneficiario..."): una riga nel prompt.
-7. **Pertinenza**: nella domanda sulle attività artigianali compare il
+5. **Pertinenza**: nella domanda sulle attività artigianali compare il
    bando delle risorse genetiche agrarie. Controllare cosa restituisce
    `bandi_per_beneficiario` per gli artigiani.
-8. **"fra 16 giorni" risulta verificato**: controllare da dove viene il
+6. **"fra 16 giorni" risulta verificato**: controllare da dove viene il
    16 nella riga del bando (giorni calcolati dal programma, o
    coincidenza con un altro numero).
-9. **Bando CCIAA Pistoia-Prato promozione turistica 2026, beneficiari dal
+7. **Bando CCIAA Pistoia-Prato promozione turistica 2026, beneficiari dal
    catalogo imprecisi** ("Consorzio, Micro/Piccola/Media impresa", "enti
    pubblici da verificare"). Nell'edizione 2025 erano ammessi consorzi,
    società consortili e cooperative senza scopo di lucro per la promozione
    del territorio, e fondazioni culturali della tabella regionale; i Comuni
    davano solo dichiarazioni di condivisione (punteggio). Verificare a mano
    la pagina 2026.
-10. **La frase "i beneficiari pubblici vanno verificati sulla pagina"
-    ricorre anche dove non serve**: controllare da dove nasce.
-11. **Premialità per area interna** (Punti Digitale Facile, categorie D, E,
-    F): valutare la categoria dell'area interna del Comune nel profilo
-    dell'ente, con fonte ufficiale.
-12. **Scelta tra Comuni e Unione nell'interfaccia**: decidere dopo il
+8. **La frase "i beneficiari pubblici vanno verificati sulla pagina"
+   ricorre anche dove non serve**: controllare da dove nasce.
+9. **Premialità per area interna** (Punti Digitale Facile, categorie D, E,
+   F): valutare la categoria dell'area interna del Comune nel profilo
+   dell'ente, con fonte ufficiale.
+10. **Scelta tra Comuni e Unione nell'interfaccia**: decidere dopo il
     riscontro del consulente pilota.
-13. **Ente del profilo diverso dal comune nominato nella domanda** ("Ho un
+11. **Ente del profilo diverso dal comune nominato nella domanda** ("Ho un
     ristorante a San Marcello" con il profilo di Abetone): il modello lo
     segnala. Valutare un avviso dell'app o la scelta automatica dell'ente.
-14. **Domande da imprenditore** ("vorrei aprire una palestra", "un laghetto
+12. **Domande da imprenditore** ("vorrei aprire una palestra", "un laghetto
     da pesca"): restituiscono soprattutto bandi generici per PMI a
     sportello. Valutare la ricerca per bisogno, già nei prossimi passi
-    (voce 4).
+    (voce 5).
 
 ### Primo compito di dati dopo la demo
 
@@ -376,7 +389,19 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
      hanno in più rispetto all'elenco generale. Il 12 novembre 2026
      erano contenuti per intero nell'elenco generale, e per questo non
      sono stati aggiunti come elenchi (`docs/piano-fonti.md`, tappa 2).
-4. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
+4. **Pratiche (progetti seguiti)**: per un beneficiario preciso, una
+   scheda strutturata (attività con forma giuridica, ATECO, sede,
+   dimensione; bandi seguiti con stato; scadenze; documenti; note), ogni
+   dato con la sua fonte ("dichiarato dall'utente il …" distinto da
+   "verificato su …"). La chat legge e aggiorna la scheda, non è la
+   memoria. Avvisi sui bandi nuovi abbinati alla scheda senza modello.
+   Seguito di conversazione: decidere quale contesto passa alla domanda
+   successiva e come il verificatore tratta i dati citati in una
+   risposta precedente. Unisce le voci 7 e 9. Richiede prima le voci 1 e
+   3. Prima di costruirla: obblighi sui dati personali (informativa,
+   consenso, conservazione, eventuale pagamento) e cosa serve al
+   consulente pilota per seguire una pratica.
+5. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
    tra gli interventi ammissibili. Caso di prova: "devo rifare la piazza"
    → bando mercati rionali. (Lo stato del bando nei frammenti è già fatto,
    P3.)
@@ -391,24 +416,24 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
    l'OCR sbaglia i numeri, e il verificatore li darebbe per buoni. File
    .pdf.p7m da aprire prima della lettura. Se pagina e testo del bando
    non coincidono, vale il testo del bando.
-5. **Privati nell'app**: selettore pubblico/privato e tipo di privato a
+6. **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione
    ("Adeguamento e ampliamento della viabilità rurale, solo enti
    pubblici", AS01 del GAL), e un terzo settore che chiede quali
    interventi può fare non riceve un filtro, solo il testo.
-6. **Sezione riservata**: accesso, iscrizioni con mail e ricerche salvate su
+7. **Sezione riservata**: accesso, iscrizioni con mail e ricerche salvate su
    Supabase, tasto "aggiorna adesso" che lancia il processo su GitHub,
    segnalazione manuale di un bando. Parte pubblica limitata a 3 domande per
    sessione, con un tetto giornaliero complessivo e un invito a scrivere per
    l'accesso.
-7. **Newsletter come segnali**: casella dedicata iscritta alle newsletter di
+8. **Newsletter come segnali**: casella dedicata iscritta alle newsletter di
    Regione, fondazioni e GAL; i link estratti passano dalla verifica sulla
    pagina ufficiale.
-8. **Percorso guidato per gli iscritti**: passi definiti dal bando (requisiti,
+9. **Percorso guidato per gli iscritti**: passi definiti dal bando (requisiti,
    documenti, scadenze intermedie, contatti), controllo dei documenti con ogni
    requisito citato. Percorso a passi fissi, non un agente libero.
-9. **Docker** per Postgres con pgvector in locale.
+10. **Docker** per Postgres con pgvector in locale.
 
 ## In coda
 
@@ -445,6 +470,16 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
   arredi didattici (Istruzione), jazz 2027 (Cultura, autonomie
   territoriali) e Vita & Opportunità (comuni come partner); gli altri sei
   sono per imprese o terzo settore.
+- Dopo la demo. Beneficiari della cooperazione internazionale ("PROGETTI
+  SEMPLICI 2026 di Cooperazione Internazionale") completati a mano
+  dall'avviso, con la frase come prova e origine `manuale` (opzione 4
+  della correzione C3, `docs/piano-correzioni-lotto1.md`). Prima, la
+  protezione delle righe `manuale` dalla riestrazione (voce 8 della
+  revisione).
+- Dopo la demo, salvo problemi di avvio prima. App online più leggera:
+  torch solo CPU e chromadb non necessari (l'app online usa Postgres);
+  oggi si installano circa 2,5 GB di librerie CUDA per niente. Da
+  provare su Streamlit Cloud.
 - Dopo la demo. Revisione dei test: segnalare quelli che ricopiano il
   codice invece di proteggere un comportamento.
 - Dopo la demo. Simulazione senza modello: quanti bandi per "PMI" o
@@ -505,6 +540,9 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
 - Fuso orario: `date.today()` in 6 punti (DTZ011), mentre altri 2 punti
   usano già `Europe/Rome` (`salva.py`, `grezzi.py`): a ridosso della
   mezzanotte uno stesso salvataggio può avere due date diverse.
+- Verificatore, identificativi con trattino spezzati: "2023-0118" (linea
+  di credito EU blending della BEI) è letto come 2023 e 0118, come i
+  codici ATECO prima della correzione del 13 novembre 2026.
 - Segnalazioni ruff ISC004 e BLE001 negli script.
 - Due xfail di `pulisci`: numeri separati da virgola, intestazione con spazi.
 - Regola "imprese senza settore" applicata anche nel codice, non solo nel
@@ -609,7 +647,10 @@ Metodo in `docs/piano-insieme-prova.md`.
 
 - **`--riepilogo` conta i giudizi a mano**: legge
   `dati-grezzi/prova/lotto_<n>/giudizi.csv` e conta i giudizi per
-  categoria, sulle righe della registrazione a freddo.
+  categoria, sulle righe della registrazione a freddo. Il campione dei
+  verificati va estratto una volta sola, alla registrazione a freddo:
+  oggi una riverifica lo riestrae da un insieme cambiato e aggiunge righe
+  nuove a `giudizi.csv`.
 - **Insieme generato**: circa 150 domande che coprono la griglia tipo di
   beneficiario × tipo di richiesta (bandi, scadenza, importo, requisiti,
   territorio) × tema × forma (precisa, vaga, sgrammaticata, doppia, fuori

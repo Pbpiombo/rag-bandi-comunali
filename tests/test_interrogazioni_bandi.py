@@ -538,8 +538,13 @@ def test_ogni_riga_ha_il_suo_segnaposto_e_la_sua_voce(db):
         (riga,) = righe_del_bando(r.testo, id_bando)
         assert riga.startswith(f"- [#{k}] «Bando {id_bando}»")
         assert r.voci[k - 1].testo == riga.removeprefix(f"- [#{k}] ")
-        assert r.voci[k - 1].fonte.startswith("prova, ")
-    assert len(r.voci) == 2
+        # "sportello" non ha l'atto: prima la fonte era "prova, None (…)"
+        # (correzione C7)
+        assert r.voci[k - 1].fonte.startswith("prova")
+    assert [v.fonte for v in r.voci] == [
+        "prova, decreto n. 1 (dati estratti il 2026-11-11)",
+        "prova (dati estratti il 2026-11-11)",
+    ]
 
 
 def test_la_riga_del_bando_contiene_il_suo_atto(db):
@@ -963,6 +968,16 @@ def test_la_fonte_dice_estratti_il(db):
     assert "verificati" not in fonte
 
 
+def test_la_fonte_di_un_bando_senza_atto_non_dice_none(db):
+    # Correzione C7: i bandi di Incentivi Italia non hanno l'atto, e la
+    # fonte mostrata nell'app finiva con ", None"
+    bando(db, "senza-atto", [("comune", None, None)], riferimento_atto=None)
+
+    [fonte] = ib.dettaglio_bando(db, "senza-atto").fonti
+
+    assert fonte == "prova (dati estratti il 2026-11-11)"
+
+
 # --- da approfondire ---
 
 RIMANDO = "Nell'avviso pubblico sono indicati i requisiti"
@@ -974,7 +989,7 @@ def muto(db, id_bando, **campi):
     db.execute("UPDATE bandi SET beneficiari = NULL WHERE id = ?", (id_bando,))
 
 
-def test_un_bando_senza_beneficiari_e_da_approfondire_per_tutti(db):
+def test_un_bando_senza_beneficiari_e_da_approfondire_per_ogni_ente(db):
     muto(
         db,
         "muto",
@@ -987,14 +1002,43 @@ def test_un_bando_senza_beneficiari_e_da_approfondire_per_tutti(db):
     for r in (
         ib.bandi_aperti_per_ente(db, COMUNE),
         ib.bandi_aperti_per_ente(db, UNIONE),
-        ib.bandi_per_beneficiario(db, "impresa_agricola"),
-        ib.bandi_per_beneficiario(db, "cittadini_famiglie"),
         ib.bandi_in_scadenza(db, COMUNE),
     ):
         assert not righe_del_bando(r.testo, "muto")
         assert [(a.titolo, a.problema, a.contatti) for a in r.da_approfondire] == [
             ("Bando muto", ib.PROBLEMA_RIMANDO, "email: bandi@regione.toscana.it")
         ]
+
+
+def test_un_bando_senza_beneficiari_non_e_da_approfondire_per_un_tipo(db):
+    # Correzione C3: non si sa se ammette il tipo chiesto, quindi non
+    # compare sotto ogni domanda per tipo di beneficiario
+    muto(db, "muto", pubblicato_il="2026-10-01", beneficiari_rimando=RIMANDO)
+    bando(db, "chiaro", [("impresa_agricola", None, None)])
+
+    for tipo in ("impresa_agricola", "cittadini_famiglie", "altra_impresa"):
+        r = ib.bandi_per_beneficiario(db, tipo)
+        assert not righe_del_bando(r.testo, "muto")
+        assert r.da_approfondire == []
+
+
+def test_per_tipo_resta_da_approfondire_chi_ammette_il_tipo(db):
+    # Il filtro di C3 toglie solo i bandi senza beneficiari: uno che ammette
+    # il tipo e non ha la scadenza resta nella sezione
+    muto(db, "muto", pubblicato_il="2026-10-01")
+    bando(
+        db,
+        "senza-data",
+        [("impresa_agricola", None, None)],
+        scadenza=None,
+        pubblicato_il="2026-10-01",
+    )
+
+    voci = ib.bandi_per_beneficiario(db, "impresa_agricola").da_approfondire
+
+    assert [(a.titolo, a.problema) for a in voci] == [
+        ("Bando senza-data", ib.PROBLEMA_SCADENZA)
+    ]
 
 
 def test_senza_rimando_il_problema_e_solo_beneficiari_non_indicati(db):

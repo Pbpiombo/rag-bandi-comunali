@@ -61,7 +61,7 @@ NOTA_UNIONE = "beneficiari non ancora classificati: verificare se ammette le Uni
 # quando si puo' presentare domanda, e non si sa se e' ancora aperto
 SENZA_SCADENZA = "scadenza non indicata, da verificare sul bando"
 
-# "Da approfondire": i bandi pertinenti con un dato essenziale mancante o
+# "Da approfondire": i bandi con un dato essenziale mancante o
 # incerto. Non stanno nelle liste: l'app li mostra sotto la risposta, senza
 # passare dal modello. Solo i recenti, al piu' MAX_DA_APPROFONDIRE.
 PROBLEMA_SCADENZA = "scadenza non indicata"
@@ -462,10 +462,10 @@ def fonte_bando(riga) -> str:
     dell'estrazione automatica, non di una verifica umana (voce 8 della
     revisione): "estratti il", non "verificati il".
     """
-    return (
-        f"{riga['fonte']}, {riga['riferimento_atto']} "
-        f"(dati estratti il {riga['verificato_il']})"
-    )
+    # Senza atto (Incentivi Italia) la fonte non lo nomina: prima diventava
+    # "None" (correzione C7, docs/piano-correzioni-lotto1.md)
+    pezzi = [p for p in (riga["fonte"], riga["riferimento_atto"]) if p]
+    return f"{', '.join(pezzi)} (dati estratti il {riga['verificato_il']})"
 
 
 def nota_per_ente(conn: sqlite3.Connection, riga, tipo: str) -> str | None:
@@ -913,6 +913,14 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
         (tipo, oggi),
     ).fetchall()
     righe, con_problema = dividi(conn, tutte, oggi)
+    # Un bando senza beneficiari entra nella query per ogni tipo: non si sa
+    # se ammette questo, quindi non va in "Da approfondire" (correzione C3,
+    # docs/piano-correzioni-lotto1.md). Resta negli elenchi per ente e per tema.
+    con_problema = [
+        (r, p)
+        for r, p in con_problema
+        if not senza_beneficiari(r, beneficiari_di(conn, r["id"]))
+    ]
     approfondire = da_approfondire(con_problema, oggi)
 
     # I bandi aperti non classificati: se ammettono questo tipo non si sa,

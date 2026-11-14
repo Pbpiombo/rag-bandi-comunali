@@ -36,7 +36,9 @@ prima registrazione di un lotto è "a freddo" e non si sovrascrive: ogni
 registrazione nuova ha la sua cartella. Le riverifiche vanno in
 CARTELLA/riverifiche/<data-ora>/, con esiti.json e rapporto.md.
 
-Giudizi a mano in dati-grezzi/prova/lotto_N/giudizi.csv: lo script vi
+Giudizi a mano in dati-grezzi/prova/lotto_N/giudizi.csv, per la
+registrazione a freddo; le altre registrazioni hanno il loro giudizi.csv
+nella propria cartella e non toccano quello del lotto. Lo script vi
 aggiunge le righe da giudicare (non trovate, senza fonte, citate con il
 blocco, il campione dei verificati, le attese "a mano") e non tocca mai un
 giudizio scritto. Il rapporto conta i giudizi; quello di una riverifica
@@ -750,8 +752,9 @@ def registra(lotto: int, riprendi: Path | None = None) -> Path:
         scrivi_json(cartella / "meta.json", meta)
 
     voci = leggi_voci(cartella)
-    precompila_giudizi(cartella_lotto / "giudizi.csv", voci, meta["seme_campione"])
-    giudizi = leggi_giudizi(cartella_lotto / "giudizi.csv")
+    percorso_giudizi = file_giudizi(cartella, meta)
+    precompila_giudizi(percorso_giudizi, voci, meta["seme_campione"])
+    giudizi = leggi_giudizi(percorso_giudizi)
     (cartella / "rapporto.md").write_text(
         rapporto(voci, meta, giudizi, f"Lotto {lotto}, registrazione"),
         encoding="utf-8",
@@ -818,9 +821,9 @@ def riverifica(cartella: Path) -> Path:
         {"momento": momento.isoformat(timespec="seconds"), **git, "esiti": esiti},
     )
 
-    cartella_lotto = cartella.parent
-    precompila_giudizi(cartella_lotto / "giudizi.csv", nuove, meta["seme_campione"])
-    giudizi = leggi_giudizi(cartella_lotto / "giudizi.csv")
+    percorso_giudizi = file_giudizi(cartella, meta)
+    precompila_giudizi(percorso_giudizi, nuove, meta["seme_campione"])
+    giudizi = leggi_giudizi(percorso_giudizi)
     meta_riverifica = {
         **meta,
         "riverifica": momento.isoformat(timespec="seconds"),
@@ -882,6 +885,19 @@ def righe_da_giudicare(voci: list[dict], seme: int) -> list[dict]:
                 }
             )
     return righe
+
+
+def file_giudizi(cartella: Path, meta: dict) -> Path:
+    """Il file dei giudizi di una registrazione e delle sue riverifiche.
+
+    La registrazione a freddo usa quello del lotto, lotto_N/giudizi.csv.
+    Le altre hanno il loro nella propria cartella, lotto_N/<data-ora>/:
+    non aggiungono righe a quello del lotto, che resta della sola
+    registrazione a freddo (correzione C6, docs/piano-correzioni-lotto1.md).
+    """
+    if meta.get("a_freddo"):
+        return cartella.parent / "giudizi.csv"
+    return cartella / "giudizi.csv"
 
 
 def leggi_giudizi(percorso: Path) -> dict:

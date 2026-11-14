@@ -30,7 +30,7 @@ class VoceBando:
 
 @dataclass
 class Approfondimento:
-    """Un bando pertinente con un dato mancante o incerto.
+    """Un bando con un dato essenziale mancante o incerto, non valutato.
 
     Lo mostra l'app sotto la risposta, nella sezione "Da approfondire": il
     modello non lo vede e non lo cita. problema: in poche parole, calcolato
@@ -49,7 +49,7 @@ class Risultato:
 
     voci: le righe dei bandi, nell'ordine dei segnaposto [#1], [#2]...
     del testo; vuota per le interrogazioni che non elencano bandi.
-    da_approfondire: i bandi pertinenti tenuti fuori dalla lista perche'
+    da_approfondire: i bandi tenuti fuori dalla lista perche'
     manca o e' incerto un dato essenziale; non fanno parte del testo.
     """
 

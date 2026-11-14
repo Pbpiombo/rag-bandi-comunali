@@ -3,6 +3,7 @@
 import csv
 import json
 import sqlite3
+from datetime import datetime
 
 import pytest
 from langchain_core.documents import Document
@@ -636,6 +637,70 @@ def test_errore_della_catena_salvato(tmp_path):
     )
     assert voce["errore"].startswith("TimeoutError")
     assert json.loads(percorso.read_text(encoding="utf-8"))["errore"] == voce["errore"]
+
+
+# --- Giudizi delle registrazioni non a freddo (correzione C6) ---
+
+
+def test_file_dei_giudizi_del_lotto_solo_per_la_registrazione_a_freddo(tmp_path):
+    cartella = tmp_path / "lotto_1" / "2026-11-14_100000"
+    assert p.file_giudizi(cartella, {"a_freddo": True}) == (
+        tmp_path / "lotto_1" / "giudizi.csv"
+    )
+    assert p.file_giudizi(cartella, {"a_freddo": False}) == cartella / "giudizi.csv"
+
+
+def test_registrazione_non_a_freddo_non_tocca_i_giudizi_del_lotto(
+    tmp_path, monkeypatch
+):
+    c1 = next(d for d in domande() if d.codice == "C1")
+    # La seconda risposta ha un dato nuovo: righe da giudicare che il file del
+    # lotto non ha ancora, e che prima della correzione vi sarebbero finite
+    risposte = iter(
+        [
+            RISPOSTA_FINTA,
+            RISPOSTA_FINTA
+            + " Un terzo avviso arriva a 60.000 euro (fonte: [1], Regione, Decreto 9,"
+            " pag. 3).",
+        ]
+    )
+    istanti = iter(
+        datetime(2026, 11, 14, 10, 0, secondo, tzinfo=p.FUSO) for secondo in range(60)
+    )
+
+    def catena_di_prova():
+        risposta = next(risposte)
+        catena = RunnableLambda(
+            lambda domanda: {**esito_catena_finto(domanda), "risposta": risposta}
+        )
+        return catena, p.RouterTriplo(None), {"recupero": "finto"}
+
+    monkeypatch.setattr(p, "CARTELLA_PROVA", tmp_path)
+    monkeypatch.setattr(p, "adesso", lambda: next(istanti))
+    monkeypatch.setattr(p, "domande_del_lotto", lambda lotto: [c1])
+    monkeypatch.setattr(p, "costruisci_catena_di_prova", catena_di_prova)
+    monkeypatch.setattr(
+        p, "stato_git", lambda: {"commit": "finto", "modifiche_non_salvate": False}
+    )
+    monkeypatch.setattr(p, "impronta_csv", lambda: {"file": {}, "complessiva": "x"})
+    monkeypatch.setattr(p, "impronta", lambda percorso: "x")
+
+    fredda = p.registra(1)
+    del_lotto = tmp_path / "lotto_1" / "giudizi.csv"
+    assert p.leggi_json(fredda / "meta.json")["a_freddo"] is True
+    assert not (fredda / "giudizi.csv").exists()
+    prima = del_lotto.read_bytes()
+
+    seconda = p.registra(1)
+
+    assert p.leggi_json(seconda / "meta.json")["a_freddo"] is False
+    assert del_lotto.read_bytes() == prima
+    propri = p.leggi_giudizi(seconda / "giudizi.csv")
+    assert set(propri) - set(p.leggi_giudizi(del_lotto))
+
+    # Anche la sua riverifica scrive nel suo file, non in quello del lotto
+    p.riverifica(seconda)
+    assert del_lotto.read_bytes() == prima
 
 
 def test_riverifica_dopo_la_correzione_cancella_l_errore(monkeypatch):
