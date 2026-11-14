@@ -4,6 +4,7 @@ Non chiama il modello: costruisce risposte finte e controlla che
 il verificatore reagisca come previsto. Gratuito e istantaneo.
 """
 
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -11,8 +12,11 @@ from langchain_core.documents import Document
 
 from src.database.modelli import Risultato, VoceBando
 from src.verification.controllo import (
+    SCHEMA_RIFERIMENTO,
     Esito,
     giudizio,
+    inizio_citazione,
+    maschera_citazioni,
     riassumi,
     trova_dati,
     verifica,
@@ -625,3 +629,67 @@ def test_tipi_data_e_orario():
         ("data", "2026-10-15"),
         ("data", "12:00"),
     ]
+
+
+# Etichette tra quadre fuori da una citazione con "fonte:". Il 14 novembre
+# 2026 una di queste ha fermato la prova del lotto 1: inizio_citazione
+# cercava "fonte:" anche nelle etichette sciolte, che non lo contengono.
+FORME_SENZA_FONTE = [
+    "Scade il 31/12/2026 (fonti: [D1.1], decreto 123).",
+    "Scade il 31/12/2026 (Fonte : [D1.1], decreto 123).",
+    "Scade il 31/12/2026 (fonte - [D1.1], decreto 123).",
+    "Scade il 31/12/2026 (fonte [D1.1], decreto 123).",
+    "Il Comune ha 1.834 abitanti secondo [D2].",
+    "- [D1.2] Fondo strade, scadenza 31/12/2026",
+    "Scade il 31/12/2026 ([D1.1]).",
+    "Scade (fonte: [D1.1], atto (nota (bis)), pag. 3).",
+    "Come indicato in [3], il costo è € 322,00.",
+]
+
+
+STATI_VERIFICA = ("verificato", "non_trovato", "non_citato", "citazione_generica")
+
+BANDI_FORME = Risultato(
+    testo="[#1] Bando uno, scadenza 2026-12-31\n[#2] Fondo strade, scadenza 2026-12-31",
+    fonti=["decreto 123 del 2026"],
+    voci=[
+        VoceBando("Bando uno, scadenza 2026-12-31", "decreto 123 del 2026"),
+        VoceBando("Fondo strade, scadenza 2026-12-31", "decreto 123 del 2026"),
+    ],
+)
+
+
+@pytest.mark.parametrize("risposta", FORME_SENZA_FONTE)
+def test_etichette_senza_fonte_mascherate_per_intero(risposta):
+    mascherata = maschera_citazioni(risposta)
+    assert len(mascherata) == len(risposta)
+    assert re.search(SCHEMA_RIFERIMENTO, mascherata) is None
+    # I numeri delle etichette non diventano dati
+    assert not any(d.valore in ("1.1", "1.2") for d in trova_dati(mascherata))
+
+
+@pytest.mark.parametrize("risposta", FORME_SENZA_FONTE)
+def test_verifica_non_si_rompe_senza_fonte(risposta):
+    esiti = verifica(risposta, FRAMMENTI, [("bandi", BANDI_FORME)])
+    assert all(e.stato in STATI_VERIFICA for e in esiti)
+
+
+def test_inizio_citazione_senza_fonte_e_l_inizio_del_blocco():
+    assert inizio_citazione("[D1.2]") == 0
+    assert inizio_citazione("(fonti: [D1.1], decreto 123)") == 0
+
+
+def test_inizio_citazione_con_fonte_come_prima():
+    blocco = "(inclusa l'aliquota del 7%, fonte: [7], Regione, pag. 14)"
+    assert inizio_citazione(blocco) == blocco.index("fonte:")
+    assert inizio_citazione("(Fonte: [1], Regione)") == 1
+
+
+def test_citazione_con_fonte_mascherata_come_prima():
+    risposta = (
+        "Costo € 322,00 (inclusa l'aliquota del 7%, fonte: [1], Regione, pag. 11)."
+    )
+    mascherata = maschera_citazioni(risposta)
+    assert len(mascherata) == len(risposta)
+    assert "inclusa l'aliquota del 7%," in mascherata
+    assert "fonte" not in mascherata and "(" not in mascherata

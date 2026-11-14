@@ -185,8 +185,13 @@ def inizio_citazione(blocco: str) -> int:
     In "(inclusa l'aliquota del 7%, fonte: [7], Regione, pag. 14)" il testo
     prima di "fonte:" è contenuto della risposta e si verifica come il
     resto; da "fonte:" in poi è la citazione.
+
+    Senza "fonte:" tutto il blocco è citazione e l'inizio è 0: è il caso
+    delle etichette sciolte ("[D1.2]", "secondo [D2]", "(fonti: [D1.1])")
+    che maschera_citazioni riconosce con SCHEMA_RIFERIMENTO.
     """
-    return re.search(r"fonte:", blocco, re.IGNORECASE).start()
+    trovato = re.search(r"fonte:", blocco, re.IGNORECASE)
+    return trovato.start() if trovato else 0
 
 
 def maschera_citazioni(risposta: str) -> str:
@@ -202,6 +207,10 @@ def maschera_citazioni(risposta: str) -> str:
     def a_spazi(m):
         blocco = m.group(0)
         inizio = inizio_citazione(blocco)
+        if inizio == 0:
+            # Tutto il blocco è citazione: spazi quanti sono i caratteri,
+            # così le posizioni restano quelle della risposta
+            return " " * len(blocco)
         return " " + blocco[1:inizio] + " " * (len(blocco) - inizio)
 
     risposta = re.sub(

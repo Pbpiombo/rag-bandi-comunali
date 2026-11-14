@@ -571,3 +571,104 @@ def test_catena_con_router_passato(db_con_ente, monkeypatch):
     assert chiamate == ["triplo", "triplo", "triplo"]
     assert triplo.grezzi == [DECISIONE] * 3
     assert esito["risposta"] == "risposta finta"
+
+
+# --- Errore del verificatore durante la registrazione ---
+
+
+def esito_catena_finto(domanda):
+    return {
+        "decisione": {"documenti": True, "interrogazioni": []},
+        "esiti_dati": esiti_finti(),
+        "dati": "[D1] ...",
+        "contesto": "[1] ...",
+        "profilo": "- nome: Comune finto",
+        "documenti": documenti_finti(),
+        "origini": [["denso"]],
+        "risposta": RISPOSTA_FINTA,
+    }
+
+
+def test_risposta_salvata_prima_della_verifica(tmp_path, monkeypatch):
+    percorso = tmp_path / "C1.json"
+    visto = {}
+
+    def verificatore_rotto(*argomenti):
+        # Quando il verificatore parte, la risposta è già sul disco
+        visto["salvata"] = json.loads(percorso.read_text(encoding="utf-8"))["risposta"]
+        raise AttributeError("'NoneType' object has no attribute 'start'")
+
+    monkeypatch.setattr(p, "verifica_risposta", verificatore_rotto)
+    c1 = next(d for d in domande() if d.codice == "C1")
+    voce = p.registra_domanda(
+        RunnableLambda(esito_catena_finto), p.RouterTriplo(None), c1, percorso
+    )
+    assert visto["salvata"] == RISPOSTA_FINTA
+    assert voce["errore_verifica"].startswith("AttributeError")
+    assert "Traceback" in voce["traccia_verifica"]
+    salvata = json.loads(percorso.read_text(encoding="utf-8"))
+    assert salvata["risposta"] == RISPOSTA_FINTA
+    assert salvata["errore_verifica"] == voce["errore_verifica"]
+    assert salvata["esiti_verifica"] == []
+    assert "errore del verificatore" in p.riassunto_voce(salvata)
+
+
+def test_registrazione_con_verifica_riuscita(tmp_path):
+    percorso = tmp_path / "C1.json"
+    c1 = next(d for d in domande() if d.codice == "C1")
+    voce = p.registra_domanda(
+        RunnableLambda(esito_catena_finto), p.RouterTriplo(None), c1, percorso
+    )
+    salvata = json.loads(percorso.read_text(encoding="utf-8"))
+    assert salvata["errore_verifica"] is None
+    assert salvata["esiti_verifica"] == voce["esiti_verifica"]
+    assert salvata["esiti_verifica"]
+
+
+def test_errore_della_catena_salvato(tmp_path):
+    def catena_rotta(_):
+        raise TimeoutError("tempo scaduto")
+
+    percorso = tmp_path / "C1.json"
+    c1 = next(d for d in domande() if d.codice == "C1")
+    voce = p.registra_domanda(
+        RunnableLambda(catena_rotta), p.RouterTriplo(None), c1, percorso
+    )
+    assert voce["errore"].startswith("TimeoutError")
+    assert json.loads(percorso.read_text(encoding="utf-8"))["errore"] == voce["errore"]
+
+
+def test_riverifica_dopo_la_correzione_cancella_l_errore(monkeypatch):
+    voce = {
+        **voce_finta(),
+        "esiti_verifica": [],
+        "errore_verifica": "AttributeError: ...",
+    }
+    rifatta = p.riverifica_voce(voce)
+    assert rifatta["errore_verifica"] is None
+    assert {**voce, **rifatta}["esiti_verifica"]
+
+
+def test_riverifica_con_verificatore_rotto_non_tiene_gli_esiti_vecchi(monkeypatch):
+    def rotto(*_):
+        raise ValueError("rotto")
+
+    voce = voce_finta()
+    monkeypatch.setattr(p, "verifica_risposta", rotto)
+    unita = {**voce, **p.riverifica_voce(voce)}
+    assert unita["errore_verifica"] == "ValueError: rotto"
+    assert unita["esiti_verifica"] == []
+
+
+def test_rapporto_con_errore_del_verificatore():
+    voce = {
+        **voce_finta(),
+        "esiti_verifica": [],
+        "attese_esito": {},
+        "errore_verifica": "AttributeError: rotto",
+    }
+    testo = p.rapporto([voce], meta_finto(), {}, "Lotto 1")
+    assert "errore del verificatore" in testo
+    assert "## Errori" in testo
+    assert "da riverificare" in testo
+    assert p.misure([voce])["errori_verifica"] == 1

@@ -56,6 +56,7 @@ import random
 import re
 import subprocess
 import sys
+import traceback
 import unicodedata
 from collections import Counter
 from dataclasses import asdict, dataclass, field
@@ -421,6 +422,27 @@ def verifica_risposta(domanda: Domanda, risposta: str, documenti, esiti_dati) ->
     }
 
 
+def verifica_protetta(domanda: Domanda, risposta: str, documenti, esiti_dati) -> dict:
+    """Come verifica_risposta, ma un errore del verificatore non si propaga.
+
+    L'errore va in errore_verifica, con la traccia, e la risposta resta
+    da riverificare con --riverifica dopo la correzione. Senza errore,
+    errore_verifica è None: in una riverifica cancella quello precedente.
+    """
+    try:
+        esito = verifica_risposta(domanda, risposta, documenti, esiti_dati)
+    except Exception as errore:  # noqa: BLE001 - un errore non ferma le altre domande
+        return {
+            "esiti_verifica": [],
+            "giudizio": None,
+            "bandi_citati": [],
+            "attese_esito": {},
+            "errore_verifica": f"{type(errore).__name__}: {errore}",
+            "traccia_verifica": traceback.format_exc(),
+        }
+    return {**esito, "errore_verifica": None, "traccia_verifica": None}
+
+
 def domanda_di(voce: dict) -> Domanda:
     """La domanda salvata in un file di risultato."""
     return Domanda(
@@ -437,7 +459,7 @@ def riverifica_voce(voce: dict) -> dict:
     """La verifica rifatta sui dati salvati, senza modello."""
     if voce.get("errore") or "risposta" not in voce:
         return {"errore": voce.get("errore", "risposta mancante")}
-    return verifica_risposta(
+    return verifica_protetta(
         domanda_di(voce),
         voce["risposta"],
         documenti_da_json(voce.get("documenti", [])),
@@ -579,10 +601,16 @@ def differenza_uso(totale: dict, parte: dict) -> dict:
     return risultato
 
 
-def registra_domanda(catena, router: RouterTriplo, domanda: Domanda) -> dict:
+def registra_domanda(
+    catena, router: RouterTriplo, domanda: Domanda, percorso: Path
+) -> dict:
     """Una domanda con la catena dell'app, con tutto ciò che serve a riverificarla.
 
-    Un errore si registra nella voce; un errore bloccante ferma la corsa.
+    La voce si salva in percorso appena c'è la risposta, prima della
+    verifica, e di nuovo con gli esiti: un errore del verificatore non
+    perde la risposta, si registra nella voce e la corsa prosegue. Un
+    errore della catena si registra nella voce; un errore bloccante ferma
+    la corsa.
     """
     voce = {"momento": adesso().isoformat(timespec="seconds"), **asdict(domanda)}
     voce["domanda"] = voce.pop("testo")
@@ -605,6 +633,7 @@ def registra_domanda(catena, router: RouterTriplo, domanda: Domanda) -> dict:
         "totale": costo_di(totale),
     }
     if esito is None:
+        scrivi_json(percorso, voce)
         return voce
 
     voce.update(
@@ -619,11 +648,13 @@ def registra_domanda(catena, router: RouterTriplo, domanda: Domanda) -> dict:
             "risposta": esito["risposta"],
         }
     )
+    scrivi_json(percorso, voce)
     voce.update(
-        verifica_risposta(
+        verifica_protetta(
             domanda, esito["risposta"], esito["documenti"], esito.get("esiti_dati")
         )
     )
+    scrivi_json(percorso, voce)
     return voce
 
 
@@ -699,8 +730,8 @@ def registra(lotto: int, riprendi: Path | None = None) -> Path:
     completa = False
     try:
         for numero, domanda in enumerate(da_fare, start=1):
-            voce = registra_domanda(catena, router, domanda)
-            scrivi_json(cartella_domande / nome_file(domanda.codice), voce)
+            percorso = cartella_domande / nome_file(domanda.codice)
+            voce = registra_domanda(catena, router, domanda, percorso)
             print(f"  {numero}/{len(da_fare)} {domanda.codice}: {riassunto_voce(voce)}")
         completa = True
     except Bloccante as errore:
@@ -731,6 +762,10 @@ def riassunto_voce(voce: dict) -> str:
     """Una riga di avanzamento, senza il testo della domanda."""
     if voce.get("errore"):
         return f"errore {voce['errore'][:80]}"
+    if voce.get("errore_verifica"):
+        return (
+            f"risposta salvata, errore del verificatore {voce['errore_verifica'][:80]}"
+        )
     conti = conteggi_stati(voce)
     return (
         f"router {'ok' if voce['router']['riuscito'] else 'NO'} "
@@ -982,6 +1017,14 @@ def rapporto(
             i.get("nome", "?")
             for i in voce.get("decisione", {}).get("interrogazioni", [])
         ]
+        if voce.get("errore_verifica"):
+            righe.append(
+                f"| {voce['codice']} | {voce['gruppo']} | {router} "
+                f"| {celle(', '.join(nomi)) or '—'} "
+                "| | | | errore del verificatore | | | "
+                f"| {costo:.3f} |"
+            )
+            continue
         attese = voce.get("attese_esito") or {}
         conti = conteggi_stati(voce)
         righe.append(
@@ -993,6 +1036,19 @@ def rapporto(
             f"| {conti['citazione_generica']} | {costo:.3f} |"
         )
     righe += ["", f"Costo totale: {totale:.3f} $", ""]
+
+    errori = [v for v in voci if v.get("errore") or v.get("errore_verifica")]
+    if errori:
+        righe += ["## Errori", ""]
+        for v in errori:
+            if v.get("errore"):
+                righe.append(f"- `{v['codice']}` catena: {celle(v['errore'])}")
+            else:
+                righe.append(
+                    f"- `{v['codice']}` verificatore (risposta salvata, da "
+                    f"riverificare): {celle(v['errore_verifica'])}"
+                )
+        righe.append("")
 
     mancate = [
         v
@@ -1098,6 +1154,7 @@ def misure(voci: list[dict]) -> dict:
     return {
         "domande": len(voci),
         "errori": sum(bool(v.get("errore")) for v in voci),
+        "errori_verifica": sum(bool(v.get("errore_verifica")) for v in voci),
         "router_riusciti": sum(
             v.get("router", {}).get("riuscito", False) for v in voci
         ),
@@ -1136,7 +1193,8 @@ def riepilogo(cartella_prova: Path = CARTELLA_PROVA) -> str:
         "## Misure a freddo (escluse le domande viste)",
         "",
         (
-            "| lotto | stato | domande | errori | router riusciti | anomalie router "
+            "| lotto | stato | domande | errori catena/verificatore | router riusciti "
+            "| anomalie router "
             "| attese | vietate | verificati | non trovati | senza fonte | col blocco "
             "| costo medio $ |"
         ),
@@ -1147,9 +1205,9 @@ def riepilogo(cartella_prova: Path = CARTELLA_PROVA) -> str:
         "",
         (
             "| lotto | data | attese | vietate | verificati | non trovati "
-            "| senza fonte | col blocco |"
+            "| senza fonte | col blocco | errori del verificatore |"
         ),
-        "|---|---|---|---|---|---|---|---|",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     lotti = sorted(
         (p for p in cartella_prova.glob("lotto_*") if p.is_dir()),
@@ -1165,7 +1223,8 @@ def riepilogo(cartella_prova: Path = CARTELLA_PROVA) -> str:
         m = misure(voci)
         medio = m["costo"] / m["domande"] if m["domande"] else 0.0
         prima.append(
-            f"| {lotto} | {meta.get('stato')} | {m['domande']} | {m['errori']} "
+            f"| {lotto} | {meta.get('stato')} | {m['domande']} "
+            f"| {m['errori']}/{m['errori_verifica']} "
             f"| {m['router_riusciti']}/{m['domande']} "
             f"| {m['anomalie']}/{m['chiamate_router']} "
             f"| {m['attese_trovate']}/{m['attese']} | {m['vietate']} "
@@ -1181,7 +1240,7 @@ def riepilogo(cartella_prova: Path = CARTELLA_PROVA) -> str:
         dopo.append(
             f"| {lotto} | {data} | {d['attese_trovate']}/{d['attese']} | {d['vietate']} "
             f"| {d['verificato']} | {d['non_trovato']} | {d['non_citato']} "
-            f"| {d['citazione_generica']} |"
+            f"| {d['citazione_generica']} | {d['errori_verifica']} |"
         )
     return "\n".join([*prima, "", *dopo]) + "\n"
 
