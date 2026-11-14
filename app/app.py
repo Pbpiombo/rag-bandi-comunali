@@ -1,6 +1,7 @@
 """Interfaccia Streamlit per il sistema RAG territoriale."""
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -15,7 +16,7 @@ import streamlit as st
 from src.chains.rag import costruisci_catena
 from src.config import ENTE_PREDEFINITO
 from src.database.enti import elenco_enti
-from src.database.modelli import bandi_citati, con_etichette
+from src.database.modelli import bandi_citati, collegamenti_bandi, con_etichette
 from src.database.repertorio import stato_archivio
 from src.database.schema import connetti
 from src.pgstore import RecuperoPostgres
@@ -68,6 +69,26 @@ def carica_catena(codice_ente: str):
     return costruisci_catena(codice_ente)
 
 
+# Un'etichetta di bando in un testo del pannello: "D1.2", anche dentro
+# "presente invece in ['D1.2']" o "nel bando [D1.1]"
+ETICHETTA_BANDO = re.compile(r"(?<![\w.])D\d+\.\d+(?!\d)")
+
+
+def con_collegamenti(testo: str, collegamenti: dict) -> str:
+    """Il testo con le etichette dei bandi come collegamenti alla loro pagina.
+
+    L'url viene dal database (collegamenti_bandi); un'etichetta senza bando,
+    come D2 o un frammento, resta testo. Streamlit apre i collegamenti
+    verso altri siti in una nuova scheda.
+    """
+
+    def collega(m: re.Match) -> str:
+        voce = collegamenti.get(m.group(0))
+        return f"[{m.group(0)}](<{voce.url}>)" if voce else m.group(0)
+
+    return ETICHETTA_BANDO.sub(collega, testo)
+
+
 def mostra_verifica(esito: dict) -> None:
     """Il pannello di verifica dei dati citati."""
     esiti = verifica(
@@ -75,6 +96,7 @@ def mostra_verifica(esito: dict) -> None:
         esito["documenti"],
         esito.get("esiti_dati"),
     )
+    collegamenti = collegamenti_bandi(esito.get("esiti_dati"))
 
     livello, messaggio = giudizio(esiti)
     if livello == "nessuno":
@@ -98,14 +120,14 @@ def mostra_verifica(esito: dict) -> None:
         if e.contesto:
             riga += f"  ·  _{e.contesto}_"
         if e.frammenti:
-            riga += f" → fonti {', '.join(e.frammenti)}"
+            riga += f" → fonti {con_collegamenti(', '.join(e.frammenti), collegamenti)}"
         if e.stato == "non_trovato":
             st.markdown(f":red[{riga}]")
         else:
             st.markdown(f":orange[{riga}]")
         # Per una citazione generica il dettaglio indica il bando giusto
         if e.dettaglio:
-            st.caption(f"    {e.dettaglio}")
+            st.caption(f"    {con_collegamenti(e.dettaglio, collegamenti)}")
 
     if verificati:
         with st.expander(f"{len(verificati)} dati verificati", expanded=False):
@@ -114,7 +136,8 @@ def mostra_verifica(esito: dict) -> None:
                 if e.contesto:
                     riga += f"  ·  _{e.contesto}_"
                 if e.frammenti:
-                    riga += f" → fonti {', '.join(e.frammenti)}"
+                    fonti = con_collegamenti(", ".join(e.frammenti), collegamenti)
+                    riga += f" → fonti {fonti}"
                 st.markdown(riga)
 
 

@@ -73,19 +73,28 @@ def bandi_citati(risposta: str, esiti_dati: list | None) -> list[VoceBando]:
     bando citato piu' volte, anche da blocchi diversi, compare una volta,
     nell'ordine della prima citazione.
     """
-    risultati = [risultato for _, risultato in esiti_dati or []]
+    collegamenti = collegamenti_bandi(esiti_dati)
     per_url: dict[str, VoceBando] = {}
     for m in ETICHETTA_CITATA.finditer(risposta):
-        blocco, riga = int(m.group(1)), int(m.group(2))
-        if not (1 <= blocco <= len(risultati)):
-            continue
-        voci = getattr(risultati[blocco - 1], "voci", None) or []
-        if not (1 <= riga <= len(voci)):
-            continue
-        voce = voci[riga - 1]
-        if voce.url:
+        voce = collegamenti.get(f"D{int(m.group(1))}.{int(m.group(2))}")
+        if voce is not None:
             per_url.setdefault(voce.url, voce)
     return list(per_url.values())
+
+
+def collegamenti_bandi(esiti_dati: list | None) -> dict[str, VoceBando]:
+    """Le righe di bando degli esiti con un url, per etichetta: "D1.2".
+
+    Dn e' il blocco n degli esiti, k la sua riga di bando. Titolo e url
+    vengono dal database: li usano l'elenco dei bandi citati e il pannello
+    di verifica, mai il modello.
+    """
+    collegamenti = {}
+    for n, (_, risultato) in enumerate(esiti_dati or [], start=1):
+        for k, voce in enumerate(getattr(risultato, "voci", None) or [], start=1):
+            if voce.url:
+                collegamenti[f"D{n}.{k}"] = voce
+    return collegamenti
 
 
 def senza_segnaposto(testo: str) -> str:

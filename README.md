@@ -454,7 +454,9 @@ in scadenza per il Comune, un bando nominato, bandi per le imprese turistiche
 e agricole, un dato di un avviso, la popolazione. L'interfaccia mostra la
 risposta, i "Bandi citati", la sezione "Da approfondire", il pannello di verifica dei dati
 citati con il contesto di ciascuno, e le fonti navigabili: cliccando su un
-frammento se ne legge il testo originale.
+frammento se ne legge il testo originale. Nel pannello di verifica
+l'etichetta di un bando ([D1.2]) è il collegamento alla sua pagina ufficiale,
+preso dal database, sia per i dati verificati sia per quelli non trovati.
 
 Gli script da riga di comando non hanno un menu, e lavorano sull'ente indicato
 da `ENTE_PREDEFINITO` in `src/config.py`.

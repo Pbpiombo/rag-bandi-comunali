@@ -4,7 +4,12 @@ Titolo e url vengono dalle voci dei risultati, cioe' dal database: della
 risposta si usano solo le etichette [Dn.k].
 """
 
-from src.database.modelli import Risultato, VoceBando, bandi_citati
+from src.database.modelli import (
+    Risultato,
+    VoceBando,
+    bandi_citati,
+    collegamenti_bandi,
+)
 
 NEVE = VoceBando("riga neve", "fonte", titolo="Bando neve", url="https://a/neve")
 STRADE = VoceBando(
@@ -59,3 +64,41 @@ def test_una_voce_senza_url_non_si_mostra():
 def test_risposta_senza_etichette_o_senza_dati():
     assert bandi_citati("Non trovo la risposta nei documenti disponibili.", ESITI) == []
     assert bandi_citati("(fonte: [D1.1])", None) == []
+
+
+# --- collegamenti del pannello di verifica ---
+
+
+def test_collegamenti_solo_per_le_righe_con_url():
+    assert collegamenti_bandi(ESITI) == {"D1.1": NEVE, "D1.2": STRADE, "D3.1": STRADE}
+    assert collegamenti_bandi(None) == {}
+
+
+def test_le_etichette_dei_bandi_diventano_collegamenti():
+    from app.app import con_collegamenti
+
+    collegamenti = collegamenti_bandi(ESITI)
+
+    assert con_collegamenti("D1.1, D2, 3", collegamenti) == (
+        "[D1.1](<https://a/neve>), D2, 3"
+    )
+    # una riga senza url, o un'etichetta che non c'e', resta testo
+    assert con_collegamenti("D1.3, D9.1", collegamenti) == "D1.3, D9.1"
+
+
+def test_collegamento_nel_dettaglio_del_verificatore():
+    from app.app import con_collegamenti
+
+    collegamenti = collegamenti_bandi(ESITI)
+
+    assert con_collegamenti("presente invece in ['D1.2']", collegamenti) == (
+        "presente invece in ['[D1.2](<https://b/strade>)']"
+    )
+    assert con_collegamenti(
+        "presente solo nel bando [D1.1]: va citato con la sua etichetta", collegamenti
+    ) == (
+        "presente solo nel bando [[D1.1](<https://a/neve>)]: va citato con la sua "
+        "etichetta"
+    )
+    # D1.12 non e' D1.1
+    assert con_collegamenti("D1.12", collegamenti) == "D1.12"
