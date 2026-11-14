@@ -29,7 +29,14 @@ CREATE TABLE IF NOT EXISTS enti (
     toscana_diffusa INTEGER
                     CHECK(toscana_diffusa IN (0,1)),
     fonte           TEXT NOT NULL,
-    verificato_il   TEXT NOT NULL
+    verificato_il   TEXT NOT NULL,
+    -- l'Unione di cui il Comune fa parte, con la fonte dell'appartenenza.
+    -- Il vincolo e' differito: nel CSV un Comune puo' venire prima della
+    -- sua Unione, e il controllo si fa alla chiusura del caricamento
+    unione          TEXT REFERENCES enti(codice_fiscale)
+                    DEFERRABLE INITIALLY DEFERRED,
+    fonte_unione    TEXT,
+    CHECK (unione IS NULL OR fonte_unione IS NOT NULL)
 );
 
 CREATE TABLE IF NOT EXISTS popolazione (
@@ -263,6 +270,8 @@ TABELLE_DA_CSV = {
         "toscana_diffusa",
         "fonte",
         "verificato_il",
+        "unione",
+        "fonte_unione",
     ],
     "popolazione": ["codice_ente", "anno", "residenti", "fonte", "data_rilevazione"],
     "bilancio": ["codice_ente", "anno", "tipo", "voce", "importo", "fonte"],

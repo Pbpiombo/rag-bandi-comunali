@@ -106,6 +106,8 @@ capofila, se rientra in Toscana Diffusa. Usalo per valutare se l'ente \
 rientra tra i beneficiari di un bando. Quando lo usi, citalo nella forma \
 (fonte: profilo dell'ente). Un dato "non verificato" non è né sì né no: \
 dillo, invece di dedurlo.
+L'Unione dell'ente è quella del profilo; un'Unione nominata nei frammenti \
+come capofila di un'area interna non è per questo l'Unione dell'ente.
 La popolazione dell'ente non è nel profilo: è nei DATI, nel blocco \
 "popolazione dell'ente". Quando un bando ha una soglia o delle fasce di \
 abitanti, confrontala con quel dato e citalo con la sua etichetta. Se il \

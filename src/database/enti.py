@@ -18,10 +18,18 @@ COLONNE_SI_NO = [
 
 
 def profilo_ente(conn: sqlite3.Connection, codice: str) -> dict:
-    """Il profilo dell’ente per il router, con i sì e no come booleani"""
-    elenco = ", ".join(COLONNE_PROFILO)
+    """Il profilo dell’ente per il router, con i sì e no come booleani.
+
+    Per un Comune il profilo riporta anche il nome dell'Unione di cui fa
+    parte: None se l'appartenenza non e' in archivio, cioe' non verificata.
+    Il profilo di un'Unione non ha questo campo.
+    """
+    elenco = ", ".join(f"e.{c}" for c in COLONNE_PROFILO)
     riga = conn.execute(
-        f" SELECT {elenco} FROM enti WHERE codice_fiscale = ?", (codice,)
+        f"SELECT {elenco}, u.nome AS unione FROM enti e "
+        "LEFT JOIN enti u ON u.codice_fiscale = e.unione "
+        "WHERE e.codice_fiscale = ?",
+        (codice,),
     ).fetchone()
     if riga is None:
         raise ValueError(f"Ente non trovato: {codice}")
@@ -29,6 +37,8 @@ def profilo_ente(conn: sqlite3.Connection, codice: str) -> dict:
     for colonna in COLONNE_SI_NO:
         if profilo[colonna] is not None:
             profilo[colonna] = bool(profilo[colonna])
+    if profilo["tipo"] != "comune":
+        del profilo["unione"]
     return profilo
 
 
