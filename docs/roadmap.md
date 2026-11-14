@@ -592,3 +592,20 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
 - **ANCI Toscana e le altre fonti di scoperta segnalano, non sono fonti**:
   i dati si prendono dalla pagina ufficiale dell'ente; le schede ANCI non
   si salvano e non si citano.
+
+## Insieme di prova: dopo
+
+Metodo in `docs/piano-insieme-prova.md`.
+
+- **`--riepilogo` conta i giudizi a mano**: legge
+  `dati-grezzi/prova/lotto_<n>/giudizi.csv` e conta i giudizi per
+  categoria, sulle righe della registrazione a freddo.
+- **Insieme generato**: circa 150 domande che coprono la griglia tipo di
+  beneficiario × tipo di richiesta (bandi, scadenza, importo, requisiti,
+  territorio) × tema × forma (precisa, vaga, sgrammaticata, doppia, fuori
+  ambito), con profili diversi di chi chiede. Solo misure automatiche
+  (router, parametri non validi, "non trovo", esiti del verificatore,
+  costi) più un campione di 20 risposte giudicato a mano. Prima della demo
+  solo se il resto è chiuso.
+- **Modello giudice**: solo dopo averlo tarato su un numero sufficiente di
+  giudizi a mano.
