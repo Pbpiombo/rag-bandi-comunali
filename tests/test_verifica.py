@@ -685,6 +685,110 @@ def test_inizio_citazione_con_fonte_come_prima():
     assert inizio_citazione("(Fonte: [1], Regione)") == 1
 
 
+# Falsi allarmi del lotto 1 (14 novembre 2026), giudicati a mano: "21/27"
+# di "PR FESR 21/27" letto come data (P17, L01, L03) e "Euro 50.000,00"
+# spezzato in 50 e 000,00 (L02, L03). Le righe dei bandi sono quelle della
+# registrazione, con il titolo dentro la riga.
+RIGA_FILIERA = (
+    "«Bando «Filiera SMART» - PR FESR Toscana 21/27 - Azioni 1.1.3 - 1.1.4.1 - "
+    "1.3.2.1 - 1.3.1» (Regione Toscana) | a sportello, verificare la disponibilità"
+)
+RIGA_SOVVENZIONI = (
+    "«Sovvenzioni per l'abbattimento degli interessi su finanziamenti di importo "
+    "inferiore a Euro 50.000,00 - PR Toscana FESR 2021-2027 1.3.2.» "
+    "(Regione Toscana) | a sportello"
+)
+RIGA_MILA = (
+    "«Contributi fino 50 mila euro per le botteghe» (Regione Toscana) | a sportello"
+)
+FONTE_INCENTIVI = "Incentivi Italia, OpenData_Incentivi.csv del 2026-11-12"
+BANDI_LOTTO_1 = Risultato(
+    f"Bandi aperti:\n- [#1] {RIGA_FILIERA}\n- [#2] {RIGA_SOVVENZIONI}\n"
+    f"- [#3] {RIGA_MILA}",
+    fonti=[FONTE_INCENTIVI],
+    voci=[
+        VoceBando(RIGA_FILIERA, FONTE_INCENTIVI),
+        VoceBando(RIGA_SOVVENZIONI, FONTE_INCENTIVI),
+        VoceBando(RIGA_MILA, FONTE_INCENTIVI),
+    ],
+)
+
+
+def esiti_lotto_1(risposta: str) -> list[tuple[str, str, str]]:
+    esiti = verifica(risposta, [], [("bandi", BANDI_LOTTO_1)])
+    return [(e.tipo, e.valore, e.stato) for e in esiti]
+
+
+@pytest.mark.parametrize(
+    "risposta",
+    [
+        # P17
+        (
+            'Bando "Filiera SMART" - PR FESR Toscana 21/27** (Regione Toscana), '
+            "a sportello (fonte: [D1.1], atto non indicato)."
+        ),
+        # L01, L03
+        (
+            '«Bando "Filiera SMART" - PR FESR Toscana 21/27» (Regione Toscana), '
+            "a sportello (fonte: [D1.1])."
+        ),
+    ],
+)
+def test_periodo_abbreviato_nel_titolo_verificato(risposta):
+    assert esiti_lotto_1(risposta) == [("letterale", "21/27", "verificato")]
+
+
+def test_periodo_abbreviato_sbagliato_resta_non_trovato():
+    # Un periodo sbagliato e' un errore vero: non si ignora, e "14" e "20" non
+    # si confermano per coincidenza come quantita'
+    esiti = esiti_lotto_1("Bando Filiera SMART - PR FESR 14/20 (fonte: [D1.1]).")
+    assert esiti == [("letterale", "14/20", "non_trovato")]
+
+
+def test_periodo_abbreviato_non_si_conferma_con_il_periodo_esteso():
+    # Il costo scelto: se la fonte scrive "2021-2027", "21/27" resta da vedere
+    esiti = esiti_lotto_1("Sovvenzioni - PR Toscana FESR 21/27 (fonte: [D1.2]).")
+    assert esiti == [("letterale", "21/27", "non_trovato")]
+
+
+@pytest.mark.parametrize(
+    "risposta",
+    [
+        # L02
+        (
+            "«Sovvenzioni per l'abbattimento degli interessi su finanziamenti di "
+            "importo inferiore a Euro 50.000,00», beneficiari: Impresa "
+            "(fonte: [D1.2])."
+        ),
+        # L03
+        (
+            "«Sovvenzioni per l'abbattimento degli interessi su finanziamenti di "
+            "importo inferiore a Euro 50.000,00 - PR Toscana FESR 2021-2027 1.3.2» "
+            "(fonte: [D1.2])."
+        ),
+    ],
+)
+def test_importo_con_migliaia_e_decimali_e_un_valore_solo(risposta):
+    esiti = esiti_lotto_1(risposta)
+    assert ("quantita", "50.000,00", "verificato") in esiti
+    assert not any(valore in ("50", "000,00") for _, valore, _ in esiti)
+    assert all(stato == "verificato" for _, _, stato in esiti)
+
+
+def test_importo_con_migliaia_e_decimali_sbagliato_non_trovato():
+    esiti = esiti_lotto_1("Importo inferiore a Euro 60.000,00 (fonte: [D1.2]).")
+    assert esiti == [("quantita", "60.000,00", "non_trovato")]
+
+
+def test_numeri_nel_titolo_restano_controllati():
+    assert esiti_lotto_1("«Contributi fino 50 mila euro» (fonte: [D1.3]).") == [
+        ("importo", "50 mila", "verificato")
+    ]
+    assert esiti_lotto_1("«Contributi fino 60 mila euro» (fonte: [D1.3]).") == [
+        ("importo", "60 mila", "non_trovato")
+    ]
+
+
 def test_citazione_con_fonte_mascherata_come_prima():
     risposta = (
         "Costo € 322,00 (inclusa l'aliquota del 7%, fonte: [1], Regione, pag. 11)."

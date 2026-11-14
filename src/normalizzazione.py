@@ -226,6 +226,11 @@ def data(testo: str) -> str | None:
     return None
 
 
+def letterale(testo: str) -> str:
+    """Un testo da confrontare tale e quale: minuscolo, spazi ridotti a uno."""
+    return " ".join(testo.lower().split())
+
+
 def _mm_gg(mese: int, giorno: int) -> str | None:
     # Il 2000 e' bisestile: il 29 febbraio esiste
     iso = _iso(2000, mese, giorno)
@@ -323,6 +328,9 @@ class Valori:
     articoli: "art 54", e per "art. 54, comma 2" anche "art 54 comma 2".
     riferimenti: le forme n/aaaa, e per ogni atto con numero e data
     ("decreto n. 1234 del 12/03/2026") anche "1234/2026".
+    letterali: le scritture con la forma di una data o di un orario che non
+    esistono ("21/27" di "PR FESR 21/27", "31/02/2026", "25:61"), come sono
+    scritte (letterale): non sono date, e si confrontano tale e quale.
     """
 
     date: set[str] = field(default_factory=set)
@@ -335,6 +343,7 @@ class Valori:
     articoli: set[str] = field(default_factory=set)
     percentuali: set[Decimal] = field(default_factory=set)
     numeri: set[Decimal] = field(default_factory=set)
+    letterali: set[str] = field(default_factory=set)
 
 
 def valori(testo: str) -> Valori:
@@ -364,15 +373,21 @@ def valori(testo: str) -> Valori:
                 trovati.date.add(iso)
                 trovati.giorni_mese.add(iso[5:])
                 trovati.anni.add(int(iso[:4]))
+            else:
+                trovati.letterali.add(letterale(m.group(0)))
 
     for m in libere(_GIORNO_MESE_LETTERE):
         mm_gg = _mm_gg(_mese(m["mese"]), int(m["g"]))
         if mm_gg:
             trovati.giorni_mese.add(mm_gg)
+        else:
+            trovati.letterali.add(letterale(m.group(0)))
     for m in libere(_GIORNO_MESE_NUMERICO):
         mm_gg = _mm_gg(int(m["m"]), int(m["g"]))
         if mm_gg:
             trovati.giorni_mese.add(mm_gg)
+        else:
+            trovati.letterali.add(letterale(m.group(0)))
 
     for m in libere(_PERIODO):
         trovati.periodi.add(f"{m['da']}-{m['a']}")
@@ -386,6 +401,8 @@ def valori(testo: str) -> Valori:
             hh_mm = _hh_mm(m["h"], m["min"])
             if hh_mm:
                 trovati.orari.add(hh_mm)
+            elif schema is _ORARIO:
+                trovati.letterali.add(letterale(m.group(0)))
 
     for m in libere(_RIFERIMENTO):
         trovati.riferimenti.add(f"{int(m['n'])}/{m['a']}")

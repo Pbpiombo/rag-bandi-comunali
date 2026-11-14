@@ -23,6 +23,7 @@ from src.normalizzazione import (
     data,
     date_degli_atti,
     giorno_mese,
+    letterale,
     numero,
     orario,
     periodo,
@@ -139,6 +140,9 @@ SCHEMI = {
         r"\bore\s+(\d{1,2}(?:[:.]\d{2})?)",
     ],
     "quantita": [
+        # Migliaia e decimali sono un valore solo: "Euro 50.000,00" e' 50000,
+        # non 50 e 000,00 (falsi allarmi del lotto 1, L02 e L03)
+        r"\b(\d{1,3}(?:\.\d{3})+,\d+)\b",
         r"\b(\d+,\d{1,2})\b",
         r"\b(\d{1,3}(?:\.\d{3})+)\b",
         r"\b(\d{2,})\b",
@@ -271,12 +275,27 @@ def trova_dati(risposta: str) -> list[Dato]:
 
                 occupati.append((m.start(), m.end()))
                 dato = Dato(tipo, m.group(1).strip(), m.start(), m.group(0).strip())
+                if tipo == "data" and not _data_esistente(dato.valore):
+                    dato.tipo = "letterale"
                 if m.groupdict().get("data_atto"):
                     dato.data_atto = m.group("data_atto")
                     dato.posizione_data = m.start("data_atto")
                 trovati.append(dato)
 
     return sorted(trovati, key=lambda d: d.posizione)
+
+
+def _data_esistente(valore: str) -> bool:
+    """Il valore con la forma di una data o di un orario esiste come tale.
+
+    "21/27" di "PR FESR 21/27" ha la forma di un giorno e un mese, ma il
+    mese 27 non esiste: non e' una data, e il verificatore lo cerca tale e
+    quale nella fonte (tipo "letterale"). Non lo ignora: un periodo
+    sbagliato ("14/20" al posto di "21/27") e' un errore vero. E non lo
+    lascia agli schemi delle quantita', dove "21" e "27" si potrebbero
+    confermare per coincidenza con altri numeri della fonte.
+    """
+    return bool(data(valore) or orario(valore) or giorno_mese(valore))
 
 
 def presente(dato: Dato, fonte: Valori) -> bool:
@@ -317,6 +336,9 @@ def presente(dato: Dato, fonte: Valori) -> bool:
 
     if tipo == "codice":
         return codice(valore) in fonte.codici
+
+    if tipo == "letterale":
+        return letterale(valore) in fonte.letterali
 
     if tipo == "riferimento":
         art = articolo(dato.intero)

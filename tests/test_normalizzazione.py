@@ -105,6 +105,13 @@ def test_giorno_mese(testo, atteso):
     assert giorno_mese(testo) == atteso
 
 
+def test_date_impossibili_sono_letterali_non_numeri():
+    v = valori("PR FESR Toscana 21/27, scadenza 31/02/2026 alle 25:61")
+    assert v.letterali == {"21/27", "31/02/2026", "25:61"}
+    assert not v.date and not v.giorni_mese and not v.orari
+    assert {Decimal(21), Decimal(27)}.isdisjoint(v.numeri)
+
+
 # --- orari ---
 
 
