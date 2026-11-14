@@ -1,9 +1,9 @@
 """Instrada la domanda verso i documenti, il database, o entrambi."""
 
 import json
+import re
 
 from langchain_anthropic import ChatAnthropic
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from src.config import MODEL_NAME
@@ -93,23 +93,65 @@ MODELLO_ROUTER = ChatPromptTemplate.from_messages(
 )
 
 
+# Con claude-sonnet-5 il ragionamento adattivo è attivo quando il parametro
+# thinking manca, e i suoi token contano nel tetto. Con 512, il 14 novembre
+# 2026 una domanda del lotto 1 ha esaurito il tetto tre volte su tre senza
+# scrivere il JSON (docs/piano-correzioni-lotto1.md, correzione 1). Il
+# ragionamento non si spegne con thinking disabled: claude-sonnet-5-5 lo
+# rifiuta, e il modello si cambia dal .env.
+MAX_TOKENS_ROUTER = 2048
+
+
 def costruisci_router():
-    """Catena che decide dove cercare."""
+    """Catena che decide dove cercare.
+
+    Restituisce il messaggio intero del modello, non solo il testo: decidi
+    ne legge anche lo stop_reason.
+    """
     modello = ChatAnthropic(
         model=MODEL_NAME,
-        max_tokens=512,
+        max_tokens=MAX_TOKENS_ROUTER,
         timeout=60,
     )
-    return MODELLO_ROUTER | modello | StrOutputParser()
+    return MODELLO_ROUTER | modello
 
 
-def pulisci_json(testo: str) -> str:
-    """Toglie eventuali delimitatori di codice attorno al JSON."""
-    testo = testo.strip()
-    if testo.startswith("```"):
-        righe = [r for r in testo.splitlines() if not r.strip().startswith("```")]
-        testo = "\n".join(righe)
-    return testo.strip()
+def testo_e_fine(risposta) -> tuple[str, str | None]:
+    """Il testo della risposta del router e il suo stop_reason.
+
+    Di un messaggio del modello si prendono solo i blocchi di testo, senza
+    quelli di ragionamento, e lo stop_reason dai metadati. Una stringa (i
+    router finti dei test) è il testo, con stop_reason sconosciuto.
+    """
+    if isinstance(risposta, str):
+        return risposta, None
+    metadati = getattr(risposta, "response_metadata", None) or {}
+    return risposta.text, metadati.get("stop_reason")
+
+
+def estrai_decisione(testo: str) -> dict | None:
+    """La decisione del router nel suo testo, anche con testo intorno.
+
+    Si prova a leggere un oggetto JSON da ogni "{" e si tengono quelli con
+    "documenti" o "interrogazioni": le recinzioni ``` e il testo prima o
+    dopo non contano. Una decisione sola, o più copie identiche, è la
+    risposta. Nessuna, o più decisioni diverse, dà None: la risposta non si
+    interpreta, invece di sceglierne una a caso.
+    """
+    lettore = json.JSONDecoder()
+    trovate: list[dict] = []
+    for m in re.finditer(r"\{", testo):
+        try:
+            oggetto, _ = lettore.raw_decode(testo, m.start())
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(oggetto, dict):
+            continue
+        if "documenti" not in oggetto and "interrogazioni" not in oggetto:
+            continue
+        if oggetto not in trovate:
+            trovate.append(oggetto)
+    return trovate[0] if len(trovate) == 1 else None
 
 
 def descrivi_profilo(profilo: dict) -> str:
@@ -126,8 +168,14 @@ def descrivi_profilo(profilo: dict) -> str:
 
 
 def decidi(router, domanda: str, codice_ente: str, profilo: dict) -> dict:
-    """Restituisce la decisione, con un ripiego sicuro in caso di errore."""
-    grezzo = router.invoke(
+    """Restituisce la decisione, con un ripiego sicuro in caso di errore.
+
+    Il ripiego cerca nei documenti, senza interrogazioni. La decisione in
+    errore conserva il motivo, lo stop_reason e il testo grezzo: servono
+    alla diagnosi, non all'utente, a cui l'app mostra una riga neutra. Con
+    una decisione valida lo stop_reason si aggiunge quando è noto.
+    """
+    risposta = router.invoke(
         {
             "domanda": domanda,
             "repertorio": descrivi_repertorio(),
@@ -136,17 +184,21 @@ def decidi(router, domanda: str, codice_ente: str, profilo: dict) -> dict:
         }
     )
 
-    try:
-        decisione = json.loads(pulisci_json(grezzo))
-    except json.JSONDecodeError:
+    grezzo, stop_reason = testo_e_fine(risposta)
+    decisione = estrai_decisione(grezzo)
+    if decisione is None:
         return {
             "documenti": True,
             "interrogazioni": [],
-            "errore": f"risposta del router non interpretabile: {grezzo[:120]}",
+            "errore": "risposta del router non interpretabile",
+            "stop_reason": stop_reason,
+            "grezzo": grezzo,
         }
 
     decisione.setdefault("documenti", True)
     decisione.setdefault("interrogazioni", [])
+    if stop_reason is not None:
+        decisione["stop_reason"] = stop_reason
     return decisione
 
 

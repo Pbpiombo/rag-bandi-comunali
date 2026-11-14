@@ -73,7 +73,7 @@ from scripts.ingestione.estrai_nuovi import (
     costo_reale,
     errore_bloccante,
 )
-from src.chains.router import pulisci_json
+from src.chains.router import estrai_decisione, testo_e_fine
 from src.config import (
     CHUNK_SIZE,
     DATI_GREZZI_DIR,
@@ -329,38 +329,43 @@ def controlla_attese(domanda: Domanda, titoli: list[str]) -> dict:
 
 
 def interpretabile(grezzo: str) -> bool:
-    """La risposta del router si legge come la legge decidi: un oggetto JSON."""
-    try:
-        return isinstance(json.loads(pulisci_json(grezzo)), dict)
-    except json.JSONDecodeError:
-        return False
+    """La risposta del router si legge come la legge decidi."""
+    return estrai_decisione(grezzo) is not None
 
 
 class RouterTriplo:
     """Il router dell'app chiamato più volte sulla stessa entrata.
 
-    Conserva tutte le risposte grezze e il consumo di token delle
-    chiamate; restituisce la prima, con cui la catena prosegue.
+    Conserva il testo e lo stop_reason di ogni chiamata e il consumo di
+    token; restituisce la prima risposta così com'è, messaggio o testo,
+    e la catena prosegue con quella.
     """
 
     def __init__(self, router, volte: int = CHIAMATE_ROUTER) -> None:
         self.router = router
         self.volte = volte
         self.grezzi: list[str] = []
+        self.stop_reason: list[str | None] = []
         self.uso: dict = {}
 
     def azzera(self) -> None:
         """Dimentica le chiamate della domanda precedente."""
         self.grezzi = []
+        self.stop_reason = []
         self.uso = {}
 
     def invoke(self, entrata):
         self.azzera()
+        risposte = []
         with get_usage_metadata_callback() as contatore:
             for _ in range(self.volte):
-                self.grezzi.append(self.router.invoke(entrata))
+                risposta = self.router.invoke(entrata)
+                testo, fine = testo_e_fine(risposta)
+                risposte.append(risposta)
+                self.grezzi.append(testo)
+                self.stop_reason.append(fine)
         self.uso = dict(contatore.usage_metadata)
-        return self.grezzi[0]
+        return risposte[0]
 
 
 def esito_router(grezzi: list[str]) -> dict:
@@ -626,6 +631,7 @@ def registra_domanda(
     totale = dict(contatore.usage_metadata)
 
     voce["grezzi_router"] = list(router.grezzi)
+    voce["stop_reason_router"] = list(router.stop_reason)
     voce["router"] = esito_router(router.grezzi)
     voce["costo"] = {
         "router": costo_di(router.uso),

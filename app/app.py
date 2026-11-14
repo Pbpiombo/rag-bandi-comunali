@@ -89,6 +89,21 @@ def con_collegamenti(testo: str, collegamenti: dict) -> str:
     return ETICHETTA_BANDO.sub(collega, testo)
 
 
+AVVISO_ROUTER = (
+    "Non sono riuscito a scegliere le interrogazioni sui dati: "
+    "la risposta si basa solo sui documenti."
+)
+
+
+def avviso_router(decisione: dict) -> str | None:
+    """La riga per l'utente quando il router non ha dato una decisione.
+
+    Sempre la stessa riga neutra: il testo grezzo del router, l'errore e lo
+    stop_reason restano nella decisione per la diagnosi, non si mostrano.
+    """
+    return AVVISO_ROUTER if "errore" in decisione else None
+
+
 def mostra_verifica(esito: dict) -> None:
     """Il pannello di verifica dei dati citati."""
     esiti = verifica(
@@ -305,8 +320,9 @@ def main() -> None:
 
     st.caption("· ".join(riga_router))
 
-    if "errore" in decisione:
-        st.warning(f"Anomalia del router: {decisione['errore']}")
+    avviso = avviso_router(decisione)
+    if avviso:
+        st.info(avviso)
 
     sinistra, destra = st.columns([3, 2])
 

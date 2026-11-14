@@ -672,3 +672,40 @@ def test_rapporto_con_errore_del_verificatore():
     assert "## Errori" in testo
     assert "da riverificare" in testo
     assert p.misure([voce])["errori_verifica"] == 1
+
+
+# --- Router: stop_reason e lettura come nell'app (correzione 1) ---
+
+
+def test_router_triplo_registra_lo_stop_reason():
+    def con_fine(testo, fine):
+        return AIMessage(content=testo, response_metadata={"stop_reason": fine})
+
+    decisione = '{"documenti": false, "interrogazioni": []}'
+    modello = GenericFakeChatModel(
+        messages=iter(
+            [
+                con_fine(decisione, "end_turn"),
+                con_fine("", "max_tokens"),
+                con_fine('{"documenti": fal', "max_tokens"),
+            ]
+        )
+    )
+    router = p.RouterTriplo(modello)
+    prima = router.invoke("entrata")
+    # La catena riceve il messaggio intero, con il suo stop_reason
+    assert isinstance(prima, AIMessage)
+    assert router.grezzi == [decisione, "", '{"documenti": fal']
+    assert router.stop_reason == ["end_turn", "max_tokens", "max_tokens"]
+    assert p.esito_router(router.grezzi) == {
+        "riuscito": True,
+        "anomalie": 2,
+        "chiamate": 3,
+    }
+
+
+def test_interpretabile_come_decidi():
+    decisione = '{"documenti": false, "interrogazioni": []}'
+    assert p.interpretabile("Fuori ambito.\n\n" + decisione)
+    assert not p.interpretabile("")
+    assert not p.interpretabile(decisione + '\n{"documenti": true}')
