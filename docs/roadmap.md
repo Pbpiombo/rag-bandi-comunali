@@ -260,6 +260,63 @@ perde i suoi esempi migliori.
   (Incentivi Italia, tappa 5: sportelli senza chiusura aperti da più di
   due anni, 17 righe da verificare).
 
+## Dopo la demo: dalla prova completa del 14 novembre
+
+Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
+2026, in ordine: prima i più visibili per chi usa l'app.
+
+1. **Verificatore, "21/27" letto come data** (in correzione prima della
+   demo). In "PR FESR Toscana 21/27" il "21/27" è preso per una data, anche
+   se il mese 27 non esiste, e risulta "non presente in nessuna fonte" pur
+   stando nel titolo del bando D1.10. Due difetti: date impossibili
+   accettate come date; titolo non confrontato, o normalizzato in modo
+   diverso. Falso negativo frequente: molti titoli FESR contengono "21/27".
+   Priorità alta.
+2. **Frammenti documentali non citati mostrati sotto la risposta**. Con
+   `dettaglio_bando` e `documenti: true` compaiono 10 frammenti (CENSIS,
+   coesione, progetto del Comune) sotto la risposta su Sport Missione
+   Comune. Mostrare solo i frammenti citati.
+3. **"Da approfondire" uguale per ogni domanda**: la cooperazione
+   internazionale compare anche per le imprese turistiche e le aziende
+   agricole. Deve seguire il tema o il beneficiario della domanda.
+4. **Pannello, conteggio dei verificati gonfiato dalle citazioni
+   ripetute**: lo stesso decreto contato 4 volte. Mostrare e contare una
+   volta ogni coppia valore-fonte. Valutare una forma di citazione più
+   breve nel prompt, con una misura prima e dopo.
+5. **Router, "Anomalia del router: risposta non interpretabile"** (in
+   correzione prima della demo). Compare all'utente su una domanda fuori
+   ambito (apertura degli impianti sciistici). Da unire alla voce già in
+   coda sulle domande fuori ambito con frase fissa.
+6. **Il modello descrive i suoi meccanismi** ("occorrerebbe interrogare
+   nuovamente l'archivio con beneficiario..."): una riga nel prompt.
+7. **Pertinenza**: nella domanda sulle attività artigianali compare il
+   bando delle risorse genetiche agrarie. Controllare cosa restituisce
+   `bandi_per_beneficiario` per gli artigiani.
+8. **"fra 16 giorni" risulta verificato**: controllare da dove viene il
+   16 nella riga del bando (giorni calcolati dal programma, o
+   coincidenza con un altro numero).
+9. **Bando CCIAA Pistoia-Prato promozione turistica 2026, beneficiari dal
+   catalogo imprecisi** ("Consorzio, Micro/Piccola/Media impresa", "enti
+   pubblici da verificare"). Nell'edizione 2025 erano ammessi consorzi,
+   società consortili e cooperative senza scopo di lucro per la promozione
+   del territorio, e fondazioni culturali della tabella regionale; i Comuni
+   davano solo dichiarazioni di condivisione (punteggio). Verificare a mano
+   la pagina 2026.
+10. **La frase "i beneficiari pubblici vanno verificati sulla pagina"
+    ricorre anche dove non serve**: controllare da dove nasce.
+11. **Premialità per area interna** (Punti Digitale Facile, categorie D, E,
+    F): valutare la categoria dell'area interna del Comune nel profilo
+    dell'ente, con fonte ufficiale.
+12. **Scelta tra Comuni e Unione nell'interfaccia**: decidere dopo il
+    riscontro del consulente pilota.
+13. **Ente del profilo diverso dal comune nominato nella domanda** ("Ho un
+    ristorante a San Marcello" con il profilo di Abetone): il modello lo
+    segnala. Valutare un avviso dell'app o la scelta automatica dell'ente.
+14. **Domande da imprenditore** ("vorrei aprire una palestra", "un laghetto
+    da pesca"): restituiscono soprattutto bandi generici per PMI a
+    sportello. Valutare la ricerca per bisogno, già nei prossimi passi
+    (voce 4).
+
 ## Prossimi passi, in ordine
 
 1. **Scheda per bando**: per chi è e per cosa si può usare, divisa per tipo di
