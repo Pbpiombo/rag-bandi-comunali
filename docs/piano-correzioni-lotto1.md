@@ -831,3 +831,80 @@ dalla risposta, D1); il testo senza ragionamento lo estraggono `.text` e
   `transformers` 5.23.0, `pandas` 3.1.1).
 - Se l'installazione su Streamlit Cloud fallisce: `git revert` del commit
   delle versioni, poi Python 3.13 con una nuova pubblicazione dell'app.
+
+## Correzione E: risposte parziali (dal lotto 2)
+
+Aggiunta il 15 novembre 2026, dalla diagnosi della registrazione a freddo
+del lotto 2 (`dati-grezzi/prova/lotto_2/2026-11-15_191851`). Solo A05; le
+altre osservazioni della diagnosi vanno in roadmap (sotto).
+
+### Difetto
+
+A05, "Cos'è la Strategia nazionale per le aree interne?": la risposta è
+"Non trovo la risposta nei documenti disponibili", con la motivazione che
+lo studio CENSIS "analizza gli effetti della Strategia senza definirla".
+Tra i 10 frammenti recuperati ce n'erano di utili: CENSIS pag. 39 (la
+Strategia risponde allo spopolamento delle aree interne con interventi
+articolati sulla specificità dei territori), pag. 38 (gli interventi che
+la Strategia nazionale sta mettendo in campo contro il declino
+demografico), pag. 5 (le iniziative della Missione 5 del Pnrr che la
+affiancano); dall'avviso regionale (decreto 9550/2026, pag. 4) la
+Strategia regionale per le aree interne (DGR 1476/2022) attuata con
+l'Investimento Territoriale Integrato. Una definizione formale manca, ma
+una risposta parziale con citazione era possibile.
+
+Causa: "QUANDO NON RISPONDERE" ammette solo due casi ("Se frammenti e dati
+non contengono la risposta, scrivi esattamente: …"; "Un frammento che
+parla di un argomento vicino ma non della cosa chiesta NON è una
+risposta"), rinforzati da "non deduci" della REGOLA FONDAMENTALE: il
+modello ha letto "definizione assente" come "risposta assente".
+
+### Regola (E1, applicata)
+
+In `ISTRUZIONI` (`src/chains/rag.py`), "QUANDO NON RISPONDERE", prima della
+riga sull'argomento vicino:
+
+> Risposta parziale: solo se i frammenti parlano proprio della cosa
+> chiesta ma non rispondono a tutto (per esempio la descrivono senza
+> definirla), non scrivere "Non trovo la risposta": riporta quello che
+> dicono. Ogni frase della risposta parziale ha la sua citazione (fonte:
+> [n], …), non solo i dati. Quello che viene da uno studio si presenta come
+> tale ("secondo lo studio …"). Chiudi con una riga su cosa manca (per
+> esempio "Nei documenti disponibili non c'è una definizione formale della
+> …"). Non completare con conoscenze tue. Se i frammenti parlano di un
+> argomento diverso, anche vicino, la risposta resta "Non trovo la
+> risposta nei documenti disponibili."
+
+La regola dice "frammenti", non "estratti": è la parola che il prompt usa
+oggi per il contesto; la rinomina è una voce a parte della roadmap.
+
+Limite: il verificatore controlla numeri, date e atti, non le frasi
+descrittive. Per questo ogni frase deve avere la sua citazione, così il
+lettore può confrontarla con il frammento; la fedeltà della parafrasi si
+giudica a mano.
+
+### Test
+
+Deboli, sulla presenza del testo (`tests/test_presentazione.py`): le
+cinque condizioni della regola e la sua posizione, dopo l'inizio di
+"QUANDO NON RISPONDERE" e prima della riga sull'argomento vicino.
+
+### Regola di chiusura
+
+- A05 (lotto 2, due corse): risponde con quello che dicono i frammenti,
+  ogni frase citata, una riga su cosa manca, niente "Non trovo la
+  risposta".
+- Domande di controllo che devono restare "Non trovo la risposta nei
+  documenti disponibili." senza descrizioni prese da argomenti vicini:
+  C14, C15, C16 (lotto 2), A01, C11 (lotto 1).
+- Nessun nuovo non trovato del verificatore.
+
+Nota sul punto di partenza: a freddo C15 e C16 non erano già del tutto
+"pulite". C15 nomina il «Bando Amianto Edifici Pubblici 2026» come bando
+"con finalità diversa"; C16 scrive "Non trovo nei documenti disponibili
+bandi specifici…" ed elenca i bandi sul tema turismo. Tutte e due passano
+dai DATI (`bandi_per_tema`, nessun frammento), non dai frammenti a cui si
+rivolge E1. Il confronto si fa quindi con la registrazione a freddo:
+conta che E1 non aggiunga descrizioni di argomenti vicini, e che le
+risposte restino "Non trovo"; i bandi vicini nominati dai dati sono un
+caso da decidere a parte, insieme alla regola sui bandi generici (C2).

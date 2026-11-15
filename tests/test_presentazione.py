@@ -220,3 +220,22 @@ def test_d1_risposta_completa_senza_avviso():
 
     assert not pagina.warning
     assert [e.value for e in pagina.markdown] == ["Il bando scade il (fon"]
+
+
+# --- E1: risposta parziale quando i frammenti parlano della cosa chiesta ---
+
+
+def test_e1_risposta_parziale_solo_sulla_cosa_chiesta():
+    assert "Risposta parziale: solo se i frammenti parlano proprio della cosa" in (
+        ISTRUZIONI
+    )
+    assert "Ogni frase della risposta parziale ha la sua citazione" in ISTRUZIONI
+    assert '"secondo lo studio …"' in ISTRUZIONI
+    assert "Chiudi con una riga su cosa manca" in ISTRUZIONI
+    assert "diverso, anche vicino, la risposta resta" in ISTRUZIONI
+
+
+def test_e1_prima_della_riga_sull_argomento_vicino():
+    parziale = ISTRUZIONI.index("Risposta parziale:")
+    vicino = ISTRUZIONI.index("Un frammento che parla di un argomento vicino")
+    assert ISTRUZIONI.index("QUANDO NON RISPONDERE") < parziale < vicino

@@ -334,10 +334,35 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
 9. **Ente del profilo diverso dal comune nominato nella domanda** ("Ho un
    ristorante a San Marcello" con il profilo di Abetone): il modello lo
    segnala. Valutare un avviso dell'app o la scelta automatica dell'ente.
+   Secondo caso, P08 del lotto 2 ("Ho un negozio di alimentari a Sambuca",
+   profilo di Abetone): il modello non segnala la differenza, ma scrive
+   "Sambuca Pistoiese ricade in Toscana, ma questo dato non risulta tra
+   quelli in mio possesso": usa una conoscenza sua e insieme dichiara che
+   non è nei dati, perché il programma passa solo il profilo dell'ente del
+   menu, mentre la tabella `enti` ha Sambuca Pistoiese con la regione.
+   Soluzione proposta: il programma riconosce nella domanda i nomi dei
+   comuni della tabella `enti`, senza modello (confronto di testo), e
+   aggiunge un blocco "comune nominato nella domanda" con regione,
+   provincia, Unione e fonte; il codice dell'ente resta passato dal
+   programma.
 10. **Domande da imprenditore** ("vorrei aprire una palestra", "un laghetto
     da pesca"): restituiscono soprattutto bandi generici per PMI a
     sportello. Valutare la ricerca per bisogno, già nei prossimi passi
     (voce 6).
+11. **"Frammenti" nel prompt e nell'app, da rinominare insieme**: il
+    modello di risposta legge "frammento" o "frammenti" in 12 punti (10
+    righe delle `ISTRUZIONI`, l'intestazione "FRAMMENTI:" del messaggio, il
+    segnaposto "(nessun frammento documentale)") e ripete la parola nelle
+    risposte nonostante il divieto di D3 (A05 del lotto 2, L05 del lotto
+    1); nell'app il pannello "Fonti" si intitola "Frammenti documentali".
+    Proposta: "estratti dei documenti" in tutti e due ("ESTRATTI DEI
+    DOCUMENTI:", "[numero dell'estratto]", "(nessun estratto dei
+    documenti)"), e "DATI:" in "DATI DELL'ARCHIVIO:", da cui nascono "i dati
+    a disposizione" e "i dati in mio possesso" (P08). Etichette [n] e
+    [Dn.k], forma "(fonte: …)" e verificatore invariati; divieto di D3
+    aggiornato. Misura con `--codici` su A05 (lotto 2) e L05 (lotto 1), con
+    l'espressione regolare di controllo estesa a "a disposizione" e "in mio
+    possesso".
 
 ### Primo compito di dati dopo la demo
 
@@ -691,5 +716,12 @@ Metodo in `docs/piano-insieme-prova.md`.
   (router, parametri non validi, "non trovo", esiti del verificatore,
   costi) più un campione di 20 risposte giudicato a mano. Prima della demo
   solo se il resto è chiuso.
+  Asse in più, il tipo di fonte: domande sui documenti, con la risposta
+  attesa completa, parziale o "non trovo"; domande di controllo su
+  argomenti vicini assenti dai documenti; domande miste, bando più
+  contesto normativo. Nei lotti 1 e 2 A05 è l'unica domanda che il router
+  ha mandato solo ai documenti (A01 e L05 del lotto 1 ci sono finite solo
+  per il router fallito): la parte documentale dell'app e la regola E
+  (`docs/piano-correzioni-lotto1.md`) sono misurate su una domanda sola.
 - **Modello giudice**: solo dopo averlo tarato su un numero sufficiente di
   giudizi a mano.
