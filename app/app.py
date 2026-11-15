@@ -127,6 +127,12 @@ def mostra_verifica(esito: dict) -> None:
         esito.get("esiti_dati"),
     )
     collegamenti = collegamenti_bandi(esito.get("esiti_dati"))
+    # Una riga e un conteggio per ogni dato con le sue fonti, anche se la
+    # risposta lo cita piu' volte: solo la visualizzazione, il verificatore
+    # e i file della prova restano come sono
+    gruppi = raggruppa_esiti(esiti)
+    volte = {id(e): n for e, n in gruppi}
+    esiti = [e for e, _ in gruppi]
 
     livello, messaggio = giudizio(esiti)
     if livello == "nessuno":
@@ -146,7 +152,7 @@ def mostra_verifica(esito: dict) -> None:
     verificati = [e for e in da_mostrare if e.stato == "verificato"]
 
     for e in problematici:
-        st.markdown(riga_esito(e, collegamenti))
+        st.markdown(riga_esito(e, collegamenti, volte[id(e)]))
         # Per una citazione generica il dettaglio indica il bando giusto
         if e.dettaglio:
             st.caption(f"    {con_collegamenti(e.dettaglio, collegamenti)}")
@@ -154,10 +160,32 @@ def mostra_verifica(esito: dict) -> None:
     if verificati:
         with st.expander(f"{len(verificati)} dati verificati", expanded=False):
             for e in verificati:
-                st.markdown(riga_esito(e, collegamenti))
+                st.markdown(riga_esito(e, collegamenti, volte[id(e)]))
 
 
-def riga_esito(e, collegamenti: dict) -> str:
+def raggruppa_esiti(esiti: list) -> list[tuple]:
+    """Gli esiti uniti per (stato, valore normalizzato, fonti), con le occorrenze.
+
+    Una risposta che cita lo stesso decreto quattro volte con la stessa
+    fonte da' quattro esiti uguali: nel pannello diventano una riga "×4", e
+    il conteggio del messaggio li conta una volta (voce "Pannello" della
+    roadmap). Lo stesso valore con fonti diverse resta in righe diverse; lo
+    stato fa parte della chiave, cosi' un verificato e un non trovato non si
+    fondono. Si tiene il primo esito di ogni gruppo, nell'ordine della
+    risposta.
+    """
+    gruppi: dict[tuple, list] = {}
+    for e in esiti:
+        chiave = (
+            e.stato,
+            " ".join(e.valore.split()).lower(),
+            tuple(sorted(set(e.frammenti))),
+        )
+        gruppi.setdefault(chiave, [e, 0])[1] += 1
+    return [(e, n) for e, n in gruppi.values()]
+
+
+def riga_esito(e, collegamenti: dict, volte: int = 1) -> str:
     """La riga Markdown di un dato nel pannello di verifica.
 
     Valore, tipo, contesto e fonti, con le etichette dei bandi come
@@ -173,6 +201,8 @@ def riga_esito(e, collegamenti: dict) -> str:
         riga += f"  ·  _{testo_per_collegamento(e.contesto)}_"
     if e.frammenti:
         riga += f" → fonti {con_collegamenti(', '.join(e.frammenti), collegamenti)}"
+    if volte > 1:
+        riga += f"  ×{volte}"
     if e.stato == "verificato":
         return riga
     colore = "red" if e.stato == "non_trovato" else "orange"

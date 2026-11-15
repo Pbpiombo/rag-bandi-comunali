@@ -144,7 +144,9 @@ Stato al 13 novembre 2026. Da aggiornare alla fine di ogni sottopasso.
   delle Infrastrutture come fonti, con le pagine indicate a mano
   (l'elenco di Sviluppo Toscana non è ancora acceso); i due bandi neve,
   Punti Digitale Facile, fondo strade MIT per i piccoli comuni. Abetone
-  Cutigliano passa da 7 a 9 bandi aperti.
+  Cutigliano passa da 6 a 8 bandi aperti (prima scritto "da 7 a 9";
+  corretto dopo il conteggio del 15/11/2026 sulle copie del database
+  prima e dopo il commit 72c3d4e: i bandi neve non sono per i Comuni).
 - **Blocco B, voce 14** (13 novembre 2026): README allineato a quello che
   l'app fa oggi. Sezione "In breve" in cima; catalogo dei bandi (fonti,
   interrogazioni, storico, "Da approfondire", contatti); estrazione
@@ -282,6 +284,15 @@ perde i suoi esempi migliori.
   push").
 - **HF_TOKEN nei secrets di Streamlit Cloud**: il modello degli embedding
   si scarica senza token a ogni avvio dell'app online.
+- **Pannello, conteggio dei verificati gonfiato dalle citazioni
+  ripetute** (era la voce 3 di "Dopo la demo: dalla prova completa del 14
+  novembre"): lo stesso decreto contato 4 volte; nell'app online del
+  15/11/2026, "Quali bandi sono aperti per il Comune?" per San Marcello
+  Piteglio dà 50 verificati con "24316" ripetuto 4 volte. Mostrare e
+  contare una volta ogni coppia valore-fonte, con "×n" accanto alle voci
+  ripetute; verificatore e file della prova invariati. Resta da valutare,
+  dopo la demo, una forma di citazione più breve nel prompt, con una
+  misura prima e dopo.
 
 ## Dopo la demo: dalla prova completa del 14 novembre
 
@@ -299,35 +310,31 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
    `dettaglio_bando` e `documenti: true` compaiono 10 frammenti (CENSIS,
    coesione, progetto del Comune) sotto la risposta su Sport Missione
    Comune. Mostrare solo i frammenti citati.
-3. **Pannello, conteggio dei verificati gonfiato dalle citazioni
-   ripetute**: lo stesso decreto contato 4 volte. Mostrare e contare una
-   volta ogni coppia valore-fonte. Valutare una forma di citazione più
-   breve nel prompt, con una misura prima e dopo.
-4. **Router, "Anomalia del router: risposta non interpretabile"** (in
+3. **Router, "Anomalia del router: risposta non interpretabile"** (in
    correzione prima della demo). Compare all'utente su una domanda fuori
    ambito (apertura degli impianti sciistici). Da unire alla voce già in
    coda sulle domande fuori ambito con frase fissa.
-5. **Pertinenza**: nella domanda sulle attività artigianali compare il
+4. **Pertinenza**: nella domanda sulle attività artigianali compare il
    bando delle risorse genetiche agrarie. Controllare cosa restituisce
    `bandi_per_beneficiario` per gli artigiani.
-6. **"fra 16 giorni" risulta verificato**: controllare da dove viene il
+5. **"fra 16 giorni" risulta verificato**: controllare da dove viene il
    16 nella riga del bando (giorni calcolati dal programma, o
    coincidenza con un altro numero).
-7. **Bando CCIAA Pistoia-Prato promozione turistica 2026, beneficiari dal
+6. **Bando CCIAA Pistoia-Prato promozione turistica 2026, beneficiari dal
    catalogo imprecisi** ("Consorzio, Micro/Piccola/Media impresa", "enti
    pubblici da verificare"). Nell'edizione 2025 erano ammessi consorzi,
    società consortili e cooperative senza scopo di lucro per la promozione
    del territorio, e fondazioni culturali della tabella regionale; i Comuni
    davano solo dichiarazioni di condivisione (punteggio). Verificare a mano
    la pagina 2026.
-8. **La frase "i beneficiari pubblici vanno verificati sulla pagina"
+7. **La frase "i beneficiari pubblici vanno verificati sulla pagina"
    ricorre anche dove non serve**: controllare da dove nasce.
-9. **Scelta tra Comuni e Unione nell'interfaccia**: decidere dopo il
+8. **Scelta tra Comuni e Unione nell'interfaccia**: decidere dopo il
    riscontro del consulente pilota.
-10. **Ente del profilo diverso dal comune nominato nella domanda** ("Ho un
-    ristorante a San Marcello" con il profilo di Abetone): il modello lo
-    segnala. Valutare un avviso dell'app o la scelta automatica dell'ente.
-11. **Domande da imprenditore** ("vorrei aprire una palestra", "un laghetto
+9. **Ente del profilo diverso dal comune nominato nella domanda** ("Ho un
+   ristorante a San Marcello" con il profilo di Abetone): il modello lo
+   segnala. Valutare un avviso dell'app o la scelta automatica dell'ente.
+10. **Domande da imprenditore** ("vorrei aprire una palestra", "un laghetto
     da pesca"): restituiscono soprattutto bandi generici per PMI a
     sportello. Valutare la ricerca per bisogno, già nei prossimi passi
     (voce 6).
