@@ -268,13 +268,18 @@ perde i suoi esempi migliori.
   `docs/piano-correzioni-lotto1.md`; era la voce 6 della stessa lista):
   "occorrerebbe interrogare nuovamente l'archivio con beneficiario...";
   una riga nel prompt.
-- **Versioni delle dipendenze fissate**: le dipendenze dirette di
-  `requirements.txt` fissate sulle versioni che girano oggi online
-  (streamlit 1.67.0 e le altre dai log di Streamlit Cloud del 14 novembre
-  2026; Python 3.14.10 online). Poi l'ambiente locale allineato (oggi
-  streamlit 1.63) e i test rilanciati. Oggi `streamlit>=1.40`: online e
-  in locale girano versioni diverse, e una prova in locale non vale per
-  l'app online (correzione C4, `docs/piano-correzioni-lotto1.md`).
+- **Versioni delle dipendenze fissate**: deciso il 15 novembre 2026, al
+  contrario della prima idea, di fissare le versioni **locali**, già
+  provate (1044 test e misura ristretta), non quelle online. In
+  `requirements.txt` con `==` tutte le dipendenze dirette, più `anthropic`
+  (1.5.0; online girava 2.8.0, l'unico cambio maggiore rilevante per
+  l'app) e `langchain-huggingface`; `torch` non fissato. Python online
+  invariato (3.14.10). Coerenza verificata con pip senza installare, anche
+  per Linux con Python 3.14. Da controllare al primo avvio dopo il push:
+  se l'installazione su Streamlit Cloud fallisce, `git revert` e Python
+  3.13 con una nuova pubblicazione. Tabella e motivi nel piano
+  (`docs/piano-correzioni-lotto1.md`, "Confronto delle versioni prima del
+  push").
 - **HF_TOKEN nei secrets di Streamlit Cloud**: il modello degli embedding
   si scarica senza token a ogni avvio dell'app online.
 

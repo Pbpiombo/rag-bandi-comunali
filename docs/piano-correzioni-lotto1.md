@@ -739,3 +739,95 @@ Su L02 registrata 3 volte e su C11, A01, L05 una volta:
   "dati statistici", più lettura a mano ("archivio" è ammesso e non entra
   nel controllo);
 - in C11 nessun "rifaccia la domanda" che ripete il tema già chiesto.
+
+### Esito della misura ristretta (15 novembre 2026)
+
+Registrazioni non a freddo con `--codici`, in `dati-grezzi/prova/lotto_1/`:
+`2026-11-15_182642`, `_182748`, `_182911` (L02, tre volte) e `_183034`
+(C11, A01, L05). Tutte e quattro con il proprio `giudizi.csv` (C6).
+
+- **D1 chiusa.** 6 risposte su 6 con `stop_reason_risposta` "end_turn".
+  Token in uscita della risposta: L02 2984, 4661 e 3821; L05 2528; C11
+  224; A01 46. La L02 da 4661 token sarebbe stata troncata con il tetto
+  vecchio di 4096.
+- **D2 accettata come limite per la demo.** Un codice ATECO non presente
+  nei dati compare in 1 corsa su 3 di L02 (`_182642`: "codice ATECO I
+  56"), segnalato dal verificatore come non trovato. Nelle altre due
+  nessun codice attribuito a chi chiede. La soluzione è in
+  `docs/roadmap.md`, "Prossimi passi", voce Pratiche: tabella ATECO
+  ufficiale.
+- **D3 chiusa con un residuo.** C11 e A01 corrette: niente "interrogazione
+  mirata" né "frammenti". L05 scrive ancora "i frammenti e i dati a
+  disposizione": 1 risposta su 6 con una parola del sistema.
+- **D4 chiusa.** C11 ha 3 dati verificati; nella registrazione del 14
+  novembre ne aveva 0.
+- **Nota.** In una L02 (`_182748`) la delibera 704/2025 è citata con
+  un'etichetta sbagliata: sta in [D1.8]. È un errore del modello, e il
+  verificatore lo segnala correttamente come non trovato.
+
+Osservazione su D1, dalla verifica delle versioni del 15 novembre 2026:
+con `anthropic` 1.5.0 il controllo dell'SDK che chiede lo streaming
+oltre circa 21.333 token scatta solo quando il timeout non è dato; noi
+passiamo `timeout=300`, quindi oggi non si applica. La scelta di 16000
+resta valida; con un'altra versione dell'SDK il comportamento va
+ricontrollato (vedi il confronto delle versioni prima del push).
+
+## Confronto delle versioni prima del push (15 novembre 2026)
+
+Locale: `.venv`, Python 3.13.12. Online: log di Streamlit Cloud del 14
+novembre 2026 (`dati-grezzi/streamlit-log-2026-11-14.txt`, righe
+"+ pacchetto==versione"), Python 3.14.10. Prima `requirements.txt` aveva
+solo vincoli minimi (per esempio `streamlit>=1.40`): online si installava
+l'ultima versione di ogni pacchetto.
+
+| pacchetto | locale (fissato) | online il 14/11 | cambio maggiore |
+|---|---|---|---|
+| Python | 3.13.12 | 3.14.10 | no (versione minore) |
+| anthropic | 1.5.0 | 2.8.0 | **sì** |
+| langchain-anthropic | 1.7.2 | 1.7.10 | no |
+| langchain-core | 1.6.2 | 1.8.0 | no |
+| langchain-text-splitters | 1.1.2 | 1.1.3 | no |
+| langchain-chroma | 1.1.0 | 1.1.0 | no |
+| langchain-huggingface | 1.2.2 | 1.2.3 | no |
+| chromadb | 1.5.9 | 1.5.9 | no |
+| sentence-transformers | 6.0.1 | 6.3.0 | no |
+| streamlit | 1.63.0 | 1.67.0 | no |
+| psycopg[binary] | 3.3.6 | 3.3.9 | no |
+| pgvector | 0.5.0 | 0.5.1 | no |
+| pypdf | 6.18.1 | 7.1.0 | **sì** (solo ingestione) |
+| numpy | 2.5.3 | 2.5.4 | no |
+| rank-bm25 | 0.2.2 | 0.2.2 | no |
+| python-dotenv | 1.2.3 | 1.2.4 | no |
+| torch (non fissato) | 2.14.0 | 2.15.0 | no |
+| transformers (non fissato) | 5.17.0 | 5.23.0 | no |
+| pandas (non fissato) | 3.0.5 | 3.1.1 | no |
+
+L'unico cambio maggiore rilevante per l'app è `anthropic`. L'app non lo
+importa: passa da `ChatAnthropic` di `langchain-anthropic`, che riempie
+`response_metadata["stop_reason"]` (letto dal router, correzione 1, e
+dalla risposta, D1); il testo senza ragionamento lo estraggono `.text` e
+`StrOutputParser` di `langchain-core`. `langchain-anthropic` 1.7.2 richiede
+`anthropic<2.0.0`: online, con 2.8.0, girava per forza un'altra versione
+(1.7.10). `pypdf` serve solo all'ingestione dei PDF, non all'app.
+
+### Decisione (15 novembre 2026)
+
+- Strada (a): in `requirements.txt` le versioni di `.venv` fissate con
+  `==` per tutte le dipendenze dirette, più `anthropic` e
+  `langchain-huggingface`, che il codice usa. Sono le versioni dei 1044
+  test e della misura ristretta.
+- `torch` non si fissa. Il codice non lo importa; `sentence-transformers`
+  6.0.1 chiede solo `torch>=2.2`. Fissarlo a 2.14.0 imporrebbe online una
+  versione mai provata lì, mentre la 2.15.0 è quella con cui l'app gira
+  online oggi. Fissare `sentence-transformers` non fissa `torch`: la
+  differenza possibile sono minime variazioni numeriche negli embedding
+  della domanda, senza effetto atteso sul recupero.
+- Python online invariato (3.14.10): non si ripubblica l'app.
+- Verifica senza installare: `pip install --dry-run -r requirements.txt`
+  sul `.venv` non ha niente da installare e `pip check` non trova
+  conflitti; `pip install --dry-run --only-binary=:all: --python-version
+  3.14 --platform manylinux…` risolve tutte le versioni fissate per Linux
+  con Python 3.14 con ruote binarie (135 pacchetti; `torch` 2.15.0,
+  `transformers` 5.23.0, `pandas` 3.1.1).
+- Se l'installazione su Streamlit Cloud fallisce: `git revert` del commit
+  delle versioni, poi Python 3.13 con una nuova pubblicazione dell'app.

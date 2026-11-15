@@ -1,18 +1,19 @@
-langchain-core>=1.5,<2.0
-langchain-anthropic>=1.5,<2.0
-python-dotenv>=1.0
+langchain-core==1.6.2
+langchain-anthropic==1.7.2
+anthropic==1.5.0
+python-dotenv==1.2.3
  
-langchain-text-splitters>=1.0,<2.0
-langchain-chroma>=1.0,<2.0
+langchain-text-splitters==1.1.2
+langchain-chroma==1.1.0
  
-langchain-huggingface
-chromadb>=1.0
-pypdf>=5.0
-sentence-transformers>=3.0
+langchain-huggingface==1.2.2
+chromadb==1.5.9
+pypdf==6.18.1
+sentence-transformers==6.0.1
  
-rank-bm25
-streamlit>=1.40
+rank-bm25==0.2.2
+streamlit==1.63.0
  
-psycopg[binary]>=3.1
-pgvector>=0.3
-numpy>=1.26
+psycopg[binary]==3.3.6
+pgvector==0.5.0
+numpy==2.5.3
