@@ -461,6 +461,32 @@ preso dal database, sia per i dati verificati sia per quelli non trovati.
 Gli script da riga di comando non hanno un menu, e lavorano sull'ente indicato
 da `ENTE_PREDEFINITO` in `src/config.py`.
 
+### App online
+
+La demo gira su Streamlit Cloud. Un push che tocca `src/` **non basta**:
+Streamlit ricarica solo i moduli della cartella dello script (`app/`), e
+la catena di ogni ente è in cache (`st.cache_resource`), quindi l'app
+online continua con le istruzioni di quando è partita.
+
+Dopo un push che tocca `src/`:
+
+1. da Streamlit Cloud, menu dell'app, **Reboot app**;
+2. nella barra laterale leggi la riga "Modello: … · istruzioni …";
+3. confrontala con quella locale, dalla radice del progetto:
+
+```bash
+python -c "from src.config import MODEL_NAME; from src.chains.rag import impronta_istruzioni; print(MODEL_NAME, impronta_istruzioni())"
+```
+
+Stampa il modello e l'impronta, per esempio `claude-sonnet-5 6f3b9f23`.
+
+L'impronta è data dai primi 8 caratteri dello sha256 delle istruzioni
+della risposta (`ISTRUZIONI`, `src/chains/rag.py`) e del router
+(`ISTRUZIONI_ROUTER`, `src/chains/router.py`). Se le due righe sono
+uguali, l'app online usa le istruzioni del codice locale e lo stesso
+modello. Il modello online è `MODEL_NAME` nei secrets di Streamlit Cloud,
+oppure il predefinito di `src/config.py`.
+
 ### Confrontare i due recuperi
 
 ```bash

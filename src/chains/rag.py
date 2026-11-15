@@ -1,5 +1,7 @@
 """Chain RAG con citazione obbligatoria delle fonti e dati numerici."""
 
+import hashlib
+
 from langchain_anthropic import ChatAnthropic
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -7,6 +9,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 
 from src.chains.router import (
+    ISTRUZIONI_ROUTER,
     costruisci_router,
     decidi,
     descrivi_profilo,
@@ -201,6 +204,20 @@ calcolato alla data indicata e vale più del testo del frammento, che non \
 sa di essere scaduto. Un bando scaduto non si presenta come opportunità \
 attuale: se ne riporta il contenuto insieme allo stato, citato con la \
 fonte del frammento."""
+
+
+def impronta_istruzioni() -> str:
+    """I primi 8 caratteri dello sha256 delle istruzioni della risposta e del router.
+
+    La mostra la barra laterale dell'app: dopo un push che tocca src/ e il
+    riavvio dell'app online, si confronta con quella locale per sapere se
+    l'app gira con le istruzioni nuove (README, "App online"). Le
+    descrizioni del repertorio, che il router riceve a ogni domanda, non
+    ne fanno parte.
+    """
+    testo = f"{ISTRUZIONI}\n{ISTRUZIONI_ROUTER}"
+    return hashlib.sha256(testo.encode("utf-8")).hexdigest()[:8]
+
 
 MODELLO_PROMPT = ChatPromptTemplate.from_messages(
     [

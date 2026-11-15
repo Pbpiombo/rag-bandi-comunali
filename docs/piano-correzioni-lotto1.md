@@ -378,6 +378,11 @@ risposta o con la versione di Streamlit dell'app online.
   può essere di un commit diverso), l'interrogazione scelta dal router
   per quella domanda e il browser.
 
+  Aggiornamento del 15 novembre 2026: un caso simile visto nell'app online
+  sotto "Frammenti documentali" (A05), con il meccanismo trovato e
+  riprodotto; vedi "Osservazioni dall'app online del 15 novembre 2026",
+  punto 1.
+
 - **C5**. Le `ISTRUZIONI` lo vietano già, in due punti: "Non usi
   conoscenze tue, non completi con ciò che ti sembra plausibile, non
   deduci" e "Ogni importo, percentuale, data, scadenza, codice o
@@ -908,3 +913,152 @@ rivolge E1. Il confronto si fa quindi con la registrazione a freddo:
 conta che E1 non aggiunga descrizioni di argomenti vicini, e che le
 risposte restino "Non trovo"; i bandi vicini nominati dai dati sono un
 caso da decidere a parte, insieme alla regola sui bandi generici (C2).
+
+## Osservazioni dall'app online del 15 novembre 2026
+
+Solo diagnosi e proposte, niente codice.
+
+### 1. Elenchi numerati nei "Frammenti documentali"
+
+**Osservato.** Domanda A05 ("Cos'è la Strategia nazionale per le aree
+interne?"), profilo Abetone Cutigliano, prima del riavvio dell'app: sotto
+alcune voci di "Frammenti documentali" elementi di elenco numerato vuoti,
+"1." sotto [5], "6." sotto [6], "2." sotto [8]. Dopo il riavvio, stessa
+domanda, non compaiono.
+
+**Meccanismo, trovato e riprodotto.** `mostra_fonti` scrive il testo di
+ogni frammento con `st.write`, che lo legge come markdown. Il campo è il
+testo del frammento (`page_content`), non un metadato: i frammenti che
+cominciano con il numero di un paragrafo dell'avviso diventano elenchi
+numerati. Nella registrazione a freddo di A05 (lotto 2) sono [5] "1.
+Premessa Il Programma…", [6] "6. Strumenti per la realizzazione…", [8]
+"2. Obiettivi e finalità…" (decreto 9550/2026) e [10] "2. PRIME
+RIFLESSIONI…" (CENSIS). Riprodotto con Streamlit 1.63 e 1.67, in Edge senza
+interfaccia, con la stessa sezione di `mostra_fonti`: in [5], [6], [8] e
+[10] il testo è un `<ol>` (con `start="6"` e `start="2"` dove il numero
+non è 1), a una voce, con dentro tutto il frammento. Il numero del
+paragrafo diventa così il numero dell'elenco, fuori dal testo.
+
+**Non riprodotto: la voce vuota.** Nella prova locale l'elenco ha il suo
+testo accanto al numero, ed è nascosto quando l'espansore è chiuso; la
+voce senza testo vista online non si ottiene. Né la versione di Streamlit
+né la copia del testo della pagina (provata: la selezione non riporta i
+numeri) la spiegano. Perché compaia solo a volte resta aperto: il
+meccanismo dipende solo dal testo del frammento, quindi con gli stessi
+frammenti dovrebbe ripetersi sempre; se dopo il riavvio la domanda ha
+recuperato gli stessi frammenti, la differenza sta nella resa o nella
+visualizzazione, non nei dati. Serve uno screenshot dopo il riavvio con
+gli espansori [5], [6], [8] aperti.
+
+**Il "*" vuoto sotto [D1] (C4).** Stessa famiglia (testo reso come
+markdown), ma non lo stesso caso: il blocco [D1] è già un elenco scritto
+dal programma ("- [#k] …"), e nessuna riga dei 12 tipi di
+`bandi_per_beneficiario` comincia con un segno d'elenco senza testo. Resta
+aperto come C4.
+
+**Correzione proposta (non implementata).** Il testo dei frammenti si
+mostra come testo, non come markdown: una funzione `testo_letterale` in
+`app/app.py` che mette una barra rovesciata davanti ai caratteri che il
+markdown di Streamlit interpreta (`\ ` * _ { } [ ] ( ) # + - . ! | < > $ ~`),
+usata in `mostra_fonti` per il testo del frammento. Il markdown resta solo
+per quello che scrive il programma (intestazioni, elenco dei bandi).
+`st.text` eviterebbe il problema ma mostra il testo a larghezza fissa e
+senza a capo automatico, illeggibile in una colonna stretta. Il `$` conta:
+in Streamlit una coppia di `$` apre una formula.
+
+**Test proposto, che fallisce oggi.** Sull'app (`streamlit.testing`):
+`mostra_fonti` con un frammento il cui testo è "1. Premessa Il Programma
+Regionale…"; il valore markdown reso, passato a `markdown-it-py`, non
+deve contenere un elenco numerato (`ordered_list_open`), e il testo reso
+deve cominciare con "1. Premessa". Oggi il primo controllo fallisce.
+
+### 2. Cache: un push non basta a cambiare le istruzioni
+
+**Osservato.** Dopo il push della correzione E (commit d3630c7) l'app
+online rispondeva ancora ad A05 con il rifiuto vecchio; dopo il riavvio
+risponde con la regola nuova.
+
+**Confermato nel codice, due cause insieme.**
+
+- `carica_catena` in `app/app.py` è sotto `@st.cache_resource`, con chiave
+  `codice_ente`: la catena di un ente si costruisce una volta per processo,
+  e con lei il prompt (`MODELLO_PROMPT`, fatto con `ISTRUZIONI` quando
+  `src/chains/rag.py` viene importato). La chiave della cache comprende il
+  codice della funzione decorata e i suoi argomenti, non i moduli che
+  importa: un cambio in `src/` non la invalida.
+- Anche senza la cache, il modulo resterebbe vecchio. Streamlit ricarica
+  solo i moduli che tiene sotto controllo, cioè quelli nella cartella dello
+  script principale o in una cartella del `PYTHONPATH`
+  (`streamlit/watcher/local_sources_watcher.py`, `_file_should_be_watched`).
+  Lo script è `app/app.py`, e `src/` sta fuori da `app/`; `app.py` aggiunge
+  la radice del progetto a `sys.path`, non al `PYTHONPATH`. Così
+  `src.chains.rag` resta in `sys.modules` con le `ISTRUZIONI` di quando il
+  processo è partito, finché il processo non riparte.
+
+**Proposta (non implementata).** Una versione del codice calcolata a ogni
+esecuzione dello script: l'impronta dei file `.py` di `src/`. Se cambia
+rispetto a quella con cui sono stati caricati i moduli, si tolgono i
+moduli `src.*` da `sys.modules` (così l'import successivo legge il codice
+nuovo) e la versione entra nella chiave di `carica_catena` e di
+`carica_recupero` (così la cache costruisce una catena nuova). Un push
+basta: alla prima domanda dopo il push la catena si ricostruisce.
+Alternative scartate: `server.folderWatchList` vuole percorsi assoluti,
+diversi in locale e su Streamlit Cloud; spostare lo script nella radice
+del progetto metterebbe `src/` sotto controllo, ma su Streamlit Cloud
+cambia il percorso del file principale dell'app; `importlib.reload` di
+singoli moduli non ricarica chi li importa. Test: con la versione
+cambiata, la cache restituisce una catena diversa e `sys.modules` non ha
+più i moduli vecchi.
+
+### 3. Nome del modello
+
+`src/config.py`: `MODEL_NAME = os.getenv("MODEL_NAME", "claude-sonnet-5")`,
+dopo `load_dotenv` del `.env` della radice. Lo usano la risposta
+(`src/chains/rag.py`), il router (`src/chains/router.py`) e l'estrattore.
+L'app non legge `st.secrets` direttamente; su Streamlit Cloud le voci di
+primo livello dei secrets arrivano anche come variabili d'ambiente, quindi
+vale `MODEL_NAME` dei secrets se c'è, altrimenti il predefinito
+`claude-sonnet-5`. In locale il `.env` ha `MODEL_NAME=claude-sonnet-5`,
+come il README. I secrets online da qui non si vedono.
+
+Se online il valore è diverso: risposta e router girano su un altro
+modello, e le misure della prova (fatte in locale, con il modello scritto
+nel `meta.json` di ogni registrazione) non valgono per l'app online. Due
+punti del codice dipendono dal modello: `max_tokens` della risposta (16000)
+e del router (2048) sono tarati sul ragionamento adattivo di
+`claude-sonnet-5`, e il parametro `thinking: disabled` non si usa perché
+su `claude-sonnet-5-5` dà errore 400 (correzione 1). Da controllare nei
+secrets di Streamlit Cloud; da valutare se mostrare il nome del modello
+nella barra laterale, come la data dell'archivio.
+
+### Decisioni e stato (15 novembre 2026)
+
+- **Punto 1, applicato.** `testo_letterale` in `app/app.py` mette una barra
+  rovesciata davanti ai caratteri del markdown (barra rovesciata, `` ` ``,
+  `*`, `_`, graffe, quadre, tonde, `#`, `+`, `-`, `.`, `!`, `|`, `<`, `>`,
+  `$`, `~`), solo per il testo dei frammenti in `mostra_fonti`; il blocco
+  dei dati resta markdown. Test sull'app (`tests/test_presentazione.py`):
+  un frammento "1. Premessa…" non dà `ordered_list_open` e il testo reso
+  comincia con "1. Premessa"; un frammento con due `$` li ha tutti e due
+  preceduti dalla barra e resi come testo. Tutti e due falliscono con il
+  codice di prima (provato rimettendo il testo com'era). La voce vuota
+  vista online e il "*" sotto [D1] restano aperti.
+- **Punto 2, la ricostruzione automatica non si implementa** (né la
+  pulizia di `sys.modules` né l'impronta nella chiave della cache): va in
+  `docs/roadmap.md`, "Dopo la demo", da provare con calma. Al suo posto:
+  - `impronta_istruzioni()` in `src/chains/rag.py`: i primi 8 caratteri
+    dello sha256 di `ISTRUZIONI` più `ISTRUZIONI_ROUTER` (che sta in
+    `src/chains/router.py`). Le descrizioni del repertorio, che il router
+    riceve a ogni domanda, non ne fanno parte;
+  - nella barra laterale la riga "Modello: <MODEL_NAME> · istruzioni
+    <impronta>" (`riga_versione` in `app/app.py`);
+  - nel README, sezione "App online", la procedura: dopo un push che tocca
+    `src/`, Reboot app da Streamlit Cloud, poi confronto dell'impronta
+    della barra laterale con quella locale (`python -c "from src.config
+    import MODEL_NAME; from src.chains.rag import impronta_istruzioni;
+    print(MODEL_NAME, impronta_istruzioni())"`);
+  - test: l'impronta cambia se cambiano `ISTRUZIONI` o
+    `ISTRUZIONI_ROUTER`; la riga compare nella barra laterale (AppTest) e
+    `main` la scrive.
+- **Punto 3**: il nome del modello è ora visibile nella barra laterale,
+  nella stessa riga dell'impronta.

@@ -239,3 +239,98 @@ def test_e1_prima_della_riga_sull_argomento_vicino():
     parziale = ISTRUZIONI.index("Risposta parziale:")
     vicino = ISTRUZIONI.index("Un frammento che parla di un argomento vicino")
     assert ISTRUZIONI.index("QUANDO NON RISPONDERE") < parziale < vicino
+
+
+# --- Testo dei frammenti mostrato come testo, non come markdown ---
+
+
+def pagina_frammento(testo):
+    from langchain_core.documents import Document
+
+    from app.app import mostra_fonti
+
+    documento = Document(
+        page_content=testo,
+        metadata={
+            "ente": "Regione Toscana",
+            "tipo_documento": "avviso_pubblico",
+            "page": 4,
+            "riferimento_atto": "Decreto dirigenziale n. 9550 del 28/04/2026",
+        },
+    )
+    mostra_fonti({"esiti_dati": [], "documenti": [documento], "origini": [["denso"]]})
+
+
+def valore_del_frammento(pagina: AppTest, inizio: str) -> str:
+    """Il valore markdown del frammento, tra quelli resi nella pagina."""
+    [valore] = [e.value for e in pagina.markdown if inizio in e.value]
+    return valore
+
+
+def test_un_frammento_con_il_numero_di_paragrafo_non_e_un_elenco():
+    # Frammento [5] di A05 nel lotto 2: "1. Premessa" diventava un <ol>
+    testo = "1. Premessa Il Programma Regionale Toscana FESR 2021 -2027"
+    pagina = esegui_pagina(pagina_frammento, testo=testo)
+
+    valore = valore_del_frammento(pagina, "Premessa")
+    gettoni = MarkdownIt("commonmark").parse(valore)
+    assert not any(g.type == "ordered_list_open" for g in gettoni)
+    reso = MarkdownIt("commonmark").render(valore)
+    assert reso.removeprefix("<p>").startswith("1. Premessa")
+
+
+def test_due_dollari_nel_frammento_non_aprono_una_formula():
+    # In Streamlit due "$" aprono una formula: ogni "$" va preceduto da "\"
+    testo = "Il contributo va da $10 a $20 per domanda."
+    pagina = esegui_pagina(pagina_frammento, testo=testo)
+
+    valore = valore_del_frammento(pagina, "contributo")
+    assert valore.count("$") == 2
+    assert all(valore[i - 1] == "\\" for i, c in enumerate(valore) if c == "$")
+    assert "$10 a $20" in MarkdownIt("commonmark").render(valore)
+
+
+# --- Modello e impronta delle istruzioni nella barra laterale ---
+
+
+def test_l_impronta_cambia_se_cambiano_le_istruzioni(monkeypatch):
+    from src.chains import rag
+
+    prima = rag.impronta_istruzioni()
+    assert len(prima) == 8
+    assert prima == rag.impronta_istruzioni()
+
+    monkeypatch.setattr(rag, "ISTRUZIONI", rag.ISTRUZIONI + " ")
+    assert rag.impronta_istruzioni() != prima
+
+
+def test_l_impronta_comprende_le_istruzioni_del_router(monkeypatch):
+    from src.chains import rag
+
+    prima = rag.impronta_istruzioni()
+    monkeypatch.setattr(rag, "ISTRUZIONI_ROUTER", rag.ISTRUZIONI_ROUTER + " ")
+    assert rag.impronta_istruzioni() != prima
+
+
+def pagina_barra_laterale():
+    import streamlit as st
+
+    from app.app import riga_versione
+
+    with st.sidebar:
+        st.caption(riga_versione())
+
+
+def test_la_riga_di_versione_compare_nella_barra_laterale():
+    import inspect
+
+    import app.app as app
+    from src.chains.rag import impronta_istruzioni
+    from src.config import MODEL_NAME
+
+    pagina = esegui_pagina(pagina_barra_laterale)
+
+    attesa = f"Modello: {MODEL_NAME} · istruzioni {impronta_istruzioni()}"
+    assert [e.value for e in pagina.sidebar.caption] == [attesa]
+    # E l'app la scrive davvero nella barra laterale
+    assert "st.caption(riga_versione())" in inspect.getsource(app.main)

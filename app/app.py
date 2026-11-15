@@ -13,8 +13,8 @@ if str(RADICE) not in sys.path:
 
 import streamlit as st
 
-from src.chains.rag import costruisci_catena
-from src.config import ENTE_PREDEFINITO
+from src.chains.rag import costruisci_catena, impronta_istruzioni
+from src.config import ENTE_PREDEFINITO, MODEL_NAME
 from src.database.enti import elenco_enti
 from src.database.modelli import bandi_citati, collegamenti_bandi, con_etichette
 from src.database.repertorio import stato_archivio
@@ -286,6 +286,23 @@ def gruppi_separati(testo: str) -> str:
     return "\n".join(righe)
 
 
+# I caratteri che il markdown di Streamlit interpreta: "1. " a inizio testo
+# apre un elenco numerato, due "$" una formula
+CARATTERI_MARKDOWN = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>$~])")
+
+
+def testo_letterale(testo: str) -> str:
+    """Il testo con una barra rovesciata davanti ai caratteri del markdown.
+
+    Per il testo dei frammenti, che viene dai documenti e va mostrato come
+    e': un frammento che comincia con il numero di un paragrafo ("1.
+    Premessa") diventava un elenco numerato (osservazioni dall'app online
+    del 15 novembre 2026, docs/piano-correzioni-lotto1.md). Il markdown
+    resta per quello che scrive il programma.
+    """
+    return CARATTERI_MARKDOWN.sub(r"\\\1", testo)
+
+
 def mostra_fonti(esito: dict) -> None:
     """I frammenti documentali e i dati numerici usati."""
     dati = esito.get("esiti_dati") or []
@@ -316,7 +333,18 @@ def mostra_fonti(esito: dict) -> None:
                 st.caption(
                     f"atto: {meta.get('riferimento_atto') or meta.get('titolo')}"
                 )
-                st.write(" ".join(doc.page_content.split()))
+                st.write(testo_letterale(" ".join(doc.page_content.split())))
+
+
+def riga_versione() -> str:
+    """Il modello e l'impronta delle istruzioni con cui gira l'app.
+
+    Dopo un push che tocca src/ l'app online va riavviata: i moduli di
+    src/ restano quelli caricati all'avvio, e la catena e' in cache.
+    L'impronta della barra laterale, confrontata con quella locale, dice
+    se il riavvio e' avvenuto (README, "App online").
+    """
+    return f"Modello: {MODEL_NAME} · istruzioni {impronta_istruzioni()}"
 
 
 def main() -> None:
@@ -344,6 +372,7 @@ def main() -> None:
         )
 
         st.caption(f"Vector store: {'Postgres' if USA_POSTGRES else 'Chroma'}")
+        st.caption(riga_versione())
         st.header("Archivi")
         st.markdown("**Dati numerici**")
         st.code(stato_archivio(codice_ente), language=None)

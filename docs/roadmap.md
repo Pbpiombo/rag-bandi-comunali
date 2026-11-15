@@ -363,6 +363,21 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
     aggiornato. Misura con `--codici` su A05 (lotto 2) e L05 (lotto 1), con
     l'espressione regolare di controllo estesa a "a disposizione" e "in mio
     possesso".
+12. **Catena ricostruita da sola dopo un push**, da provare con calma: oggi
+    dopo un push che tocca `src/` serve il riavvio dell'app online (README,
+    "App online"), perché Streamlit non ricarica i moduli di `src/` e la
+    catena è in `st.cache_resource`. Proposta del 15/11/2026, da
+    rivalutare insieme alla struttura dell'app e non una decisione presa:
+    l'impronta dei file `.py` di `src/` calcolata a ogni esecuzione dello
+    script; se cambia, si tolgono i moduli `src.*` da `sys.modules` e
+    l'impronta entra nella chiave di `carica_catena` e `carica_recupero`.
+    È un requisito dell'aggiornamento settimanale (Prossimi passi, voce
+    3), dove i push li fa GitHub Actions. Scartate:
+    `server.folderWatchList` (percorsi assoluti, diversi in locale e
+    online), lo script spostato nella radice (cambia il file principale su
+    Streamlit Cloud), `importlib.reload` (non ricarica chi importa il
+    modulo). Diagnosi in `docs/piano-correzioni-lotto1.md`, "Osservazioni
+    dall'app online del 15 novembre 2026", punto 2.
 
 ### Primo compito di dati dopo la demo
 
@@ -422,7 +437,11 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
      dei programmi (PR FESR, PR FSE+, sviluppo rurale): le pagine che
      hanno in più rispetto all'elenco generale. Il 12 novembre 2026
      erano contenuti per intero nell'elenco generale, e per questo non
-     sono stati aggiunti come elenchi (`docs/piano-fonti.md`, tappa 2).
+     sono stati aggiunti come elenchi (`docs/piano-fonti.md`, tappa 2);
+   - ricostruzione automatica della catena dopo un push: con i push
+     automatici di GitHub Actions nessuno fa Reboot app, e l'app
+     mostrerebbe istruzioni o archivio vecchi. Vedi la voce 12 di "Dopo
+     la demo: dalla prova completa del 14 novembre".
 4. **Pratiche (progetti seguiti)**: per un beneficiario preciso, una
    scheda strutturata (attività con forma giuridica, ATECO, sede,
    dimensione; bandi seguiti con stato; scadenze; documenti; note), ogni
