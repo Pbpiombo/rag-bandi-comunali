@@ -764,11 +764,26 @@ Registrazioni non a freddo con `--codici`, in `dati-grezzi/prova/lotto_1/`:
 - **D3 chiusa con un residuo.** C11 e A01 corrette: niente "interrogazione
   mirata" né "frammenti". L05 scrive ancora "i frammenti e i dati a
   disposizione": 1 risposta su 6 con una parola del sistema.
+  Secondo residuo, nel lotto 3 a freddo (15 novembre 2026, con D3
+  applicata): A03, "Quanti abitanti ha San Marcello Piteglio?", chiude con
+  "Servirebbe un'interrogazione sulla popolazione specifica del Comune di
+  San Marcello Piteglio". "Interrogazione" è tra le parole vietate da D3;
+  la riga giusta era del tipo "servirebbe il dato ISTAT della popolazione
+  di San Marcello Piteglio", o l'avviso che il profilo è di un altro ente
+  (l'attesa a mano di A03). Si conta come residuo, non come difetto
+  nuovo. Con l'espressione regolare della regola di chiusura di D3, le
+  risposte con una parola del sistema dopo D3 sono 3 su 32: L05 della
+  misura ristretta (6 risposte), A05 del lotto 2 a freddo, "frammenti"
+  (13), A03 del lotto 3 a freddo, "interrogazione" (13).
 - **D4 chiusa.** C11 ha 3 dati verificati; nella registrazione del 14
   novembre ne aveva 0.
 - **Nota.** In una L02 (`_182748`) la delibera 704/2025 è citata con
   un'etichetta sbagliata: sta in [D1.8]. È un errore del modello, e il
-  verificatore lo segnala correttamente come non trovato.
+  verificatore lo segnala correttamente come non trovato. Stesso caso nel
+  lotto 3 a freddo: P01 cita "I 55.1" e "I 55.3" con [D1.7], mentre
+  stanno in [D1.16]; il verificatore li dà non trovati, "presente invece
+  in ['D1.16']", e il giudizio a mano è `errore_vero`. Due casi in due
+  registrazioni: da tenere d'occhio, non da correggere ora.
 
 Osservazione su D1, dalla verifica delle versioni del 15 novembre 2026:
 con `anthropic` 1.5.0 il controllo dell'SDK che chiede lo streaming
@@ -1062,3 +1077,314 @@ nella barra laterale, come la data dell'archivio.
     `main` la scrive.
 - **Punto 3**: il nome del modello è ora visibile nella barra laterale,
   nella stessa riga dell'impronta.
+
+## Correzione F: dal lotto 3
+
+Aggiunta il 15 novembre 2026, dalla diagnosi della registrazione a freddo
+del lotto 3 (`dati-grezzi/prova/lotto_3/2026-11-15_215106`, commit
+7117aa4). Ordine: prima F1, poi F2.
+
+### Decisioni e stato (15 novembre 2026)
+
+- **F1a approvata e applicata** in `src/chains/rag.py`: "ENTE DI
+  RIFERIMENTO" al posto di "ENTE PER CUI RISPONDI", nelle `ISTRUZIONI` e
+  nell'intestazione del messaggio umano; in "CHI CHIEDE", prima del
+  divieto di D2, la regola per privato, ente e caso ambiguo (risposta per
+  il privato, al più una riga "Se a chiedere è il Comune, …"; "l'Unione"
+  se l'ente di riferimento è l'Unione). **Differenza dalla proposta**:
+  negli esempi del privato senza soggetto, "vorrei assumere" e "prendere
+  un tirocinante" sono sostituiti da "vorrei inserire un apprendista" e
+  "devo comprare un macchinario", e la riga del caso ambiguo dice
+  "riservati a <beneficiari del bando>" invece di "datori di lavoro
+  privati". Motivo, lo stesso di D2: le prime due sono le domande P05 e
+  P24 con cui si misura la regola, e tarare il prompt su di esse
+  renderebbe la misura inutile. Un test lo protegge.
+- **F1b non implementata**: solo se F1a non regge alla misura.
+- **F2: scelta (c2)**, limite accettato per la demo: C18 resta "Non
+  trovo", corretto per "bandi aperti per il Comune". (b) e (c1) vanno in
+  `docs/roadmap.md`, "Dopo la demo", con il costo stimato.
+- **F3 approvata e applicata** (sotto).
+
+### F1. Il profilo dell'ente preso per chi chiede (P24, P05)
+
+**Difetto.** P24, "Vorrei prendere un giovane in tirocinio, ci sono
+incentivi?": il router sceglie `bandi_per_beneficiario` con
+`altra_impresa`, la risposta trova i due bandi per datori di lavoro
+privati (tirocinanti under 35, [D1.19]; tirocini per donne in uscita
+dalla violenza, [D1.17]) e poi conclude: "Il Comune di Abetone Cutigliano
+è un ente pubblico (fonte: profilo dell'ente) … non rientra tra i
+beneficiari di queste due misure". **P05 ("Vorrei assumere una persona,
+ci sono incentivi?") ha lo stesso difetto**: tre bandi per datori di
+lavoro privati, poi "un Comune non rientra tra i beneficiari previsti".
+L'attesa di P05 risulta trovata perché il bando è tra i citati, ma la
+conclusione è sbagliata.
+
+Estensione, cercata con un'espressione regolare su tutte le risposte del
+gruppo privati registrate (lotti 1, 2, 3): oltre a P05 e P24, solo P18
+del lotto 1 a freddo ("il profilo per cui rispondo è il Comune …, non una
+startup innovativa"), sparita nella registrazione successiva. Le altre
+domande del gruppo dichiarano chi chiede ("ho un albergo", "sono una
+guida ambientale", "la mia impresa") e non hanno il difetto. P05 e P24
+non lo dichiarano: descrivono un'azione da datore di lavoro, e il
+modello riempie il soggetto mancante con il profilo.
+
+**Causa.** Tre punti del prompt dicono che l'ente del profilo è chi
+chiede, e nessuno dice il contrario:
+
+- `ISTRUZIONI`, "ENTE PER CUI RISPONDI": "Ricevi il profilo dell'ente che
+  pone la domanda … Usalo per valutare se l'ente rientra tra i
+  beneficiari di un bando."
+- il messaggio umano di `MODELLO_PROMPT` comincia con "ENTE PER CUI
+  RISPONDI:" seguito dal profilo;
+- "CHI CHIEDE" parla solo dei dati da non attribuire (ATECO, dimensione,
+  forma, sede: D2), non di chi sia chi chiede.
+
+Il router invece separa già i due casi ("Per i bandi rivolti ad altri
+soggetti del territorio (imprese, associazioni, cittadini) usa
+bandi_per_beneficiario"), e in P05 e P24 ha scelto bene. Il modello di
+risposta non riceve quella distinzione.
+
+**Regola proposta (F1a)**, solo `ISTRUZIONI` e l'intestazione del
+messaggio umano in `src/chains/rag.py`:
+
+- "ENTE PER CUI RISPONDI" diventa "ENTE DI RIFERIMENTO", con la prima
+  frase: "Ricevi il profilo dell'ente di riferimento: indica il
+  territorio e l'ente per cui lavora l'app, non per forza chi scrive la
+  domanda. Usalo per valutare se l'ente rientra tra i beneficiari di un
+  bando quando a chiedere è l'ente." Il resto della sezione resta.
+  Stessa intestazione nel messaggio umano.
+- In "CHI CHIEDE", prima del divieto di D2:
+
+  > Chi chiede può essere l'ente di riferimento o un soggetto del suo
+  > territorio. È un soggetto del territorio quando la domanda parla di
+  > un'impresa, un'attività, una professione, un'associazione o di sé
+  > come privato ("ho un albergo", "sono una guida", "la mia azienda"),
+  > o descrive un'azione da datore di lavoro o da impresa senza nominare
+  > l'ente ("vorrei assumere", "prendere un tirocinante", "aprire
+  > un'attività"), e i DATI sono bandi per un tipo di beneficiario
+  > privato. In quel caso i requisiti dei bandi si confrontano con quello
+  > che dice chi chiede, mai con il profilo: non scrivere che l'ente non
+  > rientra tra i beneficiari. Il profilo serve solo per il territorio.
+  > Se la domanda può venire da tutti e due (nessun soggetto nominato),
+  > rispondi per il soggetto privato e aggiungi al più una riga: "Se a
+  > chiedere è il Comune, questi bandi non lo ammettono: sono per datori
+  > di lavoro privati (fonte: …)."
+  > È l'ente quando la domanda dice "il Comune", "l'Unione", "possiamo
+  > partecipare", "il nostro ente", o parla di opere, uffici e servizi
+  > pubblici.
+
+**Come si distingue nella domanda.** Soggetto privato dichiarato
+(attività, professione, "la mia impresa"): privato. Ente nominato o
+"noi" con oggetti pubblici (piazza, uffici, illuminazione pubblica):
+ente. Nessun soggetto e azione da datore di lavoro o da impresa: privato,
+con la riga per il caso Comune. Il segnale di riserva è la scelta del
+router, visibile al modello nell'intestazione del blocco ("interrogazione:
+bandi_per_beneficiario", "Bandi aperti per altre imprese").
+
+**Casi ambigui.**
+
+- "Vorrei assumere una persona" (P05): anche un Comune assume, ma con
+  concorsi, non con incentivi all'occupazione. Si risponde per il privato,
+  con la riga sul Comune.
+- Domande senza soggetto su oggetti che hanno tutti e due ("il
+  fotovoltaico", "un edificio"): P09 dice "su un'azienda" ed è privata;
+  senza "azienda" decide il router (ente o beneficiario), e la risposta
+  segue i DATI.
+- Privato che nomina un comune diverso dal profilo ("ho un negozio a
+  Sambuca" con il profilo di Abetone): il comune della domanda vale per
+  la sede, il profilo no; è la voce 13 della roadmap, non F1.
+- Terzo per conto di un cliente ("un mio cliente ha un albergo"): si
+  tratta come il cliente dichiarato.
+- Persona che vuole avviare un'attività ("sono giovane e voglio aprire
+  un'azienda agricola", P03): è un privato anche se l'impresa non esiste
+  ancora; i requisiti di costituzione restano condizioni da verificare.
+- Associazioni, enti del terzo settore, parrocchie: privati ai fini di F1,
+  anche se la parola "ente" compare.
+
+**Alternativa (F1b), solo se F1a non passa la regola di chiusura.** Il
+programma aggiunge al messaggio una riga "CHI CHIEDE: un soggetto del
+territorio diverso dall'ente (tipo: <tipo>)" quando tutte le
+interrogazioni scelte sono `bandi_per_beneficiario`; nessuna riga con
+interrogazioni miste o per ente. Pro: deterministica, si prova senza
+modello, nello spirito di "il router decide una volta, il codice
+esegue". Contro: eredita gli errori del router e non copre le domande con
+interrogazioni miste (P09: `bandi_per_beneficiario` e `bandi_per_tema`).
+
+**Test.** F1a: deboli, sul testo (`tests/test_presentazione.py`):
+l'intestazione nuova in `ISTRUZIONI` e nel messaggio umano, nessuna
+"ente che pone la domanda", la regola in "CHI CHIEDE" prima del divieto
+di D2 con i tre casi (privato, ente, ambiguo). F1b, se serve: con una
+decisione di soli `bandi_per_beneficiario` il messaggio ha la riga, con
+`bandi_aperti_per_ente` o mista no.
+
+### F2. C18: l'avviso pertinente sta solo nei documenti
+
+**Difetto.** C18, "Ci sono bandi per rafforzare gli uffici tecnici con
+personale?": router `bandi_aperti_per_ente`, `documenti: false`, in
+tutte e tre le chiamate; risposta "Non trovo la risposta nei documenti
+disponibili." Nell'archivio documentale c'è l'avviso regionale del
+decreto 9550 del 28/04/2026 (PR FESR 2021-2027, sub-azione 5.2.1.5),
+"Progetti di rafforzamento amministrativo degli enti Capofila delle Aree
+interne", che ammette personale dipendente con contratto a tempo
+determinato (paragrafo 6).
+
+**Perché il router non ha consultato i documenti.** Le istruzioni del
+router (`ISTRUZIONI_ROUTER`, `src/chains/router.py`) mandano le domande
+sui bandi alle interrogazioni: "Quando la domanda riguarda opportunità di
+finanziamento, bandi aperti, scadenze o ammissibilità, usa le
+interrogazioni sui bandi. Una domanda come 'possiamo partecipare a
+qualche bando?' richiede bandi_aperti_per_ente". "documenti": true è
+riservato a "regole, procedure o contenuti di atti" e al bando nominato
+("usa dettaglio_bando … e metti 'documenti': true"). Due degli esempi
+("Ci sono bandi aperti per le aziende agricole…", "Vorrei avviare una
+nuova attività: ci sono contributi?") hanno `documenti: false`. C18 è
+una domanda generica sui bandi, senza bando nominato: per le istruzioni,
+la scelta del router è quella giusta.
+
+**L'avviso non è nella tabella dei bandi.** Né in `bandi.csv` né in
+`scansioni.csv` c'è il decreto 9550 o una pagina sul rafforzamento
+amministrativo delle aree interne. I due canali di acquisizione sono
+separati: il PDF è entrato nel vector store con l'ingestione dei
+documenti; la tabella si riempie dagli elenchi "bandi aperti" di
+`elenchi.csv`, scansionati la prima volta il 15 settembre 2026. Il
+termine dell'avviso è "il trentesimo giorno successivo alla
+pubblicazione sul BURT" (paragrafo 11): la data assoluta non è nel
+documento (i metadati del vector store hanno `data_scadenza` vuota e
+"data assoluta non indicata nel documento"). Con il decreto del 28
+aprile, la pagina era con ogni probabilità già fuori dagli elenchi
+"bandi aperti" al 15 settembre: è un'ipotesi, da verificare con la data
+del BURT.
+
+**Anche nella tabella, C18 non lo troverebbe con `bandi_aperti_per_ente`,
+per due motivi.** I beneficiari sono solo i sei Capofila delle Aree
+interne, con una quota fissa di 244.475,00 euro ciascuno e procedura
+negoziale (paragrafi 3 e 4); per l'area di Abetone Cutigliano è l'Unione
+Comuni Garfagnana, e il profilo ha `capofila_area: no`. E l'avviso è con
+ogni probabilità scaduto. Inoltre il personale serve all'attuazione
+della Strategia d'area e alla governance, non agli uffici tecnici del
+Comune: per la regola dell'argomento vicino, anche con i documenti la
+risposta potrebbe restare "Non trovo". La risposta utile sarebbe: nessun
+bando aperto per il Comune; c'è stato un avviso regionale per il
+Capofila dell'Area interna, che può assumere personale a tempo
+determinato per la Strategia, chiuso (o con il termine da verificare).
+
+**Opportunità solo nei documenti (stima in sola lettura).** L'archivio
+documentale ha 5 PDF, 316 frammenti: lo studio CENSIS (75), le linee
+guida SNAI sul requisito associativo (21), il progetto "Ludoteche di
+montagna" del Comune (27), l'avviso 9550 (76) e l'avviso dei mercati
+rionali, decreto 13287 del 10/06/2026 (117). Gli avvisi sono due: i
+mercati rionali sono anche in tabella (`mercati-rionali-2026`, scaduto il
+15/10/2026); il 9550 è l'**unica** opportunità solo nei documenti. Lo
+studio e le linee guida nominano finanziamenti come analisi (importi
+2014-2020 per cluster), non come avvisi; il progetto è un intervento già
+finanziato dall'APQ. Il numero crescerà con i PDF dei bandi (voce 4 dei
+prossimi passi), che però entrano collegati a un bando della tabella.
+
+**Alternative.**
+
+- **(a) Il router consulta i documenti per "ci sono bandi/finanziamenti
+  per …".** Pro: trova gli avvisi solo nei documenti, una riga nelle
+  istruzioni. Contro: oggi ne guadagna un avviso su cinque PDF, e per C18
+  quell'avviso non è per il Comune; aggiunge a quasi ogni domanda sui
+  bandi 10 frammenti per lo più fuori tema (CENSIS, ludoteche), con il
+  rischio che E1 (risposta parziale) o un argomento vicino entrino nelle
+  risposte "Non trovo" di controllo (C01, C20); i frammenti non sanno lo
+  stato del bando quando la scadenza non è una data (il 9550). **Costo**:
+  le risposte con documenti hanno 9.400-10.000 token in ingresso contro
+  3.760-4.030 senza, a parità di dati (A01, A05 contro A01, A02, A03):
+  circa +5.900 token, cioè +0,012 $ a domanda a 2 $ per milione. Nel
+  lotto 3 le domande sui bandi con `documenti: false` sono 10 su 13:
+  circa +0,12 $ a lotto, costo medio da 0,052 a circa 0,061 $ (più
+  qualche token in uscita, non stimato).
+- **(b) L'avviso entra nella tabella dei bandi con la sua fonte.** Pro:
+  stato calcolato dalla scadenza, interrogazioni e verificatore come per
+  ogni bando, storico dei bandi scaduti. Contro: serve la pagina
+  ufficiale e la data del BURT per la scadenza (un dato non verificato
+  resta vuoto, e senza scadenza va in "Da approfondire"); non esiste un
+  tipo di beneficiario "capofila dell'area interna", e senza quello o
+  compare a tutti i comuni o a nessuno; per C18 non cambia niente, perché
+  è scaduto e non per il Comune.
+- **(c1) Il router riceve l'elenco dei documenti.** Accanto a
+  "CONTENUTO EFFETTIVO DELL'ARCHIVIO NUMERICO", una sezione con titolo,
+  tipo e atto di ciascun documento, letti dai metadati del vector store
+  (gli stessi in Chroma e in Postgres), e una regola: "documenti: true
+  anche quando la domanda generica sui bandi riguarda l'oggetto di un
+  avviso dell'elenco". Pro: costo piccolo (circa 150 token per 5
+  documenti, per 3 chiamate del router: meno di 0,001 $ a domanda);
+  documenti consultati solo quando serve; C01 e C20 restano senza
+  documenti. Contro: giudizio del router sul confronto tra domanda e
+  titolo; con molti PDF l'elenco cresce; una funzione nuova
+  nell'interfaccia del recupero, con test sui due motori.
+- **(c2) Limite accettato per la demo.** La risposta "Non trovo" è
+  corretta per "bandi aperti per il Comune", e la riga "servirebbe un
+  bando … per il finanziamento di personale tecnico negli uffici
+  comunali" è leggibile. Dopo la demo, (b) insieme ai PDF dei bandi e a un
+  tipo di beneficiario per i Capofila.
+
+**Raccomandazione.** Prima della demo c2, o c1 se si vuole che C18
+nomini l'avviso; (a) no: costa su ogni domanda e mette a rischio le
+risposte di controllo per un solo avviso. (b) dopo la demo.
+
+**Test (solo con c1).** L'elenco dei documenti nel prompt del router
+ha un titolo per documento, uguale da Chroma e da Postgres (test su un
+archivio in memoria); la regola nuova è nelle istruzioni del router
+(debole).
+
+### F3. Niente trattini lunghi
+
+**Richiesta.** Le risposte e le righe dell'app non usano il trattino
+lungo (—) né quello medio (–) come segno di inciso.
+
+**Applicato.**
+
+- `ISTRUZIONI`, sezione nuova "PUNTEGGIATURA" dopo "COSA PUÒ FARE
+  L'APP": niente trattino lungo né medio come inciso, al loro posto
+  virgole, due punti o parentesi; i titoli dei bandi si riportano come
+  sono scritti nei DATI, anche con un trattino.
+- `app/app.py`, `mostra_da_approfondire`: "titolo — motivo · contatti"
+  diventa "titolo: motivo · contatti". Era l'unico "—" nelle stringhe
+  dell'app e di `src/database/`. I titoli dei bandi non si toccano: sono
+  dati della fonte.
+
+**Test** (`tests/test_presentazione.py`): la regola è nelle istruzioni;
+nessun "—" né "–" nelle costanti di testo di `app/*.py` e
+`src/database/*.py` (letti con `ast`, comprese le parti delle f-string);
+"Da approfondire" con un titolo che contiene "–" e "—" lo mostra intatto,
+con ": " come separatore.
+
+### Test di F1
+
+`tests/test_presentazione.py`: intestazione "ENTE DI RIFERIMENTO" nelle
+istruzioni e nel messaggio umano, nessun "ENTE PER CUI RISPONDI" né
+"ente che pone la domanda"; in "CHI CHIEDE" privato, ente e caso
+ambiguo, in quest'ordine e prima del divieto di D2; nessun "assumere" né
+"tirocin" nelle istruzioni. Tutti, tranne l'ultimo, falliscono con il
+codice di prima (provato).
+
+### Regola di chiusura (scritta prima di registrare)
+
+Misura ristretta con `--codici` sul lotto 3, non a freddo:
+`--codici P24,P05` due volte e `--codici C18,C01,C20,C17,C10,P01,P07` una
+volta. Costo stimato dai costi a freddo: circa 0,27 $ per le due corse di
+P24 e P05, circa 0,35 $ per le altre, totale circa 0,62 $.
+
+- **F1.** In P24 e P05 (4 risposte) nessuna conclusione sull'ente del
+  profilo: controllo automatico con un'espressione regolare su "non
+  rientra", "ente pubblico", "amministrazione pubblica", "in quanto
+  (ente|amministrazione)" e su "(fonte: profilo dell'ente)", più lettura a
+  mano. I bandi per datori di lavoro privati sono presentati come
+  possibili, con le condizioni (datore privato, sede in Toscana);
+  ammessa al più una riga per il caso in cui chieda il Comune. P05 trova
+  ancora il bando atteso.
+- **F1, controlli.** C17 e C10 (chiede l'ente) usano ancora il profilo:
+  C17 elenca i bandi aperti per il Comune (attese 2/2), C10 confronta la
+  soglia di 5.000 abitanti con la popolazione del Comune. P01 e P07
+  (privati dichiarati) non cambiano tipo di risposta.
+- **F2 (c2).** C18 entra nella misura come controllo: resta "Non trovo la
+  risposta nei documenti disponibili.", con una riga su cosa servirebbe
+  senza parole del sistema. C01 e C20 restano `documenti: false` e "Non
+  trovo la risposta nei documenti disponibili."
+- **F3.** Nessun "—" né "–" usato come inciso nelle 11 risposte misurate
+  (controllo automatico sui due caratteri, poi a mano: un trattino dentro
+  il titolo di un bando, come nei DATI, è ammesso).
+- Nessun nuovo non trovato del verificatore; nessuna risposta interrotta.

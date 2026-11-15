@@ -519,6 +519,25 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
 
 ## In coda
 
+- Dopo la demo. Avviso del decreto 9550 del 28/04/2026 (rafforzamento
+  amministrativo dei Capofila delle Aree interne) nella tabella dei
+  bandi, con la sua fonte: oggi sta solo nell'archivio documentale, unica
+  opportunità di finanziamento che manca dalla tabella (C18 del lotto 3,
+  correzione F2 di `docs/piano-correzioni-lotto1.md`). Servono la pagina
+  ufficiale e la data del BURT, perché il termine è "il trentesimo giorno
+  successivo alla pubblicazione" e il documento non dà la data; e un tipo
+  di beneficiario per i Capofila dell'area interna, altrimenti il bando
+  compare a tutti i comuni o a nessuno. Da fare insieme ai PDF dei bandi
+  (voce 4 dei prossimi passi).
+- Dopo la demo. Elenco dei documenti dato al router: titolo, tipo e atto
+  di ciascun documento dai metadati del vector store (uguali in Chroma e
+  in Postgres), accanto al contenuto dell'archivio numerico, con la regola
+  "documenti: true anche quando una domanda generica sui bandi riguarda
+  l'oggetto di un avviso dell'elenco". Costo stimato: circa 150 token per
+  5 documenti, per 3 chiamate del router, meno di 0,001 $ a domanda.
+  Scartata l'alternativa di consultare sempre i documenti per "ci sono
+  bandi per …": circa +5.900 token in ingresso alla risposta, +0,012 $ a
+  domanda, con frammenti per lo più fuori tema (correzione F2).
 - Dopo la demo. Tetto giornaliero complessivo di domande, con un contatore
   su Supabase, prima di pubblicare il link dell'app: il limite per
   sessione da solo non basta.

@@ -36,30 +36,31 @@ Claude Code viene azzerata, si riparte leggendo questo file.
 Registrazioni a freddo, escluse le domande "viste" (solo nel lotto 1).
 Lotto 1: `lotto_1/2026-11-14_114121`, prima delle correzioni 1, 2, 3, A,
 C e D (`docs/piano-correzioni-lotto1.md`). Lotto 2:
-`lotto_2/2026-11-15_191851`, commit 694936f, dopo quelle correzioni. Le
-prime colonne vengono da `--riepilogo`; risposte interrotte e parametri
-non validi sono contati a parte, il 15 novembre 2026, dai file delle
-domande.
+`lotto_2/2026-11-15_191851`, commit 694936f, dopo quelle correzioni.
+Lotto 3: `lotto_3/2026-11-15_215106`, commit 7117aa4, dopo la correzione
+E e i punti 1-3 delle osservazioni dall'app online. Le prime colonne
+vengono da `--riepilogo`; risposte interrotte e parametri non validi sono
+contati a parte, il 15 novembre 2026, dai file delle domande.
 
 Con 12-13 domande per lotto sono **segnali, non percentuali**: una
 differenza di una o due domande non dice niente da sola, conta la
 categoria dell'errore.
 
-| misura | lotto 1 | lotto 2 |
-|---|---|---|
-| domande misurate | 12 | 13 |
-| errori catena / verificatore | 0 / 0 | 0 / 0 |
-| router riusciti | 11/12 | 13/13 |
-| anomalie del router (su 3 chiamate a domanda) | 3/36 | 0/39 |
-| attese trovate | 6/6 | 3/3 |
-| vietate comparse | 0 | 0 |
-| dati verificati | 136 | 224 |
-| non trovati | 1 | 0 |
-| senza fonte | 0 | 3 |
-| citati con il blocco | 0 | 0 |
-| risposte interrotte per max_tokens | 0 | 0 |
-| parametri non validi | 6 | 0 |
-| costo medio a domanda | 0,042 $ | 0,051 $ |
+| misura | lotto 1 | lotto 2 | lotto 3 |
+|---|---|---|---|
+| domande misurate | 12 | 13 | 13 |
+| errori catena / verificatore | 0 / 0 | 0 / 0 | 0 / 0 |
+| router riusciti | 11/12 | 13/13 | 13/13 |
+| anomalie del router (su 3 chiamate a domanda) | 3/36 | 0/39 | 0/39 |
+| attese trovate | 6/6 | 3/3 | 3/3 |
+| vietate comparse | 0 | 0 | 0 |
+| dati verificati | 136 | 224 | 149 |
+| non trovati | 1 | 0 | 2 |
+| senza fonte | 0 | 3 | 0 |
+| citati con il blocco | 0 | 0 | 0 |
+| risposte interrotte per max_tokens | 0 | 0 | 0 |
+| parametri non validi | 6 | 0 | 0 |
+| costo medio a domanda | 0,042 $ | 0,051 $ | 0,052 $ |
 
 Note:
 
@@ -80,3 +81,13 @@ Note:
   risposta: in ingresso da 7.778 a 10.229 token (più dati nel contesto),
   in uscita da 977 a 1.263; il router resta simile (in ingresso da 7.097
   a 7.703, in uscita da 266 a 224).
+- Lotto 3: i 2 non trovati sono di P01, "I 55.1" e "I 55.3" citati con
+  [D1.7] mentre stanno in [D1.16]: etichetta sbagliata del modello,
+  segnalata correttamente dal verificatore (giudicati `errore_vero`; le
+  altre 13 righe di `giudizi.csv` sono `corretto`). Costo stabile: medie
+  della risposta 10.387 token in ingresso e 1.321 in uscita, router 7.708
+  e 212. Solo C10 ha consultato i documenti. I difetti del lotto 3 non si
+  vedono in queste colonne: sono due conclusioni sbagliate su dati giusti
+  (P05 e P24, il profilo dell'ente preso per chi chiede) e un "Non trovo"
+  con l'avviso pertinente solo nei documenti (C18): correzione F in
+  `docs/piano-correzioni-lotto1.md`.

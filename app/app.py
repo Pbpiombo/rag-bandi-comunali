@@ -264,7 +264,7 @@ def mostra_da_approfondire(esito: dict) -> None:
     st.caption(DIDASCALIA_DA_APPROFONDIRE)
     for voce in voci.values():
         contatti = voce.contatti or "vedi la pagina"
-        st.markdown(f"- [{voce.titolo}]({voce.url}) — {voce.problema} · {contatti}")
+        st.markdown(f"- [{voce.titolo}]({voce.url}): {voce.problema} · {contatti}")
 
 
 def gruppi_separati(testo: str) -> str:

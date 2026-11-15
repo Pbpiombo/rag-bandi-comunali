@@ -334,3 +334,98 @@ def test_la_riga_di_versione_compare_nella_barra_laterale():
     assert [e.value for e in pagina.sidebar.caption] == [attesa]
     # E l'app la scrive davvero nella barra laterale
     assert "st.caption(riga_versione())" in inspect.getsource(app.main)
+
+
+# --- F1: il profilo è l'ente di riferimento, non per forza chi chiede ---
+
+
+def messaggio_umano() -> str:
+    from src.chains.rag import MODELLO_PROMPT
+
+    return MODELLO_PROMPT.messages[1].prompt.template
+
+
+def test_f1_intestazione_ente_di_riferimento():
+    assert "ENTE DI RIFERIMENTO" in ISTRUZIONI
+    assert messaggio_umano().startswith("ENTE DI RIFERIMENTO:")
+    assert "ENTE PER CUI RISPONDI" not in ISTRUZIONI
+    assert "ENTE PER CUI RISPONDI" not in messaggio_umano()
+    assert "ente che pone la domanda" not in ISTRUZIONI
+    assert "non per forza chi scrive la domanda" in ISTRUZIONI
+
+
+def test_f1_chi_chiede_privato_ente_e_caso_ambiguo():
+    chi_chiede = ISTRUZIONI.index("CHI CHIEDE")
+    privato = ISTRUZIONI.index("È un soggetto privato quando")
+    ente = ISTRUZIONI.index("È l'ente quando")
+    ambiguo = ISTRUZIONI.index("Se la domanda può venire da tutti e due")
+    ateco = ISTRUZIONI.index("Non scrivere mai il codice ATECO")
+    # La regola viene prima del divieto di D2, dentro "CHI CHIEDE"
+    assert chi_chiede < privato < ente < ambiguo < ateco
+    assert "mai con il profilo" in ISTRUZIONI
+    assert "rispondi per il soggetto privato" in ISTRUZIONI
+    assert '"Se a chiedere è il Comune' in ISTRUZIONI
+
+
+def test_f1_gli_esempi_non_sono_le_domande_della_misura():
+    # Come per D2: P05 ("assumere una persona") e P24 ("un giovane in
+    # tirocinio") misurano la regola, e non devono comparire come esempi
+    assert "assumere" not in ISTRUZIONI
+    assert "tirocin" not in ISTRUZIONI
+
+
+# --- F3: niente trattini lunghi ---
+
+
+def test_f3_regola_sui_trattini_nelle_istruzioni():
+    assert "PUNTEGGIATURA" in ISTRUZIONI
+    assert "trattino lungo (—)" in ISTRUZIONI
+    assert "quello medio (–)" in ISTRUZIONI
+    assert "usa virgole, due punti o parentesi" in ISTRUZIONI
+
+
+def stringhe_del_codice(percorso) -> list[str]:
+    """Le costanti di testo di un file Python, comprese le parti delle f-string."""
+    import ast
+
+    albero = ast.parse(percorso.read_text(encoding="utf-8"))
+    return [
+        nodo.value
+        for nodo in ast.walk(albero)
+        if isinstance(nodo, ast.Constant) and isinstance(nodo.value, str)
+    ]
+
+
+def test_f3_nessun_trattino_lungo_nelle_stringhe_dell_app():
+    # Le righe che l'app e le interrogazioni scrivono per chi legge; le
+    # ISTRUZIONI (src/chains) nominano i trattini per vietarli, e restano fuori
+    from pathlib import Path
+
+    radice = Path(__file__).resolve().parent.parent
+    file = [*radice.glob("app/*.py"), *radice.glob("src/database/*.py")]
+    assert file
+    trovate = [
+        (f.name, s)
+        for f in file
+        for s in stringhe_del_codice(f)
+        if "—" in s or "–" in s
+    ]
+    assert trovate == []
+
+
+def test_f3_da_approfondire_senza_trattino_e_titolo_intatto():
+    # Il separatore tra titolo e motivo non è più un trattino lungo; il
+    # trattino nel titolo del bando è un dato della fonte e resta
+    voce = Approfondimento(
+        "Programma 2021–2027 — seconda edizione",
+        "https://esempio.it/programma",
+        "scadenza non indicata sulla pagina",
+    )
+    pagina = esegui_pagina(pagina_da_approfondire, voci=[voce])
+
+    righe = [t for t in contenuti(pagina) if "esempio.it/programma" in t]
+    attesa = (
+        "- [Programma 2021–2027 — seconda edizione](https://esempio.it/programma): "
+        "scadenza non indicata sulla pagina · vedi la pagina"
+    )
+    assert righe == [attesa]
