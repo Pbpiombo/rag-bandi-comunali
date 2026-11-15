@@ -254,6 +254,9 @@ perde i suoi esempi migliori.
 - **Insieme di prova dell'estrattore**: dai bandi delle due verifiche a
   mano, con i valori controllati sulla pagina, per misurare quanti campi
   coincidono dopo ogni modifica al prompt o alle regole.
+- **Barra laterale, tabelle vuote**: scelta di presentazione per le righe
+  "bilancio: VUOTA" e "turismo: VUOTA" che compaiono oggi. Da decidere:
+  nasconderle o riformularle come dati in arrivo.
 - **Limite di spesa mensile nella console di Anthropic**: si imposta a mano
   nella console, non dal codice (spostata qui dalla coda).
 - **Se c'è tempo: Nuova Sabatini, Smart&Start, ISI INAIL verificati a

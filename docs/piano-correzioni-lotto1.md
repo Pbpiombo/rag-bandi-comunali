@@ -969,7 +969,11 @@ gli espansori [5], [6], [8] aperti.
 markdown), ma non lo stesso caso: il blocco [D1] è già un elenco scritto
 dal programma ("- [#k] …"), e nessuna riga dei 12 tipi di
 `bandi_per_beneficiario` comincia con un segno d'elenco senza testo. Resta
-aperto come C4.
+aperto come C4. Chiuso il 15 novembre 2026 sera come artefatto della copia
+della pagina (vedi "Decisioni e stato" sotto). La voce vuota sotto [5],
+[6] e [8] ha probabilmente la stessa spiegazione, non verificata; gli
+elenchi numerati di quei frammenti sono comunque corretti con
+`testo_letterale`.
 
 **Correzione proposta (non implementata).** Il testo dei frammenti si
 mostra come testo, non come markdown: una funzione `testo_letterale` in
@@ -1057,7 +1061,10 @@ nella barra laterale, come la data dell'archivio.
   comincia con "1. Premessa"; un frammento con due `$` li ha tutti e due
   preceduti dalla barra e resi come testo. Tutti e due falliscono con il
   codice di prima (provato rimettendo il testo com'era). La voce vuota
-  vista online e il "*" sotto [D1] restano aperti.
+  vista online e il "*" sotto [D1] restano aperti. Il "*" sotto [D1] è
+  chiuso il 15 novembre 2026 sera come artefatto della copia (C4, ultima
+  voce di questo elenco); la voce vuota sotto [5], [6] e [8] ha
+  probabilmente la stessa spiegazione, non verificata.
 - **Punto 2, la ricostruzione automatica non si implementa** (né la
   pulizia di `sys.modules` né l'impronta nella chiave della cache): va in
   `docs/roadmap.md`, "Dopo la demo", da provare con calma. Al suo posto:
@@ -1077,6 +1084,17 @@ nella barra laterale, come la data dell'archivio.
     `main` la scrive.
 - **Punto 3**: il nome del modello è ora visibile nella barra laterale,
   nella stessa riga dell'impronta.
+- **C4, chiuso come artefatto della copia, non come difetto** (15 novembre
+  2026, sera). App online con commit 625f7d6 e impronta delle istruzioni
+  1d4591b8, domanda "Vorrei prendere un giovane in tirocinio, ci sono
+  incentivi?". Con gli espansori di "Fonti" chiusi, la copia della pagina
+  mostrava due elementi di elenco vuoti sotto [D1]; con gli espansori
+  aperti la copia mostra tutto il testo di [D1] (22 bandi e le righe
+  "fonte:") e poi [D2], senza voci vuote. A schermo non compaiono voci
+  vuote. Le voci vuote erano il contenuto degli espansori chiusi, che la
+  copia non riporta. Gli elenchi numerati dei frammenti ("1. Premessa"
+  ecc., punto 1) erano invece un difetto vero, già corretto con
+  `testo_letterale`.
 
 ## Correzione F: dal lotto 3
 
@@ -1388,3 +1406,27 @@ P24 e P05, circa 0,35 $ per le altre, totale circa 0,62 $.
   (controllo automatico sui due caratteri, poi a mano: un trattino dentro
   il titolo di un bando, come nei DATI, è ammesso).
 - Nessun nuovo non trovato del verificatore; nessuna risposta interrotta.
+
+### Esito della misura ristretta (15 novembre 2026)
+
+Cartelle `dati-grezzi/prova/lotto_3/2026-11-15_225703`, `_225811` e
+`_225921`. Regola di chiusura rispettata.
+
+- **F1.** P24 e P05 rispondono a chi scrive in 4 corse su 4, con la riga
+  "Se a chiedere è il Comune ..." dove serve.
+- **F1, controlli.** C17 e C10 usano il profilo; P01 e P07 invariati.
+- **F2 (c2).** C01, C20 e C18 restano "Non trovo".
+- **F3.** Nessun trattino lungo nelle 11 risposte.
+
+### Da contare nel lotto 4, senza correggerli ora
+
+Due schemi ricorrenti, da contare nella registrazione del lotto 4:
+
+- **Numero ripetuto in una frase "verifichi ..." dopo la citazione.** Viene
+  legato alla citazione successiva (P05: "under 35" cercato in D1.16 invece
+  che in D1.19) o resta senza fonte (app online: "Verifichi sulla pagina
+  del bando under 35 ..." segnato "?", con il semaforo arancione su una
+  risposta corretta). Nasce dalle frasi "verifichi" di C5 e D2.
+- **Delibera di giunta regionale 704/2025 citata con l'etichetta
+  sbagliata**, per la terza volta (L02 `_182748`; P01 `_225921`, con D1.9
+  invece di D1.8), sempre nell'elenco dei bandi PMI simili.
