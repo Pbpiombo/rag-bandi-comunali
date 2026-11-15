@@ -144,10 +144,21 @@ def test_data_del_decreto_nella_citazione_con_la_data_nella_riga():
     ]
 
 
-def test_decreto_con_il_blocco_non_si_controlla():
-    """Con [D1] non si sa a quale bando si riferisce l'atto: non si controlla."""
+def test_decreto_con_il_blocco_nel_blocco_verificato():
+    """Con [D1] il numero si cerca in tutto il blocco (correzione D4).
+
+    Prima non si controllava: in C11 del lotto 1 un decreto citato con [D1]
+    passava senza alcun esito.
+    """
     esiti = esiti_di("Ci sono due bandi (fonte: [D1], decreto n. 21441).")
-    assert not [e for e in esiti if e.tipo == "atto"]
+    atti = [(e.tipo, e.valore, e.stato, e.frammenti) for e in esiti if e.tipo == "atto"]
+    assert atti == [("atto", "21441", "verificato", ["D1"])]
+
+
+def test_decreto_con_il_blocco_fuori_dal_blocco_non_trovato():
+    esiti = esiti_di("Ci sono due bandi (fonte: [D1], decreto n. 99999).")
+    atti = [(e.tipo, e.valore, e.stato) for e in esiti if e.tipo == "atto"]
+    assert atti == [("atto", "99999", "non_trovato")]
 
 
 # --- intestazione del blocco nella riga del bando ---

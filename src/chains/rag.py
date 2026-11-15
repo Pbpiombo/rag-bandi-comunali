@@ -24,6 +24,14 @@ from src.retrieval import RecuperoIbrido, normalizza_domanda
 
 K_DEFAULT = 10
 
+# Il modello di risposta ragiona prima di scrivere (ragionamento adattivo di
+# claude-sonnet-5), e quei token contano in max_tokens: con 4096 L02 del
+# lotto 1 si fermava a meta' (circa 3.000 token di ragionamento e 1.100 di
+# testo). 16000 lascia spazio e resta sotto la soglia oltre cui l'SDK chiede
+# lo streaming, circa 21.333 (correzione D1, docs/piano-correzioni-lotto1.md)
+MAX_TOKENS_RISPOSTA = 16000
+TIMEOUT_RISPOSTA = 300
+
 # Il nome del blocco dei dati con la popolazione aggiunta dal programma: lo
 # stesso che il prompt indica al modello
 BLOCCO_POPOLAZIONE = "popolazione dell'ente (aggiunta dal programma)"
@@ -91,7 +99,15 @@ dillo, invece di cercarlo nei frammenti testuali.
 QUANDO NON RISPONDERE
 Se frammenti e dati non contengono la risposta, scrivi esattamente:
   "Non trovo la risposta nei documenti disponibili."
-seguito da una riga che indica cosa servirebbe per rispondere.
+seguito da una riga che dice quale bando o documento servirebbe, con \
+parole che chi legge capisce: per esempio "servirebbe un bando per la \
+difesa del suolo" o "servirebbe il calendario di apertura degli impianti". \
+Non parlare di frammenti, dati forniti, interrogazioni, parametri o temi \
+dell'archivio: chi legge non li vede.
+Aggiungi "Se vuole un controllo mirato, rifaccia la domanda indicando …" \
+solo se mancano dettagli che chi chiede non ha dato e che cambierebbero la \
+risposta (settore, forma giuridica, comune della sede); mai per ripetere \
+quello che la domanda dice già.
 Un frammento che parla di un argomento vicino ma non della cosa chiesta \
 NON è una risposta.
 Un bando dei DATI che ammette il tipo di beneficiario della domanda non è \
@@ -137,13 +153,17 @@ del bando>); il Comune ne ha 1.834 (fonte: [D2], <fonte indicata>), \
 quindi rientra nella soglia.
 
 CHI CHIEDE
-Non attribuire a chi chiede dati che non ha dichiarato e che non sono nei \
-DATI: codice ATECO, dimensione d'impresa, forma giuridica, sede. Se un \
-bando pone una condizione su un codice o su un requisito che chi chiede \
-non ha dichiarato, riporta la condizione con la sua fonte e invita a \
-verificare il proprio dato, senza dire quale sia. Esempio:
-  Il bando è riservato ai codici ATECO I 55.1 e I 55.3 (fonte: [D1.4], \
-<atto del bando>): verifichi il codice della sua attività.
+Non scrivere mai il codice ATECO, la dimensione d'impresa, la forma \
+giuridica o la sede di chi chiede se non le ha scritte lui: nemmeno come \
+ipotesi ("normalmente", "tipicamente", "di solito"), nemmeno tra \
+parentesi, nemmeno seguite da "verifichi". Il codice di un'attività non si \
+ricava dal nome dell'attività. Se un bando pone una condizione su un \
+codice o su un requisito che chi chiede non ha dichiarato, riporta la \
+condizione con la sua fonte e invita a verificare il proprio dato.
+Sbagliato: "Un'attività come la sua di solito ha il codice ATECO \
+[codice]: verifichi il suo codice."
+Giusto: "Il bando è riservato ai codici I 55.1 e I 55.3 (fonte: [D1.4], \
+<atto del bando>): verifichi se il codice della sua attività è tra questi."
 
 BENEFICIARI DEI BANDI
 Se un bando indica "ammesso se ...", l'ente è ammesso a condizione: \
@@ -262,8 +282,8 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None, route
 
     modello = ChatAnthropic(
         model=MODEL_NAME,
-        max_tokens=4096,
-        timeout=120,
+        max_tokens=MAX_TOKENS_RISPOSTA,
+        timeout=TIMEOUT_RISPOSTA,
     )
 
     def prepara(domanda: str) -> dict:
@@ -295,6 +315,26 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None, route
             "profilo": descrivi_profilo(profilo),
         }
 
-    return RunnableLambda(prepara) | RunnablePassthrough.assign(
-        risposta=MODELLO_PROMPT | modello | StrOutputParser()
+    return (
+        RunnableLambda(prepara)
+        | RunnablePassthrough.assign(messaggio=MODELLO_PROMPT | modello)
+        | RunnableLambda(con_testo_della_risposta)
     )
+
+
+def con_testo_della_risposta(esito: dict) -> dict:
+    """L'esito con il testo della risposta e il motivo per cui si e' fermata.
+
+    Il testo si estrae dal messaggio come prima (StrOutputParser: solo i
+    blocchi di testo, non il ragionamento). stop_reason_risposta e'
+    "max_tokens" se la risposta e' stata troncata: l'app lo dice e la prova
+    lo conta (correzione D1). Il messaggio intero non resta nell'esito.
+    """
+    esito = dict(esito)
+    messaggio = esito.pop("messaggio")
+    metadati = getattr(messaggio, "response_metadata", None) or {}
+    return {
+        **esito,
+        "risposta": StrOutputParser().invoke(messaggio),
+        "stop_reason_risposta": metadati.get("stop_reason"),
+    }

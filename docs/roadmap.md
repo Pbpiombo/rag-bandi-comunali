@@ -317,18 +317,15 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
    la pagina 2026.
 8. **La frase "i beneficiari pubblici vanno verificati sulla pagina"
    ricorre anche dove non serve**: controllare da dove nasce.
-9. **Premialità per area interna** (Punti Digitale Facile, categorie D, E,
-   F): valutare la categoria dell'area interna del Comune nel profilo
-   dell'ente, con fonte ufficiale.
-10. **Scelta tra Comuni e Unione nell'interfaccia**: decidere dopo il
-    riscontro del consulente pilota.
-11. **Ente del profilo diverso dal comune nominato nella domanda** ("Ho un
+9. **Scelta tra Comuni e Unione nell'interfaccia**: decidere dopo il
+   riscontro del consulente pilota.
+10. **Ente del profilo diverso dal comune nominato nella domanda** ("Ho un
     ristorante a San Marcello" con il profilo di Abetone): il modello lo
     segnala. Valutare un avviso dell'app o la scelta automatica dell'ente.
-12. **Domande da imprenditore** ("vorrei aprire una palestra", "un laghetto
+11. **Domande da imprenditore** ("vorrei aprire una palestra", "un laghetto
     da pesca"): restituiscono soprattutto bandi generici per PMI a
     sportello. Valutare la ricerca per bisogno, già nei prossimi passi
-    (voce 5).
+    (voce 6).
 
 ### Primo compito di dati dopo la demo
 
@@ -397,11 +394,40 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
    memoria. Avvisi sui bandi nuovi abbinati alla scheda senza modello.
    Seguito di conversazione: decidere quale contesto passa alla domanda
    successiva e come il verificatore tratta i dati citati in una
-   risposta precedente. Unisce le voci 7 e 9. Richiede prima le voci 1 e
+   risposta precedente. Unisce le voci 8 e 10. Richiede prima le voci 1 e
    3. Prima di costruirla: obblighi sui dati personali (informativa,
    consenso, conservazione, eventuale pagamento) e cosa serve al
    consulente pilota per seguire una pratica.
-5. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
+
+   - Tabella ATECO ufficiale (classificazione ISTAT ATECO 2025 e tavola di
+     raccordo ATECO 2025-2022, con fonte per riga) per mostrare i codici
+     candidati con la descrizione ufficiale e verificare i codici citati;
+     mai per attribuire un codice a chi chiede. Caso: L02 ha scritto 56.10
+     dalla memoria del modello, codice della classificazione precedente
+     (dal 1° aprile 2025 la ristorazione è 56.11.x). Richiede anche le
+     condizioni ATECO dei bandi estratte come codici.
+5. **Profilo territoriale dell'ente**: per ciascun comune, con fonte per
+   ogni dato, riserve naturali statali (in montagna pistoiese risultano
+   riserve biogenetiche come Abetone, Campolino, Pian degli Ontani,
+   Acquerino: comune di appartenenza da verificare), siti Natura 2000
+   (ZSC/ZPS) e obbligo di valutazione di incidenza, vincolo idrogeologico
+   e paesaggistico, piani urbanistici. Serve alle pratiche (autorizzazioni
+   per le attività) e ai bandi con premialità per aree protette o Natura
+   2000. Raccoglie le voci spostate qui il 15 novembre 2026:
+   - altitudine dei tre comuni (minima, massima, del centro) dallo stesso
+     file "Altimetria Comuni al 31 dicembre 2021", con un'interrogazione
+     per i dati del territorio; serve alla domanda sull'altitudine
+     scartata tra gli esempi (era in coda, dopo la demo);
+   - zona sismica dei tre comuni: riferimento OPCM 3274/2003 aggiornata
+     dalla DGRT 421 del 26/05/2014, da verificare sull'allegato e su
+     eventuali aggiornamenti (era in coda);
+   - colonna `montano` nel profilo: i tre comuni sono totalmente montani
+     (Delib. CR 10/2025) (era in coda);
+   - premialità per area interna (Punti Digitale Facile, categorie D, E,
+     F): categoria dell'area interna del Comune nel profilo dell'ente,
+     con fonte ufficiale (era la voce 9 di "Dopo la demo: dalla prova
+     completa del 14 novembre").
+6. **Ricerca per bisogno**: l'utente descrive cosa vuole fare, il sistema cerca
    tra gli interventi ammissibili. Caso di prova: "devo rifare la piazza"
    → bando mercati rionali. (Lo stato del bando nei frammenti è già fatto,
    P3.)
@@ -416,31 +442,27 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
    l'OCR sbaglia i numeri, e il verificatore li darebbe per buoni. File
    .pdf.p7m da aprire prima della lettura. Se pagina e testo del bando
    non coincidono, vale il testo del bando.
-6. **Privati nell'app**: selettore pubblico/privato e tipo di privato a
+7. **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione
    ("Adeguamento e ampliamento della viabilità rurale, solo enti
    pubblici", AS01 del GAL), e un terzo settore che chiede quali
    interventi può fare non riceve un filtro, solo il testo.
-7. **Sezione riservata**: accesso, iscrizioni con mail e ricerche salvate su
+8. **Sezione riservata**: accesso, iscrizioni con mail e ricerche salvate su
    Supabase, tasto "aggiorna adesso" che lancia il processo su GitHub,
    segnalazione manuale di un bando. Parte pubblica limitata a 3 domande per
    sessione, con un tetto giornaliero complessivo e un invito a scrivere per
    l'accesso.
-8. **Newsletter come segnali**: casella dedicata iscritta alle newsletter di
+9. **Newsletter come segnali**: casella dedicata iscritta alle newsletter di
    Regione, fondazioni e GAL; i link estratti passano dalla verifica sulla
    pagina ufficiale.
-9. **Percorso guidato per gli iscritti**: passi definiti dal bando (requisiti,
+10. **Percorso guidato per gli iscritti**: passi definiti dal bando (requisiti,
    documenti, scadenze intermedie, contatti), controllo dei documenti con ogni
    requisito citato. Percorso a passi fissi, non un agente libero.
-10. **Docker** per Postgres con pgvector in locale.
+11. **Docker** per Postgres con pgvector in locale.
 
 ## In coda
 
-- Dopo la demo. Altitudine dei tre comuni (minima, massima, del centro)
-  dallo stesso file "Altimetria Comuni al 31 dicembre 2021", con
-  un'interrogazione per i dati del territorio. Serve alla domanda
-  sull'altitudine scartata tra gli esempi.
 - Dopo la demo. Tetto giornaliero complessivo di domande, con un contatore
   su Supabase, prima di pubblicare il link dell'app: il limite per
   sessione da solo non basta.
@@ -529,10 +551,6 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
   (oggi `attivo` = 0), la scansione deve rispettare il `Crawl-delay: 2`
   del robots.txt: oggi `estrai_nuovi` aspetta 0,5 s tra i download e 1 s
   tra le estrazioni.
-- Zona sismica dei tre comuni: riferimento OPCM 3274/2003 aggiornata dalla DGRT
-  421 del 26/05/2014, da verificare sull'allegato e su eventuali aggiornamenti.
-- Colonna `montano` nel profilo: i tre comuni sono totalmente montani
-  (Delib. CR 10/2025).
 - Verificare sulla pagina della Regione il fondo di garanzia energie
   rinnovabili del 2014 (stato e "contributo fino all'80%"). Dopo la
   riclassificazione e' senza scadenza e non a sportello: la pagina non ne
@@ -540,9 +558,12 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
 - Fuso orario: `date.today()` in 6 punti (DTZ011), mentre altri 2 punti
   usano già `Europe/Rome` (`salva.py`, `grezzi.py`): a ridosso della
   mezzanotte uno stesso salvataggio può avere due date diverse.
-- Verificatore, identificativi con trattino spezzati: "2023-0118" (linea
-  di credito EU blending della BEI) è letto come 2023 e 0118, come i
-  codici ATECO prima della correzione del 13 novembre 2026.
+- Verificatore, identificativi e codici spezzati in più numeri:
+  "2023-0118" (linea di credito EU blending della BEI) è letto come 2023
+  e 0118; "56.10" (codice ATECO a due parti senza lettera, L02 del lotto
+  1) come 56 e 10. Come i codici ATECO prima della correzione del 13
+  novembre 2026: un pezzo presente per caso in una fonte risulta
+  verificato (correzione D2, `docs/piano-correzioni-lotto1.md`).
 - Segnalazioni ruff ISC004 e BLE001 negli script.
 - Due xfail di `pulisci`: numeri separati da virgola, intestazione con spazi.
 - Regola "imprese senza settore" applicata anche nel codice, non solo nel

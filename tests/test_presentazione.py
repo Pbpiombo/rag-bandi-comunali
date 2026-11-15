@@ -40,9 +40,14 @@ def test_c2_un_bando_generico_non_e_un_argomento_vicino():
 
 
 def test_c5_niente_dati_attribuiti_a_chi_chiede():
-    assert "Non attribuire a chi chiede dati che non ha dichiarato" in ISTRUZIONI
-    assert "codice ATECO" in ISTRUZIONI
-    assert "verifichi il codice della sua attività" in ISTRUZIONI
+    # Regola di D2, che sostituisce quella di C5 (docs/piano-correzioni-lotto1.md)
+    assert "Non scrivere mai il codice ATECO" in ISTRUZIONI
+    assert "Sbagliato:" in ISTRUZIONI
+    assert "Giusto:" in ISTRUZIONI
+    # L'esempio non usa la domanda con cui si misura (L02) né un codice vero
+    # attribuito a un'attività: tarerebbe il prompt sulla misura
+    assert "56.10" not in ISTRUZIONI
+    assert "ristorante" not in ISTRUZIONI.lower()
 
 
 # --- C3: "Da approfondire" nell'app ---
@@ -169,3 +174,49 @@ def test_c4_il_testo_per_il_modello_non_cambia():
 
     separato = gruppi_separati(TESTO_A_GRUPPI)
     assert [r for r in separato.split("\n") if r] == TESTO_A_GRUPPI.split("\n")
+
+
+# --- D3: "QUANDO NON RISPONDERE" senza le parole del sistema ---
+
+
+def test_d3_cosa_servirebbe_detto_come_bando_o_documento():
+    assert "quale bando o documento servirebbe" in ISTRUZIONI
+    assert (
+        "Non parlare di frammenti, dati forniti, interrogazioni, parametri o temi "
+        "dell'archivio" in ISTRUZIONI
+    )
+    assert "cosa servirebbe per rispondere" not in ISTRUZIONI
+
+
+def test_d3_rifaccia_la_domanda_solo_per_dettagli_mancanti():
+    assert "solo se mancano dettagli che chi chiede non ha dato" in ISTRUZIONI
+    assert "mai per ripetere quello che la domanda dice già" in ISTRUZIONI
+
+
+# --- D1: risposta interrotta da max_tokens, nell'app ---
+
+
+def pagina_risposta(stop_reason):
+    from app.app import mostra_risposta
+
+    mostra_risposta(
+        {"risposta": "Il bando scade il (fon", "stop_reason_risposta": stop_reason}
+    )
+
+
+def test_d1_risposta_interrotta_con_avviso_e_riga_finale():
+    from app.app import AVVISO_INTERROTTA, RIGA_INTERROTTA
+
+    pagina = esegui_pagina(pagina_risposta, stop_reason="max_tokens")
+
+    assert [e.value for e in pagina.warning] == [AVVISO_INTERROTTA]
+    [testo] = [e.value for e in pagina.markdown]
+    assert testo.startswith("Il bando scade il (fon")
+    assert testo.endswith(RIGA_INTERROTTA)
+
+
+def test_d1_risposta_completa_senza_avviso():
+    pagina = esegui_pagina(pagina_risposta, stop_reason="end_turn")
+
+    assert not pagina.warning
+    assert [e.value for e in pagina.markdown] == ["Il bando scade il (fon"]

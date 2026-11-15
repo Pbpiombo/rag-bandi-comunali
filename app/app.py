@@ -48,6 +48,14 @@ ESEMPI = [
     "Quanti abitanti ha il Comune e come è cambiata la popolazione dal 2019?",
 ]
 
+# Una risposta fermata da max_tokens (correzione D1)
+AVVISO_INTERROTTA = (
+    "La risposta si è interrotta perché troppo lunga: è incompleta e può "
+    "mancare l'ultima parte. Rifaccia la domanda in modo più circoscritto "
+    "(per esempio un solo tipo di bando)."
+)
+RIGA_INTERROTTA = "[risposta interrotta]"
+
 # La sezione dei bandi tenuti fuori dagli elenchi: non valutati, non
 # "pertinenti" (correzione C3)
 TITOLO_DA_APPROFONDIRE = "Bandi che non ho potuto valutare"
@@ -190,6 +198,21 @@ def mostra_bandi_citati(esito: dict) -> None:
     for voce in citati:
         titolo = testo_per_collegamento(voce.titolo or voce.url)
         st.markdown(f"- [{titolo}](<{voce.url}>)")
+
+
+def mostra_risposta(esito: dict) -> None:
+    """La risposta del modello; se si e' fermata per max_tokens, lo dice.
+
+    Una risposta troncata non deve sembrare completa: avviso sopra e riga
+    in fondo, che resta anche se il testo si copia (correzione D1,
+    docs/piano-correzioni-lotto1.md). Il testo salvato e verificato resta
+    quello del modello: la riga la aggiunge solo l'app.
+    """
+    risposta = esito["risposta"]
+    if esito.get("stop_reason_risposta") == "max_tokens":
+        st.warning(AVVISO_INTERROTTA)
+        risposta = f"{risposta.rstrip()}\n\n{RIGA_INTERROTTA}"
+    st.markdown(risposta)
 
 
 def mostra_da_approfondire(esito: dict) -> None:
@@ -354,7 +377,7 @@ def main() -> None:
 
     with sinistra:
         st.markdown("#### Risposta")
-        st.markdown(esito["risposta"])
+        mostra_risposta(esito)
         mostra_bandi_citati(esito)
         mostra_da_approfondire(esito)
         st.divider()

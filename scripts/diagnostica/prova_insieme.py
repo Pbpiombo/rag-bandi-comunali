@@ -26,6 +26,11 @@ Modi:
     --registra --lotto N --riprendi CARTELLA
                                 completa una registrazione interrotta,
                                 nella stessa cartella
+    --registra --lotto N --codici C1,C2
+                                solo quelle domande del lotto, in una
+                                registrazione non a freddo nella propria
+                                cartella; vuole la registrazione a freddo
+                                completa del lotto
     --riverifica CARTELLA       solo il verificatore sulle risposte salvate
     --riepilogo                 le misure a freddo dei lotti registrati
 
@@ -544,11 +549,19 @@ def registrazione_a_freddo(cartella_lotto: Path) -> Path | None:
     return None
 
 
-def prepara_registrazione(cartella_lotto: Path, lotto: int, riprendi: Path | None):
+def prepara_registrazione(
+    cartella_lotto: Path,
+    lotto: int,
+    riprendi: Path | None,
+    codici: list[str] | None = None,
+):
     """La cartella della registrazione e il suo meta, nuova o da riprendere.
 
     Una registrazione nuova è a freddo se il lotto non ne ha altre. Si
     rifiuta se la corsa a freddo del lotto è incompleta: va ripresa.
+    codici: una registrazione parziale, solo di quelle domande (--codici).
+    Non è mai a freddo, e vuole che il lotto abbia già la sua registrazione
+    a freddo completa: una parziale non può prenderne il posto.
     """
     if riprendi is not None:
         meta_path = riprendi / "meta.json"
@@ -564,6 +577,11 @@ def prepara_registrazione(cartella_lotto: Path, lotto: int, riprendi: Path | Non
         return riprendi, meta
 
     a_freddo = registrazione_a_freddo(cartella_lotto)
+    if codici and a_freddo is None:
+        raise ErroreProva(
+            f"il lotto {lotto} non ha una registrazione a freddo: --codici "
+            "registra solo dopo quella completa del lotto intero"
+        )
     if a_freddo is not None:
         meta_freddo = leggi_json(a_freddo / "meta.json")
         if meta_freddo.get("stato") != "completa":
@@ -581,12 +599,14 @@ def prepara_registrazione(cartella_lotto: Path, lotto: int, riprendi: Path | Non
         "inizio": momento.isoformat(timespec="seconds"),
         "fine": None,
         "stato": "incompleta",
-        "a_freddo": not registrazioni(cartella_lotto),
+        "a_freddo": not codici and not registrazioni(cartella_lotto),
         "modello": MODEL_NAME,
         "ente": ENTE_PREDEFINITO,
         "seme_campione": SEME_CAMPIONE,
         "riprese": [],
     }
+    if codici:
+        meta["codici_scelti"] = list(codici)
     return cartella, meta
 
 
@@ -654,6 +674,8 @@ def registra_domanda(
             "documenti": documenti_in_json(esito["documenti"]),
             "origini": esito.get("origini", []),
             "risposta": esito["risposta"],
+            # "max_tokens" se la risposta e' troncata (correzione D1)
+            "stop_reason_risposta": esito.get("stop_reason_risposta"),
         }
     )
     scrivi_json(percorso, voce)
@@ -686,13 +708,24 @@ def costruisci_catena_di_prova() -> tuple:
     return costruisci_catena(ENTE_PREDEFINITO, router=router), router, "Chroma"
 
 
-def registra(lotto: int, riprendi: Path | None = None) -> Path:
-    """Registra il lotto, o completa una registrazione interrotta."""
+def registra(
+    lotto: int, riprendi: Path | None = None, codici: list[str] | None = None
+) -> Path:
+    """Registra il lotto, o completa una registrazione interrotta.
+
+    codici: solo quelle domande del lotto, nell'ordine dato, in una
+    registrazione non a freddo (correzione D, misura ristretta). La ripresa
+    di una registrazione parziale riprende solo i suoi codici.
+    """
     from src.database.interrogazioni_bandi import data_di_oggi
 
     domande = domande_del_lotto(lotto)
+    if codici:
+        domande = scegli_domande(domande, codici, lotto)
     cartella_lotto = CARTELLA_PROVA / f"lotto_{lotto}"
-    cartella, meta = prepara_registrazione(cartella_lotto, lotto, riprendi)
+    cartella, meta = prepara_registrazione(cartella_lotto, lotto, riprendi, codici)
+    if meta.get("codici_scelti") and not codici:
+        domande = scegli_domande(domande, meta["codici_scelti"], lotto)
     cartella_domande = cartella / "domande"
     cartella_domande.mkdir(parents=True, exist_ok=True)
 
@@ -765,6 +798,17 @@ def registra(lotto: int, riprendi: Path | None = None) -> Path:
         )
     print(f"Rapporto: {cartella / 'rapporto.md'}")
     return cartella
+
+
+def scegli_domande(domande: list[Domanda], codici: list[str], lotto: int) -> list:
+    """Le domande dei codici dati, in quell'ordine; un codice fuori lotto è un errore."""
+    if len(set(codici)) != len(codici):
+        raise ErroreProva(f"codici ripetuti in --codici: {', '.join(codici)}")
+    per_codice = {d.codice: d for d in domande}
+    fuori = [c for c in codici if c not in per_codice]
+    if fuori:
+        raise ErroreProva(f"codici non nel lotto {lotto}: {', '.join(fuori)}")
+    return [per_codice[c] for c in codici]
 
 
 def riassunto_voce(voce: dict) -> str:
@@ -983,6 +1027,22 @@ def riga_esito(codice: str, e: dict, giudizi: dict) -> str:
     return riga
 
 
+def righe_interrotte(voci: list[dict]) -> str:
+    """Quante risposte si sono fermate per max_tokens, con i codici.
+
+    Le registrazioni di prima della correzione D1 non hanno il campo: per
+    loro il conto direbbe 0 anche con risposte troncate, quindi si scrive
+    "non registrato".
+    """
+    if not any("stop_reason_risposta" in v for v in voci):
+        return "Risposte interrotte per max_tokens: non registrato"
+    interrotte = [
+        v["codice"] for v in voci if v.get("stop_reason_risposta") == "max_tokens"
+    ]
+    elenco = f" ({', '.join(interrotte)})" if interrotte else ""
+    return f"Risposte interrotte per max_tokens: {len(interrotte)}{elenco}"
+
+
 def rapporto(
     voci: list[dict],
     meta: dict,
@@ -1058,6 +1118,7 @@ def rapporto(
             f"| {conti['citazione_generica']} | {costo:.3f} |"
         )
     righe += ["", f"Costo totale: {totale:.3f} $", ""]
+    righe += [righe_interrotte(voci), ""]
 
     errori = [v for v in voci if v.get("errore") or v.get("errore_verifica")]
     if errori:
@@ -1384,12 +1445,23 @@ def main(argomenti: list[str] | None = None) -> int:
     modo.add_argument("--riepilogo", action="store_true")
     parser.add_argument("--lotto", type=int)
     parser.add_argument("--riprendi", type=Path, metavar="CARTELLA")
+    parser.add_argument(
+        "--codici",
+        type=lambda testo: [c.strip() for c in testo.split(",") if c.strip()],
+        metavar="C1,C2",
+    )
     a = parser.parse_args(argomenti)
 
     if (a.stima or a.registra) and a.lotto is None:
         parser.error("--stima e --registra vogliono --lotto N")
     if a.riprendi is not None and not a.registra:
         parser.error("--riprendi si usa con --registra")
+    if a.codici is not None and not a.registra:
+        parser.error("--codici si usa con --registra")
+    if a.codici is not None and a.riprendi is not None:
+        parser.error("--codici non si usa con --riprendi: si riprendono i suoi codici")
+    if a.codici is not None and not a.codici:
+        parser.error("--codici vuole almeno un codice")
 
     try:
         if a.dividi:
@@ -1397,7 +1469,7 @@ def main(argomenti: list[str] | None = None) -> int:
         elif a.stima:
             stima(a.lotto)
         elif a.registra:
-            registra(a.lotto, a.riprendi)
+            registra(a.lotto, a.riprendi, a.codici)
         elif a.riverifica is not None:
             riverifica(a.riverifica)
         else:

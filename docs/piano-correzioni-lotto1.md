@@ -453,3 +453,289 @@ risposta o con la versione di Streamlit dell'app online.
   3-5 esempi, non l'elenco completo.
 - Dopo la registrazione, `lotto_1/giudizi.csv` è identico a prima (C6).
 - Nessuna fonte con "None" nelle 17 registrazioni (C7).
+
+## Correzione D: dalla registrazione non a freddo del lotto 1
+
+Aggiunta il 14 novembre 2026. Viene dalla registrazione non a freddo
+`dati-grezzi/prova/lotto_1/2026-11-14_140416`, fatta dopo le correzioni
+1, 2, 3, A e C, confrontata con quella a freddo (`2026-11-14_114121`).
+Fermata 1: solo diagnosi e proposte, nessun codice.
+
+### D1. Risposte troncate da max_tokens
+
+**Difetto.** L02 usa 4096 token in uscita nella risposta in tutte e due le
+registrazioni, e il testo finisce a metà ("…(fon"); L03 arriva a 3128,
+P18 a 2919.
+
+**Causa.** `max_tokens=4096` del modello di risposta, in
+`costruisci_catena` di `src/chains/rag.py` (con `timeout=120`). Come per il
+router (correzione 1), con `claude-sonnet-5` il ragionamento adattivo è
+attivo, i suoi token contano in `max_tokens` e il suo testo non arriva
+nella risposta. Misura: il testo puro rende circa 2,4 caratteri per token
+(A01, C11, P25 a freddo); L02 ne rende 0,63 (2599 caratteri su 4096
+token), quindi circa 1.100 token di testo e 3.000 di ragionamento. A
+freddo L04 rendeva 0,42 (563 caratteri su 1355 token). La risposta più
+lunga osservata ha 4305 caratteri (P17 a freddo), circa 1.800 token di
+testo.
+
+**Correzione proposta.**
+
+- `max_tokens` della risposta da 4096 a **16000**: quasi quattro volte il
+  massimo osservato (4096, troncato), con spazio per circa 3.000 token di
+  ragionamento più la risposta più lunga, anche raddoppiati. Resta sotto
+  la soglia oltre cui l'SDK `anthropic` (1.5.0) chiede lo streaming,
+  circa 21.333 token (`_calculate_nonstreaming_timeout`: 3600 s ×
+  max_tokens / 128.000 > 600 s). Non costa niente se non si usa: si pagano
+  i token prodotti. Una costante `MAX_TOKENS_RISPOSTA`, come
+  `MAX_TOKENS_ROUTER`.
+- `timeout` da 120 a 300 secondi: con 16.000 token possibili, 120 s
+  potrebbero non bastare a una risposta lunga.
+- Non si usa `thinking: {"type": "disabled"}`, per lo stesso motivo del
+  router: dà 400 su `claude-sonnet-5-5`, e il modello si cambia dal `.env`.
+- `stop_reason` della risposta: la catena oggi termina con
+  `StrOutputParser`, che tiene solo il testo. Proposta: la catena assegna
+  il messaggio intero del modello e ne ricava due campi, `risposta` (il
+  testo, estratto come oggi) e `stop_reason_risposta`
+  (`response_metadata["stop_reason"]`). Nella prova, `registra_domanda`
+  salva `stop_reason_risposta` nel file della domanda, accanto a
+  `stop_reason_router`; il rapporto conta le risposte finite per
+  `max_tokens`, con i codici.
+- Nell'app, se la risposta finisce per `max_tokens`: sopra la risposta un
+  avviso (`st.warning`) "La risposta si è interrotta perché troppo lunga:
+  è incompleta e può mancare l'ultima parte. Rifaccia la domanda in modo
+  più circoscritto (per esempio un solo tipo di bando)." In fondo al testo
+  la riga "[risposta interrotta]", così non sembra completa nemmeno se
+  copiata. Verifica e fonti restano come sono.
+
+**Test proposti.** `max_tokens` della risposta almeno 16000; con un
+modello finto che restituisce `stop_reason: max_tokens` la catena espone
+`stop_reason_risposta`; la prova lo salva; l'app mostra l'avviso e la riga
+finale con `max_tokens` e non li mostra con `end_turn` (sull'app, con
+`streamlit.testing`).
+
+### Decisioni del 15 novembre 2026
+
+- D1: approvato come proposto (`max_tokens` 16000, `timeout` 300,
+  `stop_reason_risposta` nella prova e nel rapporto, avviso nell'app e
+  "[risposta interrotta]" in fondo).
+- D2: approvata la regola con l'esempio sbagliato e quello giusto. Se il
+  codice ricompare dopo la misura ristretta, si accetta il limite per la
+  demo. "56.10" letto come 56 e 10 va in "In coda" della roadmap, unito
+  alla voce sugli identificativi con trattino spezzati.
+- D3: approvata la riscrittura, senza sostituire "archivio" (sotto).
+- D4: si corregge ora (sotto).
+- D5: il file delle domande non si modifica (sotto).
+- `--codici`: approvato come proposto.
+
+Stato al 15 novembre 2026: D1, D3 e `--codici` implementati per primi.
+D2 e D4 cambiavano l'esito di un test esistente ciascuno; modifiche
+approvate e applicate dopo:
+
+- D2: `test_c5_niente_dati_attribuiti_a_chi_chiede`
+  (`tests/test_presentazione.py`) riscritto sul testo nuovo ("Non scrivere
+  mai il codice ATECO", "Sbagliato:", "Giusto:", e nessun "56.10" né
+  "ristorante" nelle istruzioni).
+- D4: `test_decreto_con_il_blocco_non_si_controlla`
+  (`tests/test_verifica_bandi.py`), che affermava il comportamento di
+  prima, sostituito da due test: numero nel blocco verificato, numero
+  fuori dal blocco non trovato.
+
+**Esempio di D2, deciso il 15 novembre 2026.** L'esempio sbagliato non
+contiene un codice ATECO vero né l'attività di L02: sarebbe tarare il
+prompt sulla domanda con cui lo si misura, e una coppia vera
+attività-codice può spingere il modello a scriverla. Testo applicato:
+
+> Sbagliato: "Un'attività come la sua di solito ha il codice ATECO
+> [codice]: verifichi il suo codice."
+> Giusto: "Il bando è riservato ai codici I 55.1 e I 55.3 (fonte: [D1.4],
+> <atto del bando>): verifichi se il codice della sua attività è tra
+> questi."
+
+La citazione nell'esempio giusto c'è perché le istruzioni chiedono la
+fonte per ogni codice. La regola sopra, in "Regola proposta", resta come
+proposta; vale il testo applicato.
+
+La misura ristretta si fa ora, con D1-D4 applicati.
+
+### D2. C5 non ha funzionato
+
+**Difetto.** L02 scrive ancora "Un ristorante tipicamente ha codice ATECO
+56.10, diverso da quelli indicati: verifichi…", e già prima, tra
+parentesi, "l'attività di ristorazione (codice ATECO 56.10)". Il modello
+ha aggiunto il "verifichi" della regola, ma ha tenuto il codice.
+
+**Regola proposta**, al posto della sezione "CHI CHIEDE" di C5:
+
+> CHI CHIEDE
+> Non scrivere mai il codice ATECO, la dimensione d'impresa, la forma
+> giuridica o la sede di chi chiede se non le ha scritte lui: nemmeno
+> come ipotesi ("normalmente", "tipicamente", "di solito"), nemmeno tra
+> parentesi, nemmeno seguite da "verifichi". Il codice di un'attività non
+> si ricava dal nome dell'attività.
+> Sbagliato: «Un ristorante tipicamente ha codice ATECO 56.10: verifichi
+> il suo codice.»
+> Giusto: «Il bando è riservato ai codici ATECO I 55.1 e I 55.3 (fonte:
+> [D1.4], <atto del bando>): verifichi se il codice della sua attività è
+> tra questi.»
+
+**Basta un'istruzione?** Secondo me può ridurre il caso, non escluderlo.
+La domanda chiede di confrontare un'attività con condizioni scritte in
+codici, e il modello colma il passaggio con quello che sa; la regola di
+C5 era già esplicita e il modello l'ha seguita a metà. Proposta: provare
+la regola nuova sulla misura ristretta (L02 tre volte); se il codice
+compare ancora, accettare il limite per la demo. Il verificatore lo
+segnala già: in L02 "56" e "10" sono "non trovato, non presente in nessuna
+fonte recuperata", quindi la risposta non è verde.
+
+Osservazione sul verificatore, da mettere in coda: "56.10" è letto come
+due numeri, 56 e 10, non come un codice ATECO unico (la correzione del 13
+novembre riconosce "49.34.00" e "I 55.1", non un codice a due parti senza
+lettera). Oggi va bene perché nessuno dei due è nelle fonti; un "10"
+presente per caso in una fonte risulterebbe verificato.
+
+### D3. C1 a metà: meccanismi interni nelle risposte "Non trovo"
+
+**Difetto.** C11: "Per rispondere servirebbe un'interrogazione mirata ai
+bandi sul tema del dissesto idrogeologico… Se vuole un controllo mirato,
+rifaccia la domanda indicando questo tema specifico" (la domanda lo
+diceva già); A01: "Servirebbero frammenti relativi all'apertura degli
+impianti sciistici… non sono presenti tra quelli forniti"; L05: "non
+rientra tra i dati statistici o i frammenti documentali a mia
+disposizione".
+
+**Causa.** Tutte e tre nascono dalla riga che segue "Non trovo la
+risposta", che chiede "cosa servirebbe per rispondere" senza dire in che
+termini: il modello risponde con i nomi del prompt (FRAMMENTI, DATI).
+
+Testo attuale di "QUANDO NON RISPONDERE" (`src/chains/rag.py`):
+
+> QUANDO NON RISPONDERE
+> Se frammenti e dati non contengono la risposta, scrivi esattamente:
+>   "Non trovo la risposta nei documenti disponibili."
+> seguito da una riga che indica cosa servirebbe per rispondere.
+> Un frammento che parla di un argomento vicino ma non della cosa chiesta
+> NON è una risposta.
+> Un bando dei DATI che ammette il tipo di beneficiario della domanda non
+> è un argomento vicino: vale la regola sui bandi generici in BENEFICIARI
+> DEI BANDI.
+
+Riscrittura proposta:
+
+> QUANDO NON RISPONDERE
+> Se frammenti e dati non contengono la risposta, scrivi esattamente:
+>   "Non trovo la risposta nei documenti disponibili."
+> seguito da una riga che dice quale bando o documento servirebbe, con
+> parole che chi legge capisce: per esempio "servirebbe un bando per la
+> difesa del suolo" o "servirebbe il calendario di apertura degli
+> impianti". Non parlare di frammenti, dati forniti, interrogazioni,
+> parametri o temi dell'archivio: chi legge non li vede.
+> Aggiungi "Se vuole un controllo mirato, rifaccia la domanda indicando …"
+> solo se mancano dettagli che chi chiede non ha dato e che cambierebbero
+> la risposta (settore, forma giuridica, comune della sede); mai per
+> ripetere quello che la domanda dice già.
+> Un frammento che parla di un argomento vicino ma non della cosa chiesta
+> NON è una risposta.
+> Un bando dei DATI che ammette il tipo di beneficiario della domanda non
+> è un argomento vicino: vale la regola sui bandi generici in BENEFICIARI
+> DEI BANDI.
+
+**Archivio: deciso il 15 novembre 2026.** Le `ISTRUZIONI` usano
+"archivio" in tre frasi ("di' che sono quelli in archivio con dati
+completi", "di' che non ci sono bandi specifici in archivio", "il dato
+non è in archivio"). "In archivio" resta ammesso, perché chi legge lo
+capisce, e le tre frasi non si riscrivono. Sono vietate solo le parole
+del sistema: frammenti, dati forniti, interrogazioni, parametri, temi
+come termine tecnico. Nella riscrittura, quindi, il divieto è: "Non
+parlare di frammenti, dati forniti, interrogazioni, parametri o temi
+dell'archivio: chi legge non li vede."
+
+**Test.** Deboli, sulla presenza del testo: la riga nuova, il divieto
+delle parole del sistema, il "rifaccia la domanda" solo per i dettagli
+mancanti.
+
+### D4. C11 senza esiti del verificatore (solo diagnosi)
+
+**Difetto.** C11 ha 0 esiti, ma la risposta contiene "(fonte: [D1], Portale
+bandi Regione Toscana, decreto dirigenziale 22706 del 9 ottobre 2026)".
+
+**Causa.** Il numero e la data stanno dentro la citazione, e il
+verificatore controlla le citazioni in un punto solo, `_verifica_atti` in
+`src/verification/controllo.py`, che per scelta controlla i numeri d'atto
+solo nelle citazioni a un bando `[Dn.k]` o a un frammento `[n]`: "Le
+citazioni a un blocco [Dn] non si controllano: non si sa di quale bando
+sia l'atto." `trova_dati` lavora sul testo con le citazioni mascherate,
+quindi non vede né 22706 né la data; il resto della risposta non ha
+numeri. Risultato: nessun esito, e la risposta non ha né verde né rosso.
+
+Il decreto è giusto (22706 è l'atto della riga [#1] del blocco, i
+contributi per la progettualità sui dati), ma la citazione viola la regola
+"Non citare con [D1] un dato che appartiene a un solo bando". Due
+possibili correzioni, da decidere dopo: controllare il numero nel testo
+del blocco intero (dice se l'atto esiste nel blocco, non di quale bando);
+oppure segnalare come "citazione generica" un atto citato con [Dn] invece
+che con [Dn.k], come già si fa per gli altri dati citati con il blocco.
+
+**Deciso il 15 novembre 2026: correggere ora, con la prima.** Un numero
+d'atto in una citazione a un blocco `[Dn]` si cerca in tutto il blocco
+(il suo testo con le fonti): trovato vale verificato, non trovato vale non
+trovato, con la data scritta accanto controllata come per gli altri atti.
+Test: numero giusto citato con [D1] verificato; numero sbagliato citato
+con [D1] non trovato.
+
+### D5. L05, attesa mancante (solo diagnosi)
+
+**Difetto.** L05 ha l'attesa "deve cercare anche nei bandi" mancante,
+anche se il router ha usato `bandi_per_tema` con "pesca".
+
+**Causa.** Nel file delle domande, la riga di L05 ha come atteso "deve
+cercare anche nei bandi" senza il prefisso "a mano:". Lo script la legge
+come titolo atteso, e `controlla_attese` cerca le attese solo tra i titoli
+dei bandi citati: una frase che non è un titolo è sempre mancante. Era
+mancante anche a freddo (dove il router era fallito). Lo si vede dai file
+del lotto 1 (`attese`: ["deve cercare anche nei bandi"], `a_mano`:
+["domanda ricostruita dalla risposta"]), senza aprire il file delle
+domande. Correzione: aggiungere "a mano:" a quell'atteso nel file delle
+domande (fuori dal repository); cambia l'impronta delle domande, che le
+registrazioni annotano. Nel merito l'attesa è soddisfatta: il router ha
+cercato nei bandi.
+
+**Deciso il 15 novembre 2026: il file delle domande non si modifica.**
+L'attesa di L05 risulta mancante per il prefisso "a mano:" assente: è un
+falso mancante noto, da non contare come difetto, e da correggere nel
+file a lotti finiti.
+
+### Misura ristretta
+
+Oggi `prova_insieme` registra solo un lotto intero: `--registra --lotto N`
+prende tutte le domande del lotto. Proposta: `--codici L02,C11,A01,L05`,
+solo con `--registra --lotto N`.
+
+- Registra solo quei codici, nell'ordine dato, nella propria cartella
+  `lotto_<n>/<data-ora>/`, sempre non a freddo (`a_freddo: false`), con i
+  codici scelti in `meta.json` (`codici_scelti`).
+- Si rifiuta se il lotto non ha ancora una registrazione a freddo
+  completa: una registrazione parziale non può diventare quella a freddo.
+- Si rifiuta un codice che non è nel lotto.
+- Giudizi nella propria cartella (C6); `--riepilogo` non la conta, perché
+  non è a freddo.
+- `--riprendi` di una registrazione parziale riprende solo i codici
+  scelti.
+- L02 tre volte: tre corse con `--codici L02` (tre cartelle), più una con
+  `--codici C11,A01,L05`. Costo stimato, dai costi misurati nella
+  registrazione del 14 novembre: L02 circa 0,09 $ a corsa, che con
+  `max_tokens` a 16000 può salire fino a circa 0,15 $; C11, A01, L05 circa
+  0,04 $ l'una. Totale tra 0,40 e 0,60 $.
+
+### Regole di chiusura (sulla misura ristretta)
+
+Su L02 registrata 3 volte e su C11, A01, L05 una volta:
+
+- nessuna risposta finisce per `max_tokens` (`stop_reason_risposta`);
+- nessun codice ATECO assente dai dati (controllo automatico sui valori
+  "non trovato" vicini a "ATECO", più lettura a mano);
+- nessuna frase su frammenti, interrogazioni o archivi: controllo
+  automatico con un'espressione regolare su "frammento", "frammenti",
+  "interrogazion", "parametr", "dati forniti", "tra quelli forniti",
+  "dati statistici", più lettura a mano ("archivio" è ammesso e non entra
+  nel controllo);
+- in C11 nessun "rifaccia la domanda" che ripete il tema già chiesto.

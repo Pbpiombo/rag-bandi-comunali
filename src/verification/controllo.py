@@ -46,6 +46,7 @@ SCHEMA_RIFERIMENTO = r"\[D?\d+(?:\.\d+)?\]"
 # secondo bando del blocco D1
 ETICHETTA = r"D?\d+(?:\.\d+)?"
 ETICHETTA_BANDO = re.compile(r"^D\d+\.\d+$")
+ETICHETTA_BLOCCO = re.compile(r"^D\d+$")
 
 _MESI = "|".join(MESI)
 _MOLTIPLICATORE = r"mila|milion[ei]|mln|miliard[oi]"
@@ -623,9 +624,11 @@ def _verifica_atti(
     di quel bando; in una citazione a un frammento [n], nel suo testo o
     nei metadati del suo atto. Se compare in un'altra fonte, lo si indica.
     La data scritta con il numero ("decreto 18191 del 7/8/2026") si
-    controlla come per gli atti nel testo (_esito_data_atto). Le citazioni
-    a un blocco [Dn] non si controllano: non si sa di quale bando sia
-    l'atto.
+    controlla come per gli atti nel testo (_esito_data_atto). In una
+    citazione a un blocco [Dn] il numero si cerca in tutto il blocco, con
+    le sue fonti: non dice di quale bando sia l'atto, ma un numero assente
+    dal blocco risulta non trovato invece di passare senza esito (correzione
+    D4, docs/piano-correzioni-lotto1.md: prima non si controllava).
     """
     esiti = []
     for m in re.finditer(SCHEMA_CITAZIONE, risposta, re.DOTALL | re.IGNORECASE):
@@ -636,7 +639,11 @@ def _verifica_atti(
             e.upper()
             for e in re.findall(rf"\[({ETICHETTA})\]", citazione, re.IGNORECASE)
         ]
-        controllate = [e for e in etichette if ETICHETTA_BANDO.match(e) or e.isdigit()]
+        controllate = [
+            e
+            for e in etichette
+            if ETICHETTA_BANDO.match(e) or ETICHETTA_BLOCCO.match(e) or e.isdigit()
+        ]
         if not controllate:
             continue
         solo_bandi = all(ETICHETTA_BANDO.match(e) for e in controllate)

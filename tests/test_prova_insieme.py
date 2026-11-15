@@ -574,6 +574,206 @@ def test_catena_con_router_passato(db_con_ente, monkeypatch):
     assert esito["risposta"] == "risposta finta"
 
 
+# --- D1: max_tokens e stop_reason della risposta ---
+
+
+def catena_con_messaggio(monkeypatch, messaggio, creati=None):
+    """La catena con un modello finto che restituisce quel messaggio."""
+    from src.chains import rag
+
+    def modello_finto(**argomenti):
+        if creati is not None:
+            creati.append(argomenti)
+        return RunnableLambda(lambda prompt: messaggio)
+
+    monkeypatch.setattr(
+        rag, "costruisci_router", lambda: RunnableLambda(lambda e: DECISIONE)
+    )
+    monkeypatch.setattr(rag, "ChatAnthropic", modello_finto)
+    return rag.costruisci_catena("11111111111", recupero=RecuperoFinto())
+
+
+def test_max_tokens_e_timeout_della_risposta(db_con_ente, monkeypatch):
+    creati = []
+    catena_con_messaggio(monkeypatch, AIMessage(content="ok"), creati)
+    assert creati[0]["max_tokens"] >= 16000
+    assert creati[0]["timeout"] >= 300
+
+
+def test_la_catena_espone_lo_stop_reason_della_risposta(db_con_ente, monkeypatch):
+    troncata = AIMessage(
+        content="Il bando scade il (fon",
+        response_metadata={"stop_reason": "max_tokens"},
+    )
+    esito = catena_con_messaggio(monkeypatch, troncata).invoke("Quali bandi?")
+    assert esito["risposta"] == "Il bando scade il (fon"
+    assert esito["stop_reason_risposta"] == "max_tokens"
+    assert "messaggio" not in esito
+
+
+def test_la_risposta_tiene_solo_il_testo_non_il_ragionamento(db_con_ente, monkeypatch):
+    # Come StrOutputParser prima: i blocchi di ragionamento non entrano
+    messaggio = AIMessage(
+        content=[
+            {"type": "thinking", "thinking": "ragiono", "signature": "x"},
+            {"type": "text", "text": "Risposta finale."},
+        ],
+        response_metadata={"stop_reason": "end_turn"},
+    )
+    esito = catena_con_messaggio(monkeypatch, messaggio).invoke("Quali bandi?")
+    assert esito["risposta"] == "Risposta finale."
+    assert esito["stop_reason_risposta"] == "end_turn"
+
+
+def test_la_prova_salva_lo_stop_reason_della_risposta(tmp_path):
+    percorso = tmp_path / "C1.json"
+    c1 = next(d for d in domande() if d.codice == "C1")
+
+    def catena(domanda):
+        return {**esito_catena_finto(domanda), "stop_reason_risposta": "max_tokens"}
+
+    p.registra_domanda(RunnableLambda(catena), p.RouterTriplo(None), c1, percorso)
+    salvata = json.loads(percorso.read_text(encoding="utf-8"))
+    assert salvata["stop_reason_risposta"] == "max_tokens"
+
+
+def test_il_rapporto_conta_le_risposte_interrotte():
+    voci = [
+        {"codice": "L02", "stop_reason_risposta": "max_tokens"},
+        {"codice": "C11", "stop_reason_risposta": "end_turn"},
+        {"codice": "A01", "stop_reason_risposta": "max_tokens"},
+    ]
+    assert p.righe_interrotte(voci) == (
+        "Risposte interrotte per max_tokens: 2 (L02, A01)"
+    )
+    assert p.righe_interrotte(voci[1:2]) == "Risposte interrotte per max_tokens: 0"
+    # Le registrazioni di prima non hanno il campo: niente falso zero
+    assert p.righe_interrotte([{"codice": "L02"}]) == (
+        "Risposte interrotte per max_tokens: non registrato"
+    )
+    complete = [{**v, "gruppo": "viste", "esiti_verifica": []} for v in voci]
+    rapporto = p.rapporto(complete, {"codici": ["L02", "C11", "A01"]}, {}, "Prova")
+    assert "Risposte interrotte per max_tokens: 2 (L02, A01)" in rapporto
+
+
+# --- Misura ristretta: --codici ---
+
+
+def lotto_con_registrazione_fredda(tmp_path, stato="completa"):
+    lotto = tmp_path / "lotto_1"
+    scrivi_registrazione(
+        lotto / "2026-11-14_100000", {"lotto": 1, "a_freddo": True, "stato": stato}, []
+    )
+    return lotto
+
+
+def test_codici_mai_a_freddo_e_con_i_codici_nel_meta(tmp_path):
+    lotto = lotto_con_registrazione_fredda(tmp_path)
+    _, meta = p.prepara_registrazione(lotto, 1, None, ["L02", "C11"])
+    assert meta["a_freddo"] is False
+    assert meta["codici_scelti"] == ["L02", "C11"]
+
+
+def test_codici_rifiutati_senza_registrazione_fredda(tmp_path):
+    with pytest.raises(p.ErroreProva, match="a freddo"):
+        p.prepara_registrazione(tmp_path / "lotto_1", 1, None, ["L02"])
+    lotto = lotto_con_registrazione_fredda(tmp_path, stato="incompleta")
+    with pytest.raises(p.ErroreProva, match="--riprendi"):
+        p.prepara_registrazione(lotto, 1, None, ["L02"])
+
+
+def test_scegli_domande_in_ordine_e_solo_del_lotto():
+    lette = domande()
+    assert [d.codice for d in p.scegli_domande(lette, ["P2", "C1"], 1)] == [
+        "P2",
+        "C1",
+    ]
+    with pytest.raises(p.ErroreProva, match="non nel lotto 1: Z9"):
+        p.scegli_domande(lette, ["C1", "Z9"], 1)
+    with pytest.raises(p.ErroreProva, match="ripetuti"):
+        p.scegli_domande(lette, ["C1", "C1"], 1)
+
+
+@pytest.mark.parametrize(
+    "argomenti",
+    [
+        ["--stima", "--lotto", "1", "--codici", "L02"],
+        ["--registra", "--lotto", "1", "--codici", "L02", "--riprendi", "x"],
+        ["--registra", "--lotto", "1", "--codici", ","],
+    ],
+)
+def test_codici_solo_con_registra_e_senza_riprendi(argomenti):
+    with pytest.raises(SystemExit):
+        p.main(argomenti)
+
+
+def prepara_registra_finto(tmp_path, monkeypatch, lotto_domande):
+    """registra con catena finta e orologio che avanza: nessuna chiamata."""
+    istanti = iter(
+        datetime(2026, 11, 15, 10, 0, secondo, tzinfo=p.FUSO) for secondo in range(60)
+    )
+    monkeypatch.setattr(p, "CARTELLA_PROVA", tmp_path)
+    monkeypatch.setattr(p, "adesso", lambda: next(istanti))
+    monkeypatch.setattr(p, "domande_del_lotto", lambda lotto: lotto_domande)
+    monkeypatch.setattr(
+        p,
+        "costruisci_catena_di_prova",
+        lambda: (RunnableLambda(esito_catena_finto), p.RouterTriplo(None), "finto"),
+    )
+    monkeypatch.setattr(
+        p, "stato_git", lambda: {"commit": "finto", "modifiche_non_salvate": False}
+    )
+    monkeypatch.setattr(p, "impronta_csv", lambda: {"file": {}, "complessiva": "x"})
+    monkeypatch.setattr(p, "impronta", lambda percorso: "x")
+
+
+def test_registra_con_codici_solo_quelle_domande(tmp_path, monkeypatch):
+    lette = domande()[:4]  # C1, C2, C3, C4
+    prepara_registra_finto(tmp_path, monkeypatch, lette)
+    p.registra(1)  # la registrazione a freddo del lotto intero
+    giudizi_del_lotto = (tmp_path / "lotto_1" / "giudizi.csv").read_bytes()
+
+    parziale = p.registra(1, codici=["C3", "C1"])
+
+    meta = p.leggi_json(parziale / "meta.json")
+    assert meta["a_freddo"] is False
+    assert meta["codici_scelti"] == ["C3", "C1"]
+    assert meta["codici"] == ["C3", "C1"]
+    assert meta["stato"] == "completa"
+    assert sorted(f.stem for f in (parziale / "domande").glob("*.json")) == [
+        "C1",
+        "C3",
+    ]
+    assert (tmp_path / "lotto_1" / "giudizi.csv").read_bytes() == giudizi_del_lotto
+    assert p.registrazione_a_freddo(tmp_path / "lotto_1") != parziale
+
+
+def test_la_ripresa_di_una_parziale_riprende_solo_i_suoi_codici(tmp_path, monkeypatch):
+    lette = domande()[:4]
+    prepara_registra_finto(tmp_path, monkeypatch, lette)
+    p.registra(1)
+    lotto = tmp_path / "lotto_1"
+    cartella, meta = p.prepara_registrazione(lotto, 1, None, ["C2", "C4"])
+    # Una parziale interrotta prima della prima domanda, come la scrive registra
+    meta.update(
+        {
+            "codici": ["C2", "C4"],
+            "commit": "finto",
+            "impronta_csv": {"file": {}, "complessiva": "x"},
+            "data_di_oggi": "2026-11-15",
+        }
+    )
+    scrivi_registrazione(cartella, meta, [])
+
+    ripresa = p.registra(1, riprendi=cartella)
+
+    assert ripresa == cartella
+    assert sorted(f.stem for f in (cartella / "domande").glob("*.json")) == [
+        "C2",
+        "C4",
+    ]
+
+
 # --- Errore del verificatore durante la registrazione ---
 
 
