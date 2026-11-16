@@ -403,6 +403,12 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
     di SRA28: la nota ("le domande … fino al 2029 come ultima annualità
     ammessa") è vera, ma non dice che le annualità valgono solo per chi
     ha già l'impegno SRD05.
+16. **Decisione del router a maggioranza tra le 3 chiamate**, da
+    proporre come modifica al codice a parte. Oggi l'app usa la prima
+    chiamata, e le tre non sono sempre d'accordo: nella regressione del
+    16/11/2026 C02, C12, P09 e P22 hanno cambiato interrogazione o perso
+    la seconda, e la stessa variabilità c'era già prima della correzione
+    G (`docs/piano-correzioni-lotto1.md`, correzione G5).
 
 ### Primo compito di dati dopo la demo
 

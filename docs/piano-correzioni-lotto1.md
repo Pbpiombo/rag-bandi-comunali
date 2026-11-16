@@ -1835,3 +1835,201 @@ escluso, e i tre test restano come sono. L'intestazione dello storico
 non ha un conteggio; il suo unico altro numero è la data. Il limite è lo
 stesso della finestra di 30 giorni: un "12" attribuito a un bando dello
 storico risulterebbe verificato anche se non c'entra.
+
+## Correzione G5: dalla regressione dopo G
+
+Aggiunta il 16 novembre 2026, dalla regressione completa dopo G1-G4
+(commit 61159e0): `lotto_1/2026-11-16_101435`,
+`lotto_2/2026-11-16_102143`, `lotto_3/2026-11-16_102655`,
+`lotto_4/2026-11-16_103236`. Diagnosi senza modello.
+
+### Sintomi
+
+- **Rifiuti.** 8 domande rispondono "Non trovo la risposta nei documenti
+  disponibili. Servirebbe un bando specifico per …" con bandi pertinenti
+  nei dati: C03 (attese mancanti: Punti Digitale Facile, progettualità
+  sui dati), C02, C12, P09, P11, P16, P22, P25. P16 poi elenca comunque i
+  bandi generici e si contraddice; P25 non nomina più il bando con
+  "Impresa - prevalenza femminile".
+- **C01.** Prima "Non trovo"; ora presenta il bando scaduto Toscana
+  diffusa con i dettagli e "vi sarebbe stato ammesso", e contiene la
+  parola inglese "however".
+- **Router.** La prima chiamata cambia interrogazione in C02 (da
+  `bandi_aperti_per_ente` a `bandi_per_tema` territorio), C12 (da
+  `bandi_per_tema` a un `dettaglio_bando` "impianti sportivi mutuo
+  agevolato"), P09 e P22 (perdono la seconda interrogazione).
+- **Regge.** Nessuna domanda sui bandi aperti sceglie
+  `bandi_scaduti_per_ente`; C19 è corretta; F regge (P24, P05, C18, C20).
+
+### Limite del confronto
+
+Il riferimento è "prima di G" solo per C02 e P16 (lotto 4: registrazione
+a freddo, commit 625f7d6, cioè F) e per C01 (misura ristretta di F sul
+lotto 3). Per gli altri il riferimento è precedente a F:
+- lotto 1: `_140416` del 14/11, commit f081f14, prima di E ed F;
+- lotto 2: registrazione a freddo, commit 694936f, prima di E ed F;
+- lotto 3: registrazione a freddo, commit 7117aa4, prima di F.
+
+Le differenze in quei lotti possono venire anche da E ed F.
+
+### Diagnosi
+
+- **I rifiuti vengono da G3.** G1 si esclude per 6 degli 8 casi, che
+  non hanno storico nei dati (C03, C12, P11, P16, P22, P25). Il testo
+  delle risposte ripete le parole di G3, non della domanda. C12: «in
+  archivio non risulta nessun bando con questo oggetto, né titoli
+  simili»; P11: «tra i bandi in archivio non ce n'è uno con questo
+  oggetto». G3 era stata messa subito dopo l'eccezione «Un bando dei DATI
+  che ammette il tipo di beneficiario della domanda non è un argomento
+  vicino», e la sua formula «nessun bando corrisponde al nome chiesto»
+  è stata letta come «nessun bando specifico per l'oggetto chiesto».
+  P16 applica tutte e due le regole e si contraddice. G2a riguarda solo
+  la forma della citazione. G2b (dati più lunghi: C03 da 7.415 a 9.419
+  token in ingresso con le stesse 7 righe) non lascia eco nelle
+  risposte: resta il secondo sospettato, da escludere con la misura.
+- **C01 viene da G1, attivata dal gruppo storico di `bandi_per_tema`.**
+  La regola si attivava con «Un blocco dei DATI "solo come storico"».
+  La stessa frase c'è in `GRUPPO_STORICO` («Scaduti, solo come storico:
+  non più aperti:»), che è nei dati di C01. La risposta ricalca la
+  regola: «l'archivio non indica se e quando potrà riaprire una misura
+  analoga … seguire direttamente la pagina dell'ente che lo emette».
+  "however" non si attribuisce a una modifica precisa.
+- **La variabilità del router c'era già, e non viene da G.** L'app usa
+  la prima delle 3 chiamate, e già prima di G le tre non erano d'accordo:
+  - C02: `bandi_aperti_per_ente` ×2, `bandi_per_tema` ×1 (dopo: ×1 e
+    ×2);
+  - C12: `bandi_per_tema` ×2, `bandi_aperti_per_ente` ×1;
+  - P09: due interrogazioni in 1 chiamata su 3;
+  - P22: due interrogazioni in 2 chiamate su 3.
+
+  Nessuna delle quattro sceglie `bandi_scaduti_per_ente`. La scelta
+  nuova di C12 (`dettaglio_bando`) viene dalla regola sul bando nominato
+  "per il suo oggetto", che c'era già in F.
+
+### Correzioni (applicate il 16 novembre 2026)
+
+- **G5a**, `ISTRUZIONI`: G3 esce da QUANDO NON RISPONDERE e diventa la
+  sezione BANDO CERCATO PER NOME, tra QUANDO NON RISPONDERE e COSA PUÒ
+  FARE L'APP.
+  - Si attiva solo così: «questa regola vale solo quando un blocco dei
+    DATI comincia con "Nessun bando corrisponde a" e riporta i titoli
+    più simili». È il testo di `_nessun_bando`.
+  - Si chiude con «Non vale per gli elenchi di bandi: lì vale
+    BENEFICIARI DEI BANDI».
+  - "oggetto" diventa "argomento".
+  - QUANDO NON RISPONDERE torna a finire con l'eccezione dei bandi
+    generici, come in F.
+  - L'etichetta «Bando nominato che non è in archivio» resta: la usa un
+    test esistente, che così non si modifica.
+- **G5b**, `ISTRUZIONI`, BANDI CON LA SCADENZA PASSATA: si attiva con
+  «Un blocco dei DATI con l'intestazione "… con la scadenza in archivio
+  passata negli ultimi 12 mesi …"», non più con «"solo come storico"».
+  Si aggiunge: «Questa sezione non vale per il gruppo "Scaduti, solo
+  come storico" degli elenchi per tema».
+- **G5c**, `ISTRUZIONI`: la prima riga «Rispondi in italiano.» diventa
+  «Rispondi sempre e solo in italiano.» (caso: "however" in C01).
+- **Router**: nessuna modifica. La decisione a maggioranza tra le 3
+  chiamate va in roadmap, come modifica al codice a parte.
+- **G2b**: invariata.
+
+### Test
+
+`tests/test_presentazione.py`, deboli, sul testo:
+- QUANDO NON RISPONDERE non contiene la regola sulla ricerca per nome e
+  finisce con l'eccezione dei bandi generici;
+- BANDO CERCATO PER NOME comincia con l'attivazione letterale, contiene
+  la frase sugli elenchi e non contiene "oggetto";
+- la frase di attivazione è quella del programma: `dettaglio_bando` su
+  un titolo inesistente comincia con "Nessun bando corrisponde a";
+- BANDI CON LA SCADENZA PASSATA comincia con l'intestazione di
+  `bandi_scaduti_per_ente` e esclude il gruppo storico per tema;
+  l'intestazione citata è quella che il programma scrive, e
+  `GRUPPO_STORICO` non la contiene;
+- «Rispondi sempre e solo in italiano.» c'è.
+
+Con il `rag.py` di prima falliscono 4 dei 6 (provato); gli altri 2
+controllano che le frasi citate nelle istruzioni siano quelle del
+programma. Nessun test esistente modificato.
+
+### Regola di chiusura (scritta prima di registrare)
+
+Una corsa con `--codici`, divisa per lotto, sulle 17 domande.
+
+- **Peggiorati** (C03, C02, C12, P09, P11, P16, P22, P25):
+  - nessuna risposta comincia con "Non trovo" quando i dati contengono
+    bandi che ammettono il beneficiario della domanda;
+  - i bandi generici sono nominati come possibili, con la condizione da
+    verificare;
+  - C03 trova le due attese (Punti Digitale Facile, progettualità sui
+    dati);
+  - C02 nomina il fondo strade, se il router sceglie
+    `bandi_aperti_per_ente`;
+  - P25 nomina il bando con "Impresa - prevalenza femminile", se è nei
+    dati;
+  - nessuna contraddizione "Non trovo" seguito dall'elenco.
+- **C01**: "Non trovo la risposta nei documenti disponibili.", senza
+  dettagli del bando scaduto e senza "vi sarebbe stato ammesso".
+- **Devono restare "Non trovo"** (C18, C20, C11, C14, C04): con una riga
+  su cosa servirebbe, senza parole del sistema.
+- **Come nella misura ristretta di G** (C19, A04, P04): C19 con lo
+  storico, le scadenze citate e nessun bando presentato come aperto; A04
+  "Non trovo" con il titolo simile nominato e senza seguiti; P04 senza
+  l'atto di un'altra riga.
+- **Router**: se cambia la prima scelta, la risposta si giudica su
+  quello che il router ha scelto davvero. Nessuna domanda sui bandi
+  aperti sceglie `bandi_scaduti_per_ente`.
+- **Per tutte**:
+  - nessun "—" né "–" come inciso;
+  - nessuna parola inglese (espressione regolare su "however", "but",
+    "only", "please");
+  - nessun nuovo non trovato del verificatore;
+  - nessuna risposta interrotta.
+
+Costo stimato: 17 domande a circa 0,06 $, circa 1,0 $.
+
+```
+.venv\Scripts\python.exe -m scripts.diagnostica.prova_insieme --registra --lotto 1 --codici "C03,C12,P11,P25,C11,C04"
+.venv\Scripts\python.exe -m scripts.diagnostica.prova_insieme --registra --lotto 2 --codici "P22,C14"
+.venv\Scripts\python.exe -m scripts.diagnostica.prova_insieme --registra --lotto 3 --codici "P09,C01,C18,C20"
+.venv\Scripts\python.exe -m scripts.diagnostica.prova_insieme --registra --lotto 4 --codici "C02,P16,C19,A04,P04"
+```
+
+**Dopo G5 segue una seconda regressione completa sui quattro lotti**,
+non a freddo, perché G5 modifica di nuovo le istruzioni (circa 3,3 $,
+55 domande).
+
+### Piano B: ritorno al codice di F
+
+Da usare se G5 non regge in un giro. I commit di G si annullano dal più
+recente: 61159e0 (G4), d8ee01b (G1), dd20884 (G2 e G3). 939a171 è solo
+documentazione e resta. G5, se è stata committata, va annullata per
+prima. La documentazione si ripristina da HEAD, perché dd20884 e
+d8ee01b toccano anche il piano, la roadmap e la tabella del lotto 4:
+
+```
+git revert --no-commit <commit di G5> 61159e0 d8ee01b dd20884
+git checkout HEAD -- docs
+git status --short
+.venv\Scripts\ruff.exe check
+.venv\Scripts\python.exe -m pytest
+.venv\Scripts\python.exe -c "from src.config import MODEL_NAME; from src.chains.rag import impronta_istruzioni; print(MODEL_NAME, impronta_istruzioni())"
+git commit -m "Ritorno al codice della correzione F: G1-G5 annullate, documentazione tenuta"
+```
+
+Cosa aspettarsi:
+- `git status` mostra modificati solo `src/` e `tests/`;
+- pytest torna a 1061 passati;
+- l'impronta delle istruzioni dovrebbe tornare 1d4591b8;
+- dopo il push, Reboot dell'app online.
+
+Cosa si perde:
+- G1: C19 torna a "Non trovo", senza lo storico per l'ente;
+- G2a e G2b: torna la lista delle fonti senza etichette
+  nell'intestazione, e con lei il rischio di P04 (l'atto di un altro
+  bando);
+- G3: A04 torna a non nominare il titolo simile e a proporre il seguito;
+- G4: serve solo a G1;
+- i test di G.
+
+Non c'è una via di mezzo con `git revert`: G2 e G3 stanno nello stesso
+commit. Per tenere G2 senza G3 bisogna modificare a mano `rag.py`.

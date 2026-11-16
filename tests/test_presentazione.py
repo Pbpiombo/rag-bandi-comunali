@@ -474,3 +474,71 @@ def test_g1_bandi_con_la_scadenza_passata():
 def test_g1_regola_non_tarata_su_c19_ne_su_sra28():
     for parola in ("imboschiment", "SRA28", "SRD05", "anno prossimo", "2029"):
         assert parola not in ISTRUZIONI
+
+
+# --- correzione G5 (dalla regressione del 16 novembre 2026) ---
+
+
+def _sezione(titolo: str, successiva: str) -> str:
+    inizio = ISTRUZIONI.index(titolo)
+    return ISTRUZIONI[inizio : ISTRUZIONI.index(successiva, inizio)]
+
+
+def test_g5a_bando_cercato_per_nome_fuori_da_quando_non_rispondere():
+    quando = _sezione("QUANDO NON RISPONDERE", "BANDO CERCATO PER NOME")
+    assert "Nessun bando corrisponde a" not in quando
+    assert "titoli più simili" not in quando
+    # QUANDO NON RISPONDERE torna a finire con l'eccezione dei bandi generici
+    assert quando.rstrip().endswith(
+        "vale la regola sui bandi generici in BENEFICIARI DEI BANDI."
+    )
+
+
+def test_g5a_attivazione_letterale_e_solo_per_la_ricerca_per_nome():
+    sezione = _sezione("BANDO CERCATO PER NOME", "COSA PUÒ FARE L'APP")
+    testo = " ".join(sezione.split())
+    assert testo.startswith(
+        "BANDO CERCATO PER NOME Bando nominato che non è in archivio: questa "
+        'regola vale solo quando un blocco dei DATI comincia con "Nessun bando '
+        'corrisponde a"'
+    )
+    assert "Non vale per gli elenchi di bandi: lì vale BENEFICIARI DEI BANDI." in testo
+    assert "oggetto" not in testo
+
+
+def test_g5a_la_frase_di_attivazione_e_quella_del_programma(conn):
+    from src.database import interrogazioni_bandi as ib
+
+    r = ib.dettaglio_bando(conn, "titolo che non esiste in archivio")
+    assert r.testo.startswith("Nessun bando corrisponde a")
+
+
+def test_g5b_storico_solo_con_l_intestazione_di_bandi_scaduti_per_ente():
+    sezione = _sezione("BANDI CON LA SCADENZA PASSATA", "STATO DEL BANDO NEI FRAMMENTI")
+    testo = " ".join(sezione.split())
+    assert testo.startswith(
+        "BANDI CON LA SCADENZA PASSATA Un blocco dei DATI con l'intestazione "
+        '"… con la scadenza in archivio passata negli ultimi 12 mesi …"'
+    )
+    assert not testo.startswith(
+        'BANDI CON LA SCADENZA PASSATA Un blocco dei DATI "solo'
+    )
+    assert (
+        'Questa sezione non vale per il gruppo "Scaduti, solo come storico" '
+        "degli elenchi per tema." in testo
+    )
+
+
+def test_g5b_l_intestazione_citata_e_quella_del_programma(conn):
+    from src.database import interrogazioni_bandi as ib
+    from tests.conftest import CON_DATI
+
+    r = ib.bandi_scaduti_per_ente(conn, CON_DATI)
+    assert "con la scadenza in archivio passata negli ultimi 12 mesi" in r.testo
+    # Il gruppo storico degli elenchi per tema, escluso dalla sezione
+    assert ib.GRUPPO_STORICO.startswith("Scaduti, solo come storico")
+    assert "con la scadenza in archivio passata" not in ib.GRUPPO_STORICO
+
+
+def test_g5c_solo_in_italiano():
+    assert "Rispondi sempre e solo in italiano." in ISTRUZIONI
