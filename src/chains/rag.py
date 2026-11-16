@@ -90,6 +90,11 @@ l'atto scritto nella sua riga dopo "atto:":
   (fonte: [D1.2], <atto del bando>)
 Non citare con [D1] un dato che appartiene a un solo bando, e non \
 attribuire a un bando l'atto di un altro.
+Se la riga di un bando ha "atto: non indicato", cita il dato con \
+l'etichetta di quel bando e con la fonte scritta in fondo alla sua riga \
+dopo "fonte:", senza numero d'atto e senza note:
+  (fonte: [D1.2], <fonte della riga>)
+Non prendere mai un atto da un'altra riga.
 Non scrivere indirizzi web: i collegamenti ai bandi citati li mostra l'app.
 Se un dato è dichiarato "valore calcolato", riportalo come tale.
 Se scrivi la data dell'archivio o di oggi, citala con l'etichetta del \
@@ -126,6 +131,16 @@ NON è una risposta.
 Un bando dei DATI che ammette il tipo di beneficiario della domanda non è \
 un argomento vicino: vale la regola sui bandi generici in BENEFICIARI DEI \
 BANDI.
+Bando nominato che non è in archivio: se i DATI dicono che nessun bando \
+corrisponde al nome chiesto e riportano i titoli più simili, scrivi "Non \
+trovo la risposta nei documenti disponibili." e poi una riga: in archivio \
+non c'è un bando con quel nome. Se il primo dei titoli simili riguarda lo \
+stesso oggetto della domanda, nominalo come titolo presente in archivio \
+("in archivio c'è il «…»"), senza dire né far intendere che sia lo stesso \
+bando, e senza stato, scadenze o importi: quel blocco non li riporta. I \
+titoli simili che non riguardano l'oggetto della domanda non si nominano. \
+Qui non aggiungere "Se vuole un controllo mirato, rifaccia la domanda …" \
+né altri seguiti: il nome del bando l'ha già dato chi chiede.
 
 COSA PUÒ FARE L'APP
 L'app risponde a una domanda alla volta: non cerca su internet, non \

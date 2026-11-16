@@ -1430,3 +1430,195 @@ Due schemi ricorrenti, da contare nella registrazione del lotto 4:
 - **Delibera di giunta regionale 704/2025 citata con l'etichetta
   sbagliata**, per la terza volta (L02 `_182748`; P01 `_225921`, con D1.9
   invece di D1.8), sempre nell'elenco dei bandi PMI simili.
+
+**Esito nel lotto 4** (`lotto_4/2026-11-15_231441`): nessuna occorrenza
+dei due schemi.
+
+## Correzione G: dal lotto 4
+
+Aggiunta il 16 novembre 2026, dalla diagnosi della registrazione a freddo
+del lotto 4 (`dati-grezzi/prova/lotto_4/2026-11-15_231441`, commit
+625f7d6). Il lotto 4 era la verifica finale a freddo prima della demo:
+G si misura su domande già viste e con la regressione su tutti i lotti.
+
+### Decisioni e stato (16 novembre 2026)
+
+- **G1 approvata, non implementata**: fermata dal passo 0 (sotto). SRA28
+  entrerebbe nello storico come scaduto, ed è aperto.
+- **G2a e G2b approvate e applicate.** Differenza dalla proposta: la
+  fonte in fondo alla riga la aggiunge `formatta_dati` in
+  `src/chains/router.py` (`con_fonte_nelle_righe`), non `formatta_bando`.
+  Il testo che riceve il modello è lo stesso; `risultato.testo` non
+  cambia, e con lui i test che confrontano la riga del bando
+  (`test_la_riga_del_bando_contiene_il_suo_atto`) e il riferimento di
+  equivalenza `tests/dati/interrogazioni_comuni_dopo.json`, che altrimenti
+  andavano modificati. Anche l'app mostra il blocco come prima.
+- **G3 approvata e applicata**, in `ISTRUZIONI`, QUANDO NON RISPONDERE.
+
+### G1. C19: nessuna interrogazione per lo storico
+
+**Difetto.** C19, "Quali bandi scaduti di recente potrebbero riaprire
+l'anno prossimo?": il router non sceglie nessuna interrogazione (3
+chiamate su 3) e la risposta è "Non trovo". Lo storico (bandi scaduti da
+non più di `GIORNI_STORICO` = 365 giorni) esiste solo dentro
+`bandi_per_tema`, nel blocco `GRUPPO_STORICO`; nessuna voce del
+repertorio lo restituisce da sola, e il router, come dicono le sue
+istruzioni, lascia la lista vuota.
+
+**L'archivio non sa quali bandi sono ricorrenti.** In `bandi` non c'è un
+campo di ricorrenza o di edizione. Al 16/11/2026 lo storico per i Comuni
+ha 9 bandi, 5 con l'anno nel titolo; nessuno ha un'altra edizione in
+archivio (titoli confrontati senza l'anno, su tutti i bandi). Si può dire
+solo "scaduto il …, edizione dell'anno …", e solo con l'anno nel titolo.
+
+**Proposta (approvata, non implementata).** `bandi_scaduti_per_ente`,
+`per_ente=True`, nessun parametro: i bandi che ammettono l'ente
+(`filtro_ente`) scaduti da non più di 365 giorni (`scaduto` e
+`nello_storico`, come `bandi_per_tema`), dal più recente. Ogni riga
+numerata [#k], con "stato: scaduto il …, non più aperto" in testa,
+`formatta_bando` ed "edizione: <anno>" se il titolo ha un anno; mai
+"ricorrente". Intestazione: "Bandi per i Comuni scaduti negli ultimi 12
+mesi (alla data del …), solo come storico: non più aperti, N in
+archivio:"; nessuno: `trovato=False`. Descrizione per il router: "I bandi
+per l'ente scaduti negli ultimi 12 mesi, solo come storico, non più
+aperti: per domande su bandi passati o chiusi. Mai per bandi aperti, in
+scadenza o a cui partecipare ora", con un esempio diverso da C19. Regola
+nella risposta: niente opportunità, niente previsioni di riapertura
+("l'archivio non lo dice"), scadenza citata, edizione se c'è.
+
+**Rischi.** Il router che la usa per domande sui bandi aperti; solo per
+l'ente, non per i privati; bandi a domanda annuale dati per scaduti.
+
+**Passo 0 (16 novembre 2026, sola lettura): fermata.** Lo storico di
+ciascuno dei quattro enti (tre comuni 9 bandi, l'Unione 7) contiene
+`premi-annuali-ad-ettaro-per-mantenere-imboschimenti-f-cee3db` (SRA28),
+"Premi annuali ad ettaro per mantenere imboschimenti/forestazione su
+terreni agricoli": in archivio `scadenza` 2026-06-30, nessuna riga in
+`scadenze_bando`, `scadenza_nota` "Scadenza prorogata con circolare Agea
+del 15 maggio 2026; le domande di aiuto/sostegno possono essere
+presentate fino al 2029 come ultima annualità ammessa". La pagina non è
+stata riaperta oggi: il 12/11/2026 l'elenco dello sviluppo rurale la
+dava "Aperto", e la pagina diceva "Per il 2026 le domande … entro il 30
+giugno 2026" e "possono essere presentate a partire dal 2026 e fino a
+quando non si esauriscono le risorse disponibili" (`docs/piano-fonti.md`,
+"Premi imboschimenti, riestratto il 12/11/2026"; roadmap, passo 3). Il 30
+giugno è il termine dell'annualità 2026, non la chiusura del bando: G1 lo
+presenterebbe come "scaduto, non più aperto". Degli altri bandi dello
+storico, l'unico con più anni nel titolo è "Bando Nidi gratis
+2026-2027": un'edizione con il termine di adesione passato (25 settembre
+2026), non un bando a domanda annuale.
+
+Prima di G1 serve decidere come rappresentare i bandi a domanda annuale:
+una riga per annualità in `scadenze_bando`, con la prossima finestra,
+come i bandi a finestre, oppure fuori dallo storico.
+
+### G2. P04: l'atto di un bando attribuito a un altro
+
+**Difetto.** P04, "Ho una piccola falegnameria, c'è qualcosa per
+comprare macchinari?": al bando Filiera SMART [D1.9], che nei dati ha
+"atto: non indicato", il modello attribuisce il decreto 23619 del bando
+welfare [D1.16]: "(fonte: [D1.9], Portale bandi Regione Toscana, decreto
+dirigenziale 23619... [atto non indicato nel dato])". Il verificatore lo
+segna non trovato, presente invece in D1.16 (`errore_vero`).
+
+**Causa.** Nel prompt la lista delle fonti stava nella riga
+d'intestazione del blocco ("[D1] interrogazione: … | fonte: " e 17 fonti
+separate da ";", senza etichette), non in fondo come nell'app. L'ordine
+era quello delle voci (la sedicesima è il 23619, cioè D1.16; la nona,
+quella di D1.9, è "Incentivi Italia, OpenData_Incentivi.csv…", uguale ad
+altre 8): non è uno scarto di posizione. "Portale bandi Regione Toscana"
+compare solo nell'intestazione, mai nelle righe: davanti a un bando
+della Regione senza atto, il modello ha preso dalla lista una fonte
+"della Regione". La regola "non attribuire a un bando l'atto di un
+altro" c'era già; mancava cosa fare quando l'atto manca.
+
+**Correzione.**
+
+- **G2a**, `ISTRUZIONI`, DATI NUMERICI CERTIFICATI: "Se la riga di un
+  bando ha "atto: non indicato", cita il dato con l'etichetta di quel
+  bando e con la fonte scritta in fondo alla sua riga dopo "fonte:",
+  senza numero d'atto e senza note: (fonte: [D1.2], <fonte della riga>).
+  Non prendere mai un atto da un'altra riga."
+- **G2b**, `formatta_dati`: nei blocchi con righe di bandi
+  (`risultato.voci` non vuota) l'intestazione è "fonte: indicata in fondo
+  alla riga di ogni bando", senza la lista, e ogni riga finisce con "|
+  fonte: <fonte di quel bando>" (`con_fonte_nelle_righe`). I blocchi senza
+  voci (popolazione, titoli simili) restano come prima.
+
+**Rischi.** Verificatore: nessuno sul confronto. Il testo di `Dn.k` era
+già riga più fonte del bando (`fonti_di`, `src/verification/controllo.py`),
+e quello di `Dn` usa ancora `risultato.fonti`, che resta nel `Risultato`.
+Etichette: con la fonte nella riga il modello può citare la fonte al
+posto dell'atto anche quando l'atto c'è; G2a limita la fonte al caso
+"non indicato". Token: circa pari, una lista di 17 voci in meno e un
+campo per riga in più (la fonte di ogni bando, con atto e data
+dell'estrazione).
+
+### G3. A04: titolo simile non nominato, seguito vietato
+
+**Difetto.** A04, "Il bando "Sport e periferie" è ancora aperto?":
+`dettaglio_bando` non trova il titolo e dà i titoli più simili, primo
+"Bando Sport Missione Comune 2026". La risposta non lo nomina e chiude
+con "Se vuole, può indicare meglio il nome esatto del bando … per un
+controllo mirato": un seguito che non serve, perché il nome l'ha già
+dato chi chiede (C1, D3). I titoli simili (`_nessun_bando`) hanno solo
+titolo e id, senza stato né voci, e si trovano per prefisso di 5 lettere:
+"sport" porta anche "Sportello credito d'imposta…".
+
+**Correzione**, `ISTRUZIONI`, QUANDO NON RISPONDERE: "Bando nominato che
+non è in archivio: se i DATI dicono che nessun bando corrisponde al nome
+chiesto e riportano i titoli più simili, scrivi "Non trovo la risposta
+nei documenti disponibili." e poi una riga: in archivio non c'è un bando
+con quel nome. Se il primo dei titoli simili riguarda lo stesso oggetto
+della domanda, nominalo come titolo presente in archivio ("in archivio
+c'è il «…»"), senza dire né far intendere che sia lo stesso bando, e
+senza stato, scadenze o importi: quel blocco non li riporta. I titoli
+simili che non riguardano l'oggetto della domanda non si nominano. Qui
+non aggiungere "Se vuole un controllo mirato, rifaccia la domanda …" né
+altri seguiti: il nome del bando l'ha già dato chi chiede."
+
+Il "rifaccia la domanda" in chiusura a P04 (forma giuridica, comune
+della sede) è ammesso dalla regola di D3: non conta.
+
+### Test
+
+- `tests/test_verifica_bandi.py`: un blocco con righe di bandi non ha la
+  lista delle fonti nell'intestazione; ogni riga finisce con la sua
+  fonte; un blocco senza voci tiene le fonti nell'intestazione;
+  `formatta_dati` non cambia `risultato.testo`; il decreto del bando
+  welfare citato per il bando senza atto resta non trovato, "presente
+  invece in ['D1.2']"; il bando senza atto citato con la fonte della riga
+  non dà non trovati.
+- `tests/test_presentazione.py` (deboli, sul testo): la regola G2a; la
+  regola G3 dentro QUANDO NON RISPONDERE, con i suoi quattro punti;
+  nessuna parola delle domande del lotto 4 nelle istruzioni ("Sport e
+  periferie", "Missione Comune", "falegnam", "Filiera").
+- Con il codice di prima falliscono 4 dei 9 test nuovi (intestazione,
+  fonte nelle righe, G2a, G3; provato). Gli altri 5 proteggono
+  comportamenti che c'erano già.
+
+### Regola di chiusura (scritta prima di registrare)
+
+Misura ristretta con `--codici "C19,P04,A04"` sul lotto 4, non a freddo,
+poi regressione completa sui quattro lotti, non a freddo.
+
+- **G1, non applicata**: C19 resta "Non trovo", senza inventare bandi
+  scaduti o riaperture (controllo, non correzione).
+- **G2.** In P04 nessun non trovato di tipo atto; nessuna citazione con
+  un atto preso da un'altra riga. Nella regressione: nessun non trovato
+  nuovo con "presente invece in" un'altra etichetta; citati con il
+  blocco 0.
+- **G3.** A04 comincia con "Non trovo la risposta nei documenti
+  disponibili."; nomina «Bando Sport Missione Comune 2026» come titolo
+  presente in archivio, senza dire che è lo stesso bando e senza stato né
+  date; nessuna occorrenza di "rifaccia la domanda", "Se vuole" o
+  "controllo mirato" (espressione regolare, poi a mano).
+- **Regressione.** Attese non sotto l'ultima misura di ogni lotto;
+  reggono le regole di chiusura di F (P24 e P05 rispondono a chi scrive;
+  C01, C20, C18 "Non trovo"); nessuna categoria d'errore nuova; nessuna
+  risposta interrotta; nessun "—" né "–" come inciso.
+
+Costo stimato: misura ristretta circa 0,13 $ (C19 0,031, P04 0,060, A04
+0,040 $ dai costi a freddo); regressione 55 domande (17 + 13 + 13 + 12,
+comprese le "viste" del lotto 1) a circa 0,06 $, circa 3,3 $. Totale
+circa 3,4 $.

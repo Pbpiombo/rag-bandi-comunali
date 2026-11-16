@@ -217,6 +217,26 @@ def esegui_interrogazioni(decisione: dict, codice_ente: str) -> list:
     return esiti
 
 
+# L'intestazione di un blocco che elenca bandi: la fonte di ciascuno sta in
+# fondo alla sua riga, non in una lista separata (correzione G2b,
+# docs/piano-correzioni-lotto1.md)
+FONTE_NELLE_RIGHE = "indicata in fondo alla riga di ogni bando"
+
+
+def con_fonte_nelle_righe(testo: str, voci: list) -> str:
+    """Il testo con la fonte di ogni bando in fondo alla sua riga.
+
+    La riga k comincia con il segnaposto [#k] seguito dal testo della voce
+    k; la fonte si aggiunge dopo quel testo. Una lista separata, senza
+    etichette, faceva prendere al modello l'atto di un altro bando (P04 del
+    lotto 4: il decreto del bando [D1.16] citato per [D1.9], senza atto).
+    """
+    for k, voce in enumerate(voci, start=1):
+        riga = f"[#{k}] {voce.testo}"
+        testo = testo.replace(riga, f"{riga} | fonte: {voce.fonte}", 1)
+    return testo
+
+
 def formatta_dati(esiti: list) -> str:
     """Trasforma gli esiti in un blocco di testo per il prompt principale."""
     if not esiti:
@@ -224,10 +244,15 @@ def formatta_dati(esiti: list) -> str:
 
     blocchi = []
     for numero, (nome, risultato) in enumerate(esiti, start=1):
-        fonti = "; ".join(risultato.fonti) if risultato.fonti else "nessuna"
+        testo = risultato.testo
+        if risultato.voci:
+            fonti = FONTE_NELLE_RIGHE
+            testo = con_fonte_nelle_righe(testo, risultato.voci)
+        else:
+            fonti = "; ".join(risultato.fonti) if risultato.fonti else "nessuna"
         # Le righe dei bandi prendono l'etichetta [Dn.k]: il modello cita
         # ogni dato con il bando a cui appartiene
-        testo = con_etichette(risultato.testo, numero)
+        testo = con_etichette(testo, numero)
         blocchi.append(f"[D{numero}] interrogazione: {nome} | fonte: {fonti}\n{testo}")
 
     return "\n\n".join(blocchi)

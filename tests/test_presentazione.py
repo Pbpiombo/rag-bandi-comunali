@@ -429,3 +429,30 @@ def test_f3_da_approfondire_senza_trattino_e_titolo_intatto():
         "scadenza non indicata sulla pagina · vedi la pagina"
     )
     assert righe == [attesa]
+
+
+# --- correzione G (dal lotto 4) ---
+
+
+def test_g2a_bando_senza_atto_citato_con_la_fonte_della_riga():
+    assert 'Se la riga di un bando ha "atto: non indicato"' in ISTRUZIONI
+    assert "(fonte: [D1.2], <fonte della riga>)" in ISTRUZIONI
+    assert "Non prendere mai un atto da un'altra riga." in ISTRUZIONI
+
+
+def test_g3_bando_nominato_non_in_archivio():
+    inizio = ISTRUZIONI.index("Bando nominato che non è in archivio")
+    regola = ISTRUZIONI[inizio : ISTRUZIONI.index("COSA PUÒ FARE L'APP")]
+    assert "in archivio c'è il «…»" in regola
+    assert "senza dire né far intendere che sia lo stesso" in regola
+    assert "senza stato, scadenze o importi" in regola
+    assert "non si nominano" in regola
+    assert "né altri seguiti" in regola
+    # Dentro QUANDO NON RISPONDERE, dopo la formula del "Non trovo"
+    assert ISTRUZIONI.index("QUANDO NON RISPONDERE") < inizio
+
+
+def test_g_regole_non_tarate_sulle_domande_del_lotto_4():
+    # Le domande con cui si misura G non stanno nelle istruzioni (come F1a)
+    for parola in ("Sport e periferie", "Missione Comune", "falegnam", "Filiera"):
+        assert parola not in ISTRUZIONI

@@ -38,7 +38,9 @@ Lotto 1: `lotto_1/2026-11-14_114121`, prima delle correzioni 1, 2, 3, A,
 C e D (`docs/piano-correzioni-lotto1.md`). Lotto 2:
 `lotto_2/2026-11-15_191851`, commit 694936f, dopo quelle correzioni.
 Lotto 3: `lotto_3/2026-11-15_215106`, commit 7117aa4, dopo la correzione
-E e i punti 1-3 delle osservazioni dall'app online. Le prime colonne
+E e i punti 1-3 delle osservazioni dall'app online. Lotto 4:
+`lotto_4/2026-11-15_231441`, commit 625f7d6, dopo la correzione F. Le
+prime colonne
 vengono da `--riepilogo`; risposte interrotte e parametri non validi sono
 contati a parte, il 15 novembre 2026, dai file delle domande.
 
@@ -46,21 +48,21 @@ Con 12-13 domande per lotto sono **segnali, non percentuali**: una
 differenza di una o due domande non dice niente da sola, conta la
 categoria dell'errore.
 
-| misura | lotto 1 | lotto 2 | lotto 3 |
-|---|---|---|---|
-| domande misurate | 12 | 13 | 13 |
-| errori catena / verificatore | 0 / 0 | 0 / 0 | 0 / 0 |
-| router riusciti | 11/12 | 13/13 | 13/13 |
-| anomalie del router (su 3 chiamate a domanda) | 3/36 | 0/39 | 0/39 |
-| attese trovate | 6/6 | 3/3 | 3/3 |
-| vietate comparse | 0 | 0 | 0 |
-| dati verificati | 136 | 224 | 149 |
-| non trovati | 1 | 0 | 2 |
-| senza fonte | 0 | 3 | 0 |
-| citati con il blocco | 0 | 0 | 0 |
-| risposte interrotte per max_tokens | 0 | 0 | 0 |
-| parametri non validi | 6 | 0 | 0 |
-| costo medio a domanda | 0,042 $ | 0,051 $ | 0,052 $ |
+| misura | lotto 1 | lotto 2 | lotto 3 | lotto 4 |
+|---|---|---|---|---|
+| domande misurate | 12 | 13 | 13 | 12 |
+| errori catena / verificatore | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| router riusciti | 11/12 | 13/13 | 13/13 | 12/12 |
+| anomalie del router (su 3 chiamate a domanda) | 3/36 | 0/39 | 0/39 | 0/36 |
+| attese trovate | 6/6 | 3/3 | 3/3 | 5/5 |
+| vietate comparse | 0 | 0 | 0 | 0 |
+| dati verificati | 136 | 224 | 149 | 278 |
+| non trovati | 1 | 0 | 2 | 1 |
+| senza fonte | 0 | 3 | 0 | 3 |
+| citati con il blocco | 0 | 0 | 0 | 0 |
+| risposte interrotte per max_tokens | 0 | 0 | 0 | 0 |
+| parametri non validi | 6 | 0 | 0 | 0 |
+| costo medio a domanda | 0,042 $ | 0,051 $ | 0,052 $ | 0,061 $ |
 
 Note:
 
@@ -90,4 +92,17 @@ Note:
   vedono in queste colonne: sono due conclusioni sbagliate su dati giusti
   (P05 e P24, il profilo dell'ente preso per chi chiede) e un "Non trovo"
   con l'avviso pertinente solo nei documenti (C18): correzione F in
+  `docs/piano-correzioni-lotto1.md`.
+- **Lotto 4: è la verifica finale a freddo prima della demo.** Le
+  correzioni successive si misurano solo su domande già viste e con la
+  regressione su tutti i lotti, non più a freddo. Giudizi a mano
+  (`lotto_4/giudizi.csv`, 19 righe): 14 `corretto`, 3 `errore_vero`, 2
+  `falso_allarme_titolo`. Il non trovato è di P04: il decreto 23619 del
+  bando welfare [D1.16] attribuito al bando Filiera SMART [D1.9], che non
+  ha atto (`errore_vero`). I 3 senza fonte sono di C08, nel riepilogo
+  finale senza citazione: due volte "2026" nel titolo "Missione Comune
+  2026" (`falso_allarme_titolo`) e la data 2026-12-05, giusta ma non
+  citata (`errore_vero`, lieve). Il terzo `errore_vero` è C19: il router
+  non sceglie nessuna interrogazione (3 chiamate su 3) e la risposta è
+  "Non trovo", senza inventare. Correzione G in
   `docs/piano-correzioni-lotto1.md`.

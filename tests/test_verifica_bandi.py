@@ -293,3 +293,86 @@ def test_formatta_dati_mette_le_etichette():
     assert "- [D1.1] «Bando parcheggi 2026»" in testo
     assert "- [D2.2] «Progettualità sui dati»" in testo
     assert "[#" not in testo
+
+
+# --- correzione G2: fonte in fondo alla riga di ogni bando ---
+
+FILIERA = VoceBando(
+    "«Bando Filiera SMART» (Regione Toscana) | a sportello, verificare la "
+    "disponibilità delle risorse | contributo fino a 4.400.000 euro "
+    "| atto: non indicato | url: https://esempio.it/filiera",
+    "Incentivi Italia, OpenData_Incentivi.csv del 2026-11-12, CC BY 4.0 "
+    "(dati estratti il 2026-11-13)",
+)
+WELFARE = VoceBando(
+    "«Welfare aziendale» (Regione Toscana) | a sportello fino al 2027-10-30 "
+    "| atto: decreto dirigenziale 23619 del 20 ottobre 2026 "
+    "| url: https://esempio.it/welfare",
+    "Portale bandi Regione Toscana, decreto dirigenziale 23619 del 20 ottobre "
+    "2026 (dati estratti il 2026-11-12)",
+)
+SENZA_ATTO = Risultato(
+    "Bandi aperti per imprese artigiane e commerciali (alla data del "
+    "2026-11-15), 2 in archivio:\n"
+    f"- [#1] {FILIERA.testo}\n- [#2] {WELFARE.testo}",
+    fonti=[FILIERA.fonte, WELFARE.fonte],
+    voci=[FILIERA, WELFARE],
+)
+
+
+def test_blocco_con_bandi_senza_lista_delle_fonti_nell_intestazione():
+    testo = formatta_dati([("bandi_per_beneficiario", SENZA_ATTO)])
+    intestazione = testo.splitlines()[0]
+    assert intestazione == (
+        "[D1] interrogazione: bandi_per_beneficiario | fonte: "
+        "indicata in fondo alla riga di ogni bando"
+    )
+    assert "23619" not in intestazione
+    assert "Incentivi Italia" not in intestazione
+
+
+def test_ogni_riga_di_bando_finisce_con_la_sua_fonte():
+    righe = formatta_dati([("bandi_per_beneficiario", SENZA_ATTO)]).splitlines()
+    assert righe[2] == f"- [D1.1] {FILIERA.testo} | fonte: {FILIERA.fonte}"
+    assert righe[3] == f"- [D1.2] {WELFARE.testo} | fonte: {WELFARE.fonte}"
+
+
+def test_blocco_senza_bandi_tiene_le_fonti_nell_intestazione():
+    popolazione = Risultato(
+        "Dato più recente: 1834 abitanti al 1 gennaio 2026.",
+        fonti=["ISTAT bilancio demografico mensile"],
+    )
+    testo = formatta_dati([("popolazione_ultima", popolazione)])
+    assert testo.splitlines()[0] == (
+        "[D1] interrogazione: popolazione_ultima | fonte: "
+        "ISTAT bilancio demografico mensile"
+    )
+
+
+def test_la_fonte_nelle_righe_non_cambia_il_testo_del_risultato():
+    prima = SENZA_ATTO.testo
+    formatta_dati([("bandi_per_beneficiario", SENZA_ATTO)])
+    assert prima == SENZA_ATTO.testo
+
+
+def test_atto_di_un_altro_bando_per_il_bando_senza_atto_non_trovato():
+    # P04 del lotto 4: il decreto del bando welfare citato per Filiera SMART
+    (esito,) = verifica(
+        "Filiera SMART è a sportello (fonte: [D1.1], Portale bandi Regione "
+        "Toscana, decreto dirigenziale 23619).",
+        [],
+        [("bandi_per_beneficiario", SENZA_ATTO)],
+    )
+    assert (esito.tipo, esito.valore, esito.stato) == ("atto", "23619", "non_trovato")
+    assert esito.dettaglio == "presente invece in ['D1.2']"
+
+
+def test_bando_senza_atto_citato_con_la_fonte_della_riga_verificato():
+    esiti = verifica(
+        "Contributo fino a 4.400.000 euro (fonte: [D1.1], Incentivi Italia, "
+        "OpenData_Incentivi.csv).",
+        [],
+        [("bandi_per_beneficiario", SENZA_ATTO)],
+    )
+    assert riassumi(esiti)["non_trovato"] == 0
+    assert riassumi(esiti)["verificato"] >= 1
