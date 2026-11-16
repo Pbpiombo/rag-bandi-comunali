@@ -1443,8 +1443,14 @@ G si misura su domande già viste e con la regressione su tutti i lotti.
 
 ### Decisioni e stato (16 novembre 2026)
 
-- **G1 approvata, non implementata**: fermata dal passo 0 (sotto). SRA28
-  entrerebbe nello storico come scaduto, ed è aperto.
+- **G1 approvata, prima fermata dal passo 0** (sotto: SRA28 sarebbe
+  entrato nello storico come "non più aperto", ed è aperto per chi ha già
+  l'impegno). **Applicata il 16 novembre 2026** dopo il controllo a mano
+  dei 9 bandi dello storico, con tre differenze dalla proposta: la riga
+  comincia con "stato: scadenza in archivio passata il …", non con
+  "scaduto, non più aperto"; l'intestazione dice "per ciascuno vale
+  quello che dice la sua riga"; la regola della risposta tiene insieme la
+  nota e le condizioni dei beneficiari (vedi "G1 applicata").
 - **G2a e G2b approvate e applicate.** Differenza dalla proposta: la
   fonte in fondo alla riga la aggiunge `formatta_dati` in
   `src/chains/router.py` (`con_fonte_nelle_righe`), non `formatta_bando`.
@@ -1511,6 +1517,132 @@ storico, l'unico con più anni nel titolo è "Bando Nidi gratis
 Prima di G1 serve decidere come rappresentare i bandi a domanda annuale:
 una riga per annualità in `scadenze_bando`, con la prossima finestra,
 come i bandi a finestre, oppure fuori dallo storico.
+
+**Diagnosi dello storico (16 novembre 2026, sola lettura).** La pagina
+della Regione di SRA28 (aggiornata all'08/09/2026, letta a mano il
+16/11/2026) dice:
+- possono fare domanda solo i titolari di impianti di imboschimento già
+  finanziati con l'intervento SRD05;
+- il "fino al 2029" riguarda le domande annuali di chi ha già l'impegno;
+- non dice se dopo il 2026 entrano nuovi richiedenti;
+- riporta insieme la scadenza del 30/06/2026 e lo stato "Aperto".
+
+La `scadenza_nota` in archivio è vera, ma non riporta la condizione.
+
+I bandi che entrerebbero in `bandi_scaduti_per_ente` al 16/11/2026
+(scadenza passata da non più di 365 giorni, ammettono l'ente;
+`scadenze_bando` vuota per tutti):
+
+| bando | scadenza | comuni | Unione | `scadenza_nota` |
+|---|---|---|---|---|
+| `risorse-genetiche-forestali-2026` | 2026-11-13 | sì | sì | due proroghe: dal 30/09 al 30/10, poi al 13/11/2026 |
+| `toscana-diffusa-strutture-2026` | 2026-10-30 | sì | no | istanze dal 1/06 al 30/10/2026 |
+| `mercati-rionali-2026` | 2026-10-15 | sì | no | dal 6/07 al 15/10/2026, prorogata (decreto 20141 dell'11/09/2026) |
+| `aso1-investimenti-non-produttivi-…-3dc9a0` (AS01) | 2026-10-12 | sì | sì | prorogato al 12/10/2026 (BURT n. 37 del 16/09/2026) |
+| `amianto-edifici-pubblici-2026` | 2026-09-30 | sì | sì | proroga al 30/09/2026 (decreto 18783 del 19/08/2026) |
+| `celebrazioni-storiche-2026-…` | 2026-09-30 | sì | sì | proroga al 30/09/2026 (decreto 20217 del 14/09/2026) |
+| `nidi-gratis-2026-2027` | 2026-09-25 | sì | sì | adesioni riaperte per i nuovi Comuni fino al 25/09; i Comuni già candidati, documenti entro il 6/10/2026 |
+| `toscanaincontemporanea-2026` | 2026-09-23 | sì | sì | scadenza alle 12 del 23/09/2026 |
+| `premi-annuali-ad-ettaro-…-cee3db` (SRA28) | 2026-06-30 | sì | sì | prorogata (circolare Agea del 15/05/2026); domande fino al 2029, ultima annualità |
+
+"comuni" vale per tutti e tre: hanno lo stesso elenco di 9 bandi.
+L'Unione ne ha 7, senza Toscana diffusa e mercati rionali, che ammettono
+solo i Comuni.
+
+**SRA28: dove sta il requisito SRD05.**
+- Campo `beneficiari` di `bandi`: c'è ("… che hanno beneficiato di un
+  sostegno per gli impianti di imboschimento e di sistemi agroforestali
+  su terreni agricoli, finanziati attraverso bando SRD05").
+- Righe di `beneficiari_bando`, comprese `comune` e `unione_comuni`
+  (soggetto "altri soggetti ed enti di diritto pubblico e loro
+  associazioni"): c'è in `condizioni` ("… finanziati attraverso il bando
+  che attua l'intervento SRD05").
+- `frase` delle stesse righe: tagliata a "… che hanno beneficiato di un
+  sostegno per gli impianti di imboschimento", senza "SRD05".
+- `scadenza_nota`: la condizione non c'è.
+
+**Note che parlano di annualità, finestre, riaperture o domande
+successive.**
+- **SRA28.** La nota parla delle annualità fino al 2029 e non dice chi
+  può usarle. Nella stessa riga del bando, però, la condizione c'è: la
+  riga di `formatta_bando` porta sia la nota sia "beneficiari:" con
+  SRD05, e per un ente si aggiunge "ammesso se titolari … SRD05". Il
+  legame tra le due cose (le annualità valgono solo per chi ha già
+  l'impegno SRD05) non è scritto da nessuna parte.
+- **Nidi gratis 2026-2027.** La nota parla di adesioni riaperte. La
+  condizione su chi può usare ogni termine è nella nota stessa: i nuovi
+  Comuni entro il 25/09, i Comuni già candidati entro il 6/10. Il 6/10 è
+  dopo la `scadenza` in archivio e non è in `scadenze_bando`; il
+  16/11/2026 sono passati tutti e due.
+- **Gli altri sette.** Le note parlano solo di proroghe (risorse
+  genetiche forestali, mercati rionali, AS01, amianto, celebrazioni) o
+  del solo termine (Toscana diffusa, Toscanaincontemporanea). Nessuna
+  parla di annualità, finestre successive o riaperture.
+
+**Controllo a mano dei 9 bandi (16 novembre 2026, operatore).**
+Scadenze e condizioni in archivio sono corrette per tutti e nove.
+- Risorse genetiche forestali 2026: la pagina della Regione (aggiornata
+  al 05/11/2026) conferma la scadenza del 13/11/2026 ore 13, con l'ultima
+  proroga nel decreto 23817 del 29/10/2026. La pagina indica ancora "In
+  corso", ma vale la scadenza.
+- SRA28: il requisito SRD05 è nei beneficiari e nelle condizioni; la
+  `scadenza_nota` ("fino al 2029") non lo riporta.
+
+### G1 applicata (16 novembre 2026)
+
+- `bandi_scaduti_per_ente` in `src/database/interrogazioni_bandi.py`,
+  `per_ente=True`, nessun parametro. Prende i bandi che ammettono l'ente
+  (`filtro_ente`), sono bandi (`natura`) e hanno la scadenza passata da
+  non più di 365 giorni (`scaduto` e `nello_storico`, come lo storico di
+  `bandi_per_tema`), dal più recente.
+- Ogni riga: "stato: scadenza in archivio passata il AAAA-MM-GG"
+  (`stato_storico`), "edizione: <anni del titolo>" solo se il titolo ha
+  un anno, poi `formatta_bando` con la nota dell'ente (`nota_per_ente`).
+  Così la riga ha la `scadenza_nota`, il campo beneficiari e "ammesso se
+  <condizioni>" delle righe del tipo dell'ente. Mai "non più aperto" né
+  "ricorrente".
+- Intestazione: "Bandi per i Comuni con la scadenza in archivio passata
+  negli ultimi 12 mesi (alla data del …), solo come storico: per ciascuno
+  vale quello che dice la sua riga". Se non c'è nessun bando:
+  `trovato=False`, "Nessun bando per i Comuni con la scadenza in archivio
+  passata negli ultimi 12 mesi (alla data del …)."
+- Router: voce del repertorio "I bandi per l'ente con la scadenza in
+  archivio passata negli ultimi 12 mesi, solo come storico: per domande
+  su bandi passati o chiusi. Mai per bandi aperti, in scadenza o a cui
+  partecipare ora", ed esempio "Quali bandi per il Comune sono scaduti
+  negli ultimi mesi?", diverso da C19.
+- `ISTRUZIONI`, sezione nuova BANDI CON LA SCADENZA PASSATA, prima di
+  STATO DEL BANDO NEI FRAMMENTI:
+  - non si presentano come opportunità aperte;
+  - mai concludere che chiunque possa ancora partecipare;
+  - la scadenza si cita con l'etichetta del bando;
+  - una nota con annualità, finestre o domande successive si riporta con
+    la sua fonte insieme alle condizioni dei beneficiari della stessa
+    riga; a chi vale si dice solo se la riga lo dice, altrimenti "da
+    verificare sulla pagina del bando";
+  - senza indicazioni: l'archivio non dice se riaprirà, e l'invito a
+    seguire la pagina dell'ente che lo emette;
+  - niente previsioni, mai "ricorrente".
+- Provato sul database vero in sola lettura: 9 bandi per ciascuno dei tre
+  comuni, 7 per l'Unione, gli stessi della diagnosi. La riga di SRA28 ha
+  "era a sportello fino al 2026-06-30", la nota "fino al 2029 come ultima
+  annualità ammessa" e "ammesso se titolari … SRD05".
+- Test (`tests/test_interrogazioni_bandi.py`):
+  - solo bandi scaduti da meno di un anno e per l'ente (no aperti, no
+    oltre l'anno, no altri tipi, no `non_bando`);
+  - intestazione, ordine dal più recente, nessun "non più aperto" né
+    "ricorrent";
+  - edizione solo con l'anno nel titolo;
+  - storico vuoto;
+  - storico per l'Unione;
+  - un bando come SRA28 (scadenza passata, nota con le annualità fino al
+    2029, condizione "che hanno beneficiato di un sostegno … SRD05"): la
+    riga non ha "non più aperto" e ha sia la nota sia la condizione.
+- Test (`tests/test_router.py`): la voce nel repertorio e nell'esempio
+  del router, senza "riaprire".
+- Test (`tests/test_presentazione.py`): la regola BANDI CON LA SCADENZA
+  PASSATA, e nessuna parola di C19 o di SRA28 nelle istruzioni
+  ("imboschiment", "SRA28", "SRD05", "anno prossimo", "2029").
 
 ### G2. P04: l'atto di un bando attribuito a un altro
 
@@ -1602,8 +1734,16 @@ della sede) è ammesso dalla regola di D3: non conta.
 Misura ristretta con `--codici "C19,P04,A04"` sul lotto 4, non a freddo,
 poi regressione completa sui quattro lotti, non a freddo.
 
-- **G1, non applicata**: C19 resta "Non trovo", senza inventare bandi
-  scaduti o riaperture (controllo, non correzione).
+- **G1** (regola aggiornata il 16 novembre 2026, prima di registrare,
+  dopo l'applicazione di G1).
+  - In C19 ogni bando nominato ha la scadenza citata con la sua
+    etichetta, e nessuno è presentato come aperto.
+  - Se compare SRA28, è presentato con la nota sulle annualità e con la
+    condizione SRD05, mai come aperto a tutti.
+  - Nessuna previsione di riapertura e nessun "ricorrente".
+  - Nella regressione, controllo automatico sulle decisioni del router:
+    nessuna domanda sui bandi aperti o in scadenza sceglie
+    `bandi_scaduti_per_ente`.
 - **G2.** In P04 nessun non trovato di tipo atto; nessuna citazione con
   un atto preso da un'altra riga. Nella regressione: nessun non trovato
   nuovo con "presente invece in" un'altra etichetta; citati con il
@@ -1618,7 +1758,7 @@ poi regressione completa sui quattro lotti, non a freddo.
   C01, C20, C18 "Non trovo"); nessuna categoria d'errore nuova; nessuna
   risposta interrotta; nessun "—" né "–" come inciso.
 
-Costo stimato: misura ristretta circa 0,13 $ (C19 0,031, P04 0,060, A04
-0,040 $ dai costi a freddo); regressione 55 domande (17 + 13 + 13 + 12,
-comprese le "viste" del lotto 1) a circa 0,06 $, circa 3,3 $. Totale
-circa 3,4 $.
+Costo stimato: misura ristretta circa 0,16 $ (C19 da 0,031 a circa
+0,06 $ con i 9 bandi dello storico nei dati, P04 0,060, A04 0,040 $ dai
+costi a freddo); regressione 55 domande (17 + 13 + 13 + 12, comprese le
+"viste" del lotto 1) a circa 0,06 $, circa 3,3 $. Totale circa 3,5 $.

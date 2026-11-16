@@ -381,6 +381,28 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
     Streamlit Cloud), `importlib.reload` (non ricarica chi importa il
     modulo). Diagnosi in `docs/piano-correzioni-lotto1.md`, "Osservazioni
     dall'app online del 15 novembre 2026", punto 2.
+13. **Due dati incompleti trovati nello storico** (diagnosi di G1, 16
+    novembre 2026, `docs/piano-correzioni-lotto1.md`, correzione G):
+    - SRA28 (premi annuali per gli imboschimenti): la `frase` delle righe
+      di `beneficiari_bando` è tagliata prima di "SRD05" ("… che hanno
+      beneficiato di un sostegno per gli impianti di imboschimento").
+      Il requisito c'è nelle `condizioni` e nel campo beneficiari di
+      `bandi`;
+    - Nidi gratis 2026-2027: il secondo termine, il 6/10/2026 per i Comuni
+      già candidati, è solo nella `scadenza_nota`, non in
+      `scadenze_bando`.
+14. **Risorse genetiche forestali 2026 e SRA28, frase classificata sotto
+    quasi tutti i tipi**: "proprietari, possessori, pubblici o privati …"
+    ha una riga per quasi ogni tipo di beneficiario (anche
+    `impresa_turistica`, `professionista_autonomo`,
+    `cittadini_famiglie`), con la condizione su ogni riga. Questi bandi
+    compaiono a quasi ogni domanda d'impresa: da rivedere nel controllo
+    degli scarti.
+15. **`scadenza_nota` confrontata con la frase della pagina**, come i
+    beneficiari: oggi la nota estratta dal modello non ha una prova. Caso
+    di SRA28: la nota ("le domande … fino al 2029 come ultima annualità
+    ammessa") è vera, ma non dice che le annualità valgono solo per chi
+    ha già l'impegno SRD05.
 
 ### Primo compito di dati dopo la demo
 
@@ -501,6 +523,13 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
    l'OCR sbaglia i numeri, e il verificatore li darebbe per buoni. File
    .pdf.p7m da aprire prima della lettura. Se pagina e testo del bando
    non coincidono, vale il testo del bando.
+
+   Lettura dei PDF: valutare PyMuPDF al posto di pypdf (ordine del testo,
+   tabelle, immagini). Il testo dentro le immagini richiede comunque
+   l'OCR e resta "da OCR", non indicizzato in automatico. PyMuPDF è
+   AGPL: da riconsiderare se il servizio diventa a pagamento.
+   L'alternativa con licenza permissiva per le tabelle è pdfplumber, da
+   provare.
 7. **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione

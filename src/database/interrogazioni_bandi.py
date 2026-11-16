@@ -791,6 +791,87 @@ def bandi_in_scadenza(
     )
 
 
+def stato_storico(riga) -> str:
+    """L'inizio della riga di un bando dello storico.
+
+    "Scadenza in archivio passata", non "non più aperto": un bando a domanda
+    annuale (SRA28, premi per gli imboschimenti) ha il termine dell'annualita'
+    passato e resta aperto, per chi ha gia' l'impegno (correzione G1,
+    docs/piano-correzioni-lotto1.md).
+    """
+    testo = f"stato: scadenza in archivio passata il {riga['scadenza']}"
+    anni = anni_nel_titolo(riga["titolo"])
+    if anni:
+        testo += f" | edizione: {'-'.join(str(a) for a in anni)}"
+    return testo
+
+
+def bandi_scaduti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risultato:
+    """I bandi per l'ente con la scadenza in archivio passata da non piu' di un anno.
+
+    Solo come storico, dal piu' recente: le stesse regole dello storico di
+    bandi_per_tema (scaduto e nello_storico). Ogni riga ha la nota del bando
+    e i beneficiari con le loro condizioni, come negli elenchi per ente:
+    se il bando continua per qualcuno (annualita', domande successive), lo
+    dice la riga. L'archivio non sa quali bandi sono ricorrenti: l'anno
+    del titolo si riporta come edizione, nient'altro.
+    """
+    tipo = tipo_ente(conn, codice_ente)
+    if tipo is None:
+        return _ente_non_gestito(codice_ente)
+    nomi = NOMI_ENTE[tipo]
+    oggi = data_di_oggi().isoformat()
+    giorno = date.fromisoformat(oggi)
+    filtro, parametri = filtro_ente(tipo)
+
+    candidati = conn.execute(
+        f"""
+        SELECT * FROM bandi
+        WHERE {filtro}
+          AND {SOLO_BANDI}
+          AND scadenza < ?
+        ORDER BY scadenza DESC, titolo
+        """,
+        (*parametri, oggi),
+    ).fetchall()
+    storici = [
+        r
+        for r in candidati
+        if scaduto(r, scadenze_di(conn, r["id"]), oggi)
+        and nello_storico(r["scadenza"], giorno)
+    ]
+
+    if not storici:
+        return Risultato(
+            f"Nessun bando per {nomi['tutti']} con la scadenza in archivio "
+            f"passata negli ultimi 12 mesi (alla data del {oggi}).",
+            trovato=False,
+        )
+
+    numerate = RigheBandi()
+    elenco = "\n".join(
+        "- "
+        + numerate.numera(
+            r,
+            f"{stato_storico(r)} | "
+            + formatta_bando(
+                r, oggi, nota_per_ente(conn, r, tipo), scadenze_di(conn, r["id"])
+            ),
+        )
+        for r in storici
+    )
+    intestazione = (
+        f"Bandi per {nomi['tutti']} con la scadenza in archivio passata negli "
+        f"ultimi 12 mesi (alla data del {oggi}), solo come storico: per "
+        "ciascuno vale quello che dice la sua riga"
+    )
+    return Risultato(
+        f"{intestazione}\n{elenco}",
+        fonti=[fonte_bando(r) for r in storici],
+        voci=numerate.voci,
+    )
+
+
 def etichetta_tipi(riga, beneficiari: list) -> str:
     """I tipi ammessi da un bando, per gli elenchi non legati a un ente.
 

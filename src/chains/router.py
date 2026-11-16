@@ -81,6 +81,9 @@ ESEMPI
 "Vorrei avviare una nuova attività: ci sono contributi?"
 {{"documenti": false, "interrogazioni": [{{"nome": "bandi_per_beneficiario", "parametri": {{"tipo": "altra_impresa"}}}}]}}
 
+"Quali bandi per il Comune sono scaduti negli ultimi mesi?"
+{{"documenti": false, "interrogazioni": [{{"nome": "bandi_scaduti_per_ente", "parametri": {{}}}}]}}
+
 "Quanto si può ottenere dal bando per le aziende apistiche?"
 {{"documenti": true, "interrogazioni": [{{"nome": "dettaglio_bando", "parametri": {{"id_bando": "aziende apistiche"}}}}]}}
 

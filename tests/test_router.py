@@ -240,3 +240,17 @@ def test_regola_d_impresa_nelle_istruzioni_del_router():
         "dell'impresa." in testo
     )
     assert '"tipo": "altra_impresa"' in testo
+
+
+def test_g1_storico_nel_repertorio_e_negli_esempi():
+    from src.chains.router import ISTRUZIONI_ROUTER
+    from src.database.repertorio import PER_NOME, descrivi_repertorio
+
+    voce = PER_NOME["bandi_scaduti_per_ente"]
+    assert voce.per_ente
+    assert voce.parametri == {}
+    assert "Mai per bandi aperti, in scadenza" in voce.descrizione
+    assert "- bandi_scaduti_per_ente:" in descrivi_repertorio()
+    assert '"nome": "bandi_scaduti_per_ente"' in ISTRUZIONI_ROUTER
+    # L'esempio non e' la domanda C19 del lotto 4, con cui si misura G1
+    assert "riaprire" not in ISTRUZIONI_ROUTER

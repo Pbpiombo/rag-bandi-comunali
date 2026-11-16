@@ -456,3 +456,21 @@ def test_g_regole_non_tarate_sulle_domande_del_lotto_4():
     # Le domande con cui si misura G non stanno nelle istruzioni (come F1a)
     for parola in ("Sport e periferie", "Missione Comune", "falegnam", "Filiera"):
         assert parola not in ISTRUZIONI
+
+
+def test_g1_bandi_con_la_scadenza_passata():
+    inizio = ISTRUZIONI.index("BANDI CON LA SCADENZA PASSATA")
+    regola = ISTRUZIONI[inizio : ISTRUZIONI.index("STATO DEL BANDO NEI FRAMMENTI")]
+    testo = " ".join(regola.split())
+    assert "Non presentarli come opportunità aperte" in testo
+    assert "non concludere mai che chiunque possa ancora partecipare" in testo
+    assert "insieme alle condizioni dei beneficiari della stessa riga" in testo
+    assert "va verificato sulla pagina del bando" in testo
+    assert "l'archivio non dice se il bando riaprirà" in testo
+    assert "Non fare previsioni" in testo
+    assert 'non chiamare mai un bando "ricorrente"' in testo
+
+
+def test_g1_regola_non_tarata_su_c19_ne_su_sra28():
+    for parola in ("imboschiment", "SRA28", "SRD05", "anno prossimo", "2029"):
+        assert parola not in ISTRUZIONI

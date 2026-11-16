@@ -1531,3 +1531,116 @@ def test_la_voce_porta_titolo_e_url_del_bando(db):
 
     assert voce.titolo == "Bando parcheggi 2026"
     assert voce.url == BASE + "parcheggi"
+
+
+# --- storico per ente (correzione G1) ---
+
+
+def test_storico_solo_scaduti_da_meno_di_un_anno_e_per_l_ente(db):
+    bando(db, "aperto", [("comune", None, None)])
+    bando(db, "recente", [("comune", None, None)], scadenza="2026-09-30")
+    bando(db, "vecchio", [("comune", None, None)], scadenza="2025-10-01")
+    bando(db, "unioni", [("unione_comuni", None, None)], scadenza="2026-09-30")
+    bando(
+        db,
+        "non-bando",
+        [("comune", None, None)],
+        scadenza="2026-09-30",
+        natura="non_bando",
+    )
+
+    r = ib.bandi_scaduti_per_ente(db, COMUNE)
+
+    assert [v.url for v in r.voci] == [f"{BASE}recente"]
+    assert r.fonti == ["prova (dati estratti il 2026-11-11)"]
+
+
+def test_storico_intestazione_e_righe_dal_piu_recente(db):
+    bando(db, "settembre", [("comune", None, None)], scadenza="2026-09-30")
+    bando(db, "ottobre", [("comune", None, None)], scadenza="2026-10-15")
+
+    testo = ib.bandi_scaduti_per_ente(db, COMUNE).testo
+    righe = testo.splitlines()
+
+    assert righe[0] == (
+        "Bandi per i Comuni con la scadenza in archivio passata negli ultimi "
+        "12 mesi (alla data del 2026-11-11), solo come storico: per ciascuno "
+        "vale quello che dice la sua riga"
+    )
+    assert righe[1].startswith(
+        "- [#1] stato: scadenza in archivio passata il 2026-10-15 | «Bando ottobre»"
+    )
+    assert righe[2].startswith(
+        "- [#2] stato: scadenza in archivio passata il 2026-09-30 | «Bando settembre»"
+    )
+    assert "non più aperto" not in testo
+    assert "ricorrent" not in testo
+
+
+def test_storico_edizione_solo_con_l_anno_nel_titolo(db):
+    bando(
+        db,
+        "con-anno",
+        [("comune", None, None)],
+        scadenza="2026-09-30",
+        titolo="Bando nidi 2026-2027",
+    )
+    bando(db, "senza-anno", [("comune", None, None)], scadenza="2026-09-25")
+
+    testo = ib.bandi_scaduti_per_ente(db, COMUNE).testo
+
+    (con,) = righe_del_bando(testo, "con-anno")
+    (senza,) = righe_del_bando(testo, "senza-anno")
+    assert "| edizione: 2026-2027 |" in con
+    assert "edizione" not in senza
+
+
+def test_storico_vuoto(db):
+    bando(db, "aperto", [("comune", None, None)])
+
+    r = ib.bandi_scaduti_per_ente(db, COMUNE)
+
+    assert not r.trovato
+    assert r.voci == []
+    assert r.testo == (
+        "Nessun bando per i Comuni con la scadenza in archivio passata negli "
+        "ultimi 12 mesi (alla data del 2026-11-11)."
+    )
+
+
+def test_storico_per_l_unione(db):
+    bando(db, "per-unioni", [("unione_comuni", None, None)], scadenza="2026-09-30")
+
+    r = ib.bandi_scaduti_per_ente(db, UNIONE)
+
+    assert r.testo.startswith("Bandi per le Unioni di Comuni con la scadenza")
+    assert [v.url for v in r.voci] == [f"{BASE}per-unioni"]
+
+
+def test_storico_bando_a_domanda_annuale_con_nota_e_condizione(db):
+    # Come SRA28: termine dell'annualita' passato, domande annuali fino al
+    # 2029 solo per chi ha avuto il sostegno SRD05
+    condizione = (
+        "titolari di superfici che hanno beneficiato di un sostegno per gli "
+        "impianti di imboschimento, finanziati attraverso il bando SRD05"
+    )
+    nota = (
+        "le domande di aiuto/sostegno possono essere presentate fino al 2029 "
+        "come ultima annualità ammessa"
+    )
+    bando(
+        db,
+        "premi-annuali",
+        [("comune", condizione, "enti di diritto pubblico")],
+        scadenza="2026-06-30",
+        scadenza_nota=nota,
+    )
+
+    (riga,) = righe_del_bando(
+        ib.bandi_scaduti_per_ente(db, COMUNE).testo, "premi-annuali"
+    )
+
+    assert riga.startswith("- [#1] stato: scadenza in archivio passata il 2026-06-30")
+    assert "non più aperto" not in riga
+    assert f"nota: {nota}" in riga
+    assert f"ammesso se {condizione}" in riga

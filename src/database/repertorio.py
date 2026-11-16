@@ -15,6 +15,7 @@ from src.database.interrogazioni_bandi import (
     bandi_in_scadenza,
     bandi_per_beneficiario,
     bandi_per_tema,
+    bandi_scaduti_per_ente,
     data_di_oggi,
     dettaglio_bando,
     dividi,
@@ -102,6 +103,15 @@ REPERTORIO = [
         "I bandi per l'ente che scadono entro un certo numero di giorni",
         {"giorni": "intero opzionale, predefinito 60"},
         bandi_in_scadenza,
+        per_ente=True,
+    ),
+    Voce(
+        "bandi_scaduti_per_ente",
+        "I bandi per l'ente con la scadenza in archivio passata negli ultimi "
+        "12 mesi, solo come storico: per domande su bandi passati o chiusi. "
+        "Mai per bandi aperti, in scadenza o a cui partecipare ora",
+        {},
+        bandi_scaduti_per_ente,
         per_ente=True,
     ),
     Voce(
