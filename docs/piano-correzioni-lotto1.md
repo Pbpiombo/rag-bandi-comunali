@@ -1762,3 +1762,76 @@ Costo stimato: misura ristretta circa 0,16 $ (C19 da 0,031 a circa
 0,06 $ con i 9 bandi dello storico nei dati, P04 0,060, A04 0,040 $ dai
 costi a freddo); regressione 55 domande (17 + 13 + 13 + 12, comprese le
 "viste" del lotto 1) a circa 0,06 $, circa 3,3 $. Totale circa 3,5 $.
+
+### Esito della misura ristretta (16 novembre 2026)
+
+Cartella `dati-grezzi/prova/lotto_4/2026-11-16_100523`, `--codici
+"C19,P04,A04"`. La regola di chiusura è rispettata per C19, P04 e A04
+(lettura dell'operatore).
+
+L'unico difetto è in C19. La risposta comincia con "tra i bandi … con
+scadenza passata negli ultimi 12 mesi", e la prima citazione che segue è
+[D1.9]. Il verificatore segna "12" non trovato ("presente invece in
+['D1']"): il numero sta nell'intestazione del blocco, scritta dal
+programma ("… passata negli ultimi 12 mesi …"). Nell'app la risposta
+comparirebbe in rosso su un dato giusto: correzione G4.
+
+### G4. Numero dell'intestazione citato con l'etichetta di un bando
+
+**Richiesta (16 novembre 2026).** Un valore citato con [Dn.k], che non è
+nel testo di Dn.k ma è nell'intestazione del blocco [Dn] (non nelle
+righe degli altri bandi), conta come verificato, con fonte Dn. Mai
+cercarlo nelle righe degli altri bandi.
+
+**Fermata prima di implementare: tre test esistenti la vietano.** Oggi
+l'intestazione vale per la riga di un bando solo per le date e per la
+finestra di `bandi_in_scadenza` ("entro 30 giorni"):
+`date_dell_intestazione` in `src/verification/controllo.py`, con il
+commento «"12 in archivio" non deve verificare un 12 qualsiasi
+attribuito a un bando». In `tests/test_verifica_bandi.py` tre test lo
+proteggono:
+- `test_i_numeri_dell_intestazione_non_valgono_per_la_riga`: "Ammessi 12
+  progetti (fonte: [D1.2], …)" con "12 in archivio" nell'intestazione
+  deve restare non trovato;
+- `test_il_conteggio_accanto_alla_finestra_non_vale_per_la_riga`: lo
+  stesso con la finestra;
+- `test_quattro_in_archivio_non_verifica_un_quattro`: "4 in archivio".
+
+Con la regola generale tutti e tre passerebbero a verificato. Il
+conteggio dei bandi è nell'intestazione di `bandi_aperti_per_ente`,
+`bandi_per_beneficiario` e `bandi_in_scadenza`, e ogni numero uguale a
+quel conteggio, attribuito a un bando, risulterebbe verificato.
+
+**Decisione (16 novembre 2026): alternativa approvata e applicata.** La
+regola generale sull'intestazione è scartata, perché riaprirebbe "N in
+archivio".
+
+- In `src/verification/controllo.py`, `SCHEMA_FINESTRA_STORICO`
+  ("negli ultimi <n> mesi") sta accanto a `SCHEMA_FINESTRA`.
+  `date_dell_intestazione` prende tutte e due le finestre
+  dall'intestazione del blocco, che così valgono per ogni riga [Dn.k].
+  Il conteggio "N in archivio" resta escluso.
+- Limite accettato, come per la finestra dei 30 giorni: un "12"
+  attribuito a un bando dello storico risulta verificato anche se non
+  c'entra con la finestra.
+- Un dato non si cerca mai nelle righe degli altri bandi dello stesso
+  blocco.
+- I tre test esistenti sono invariati e passano.
+- Test nuovi in `tests/test_verifica_bandi.py`, su un blocco di
+  `bandi_scaduti_per_ente` con 16 bandi:
+  - "negli ultimi 12 mesi" citato con [D1.9]: verificato. È l'unico che
+    fallisce con il codice di prima (provato);
+  - lo stesso "12" in un blocco di `bandi_aperti_per_ente`, senza la
+    finestra: non trovato;
+  - l'atto della riga D1.16 citato con [D1.9]: non trovato, "presente
+    invece in ['D1.16']" (il caso di P04);
+  - un numero che non è né in D1.9 né nella finestra: non trovato.
+
+**Alternativa proposta (prima della decisione).** Come la finestra di
+`bandi_in_scadenza`: la finestra dello storico ("negli ultimi 12 mesi")
+entra tra le parti dell'intestazione che valgono per ogni riga, con uno
+schema accanto a `SCHEMA_FINESTRA`. Il conteggio "N in archivio" resta
+escluso, e i tre test restano come sono. L'intestazione dello storico
+non ha un conteggio; il suo unico altro numero è la data. Il limite è lo
+stesso della finestra di 30 giorni: un "12" attribuito a un bando dello
+storico risulterebbe verificato anche se non c'entra.

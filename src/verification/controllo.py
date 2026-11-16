@@ -383,6 +383,12 @@ def contesto_di(testo: str, posizione: int, ampiezza: int = 40) -> str:
 # La finestra di bandi_in_scadenza nell'intestazione: "in scadenza entro
 # 30 giorni"
 SCHEMA_FINESTRA = re.compile(r"\bentro\s+\d{1,3}\s+giorni\b", re.IGNORECASE)
+# La finestra dello storico di bandi_scaduti_per_ente: "passata negli ultimi
+# 12 mesi". Vale per ogni riga come quella delle scadenze (correzione G4,
+# docs/piano-correzioni-lotto1.md); il conteggio "N in archivio" resta escluso
+SCHEMA_FINESTRA_STORICO = re.compile(
+    r"\bnegli\s+ultimi\s+\d{1,2}\s+mesi\b", re.IGNORECASE
+)
 
 
 def date_dell_intestazione(testo: str) -> str:
@@ -392,13 +398,18 @@ def date_dell_intestazione(testo: str) -> str:
     un Comune può presentare domanda (alla data del 2026-11-12), 12 in
     archivio:". La data dell'archivio vale per ogni riga del blocco, e si
     cita con l'etichetta di un bando; cosi' la finestra di un elenco in
-    scadenza ("entro 30 giorni"), che ogni riga rispetta. Gli altri numeri
-    no: "12 in archivio" non deve verificare un 12 qualsiasi attribuito a
-    un bando. Le date in ISO; la finestra come e' scritta.
+    scadenza ("entro 30 giorni") e quella dello storico ("negli ultimi 12
+    mesi"), che ogni riga rispetta. Gli altri numeri no: "12 in archivio"
+    non deve verificare un 12 qualsiasi attribuito a un bando. Le date in
+    ISO; le finestre come sono scritte.
     """
     trovato = SEGNAPOSTO.search(testo)
     intestazione = testo[: trovato.start()] if trovato else ""
-    finestre = [m.group(0) for m in SCHEMA_FINESTRA.finditer(intestazione)]
+    finestre = [
+        m.group(0)
+        for schema in (SCHEMA_FINESTRA, SCHEMA_FINESTRA_STORICO)
+        for m in schema.finditer(intestazione)
+    ]
     return " ".join([*sorted(valori(intestazione).date), *finestre])
 
 

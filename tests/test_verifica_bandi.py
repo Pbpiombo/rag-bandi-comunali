@@ -376,3 +376,75 @@ def test_bando_senza_atto_citato_con_la_fonte_della_riga_verificato():
     )
     assert riassumi(esiti)["non_trovato"] == 0
     assert riassumi(esiti)["verificato"] >= 1
+
+
+# --- correzione G4: la finestra dello storico vale per ogni riga ---
+
+
+def _voce_storico(k: int) -> VoceBando:
+    atto = (
+        "decreto dirigenziale 23619 del 20 ottobre 2026" if k == 16 else "non indicato"
+    )
+    return VoceBando(
+        f"stato: scadenza in archivio passata il 2026-09-{k:02d} | «Bando {k}» "
+        f"(Regione Toscana) | scade il 2026-09-{k:02d} (SCADUTO da {60 - k} giorni) "
+        f"| atto: {atto} | url: https://esempio.it/{k}",
+        f"Portale bandi Regione Toscana, {atto} (dati estratti il 2026-11-12)"
+        if k == 16
+        else "Incentivi Italia, OpenData_Incentivi.csv (dati estratti il 2026-11-13)",
+    )
+
+
+VOCI_STORICO = [_voce_storico(k) for k in range(1, 17)]
+STORICO = Risultato(
+    "Bandi per i Comuni con la scadenza in archivio passata negli ultimi 12 "
+    "mesi (alla data del 2026-11-16), solo come storico: per ciascuno vale "
+    "quello che dice la sua riga\n"
+    + "\n".join(f"- [#{k}] {v.testo}" for k, v in enumerate(VOCI_STORICO, start=1)),
+    fonti=[v.fonte for v in VOCI_STORICO],
+    voci=VOCI_STORICO,
+)
+DATI_STORICO = [("bandi_scaduti_per_ente", STORICO)]
+
+
+def test_finestra_dello_storico_citata_con_la_riga_del_bando():
+    # C19 nella misura ristretta del lotto 4
+    (esito,) = verifica(
+        "Tra i bandi con scadenza passata negli ultimi 12 mesi c'è il Bando 9 "
+        "(fonte: [D1.9], Incentivi Italia).",
+        [],
+        DATI_STORICO,
+    )
+    assert (esito.valore, esito.stato, esito.frammenti) == (
+        "12",
+        "verificato",
+        ["D1.9"],
+    )
+
+
+def test_lo_stesso_12_senza_la_finestra_dello_storico_non_trovato():
+    (esito,) = verifica(
+        "Bandi passati negli ultimi 12 mesi (fonte: [D1.2], Regione).", [], DATI
+    )
+    assert (esito.valore, esito.stato) == ("12", "non_trovato")
+
+
+def test_storico_atto_di_un_altro_bando_non_trovato():
+    # Il caso di P04 del lotto 4: l'atto della riga D1.16 citato con [D1.9]
+    esiti = verifica(
+        "Il Bando 9 è scaduto (fonte: [D1.9], decreto dirigenziale 23619).",
+        [],
+        DATI_STORICO,
+    )
+    (atto,) = [e for e in esiti if e.tipo == "atto"]
+    assert (atto.valore, atto.stato) == ("23619", "non_trovato")
+    assert atto.dettaglio == "presente invece in ['D1.16']"
+
+
+def test_storico_numero_fuori_dalla_riga_e_dalla_finestra_non_trovato():
+    (esito,) = verifica(
+        "Il Bando 9 ammetteva 25 progetti (fonte: [D1.9], Incentivi Italia).",
+        [],
+        DATI_STORICO,
+    )
+    assert (esito.valore, esito.stato) == ("25", "non_trovato")
