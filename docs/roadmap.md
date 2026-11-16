@@ -408,7 +408,9 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
     chiamata, e le tre non sono sempre d'accordo: nella regressione del
     16/11/2026 C02, C12, P09 e P22 hanno cambiato interrogazione o perso
     la seconda, e la stessa variabilità c'era già prima della correzione
-    G (`docs/piano-correzioni-lotto1.md`, correzione G5).
+    G (`docs/piano-correzioni-lotto1.md`, correzione G5). Fa parte
+    dell'architettura della risposta in due passi, prima voce dei
+    "Prossimi passi".
 
 ### Primo compito di dati dopo la demo
 
@@ -421,6 +423,46 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
   `docs/piano-correzioni-lotto1.md`.
 
 ## Prossimi passi, in ordine
+
+**Prima voce dopo la demo, prima delle voci numerate: architettura della
+risposta in due passi.** Le voci numerate sotto conservano il loro
+numero, perché altre parti del documento le citano così.
+
+Oggi il modello decide insieme tre cose: quali bandi sono pertinenti, la
+forma della risposta e il testo. Lo guida un prompt con molte regole che
+interagiscono. Caso del 16/11/2026: G3, corretta da sola, ha trasformato
+8 risposte in rifiuti (`docs/piano-correzioni-lotto1.md`, correzione
+G5).
+
+Proposta:
+- (1) il modello classifica ogni bando dei dati come pertinente,
+  generico possibile o non pertinente, con la frase che lo giustifica,
+  in uscita strutturata;
+- (2) il codice decide la forma: "Non trovo", solo bandi generici,
+  oppure bandi pertinenti;
+- (3) il modello scrive il testo dentro quella forma.
+
+Insieme:
+- router a maggioranza tra le 3 chiamate (voce 16 di "Dopo la demo:
+  dalla prova completa del 14 novembre"), con ripiego automatico
+  sull'elenco dei bandi aperti per l'ente (caso C02);
+- distinzione tra bandi generici per imprese, che valgono per quasi ogni
+  investimento, e bandi a scopo preciso per enti, che non vanno proposti
+  come generici;
+- dati ordinati per vicinanza alla domanda, invece di elenchi piatti;
+- meno regole nel prompt, scritte come tabella di decisione;
+- attese di prova sulla forma della risposta: non comincia con "Non
+  trovo", nomina X come generico, non nomina Y.
+
+Realizzazione come flusso orchestrato a passi fissi (per esempio con
+LangGraph), non come agente libero.
+- Il modello decide solo in punti definiti: router, classificazione,
+  scrittura, ed eventualmente un validatore che segnala bandi omessi o
+  affermazioni senza supporto.
+- Il validatore si tara sui giudizi a mano, come il modello giudice
+  ("Insieme di prova: dopo").
+- I giri sono limitati.
+- Ripieghi e forma della risposta li decide il codice.
 
 1. **Scheda per bando**: per chi è e per cosa si può usare, divisa per tipo di
    beneficiario, con le clausole citate. Quello che il bando dice e i possibili
@@ -800,4 +842,6 @@ Metodo in `docs/piano-insieme-prova.md`.
   per il router fallito): la parte documentale dell'app e la regola E
   (`docs/piano-correzioni-lotto1.md`) sono misurate su una domanda sola.
 - **Modello giudice**: solo dopo averlo tarato su un numero sufficiente di
-  giudizi a mano.
+  giudizi a mano. La stessa taratura vale per il validatore
+  dell'architettura della risposta in due passi (prima voce dei
+  "Prossimi passi").

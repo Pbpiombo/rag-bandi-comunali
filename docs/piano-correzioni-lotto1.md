@@ -2033,3 +2033,42 @@ Cosa si perde:
 
 Non c'è una via di mezzo con `git revert`: G2 e G3 stanno nello stesso
 commit. Per tenere G2 senza G3 bisogna modificare a mano `rag.py`.
+
+### Esito della misura (16 novembre 2026)
+
+Misura sulle 17 domande con il commit di G5, impronta delle istruzioni
+03472bc0: `lotto_1/2026-11-16_105345`, `lotto_2/2026-11-16_105631`,
+`lotto_3/2026-11-16_105747`, `lotto_4/2026-11-16_105924`. Lettura
+dell'operatore.
+
+- **Ripristinate.**
+  - C03: Punti Digitale Facile e progettualità sui dati.
+  - C12: Sport Missione Comune.
+  - P22 e P25: bandi pertinenti e generici, con le condizioni. Il bando
+    con "Impresa - prevalenza femminile" oggi non è nei dati di P25:
+    è tra i bandi non valutabili, "sportello probabilmente esaurito".
+  - C01: "Non trovo" pulito, senza il bando scaduto e senza parole
+    inglesi.
+- **Restano "Non trovo", come devono**: C04, C11, C14, C18, C20.
+- **Come nella misura ristretta di G**: C19, A04, P04.
+- **In tutte le risposte**: nessun trattino lungo, nessuna parola
+  inglese, nessuna parola del sistema.
+- **Regola di chiusura non rispettata nella forma da P11 e P16.** Tutte
+  e due cominciano con "Non trovo la risposta nei documenti
+  disponibili:" e poi elencano i bandi generici con le condizioni.
+  **Eccezione accettata, decisa dopo aver visto il risultato e quindi
+  dichiarata come tale**: lo scopo della regola, nessun rifiuto quando
+  i bandi ci sono, è rispettato; resta un'apertura goffa.
+- **C02** ("Il Comune può chiedere fondi per sistemare una strada
+  franata?") risponde "Non trovo". Il router sceglie `bandi_per_tema`
+  con tema territorio in 2 chiamate su 3, e il fondo strade non è sotto
+  quel tema. Non dipende da G5: a freddo sul lotto 4 aveva scelto
+  `bandi_aperti_per_ente` 2 volte su 3. Limite accettato per la demo.
+- **P09**: il router sceglie solo `bandi_per_tema` ambiente, e la
+  risposta è coerente con i dati ricevuti.
+- **C14**: "over 65", nella riga su cosa servirebbe, risulta senza
+  fonte. È un numero d'esempio scritto dal modello; difetto lieve.
+
+**Le correzioni si chiudono qui.** Segue la regressione finale completa
+sui quattro lotti. Se mostra peggioramenti nuovi si passa al piano B
+(ritorno a F), senza altri giri di correzioni.
