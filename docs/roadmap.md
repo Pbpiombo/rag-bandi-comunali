@@ -412,6 +412,30 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
     dell'architettura della risposta in due passi, prima voce dei
     "Prossimi passi".
 
+    Casi di prova, dalla regressione finale del 16/11/2026: P22, C02 e
+    P24.
+    - **P22 è il primo caso da usare per misurare il router a
+      maggioranza.** Passa da 4 bandi citati a freddo a "Non trovo".
+      Prima di G 2 chiamate del router su 3 sceglievano
+      `bandi_per_beneficiario` più `bandi_per_tema`; dopo G, 9 chiamate
+      su 9 scelgono solo `bandi_per_beneficiario`. È uno spostamento
+      sistematico, non variabilità: la maggioranza non lo correggerebbe.
+    - **Prima di cambiare il router** va capito se lo spostamento
+      dipende dalla voce `bandi_scaduti_per_ente` nel repertorio o
+      dall'esempio aggiunto nelle istruzioni del router (correzione G1).
+    - **C02**: spostamento più debole, `bandi_aperti_per_ente` scelta in
+      2 chiamate su 3 prima di G e in 4 su 9 dopo.
+    - **P24** cita 1 bando invece di 2: il router sceglie una sola
+      interrogazione tra tema e beneficiario.
+17. **Verificatore, citazione posta prima della condizione**: il dato si
+    cerca anche nella citazione precedente della stessa voce di elenco.
+    Caso P01 della regressione finale del 16/11/2026: la citazione sta
+    prima della condizione, e la delibera 704/2025 viene associata al
+    bando successivo ("presente invece in D1.8").
+18. **Verificatore, orari**: "16,00" e "16:00" letti come orario e
+    confrontati con il testo della fonte. Caso P21 della regressione
+    finale del 16/11/2026: "16,00" risulta non trovato (falso allarme).
+
 ### Primo compito di dati dopo la demo
 
 - **Bandi senza tema**: 49 bandi in archivio non hanno tema, tutti da

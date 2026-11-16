@@ -2072,3 +2072,50 @@ dell'operatore.
 **Le correzioni si chiudono qui.** Segue la regressione finale completa
 sui quattro lotti. Se mostra peggioramenti nuovi si passa al piano B
 (ritorno a F), senza altri giri di correzioni.
+
+## Regressione finale (16/11, commit 715b411)
+
+Regressione completa sui quattro lotti, non a freddo, con il commit di
+G5. Lettura dell'operatore.
+
+- **Numeri.** 55 domande sui 4 lotti. Router riuscito 55/55, 0
+  anomalie. 0 risposte interrotte per max_tokens. Costo 3,44 $.
+- **Rifiuti introdotti da G: 6 rientrati su 8.** Gli 8 erano C03, C02,
+  C12, P09, P11, P16, P22, P25 (regressione dopo G).
+  - Rientrati: C03, C12, P09, P11, P16, P25. P11 e P16 non aprono più
+    con "Non trovo" seguito da un elenco.
+  - Non rientrati: C02 e P22, tutti e due per la scelta del router
+    (sotto).
+- **Miglioramento della forma, separato dai rifiuti.** P08, P23 e P14
+  non erano rifiuti: nella regressione dopo G aprivano con "Non trovo"
+  pur citando dei bandi. Nella regressione finale non lo fanno più.
+- **Attese mancate.**
+  - L05: non è mai stata soddisfatta.
+  - C02: scelta del router (sotto), limite accettato.
+- **Non trovati: 6 in 4 domande, nessun errore vero.**
+  - P21: orario scritto "16,00"; falso allarme.
+  - P01: la citazione sta prima della condizione, e il verificatore
+    associa la delibera 704/2025 al bando successivo; la segnala
+    ("presente invece in D1.8").
+  - L02: codice ATECO I 56 dalla conoscenza generale, ammesso dalla
+    regola ATECO.
+  - C08: data ricavata da "fine mese".
+- **Limite residuo: la scelta del router.**
+  - **P22: spostamento sistematico, non variabilità.** P22 passa da 4
+    bandi citati a freddo a "Non trovo".
+    - Prima di G, a freddo, 2 chiamate del router su 3 sceglievano
+      `bandi_per_beneficiario` più `bandi_per_tema`.
+    - Dopo G il router sceglie solo `bandi_per_beneficiario`, in 9
+      chiamate su 9 (regressione dopo G, misura G5, regressione
+      finale).
+    - Causa probabile, da verificare: le modifiche di G a ciò che il
+      router riceve, cioè la voce `bandi_scaduti_per_ente` nel
+      repertorio e l'esempio nelle istruzioni del router.
+
+    Questo corregge la diagnosi di G5, che per P22 parlava di
+    variabilità che c'era già.
+  - **C02: spostamento più debole.** `bandi_aperti_per_ente` era scelta
+    in 2 chiamate su 3 prima di G, in 4 su 9 dopo.
+  - **P24** cita 1 bando invece di 2: il router sceglie una sola
+    interrogazione tra tema e beneficiario.
+- **Esito: correzioni chiuse, piano B non necessario.**

@@ -106,3 +106,12 @@ Note:
   non sceglie nessuna interrogazione (3 chiamate su 3) e la risposta è
   "Non trovo", senza inventare. Correzione G in
   `docs/piano-correzioni-lotto1.md`.
+- **Regressione finale (16/11/2026, commit 715b411)**, dopo le
+  correzioni G e G5. Non è una misura a freddo e non entra nella
+  tabella. 55 domande sui 4 lotti; router 55/55 con 0 anomalie; 0
+  risposte interrotte; costo 3,44 $. Degli 8 rifiuti introdotti da G ne
+  sono rientrati 6; C02 e P22 no, per la scelta del router (per P22 uno
+  spostamento sistematico dopo G). Attese mancate: L05, mai
+  soddisfatta, e C02. 6 non trovati in 4 domande, nessun errore
+  vero. Esito: correzioni chiuse, piano B non necessario. Dettagli in
+  `docs/piano-correzioni-lotto1.md`, "Regressione finale".
