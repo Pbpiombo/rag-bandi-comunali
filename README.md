@@ -20,7 +20,7 @@ sistema risponde per quell'ente.
 - **Cosa fa**: risponde sui bandi per l'ente scelto (aperti, in scadenza, per tipo di beneficiario, dettaglio di un bando) e sui documenti in archivio, citando la fonte di ogni dato.
 - **Fonti**: 109 bandi da 6 fonti (Regione Toscana, Incentivi Italia, GAL MontagnAppennino, Sviluppo Toscana, Istituto per il Credito Sportivo e Culturale, Ministero delle Infrastrutture), dati ISTAT dei tre comuni, 5 avvisi e studi in PDF.
 - **Controllo dei dati**: un verificatore meccanico cerca ogni dato citato nella fonte dichiarata; l'estrazione dei bandi è misurata con verifiche a mano sulle pagine ufficiali.
-- **Misure**: verifica a mano di 23 bandi, scadenza corretta in 21; seconda verifica sui 10 bandi riestratti: scadenza corretta in 10, beneficiari in 7 e parzialmente in 3. Due prove con il modello: 138 dati segnati come verificati, nessun falso positivo. Recupero: 13 frammenti attesi su 16 tra i primi 10, 5 su 5 nelle domande di controllo.
+- **Misure**: verifica a mano di 23 bandi, scadenza corretta in 21; seconda verifica sui 10 bandi riestratti: scadenza corretta in 10, beneficiari in 7 e parzialmente in 3. Due prove con il modello: 138 dati segnati come verificati, nessun falso positivo. Recupero: 13 frammenti attesi su 16 tra i primi 10, 5 su 5 nelle domande di controllo. Insieme di prova di 55 domande in 4 lotti: nella regressione finale del 16 novembre, router riuscito 55 volte su 55, 2 attese mancate, 6 dati non trovati e nessuno un errore vero.
 - **Limiti principali**: il verificatore controlla che un dato esista nella fonte, non che sia completo o attribuito alla cosa giusta; le fonti non coprono tutto (prima misura su un elenco esterno, il 13 novembre prima dei recuperi: 8 bandi su 31); gli aggiornamenti si lanciano a mano.
 
 ---
@@ -158,7 +158,7 @@ scoprire i bandi, ma non sono una fonte: i dati si prendono sempre dalla
 pagina ufficiale dell'ente. I social non si leggono, e `robots.txt` si
 rispetta sempre.
 
-Il router sceglie una di queste interrogazioni:
+Il router sceglie una o più di queste interrogazioni:
 
 - **bandi aperti per l'ente**: quelli a cui l'ente scelto può presentare
   domanda, con gli sportelli in un gruppo a parte e l'invito a verificare
@@ -166,6 +166,10 @@ Il router sceglie una di queste interrogazioni:
 - **bandi in scadenza** entro un numero di giorni: anche gli sportelli con
   una data di chiusura nella finestra, segnalati come "a sportello, chiude
   il …, salvo esaurimento delle risorse";
+- **storico dei bandi per l'ente**: quelli con la scadenza in archivio
+  passata negli ultimi 12 mesi, solo come storico, per le domande su bandi
+  passati o chiusi; mai per i bandi aperti, in scadenza o a cui
+  partecipare ora;
 - **bandi per tipo di beneficiario**: imprese agricole, turistiche,
   artigiane, terzo settore, cittadini e gli altri tipi della lista chiusa;
 - **bandi per tema**: se il tema in archivio non corrisponde, si cercano le
@@ -674,6 +678,19 @@ Vale la pena elencarli con la stessa precisione di ciò che il sistema fa.
   "Rifugi" trova un bando che nomina le case rifugio per le donne vittime di
   violenza; "piste da sci" non trova niente, anche se i bandi neve
   riguardano le stazioni sciistiche.
+- **Il router può lasciare fuori il bando giusto.** A volte sceglie una
+  sola interrogazione, o quella sbagliata, e il bando pertinente non
+  arriva al modello che scrive la risposta. In alcuni casi è variabilità:
+  il router si chiama 3 volte, l'app usa la prima risposta, e le tre non
+  sono sempre d'accordo. In altri è uno spostamento sistematico, misurato
+  dopo le correzioni G dell'insieme di prova
+  (`docs/piano-correzioni-lotto1.md`). P22 prima cercava per tipo di
+  beneficiario e per tema in 2 chiamate su 3; dopo G cerca solo per
+  beneficiario in 9 chiamate su 9, e risponde "Non trovo". C02 ("Il
+  Comune può chiedere fondi per sistemare una strada franata?") sceglie
+  più spesso il tema "territorio", dove il fondo strade non è, invece dei
+  bandi aperti per l'ente. La causa probabile, da verificare, sono le
+  modifiche di G a ciò che il router riceve.
 - **Una domanda riguarda un ente alla volta.** Non esiste ancora una vista su
   tutta l'area, del tipo "quali bandi può usare ciascuno dei nostri comuni".
 - **Nessun dato numerico per l'Unione.** Popolazione e superficie ci sono
@@ -728,9 +745,49 @@ i primi 10 ci sono 13 frammenti attesi su 16 nelle 15 domande di prova e 5
 su 5 nelle 5 di controllo, su Postgres e su Chroma. Le domande di
 controllo sono state scritte dopo aver deciso tutto sulle altre 15.
 
+**Insieme di prova delle risposte.** 55 domande realistiche, fatte alla
+catena dell'app con l'ente Comune di Abetone Cutigliano, divise in 4
+lotti stratificati per gruppo: Comuni, privati, domande aperte, più 5
+domande già usate prima, solo nel lotto 1 e fuori dalla misura a freddo.
+Ogni domanda ha le sue attese, i bandi che devono comparire tra quelli
+citati, ed eventuali vietate, quelli che non devono comparire. Ogni lotto
+si registra a freddo una sola volta, prima di correggere; solo dopo lo si
+legge per la diagnosi. I dati citati che il verificatore segnala, e un
+campione di quelli verificati, si giudicano a mano. Ogni correzione si
+misura con una regola di chiusura scritta prima di registrare, e dopo
+ogni gruppo di correzioni si rifà una regressione completa su tutti i
+lotti.
+
+Misure a freddo dei 4 lotti, 50 domande in tutto (12, 13, 13, 12): router
+riuscito in 49 (una domanda del lotto 1 senza decisione leggibile, poi
+corretta); attese trovate 17 su 17, nessuna vietata comparsa; 787 dati
+verificati, 4 non trovati, 6 senza fonte; nessuna risposta interrotta;
+costo medio a domanda tra 0,042 e 0,061 $. Con 12 o 13 domande per lotto
+sono segnali, non percentuali. I difetti più gravi non stanno in questi
+conteggi: due conclusioni sbagliate su dati giusti nel lotto 3, un "Non
+trovo" senza nessuna interrogazione scelta nel lotto 4.
+
+Regressione finale del 16 novembre 2026, non a freddo, dopo l'ultima
+correzione: router riuscito 55 volte su 55, 0 anomalie, 0 risposte
+interrotte; 2 attese mancate (una mai soddisfatta, l'altra per la scelta
+del router, vedi "Limiti"); 6 dati non trovati in 4 domande, nessuno un
+errore vero (falsi allarmi su un orario e su una data ricavata da "fine
+mese", un codice ATECO ammesso dalla regola, una citazione associata al
+bando successivo). Costo 3,44 $. Metodo e numeri in
+`docs/piano-insieme-prova.md`, script `scripts/diagnostica/prova_insieme.py`.
+
 ## Dove va
 
 Trovare i bandi giusti, con le date vere, è il primo passo; il secondo è seguire la domanda. L’obiettivo è un sistema che, scelto un bando, guidi la costruzione della domanda passo per passo: quali documenti servono, quali si possono compilare in autonomia, quando serve un tecnico e di che tipo. Intorno a questo, un aggiornamento periodico delle fonti con avviso via mail quando compare un bando pertinente, e un calendario delle scadenze con promemoria sugli step preliminari.
+
+Prima di questo, la risposta diventa un flusso a passi fissi, orchestrato
+dal codice e non da un agente libero, come in "Niente agent". Il modello
+classifica ogni bando dei dati come pertinente, generico possibile o non
+pertinente, con un'uscita strutturata; il codice decide la forma della
+risposta ("Non trovo", solo bandi generici, bandi pertinenti); il modello
+scrive il testo dentro quella forma. Il router decide a maggioranza tra
+le sue 3 chiamate, e i ripieghi, come l'elenco dei bandi aperti per
+l'ente, sono scritti nel codice.
 
 ## Stato
 
