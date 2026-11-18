@@ -147,6 +147,44 @@ della nuova baseline.
 
 Verifica del 18/11/2026: 52 bandi aperti al 18/11.
 
+**Copia congelata e opzioni** (18/11/2026). (a) e (b) fatte il
+18/11/2026. Nessuna copia esiste ancora: la prima si fa dopo il passo
+2b.
+
+Procedura per creare la copia:
+- working tree pulito (`git status --porcelain` vuoto): la copia è
+  quella dei CSV del commit corrente;
+- cartella `dati-grezzi/archivi/<data della copia>_<prime 8 cifre
+  dell'impronta>/`, per esempio `2026-11-20_3fa91c02`. Nel nome mai la
+  data di riferimento delle misure: quella sta in `--data` e in
+  `meta.json`;
+- si copiano solo i CSV delle tabelle di `TABELLE_DA_CSV`
+  (`src/database/schema.py`), non il resto di `data/processed` (copie
+  `.bak`, pagine `.txt`, `scansione.log`, `doppioni.csv`);
+  `crea_da_csv` si rifiuta se ne manca uno. `bilancio.csv` e
+  `turismo.csv` oggi non sono in `data/processed`: entrano lì, vuoti
+  con la sola intestazione, con il passo 2a;
+- `origine.txt` nella cartella, con il commit, la data della copia e
+  l'impronta complessiva calcolata da `impronta_csv` sulla copia, la
+  stessa che finisce in `meta.json`;
+- la copia non si modifica mai dopo la prima registrazione: se i dati
+  cambiano, se ne fa una nuova, con una cartella nuova.
+
+Opzioni:
+- `prova_insieme --registra --lotto N --data 2026-11-16 --archivio
+  CARTELLA`: data fissata e SQLite ricreato dai CSV di CARTELLA in una
+  cartella temporanea, mai in `data/db`. `meta.json` ha `data_fissata`,
+  `archivio` e l'impronta della cartella. Una sola delle due opzioni
+  si può, con un avviso nel rapporto. La ripresa (`--riprendi`) rilegge
+  data e archivio da `meta.json`.
+- `diagnosi_attese` legge l'archivio dal `meta.json` della
+  registrazione: se la cartella non c'è più o la sua impronta è
+  cambiata si ferma con un errore, senza ripiegare su `comune.sqlite`.
+  Registrazioni su archivi diversi si accettano, con un avviso in
+  testa al rapporto: i totali non sono una misura appaiata. `--titolo`
+  cerca sempre su `comune.sqlite` alla data di oggi, e il rapporto lo
+  dice.
+
 ### Metodo delle etichette (passo 1)
 
 - Prima del primo giro: definizione scritta di "generico", con esempi;

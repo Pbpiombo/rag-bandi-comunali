@@ -74,6 +74,9 @@ in sequenza, non in parallelo.
    congelata dei CSV e con data di riferimento 2026-11-16; data fissa e
    SQLite congelato sono un compito di codice a parte, prima della nuova
    baseline (`docs/piano-insieme-prova.md`, "Regola delle misure").
+   Parti (a) e (b) fatte il 18/11/2026 (`docs/fatto.md`); la parte (c)
+   è una regola, non codice. La prima copia congelata si fa dopo il
+   passo 2b.
 1. **Etichette.** Schede in `dati-grezzi/etichette/2026-11-18_152225`, per
    50 domande: le 5 domande A non hanno schede e restano misurate con le
    attese attuali.

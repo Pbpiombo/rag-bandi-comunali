@@ -272,3 +272,13 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
   (`docs/revisione-prompt-2026-11-18.md`); schede di etichettatura con la
   tabella "Bandi ricorrenti" (`scripts/diagnostica/schede_etichette.py`);
   studio delle fonti (`docs/piano-fonti-burt-ministeri.md`).
+- **Passo 0, parti (a) e (b)** (18/11/2026, senza modello): data fissa
+  con `data_fissata`, che vale anche in `src.chains.rag`; SQLite ricreato
+  da una cartella di CSV con `crea_da_csv`, mai in `data/db`, e
+  `connetti` puntato lì con `archivio_da`; opzioni `--data` e
+  `--archivio` di `prova_insieme`, scritte in `meta.json` e rilette
+  dalla ripresa (commit `e8509d1`). `diagnosi_attese` legge l'archivio
+  scritto nel `meta.json`, ne controlla l'impronta e si ferma se la
+  cartella manca o è cambiata, senza ripiegare su `comune.sqlite`.
+  Test in `tests/test_misure_congelate.py`. Procedura della copia
+  congelata in `docs/piano-insieme-prova.md`, "Regola delle misure".
