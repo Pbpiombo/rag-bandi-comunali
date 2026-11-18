@@ -8,6 +8,7 @@ import csv
 import shutil
 import sqlite3
 import sys
+import tempfile
 from datetime import date
 from pathlib import Path
 
@@ -15,8 +16,8 @@ import pytest
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableLambda
 
+from scripts.diagnostica import diagnosi_attese, schede_etichette
 from scripts.diagnostica import prova_insieme as p
-from scripts.diagnostica import schede_etichette
 from src.chains import rag
 from src.config import ROOT_DIR
 from src.database import interrogazioni_bandi, repertorio, schema
@@ -28,6 +29,7 @@ from src.database.schema import (
     connetti,
     crea_da_csv,
 )
+from tests.test_diagnosi_attese import voce as voce_diagnosi
 from tests.test_prova_insieme import domande, esito_catena_finto, prepara_registra_finto
 
 ENTE = "11111111111"
@@ -487,3 +489,141 @@ def test_registra_con_archivio_senza_csv_non_crea_la_registrazione(
 def test_data_e_archivio_solo_con_registra_e_senza_riprendi(argomenti):
     with pytest.raises(SystemExit):
         p.main(argomenti)
+
+
+# --- diagnosi_attese su una registrazione con archivio ---
+
+
+def registrazione_su(cartella: Path, archivio: Path, *attese: str) -> Path:
+    """Una registrazione fatta con --archivio: meta con archivio e impronta.
+
+    Una voce per attesa, senza dati né citati: la categoria dipende solo
+    dall'archivio letto (recupero se il bando c'è ed è aperto, archivio no).
+    """
+    (cartella / "domande").mkdir(parents=True)
+    codici = []
+    for numero, attesa in enumerate(attese):
+        v = {**voce_diagnosi(attese=[attesa]), "codice": f"C{numero:02d}"}
+        codici.append(v["codice"])
+        p.scrivi_json(cartella / "domande" / f"{v['codice']}.json", v)
+    p.scrivi_json(
+        cartella / "meta.json",
+        {
+            "lotto": 1,
+            "data_di_oggi": "2026-11-16",
+            "data_fissata": "2026-11-16",
+            "archivio": str(archivio.resolve()),
+            "impronta_csv": p.impronta_csv(archivio),
+            "commit": "abc1234",
+            "codici": codici,
+        },
+    )
+    return cartella
+
+
+def categorie_diagnosi(uscita: Path) -> list[tuple[str, str]]:
+    with (uscita / "diagnosi.csv").open(encoding="utf-8") as f:
+        return [(r["testo"], r["categoria"]) for r in csv.DictReader(f)]
+
+
+@pytest.fixture
+def diagnosi_su_prova(tmp_path, monkeypatch):
+    """comune.sqlite di prova con il solo "Bando vero"; uscita in tmp_path."""
+    monkeypatch.setattr(diagnosi_attese, "CARTELLA_DIAGNOSI", tmp_path / "diagnosi")
+    vero = tmp_path / "vero" / "comune.sqlite"
+    crea_da_csv(vero, scrivi_archivio(tmp_path / "csv_vero", {"vero": "2027-01-31"}))
+    monkeypatch.setattr(diagnosi_attese, "SQLITE_PATH", vero)
+    return vero
+
+
+def test_diagnosi_legge_l_archivio_della_registrazione(
+    tmp_path, monkeypatch, diagnosi_su_prova
+):
+    archivio = scrivi_archivio(tmp_path / "congelato", {"strade": "2027-01-31"})
+    cartella = registrazione_su(tmp_path / "lotto_1" / "r", archivio, "Bando strade")
+    temporanee = tmp_path / "tmp"
+    temporanee.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(temporanee))
+
+    uscita = diagnosi_attese.main([str(cartella), "--titolo", "Bando strade"])
+
+    assert categorie_diagnosi(uscita) == [
+        ("Bando strade", diagnosi_attese.RECUPERO),
+        # --titolo resta su comune.sqlite, dove "Bando strade" non c'è
+        ("Bando strade", diagnosi_attese.ARCHIVIO),
+    ]
+    rapporto = (uscita / "rapporto.md").read_text(encoding="utf-8")
+    impronta = p.impronta_csv(archivio)["complessiva"][:16]
+    assert f"| {archivio.resolve()} ({impronta}) |" in rapporto
+    assert (
+        "la ricerca per titolo è su comune.sqlite, non sull'archivio "
+        "delle registrazioni"
+    ) in rapporto
+    assert "archivi diversi" not in rapporto
+    # Il SQLite temporaneo dell'archivio è cancellato
+    assert list(temporanee.iterdir()) == []
+
+
+def test_diagnosi_con_impronta_dell_archivio_cambiata_e_un_errore(
+    tmp_path, monkeypatch, diagnosi_su_prova
+):
+    archivio = scrivi_archivio(tmp_path / "congelato", {"strade": "2027-01-31"})
+    cartella = registrazione_su(tmp_path / "lotto_1" / "r", archivio, "Bando strade")
+    with (archivio / "bandi.csv").open("a", encoding="utf-8") as f:
+        f.write("\n")
+    # Nessun ripiego: comune.sqlite non c'è, l'errore è sull'archivio
+    monkeypatch.setattr(diagnosi_attese, "SQLITE_PATH", tmp_path / "manca.sqlite")
+
+    with pytest.raises(diagnosi_attese.ErroreDiagnosi, match="impronta") as errore:
+        diagnosi_attese.main([str(cartella)])
+    assert "bandi.csv" in str(errore.value)
+    assert not (tmp_path / "diagnosi").exists()
+
+
+def test_diagnosi_con_archivio_scomparso_e_un_errore(
+    tmp_path, monkeypatch, diagnosi_su_prova
+):
+    archivio = scrivi_archivio(tmp_path / "congelato", {"strade": "2027-01-31"})
+    cartella = registrazione_su(tmp_path / "lotto_1" / "r", archivio, "Bando strade")
+    shutil.rmtree(archivio)
+    monkeypatch.setattr(diagnosi_attese, "SQLITE_PATH", tmp_path / "manca.sqlite")
+
+    with pytest.raises(
+        diagnosi_attese.ErroreDiagnosi, match="archivio non trovato.*comune.sqlite"
+    ):
+        diagnosi_attese.main([str(cartella)])
+    assert not (tmp_path / "diagnosi").exists()
+
+
+def test_diagnosi_su_archivi_diversi_avvisa_in_testa(tmp_path, diagnosi_su_prova):
+    uno = scrivi_archivio(tmp_path / "uno", {"strade": "2027-01-31"})
+    due = scrivi_archivio(tmp_path / "due", {"scuole": "2027-01-31"})
+    prima = registrazione_su(tmp_path / "lotto_1" / "a", uno, "Bando strade")
+    seconda = registrazione_su(tmp_path / "lotto_1" / "b", due, "Bando scuole")
+
+    uscita = diagnosi_attese.main([str(prima), str(seconda)])
+
+    assert categorie_diagnosi(uscita) == [
+        ("Bando strade", diagnosi_attese.RECUPERO),
+        ("Bando scuole", diagnosi_attese.RECUPERO),
+    ]
+    rapporto = (uscita / "rapporto.md").read_text(encoding="utf-8")
+    avvisi = rapporto.split("## Avvisi", 1)[1].strip().splitlines()
+    assert avvisi[0] == (
+        "- registrazioni su archivi diversi: i totali per categoria non "
+        "sono una misura appaiata"
+    )
+
+
+def test_diagnosi_avvisa_delle_righe_scartate_dall_archivio(
+    tmp_path, diagnosi_su_prova
+):
+    archivio = scrivi_archivio(tmp_path / "congelato", {"strade": "2027-01-31"}, 1)
+    cartella = registrazione_su(tmp_path / "lotto_1" / "r", archivio, "Bando strade")
+
+    uscita = diagnosi_attese.main([str(cartella)])
+
+    rapporto = (uscita / "rapporto.md").read_text(encoding="utf-8")
+    assert (
+        "- lotto_1/r: righe scartate dai CSV dell'archivio: {'beneficiari_bando': 1}"
+    ) in rapporto

@@ -23,8 +23,17 @@ si controlla a mano.
 Legge solo i JSON salvati e SQLite in sola lettura: nessuna chiamata al
 modello, nessun accesso a Postgres. Lo stato dei bandi si calcola alla
 data_di_oggi del meta.json della registrazione, con le funzioni delle
-interrogazioni (scaduto, stato_bando); l'archivio è però quello di oggi:
-se i CSV sono cambiati dalla prova, il rapporto lo avvisa.
+interrogazioni (scaduto, stato_bando).
+
+Il database dipende dal meta.json (passo 0 della roadmap):
+- con "archivio" (registrazione fatta con --archivio), un SQLite ricreato
+  dai CSV di quella cartella con crea_da_csv, in una cartella temporanea
+  cancellata all'uscita. Se la cartella non c'è più o la sua impronta non
+  è quella del meta, errore: non si ripiega su comune.sqlite;
+- senza "archivio", comune.sqlite di oggi: se i CSV di data/processed sono
+  cambiati dalla prova, il rapporto lo avvisa.
+Più registrazioni su archivi diversi si accettano, con un avviso in testa:
+i totali non sono una misura appaiata. --titolo legge sempre comune.sqlite.
 
 Uso:
 
@@ -41,12 +50,16 @@ import argparse
 import csv
 import sqlite3
 import sys
+import tempfile
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from scripts.diagnostica.prova_insieme import (
     adesso,
+    cancella_temporanea,
     celle,
     controlla_attese,
     corrisponde,
@@ -55,12 +68,17 @@ from scripts.diagnostica.prova_insieme import (
     leggi_json,
     leggi_voci,
     nome_cartella,
+    scartate,
 )
 from src.config import DATI_GREZZI_DIR, SQLITE_PATH
 from src.database.interrogazioni_bandi import data_di_oggi, scadenze_di, scaduto
+from src.database.schema import ErroreArchivio, crea_da_csv
 from src.database.stato_documenti import stato_bando
 
 CARTELLA_DIAGNOSI = DATI_GREZZI_DIR / "diagnosi"
+
+# Il database di una registrazione senza "archivio" nel meta
+DATABASE_VERO = "data/processed (comune.sqlite)"
 
 # Categorie delle attese, nell'ordine del rapporto
 OK = "ok"
@@ -172,13 +190,74 @@ def si_no(valore: bool | None) -> str:
 # --- Archivio ---
 
 
-def apri_in_lettura(percorso: Path = SQLITE_PATH) -> sqlite3.Connection:
-    """La connessione a SQLite in sola lettura: il file non si crea né si modifica."""
+def apri_in_lettura(percorso: Path | None = None) -> sqlite3.Connection:
+    """La connessione a SQLite in sola lettura: il file non si crea né si modifica.
+
+    Senza percorso, SQLITE_PATH, letto al momento della chiamata.
+    """
+    percorso = percorso or SQLITE_PATH
     if not percorso.exists():
         raise ErroreDiagnosi(f"database non trovato: {percorso}")
     conn = sqlite3.connect(f"{percorso.resolve().as_uri()}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def file_cambiati(prima: dict, ora: dict) -> list[str]:
+    """I CSV con impronta diversa, aggiunti o tolti, dai dizionari "file"."""
+    return sorted(n for n in set(prima) | set(ora) if prima.get(n) != ora.get(n))
+
+
+@contextmanager
+def database_dell_archivio(
+    cartella: Path, impronta_attesa: dict
+) -> Iterator[tuple[sqlite3.Connection, list[str]]]:
+    """Il SQLite ricreato dai CSV di un archivio congelato, in sola lettura.
+
+    Prima controlla che la cartella esista e che la sua impronta sia
+    impronta_attesa (l'impronta_csv del meta); altrimenti ErroreDiagnosi,
+    senza ripiegare su comune.sqlite. Il SQLite sta in una cartella
+    temporanea, mai in data/db, cancellata all'uscita. Restituisce la
+    connessione e gli avvisi (righe scartate dai CSV).
+    """
+    if not cartella.is_dir():
+        raise ErroreDiagnosi(
+            f"archivio non trovato: {cartella}; la diagnosi non ripiega su "
+            "comune.sqlite"
+        )
+    attesa = impronta_attesa.get("complessiva")
+    if not attesa:
+        raise ErroreDiagnosi(
+            f"impronta dell'archivio {cartella} mancante nel meta.json: "
+            "l'archivio non si può verificare"
+        )
+    ora = impronta_csv(cartella)
+    if ora["complessiva"] != attesa:
+        cambiati = file_cambiati(impronta_attesa.get("file") or {}, ora["file"])
+        raise ErroreDiagnosi(
+            f"l'impronta dell'archivio {cartella} è cambiata dalla registrazione "
+            f"({attesa[:16]} nel meta, {ora['complessiva'][:16]} ora; file "
+            f"cambiati: {', '.join(cambiati) or 'non indicati nel meta'}): "
+            "la diagnosi non ripiega su comune.sqlite"
+        )
+
+    temporanea = Path(tempfile.mkdtemp(prefix="diagnosi_archivio_"))
+    try:
+        percorso = temporanea / "archivio.sqlite"
+        try:
+            conteggi = crea_da_csv(percorso, cartella)
+        except ErroreArchivio as errore:
+            raise ErroreDiagnosi(str(errore)) from errore
+        avvisi = []
+        if scartate(conteggi):
+            avvisi.append(f"righe scartate dai CSV dell'archivio: {scartate(conteggi)}")
+        conn = apri_in_lettura(percorso)
+        try:
+            yield conn, avvisi
+        finally:
+            conn.close()
+    finally:
+        cancella_temporanea(temporanea)
 
 
 def stato_alla_data(conn: sqlite3.Connection, riga, oggi: str) -> tuple[str, str]:
@@ -305,23 +384,46 @@ class Registrazione:
     voci: int
     diagnosi: list[Diagnosi]
     avvisi: list[str]
+    archivio: str = DATABASE_VERO
 
 
-def diagnosi_cartella(conn: sqlite3.Connection, cartella: Path) -> Registrazione:
-    """Le diagnosi di tutte le voci con attese o vietate di una registrazione."""
+def leggi_meta(cartella: Path) -> dict:
+    """Il meta.json di una registrazione, con la data della prova."""
     percorso_meta = cartella / "meta.json"
     if not percorso_meta.exists():
         raise ErroreDiagnosi(f"meta.json mancante in {cartella}")
     meta = leggi_json(percorso_meta)
-    oggi = meta.get("data_di_oggi")
-    if not oggi:
+    if not meta.get("data_di_oggi"):
         raise ErroreDiagnosi(f"data_di_oggi mancante in {percorso_meta}")
+    return meta
+
+
+def descrizione_archivio(meta: dict) -> str:
+    """Il database di una registrazione come lo mostra il rapporto."""
+    if not meta.get("archivio"):
+        return DATABASE_VERO
+    impronta = (meta.get("impronta_csv") or {}).get("complessiva") or ""
+    return f"{meta['archivio']} ({impronta[:16]})"
+
+
+def diagnosi_cartella(conn: sqlite3.Connection, cartella: Path) -> Registrazione:
+    """Le diagnosi di tutte le voci con attese o vietate di una registrazione.
+
+    conn è il database della registrazione: con "archivio" nel meta, quello
+    di database_dell_archivio, che ne ha già controllato l'impronta.
+    """
+    meta = leggi_meta(cartella)
+    oggi = meta["data_di_oggi"]
 
     nome = f"{cartella.parent.name}/{cartella.name}"
     lotto = str(meta.get("lotto", ""))
     avvisi = []
     impronta = (meta.get("impronta_csv") or {}).get("complessiva")
-    if impronta and impronta != impronta_csv()["complessiva"]:
+    if (
+        not meta.get("archivio")
+        and impronta
+        and impronta != impronta_csv()["complessiva"]
+    ):
         avvisi.append(
             "i CSV di data/processed sono cambiati dalla prova: l'archivio "
             "letto non è quello della registrazione"
@@ -346,6 +448,7 @@ def diagnosi_cartella(conn: sqlite3.Connection, cartella: Path) -> Registrazione
         len(voci),
         diagnosi,
         avvisi,
+        descrizione_archivio(meta),
     )
 
 
@@ -410,11 +513,28 @@ def tabella_totali(registrazioni: list[Registrazione]) -> list[str]:
 def rapporto(
     registrazioni: list[Registrazione], titoli: list[Diagnosi], momento: str
 ) -> str:
+    su_archivio = any(r.archivio != DATABASE_VERO for r in registrazioni)
     righe = [
         "# Diagnosi delle attese",
         "",
         f"- generato: {momento}",
-        f"- database: {SQLITE_PATH} (sola lettura)",
+    ]
+    if registrazioni:
+        righe.append(
+            "- database delle registrazioni: colonna «archivio» della tabella "
+            "Registrazioni (sola lettura)"
+        )
+    if titoli:
+        riga = (
+            f"- database di --titolo: {SQLITE_PATH} (sola lettura), alla data di oggi"
+        )
+        if su_archivio:
+            riga += (
+                "; la ricerca per titolo è su comune.sqlite, non sull'archivio "
+                "delle registrazioni"
+            )
+        righe.append(riga)
+    righe += [
         (
             "- stato dei bandi alla data della prova di ogni registrazione; "
             "per --titolo alla data di oggi"
@@ -425,16 +545,23 @@ def rapporto(
         righe += [
             "## Registrazioni",
             "",
-            "| registrazione | lotto | data della prova | commit | voci |",
-            "|---|---|---|---|---|",
+            "| registrazione | lotto | data della prova | commit | voci | archivio |",
+            "|---|---|---|---|---|---|",
         ]
         righe += [
-            f"| {r.nome} | {r.lotto} | {r.data_prova} | {r.commit} | {r.voci} |"
+            f"| {r.nome} | {r.lotto} | {r.data_prova} | {r.commit} | {r.voci} "
+            f"| {celle(r.archivio)} |"
             for r in registrazioni
         ]
         righe += ["", "## Totali per categoria", "", *tabella_totali(registrazioni)]
 
         avvisi = [f"- {r.nome}: {a}" for r in registrazioni for a in r.avvisi]
+        if len({r.archivio for r in registrazioni}) > 1:
+            avvisi.insert(
+                0,
+                "- registrazioni su archivi diversi: i totali per categoria non "
+                "sono una misura appaiata",
+            )
         if avvisi:
             righe += ["", "## Avvisi", "", *avvisi]
 
@@ -507,13 +634,37 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> Path:
     argomenti = leggi_argomenti(argv)
-    conn = apri_in_lettura()
-    try:
-        registrazioni = [diagnosi_cartella(conn, c) for c in argomenti.cartelle]
+    with ExitStack() as contesti:
+        vero = []
+        archivi = {}
+
+        def connessione_vera() -> sqlite3.Connection:
+            """comune.sqlite, aperto solo se serve."""
+            if not vero:
+                vero.append(apri_in_lettura())
+                contesti.callback(vero[0].close)
+            return vero[0]
+
+        registrazioni = []
+        for c in argomenti.cartelle:
+            meta = leggi_meta(c)
+            if not meta.get("archivio"):
+                registrazioni.append(diagnosi_cartella(connessione_vera(), c))
+                continue
+            impronta = meta.get("impronta_csv") or {}
+            chiave = (meta["archivio"], impronta.get("complessiva"))
+            if chiave not in archivi:
+                archivi[chiave] = contesti.enter_context(
+                    database_dell_archivio(Path(meta["archivio"]), impronta)
+                )
+            conn, avvisi = archivi[chiave]
+            r = diagnosi_cartella(conn, c)
+            r.avvisi = [*avvisi, *r.avvisi]
+            registrazioni.append(r)
         oggi = data_di_oggi().isoformat()
-        titoli = [diagnosi_titolo(conn, t, oggi) for t in argomenti.titolo]
-    finally:
-        conn.close()
+        titoli = [
+            diagnosi_titolo(connessione_vera(), t, oggi) for t in argomenti.titolo
+        ]
     cartella = scrivi_uscita(
         CARTELLA_DIAGNOSI / nome_cartella(adesso()), registrazioni, titoli
     )
