@@ -150,8 +150,12 @@ def descrivi_repertorio() -> str:
     return "\n".join(righe)
 
 
-def esegui(nome: str, parametri: dict, codice_ente: str) -> Risultato:
-    """Esegue un'interrogazione del repertorio."""
+def esegui_su(conn, nome: str, parametri: dict, codice_ente: str) -> Risultato:
+    """Esegue un'interrogazione del repertorio sulla connessione data.
+
+    È il corpo di esegui; la usa anche scripts/diagnostica/schede_etichette,
+    con SQLite in sola lettura.
+    """
     if nome not in PER_NOME:
         return Risultato(
             f"Interrogazione '{nome}' non presente nel repertorio.",
@@ -163,13 +167,24 @@ def esegui(nome: str, parametri: dict, codice_ente: str) -> Risultato:
         for chiave, valore in parametri.items()
         if chiave != "codice_ente"
     }
-    conn = connetti()
     try:
         if voce.per_ente:
             return voce.funzione(conn, codice_ente, **parametri)
         return voce.funzione(conn, **parametri)
     except TypeError as errore:
         return Risultato(f"Parametri non validi: {errore}", trovato=False)
+
+
+def esegui(nome: str, parametri: dict, codice_ente: str) -> Risultato:
+    """Esegue un'interrogazione del repertorio."""
+    if nome not in PER_NOME:
+        return Risultato(
+            f"Interrogazione '{nome}' non presente nel repertorio.",
+            trovato=False,
+        )
+    conn = connetti()
+    try:
+        return esegui_su(conn, nome, parametri, codice_ente)
     finally:
         conn.close()
 
