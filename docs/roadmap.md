@@ -299,6 +299,59 @@ perde i suoi esempi migliori.
 
 ## Dopo la demo: dalla prova completa del 14 novembre
 
+### Priorità dopo il riscontro del consulente pilota (18/11)
+
+Riscontro del consulente pilota del 18/11/2026, in sintesi:
+- prova con tre domande;
+- su una domanda senza risultati attesi l'app non ha inventato;
+- su una ha mancato due bandi, uno nazionale e uno regionale;
+- su una ha trovato opportunità corrette ma generiche;
+- suggerimenti: includere il BURT e provare con qualche ministero.
+
+Ordine dei prossimi passi:
+
+1. **Diagnosi dei due bandi mancati**, appena arrivano domanda e titoli.
+   Per ciascun bando, verificare se è in archivio:
+   - se c'è, la causa è il router;
+   - se non c'è, è la copertura.
+
+   Le domande diventano casi fissi dell'insieme di prova ("Insieme di
+   prova: dopo"). Nessuna chiamata al modello per la diagnosi.
+2. **Primo cantiere, scelto dalla diagnosi**:
+   - copertura delle fonti, se i bandi mancano dall'archivio (punto 3);
+   - router, se ci sono: voce 16 di questa sezione (maggioranza tra le 3
+     chiamate) e ripieghi nel codice ("Prossimi passi", architettura
+     della risposta in due passi).
+
+   Con un caso per tipo, prima le fonti.
+3. **Studio del BURT e di due o tre ministeri, senza codice**:
+   - come pubblicano, robots.txt, quota in PDF, frequenza, filtro sui
+     comuni montani;
+   - per i ministeri, scelta di quali coprire con il consulente pilota e
+     confronto con quanto copre già Incentivi Italia.
+
+   Esito: un piano scritto in `docs/piano-fonti-burt-ministeri.md`.
+   Probabile prerequisito: la lettura dei PDF ("Prossimi passi", voce 6,
+   "Lettura dei PDF"). Riprende le voci di "In coda" sulle fonti di
+   scoperta da valutare (BURT parte III, e il buco dei bandi di enti
+   nazionali nella misura del 13/11/2026) e sulla lista di controllo per
+   ogni fonte nuova.
+4. **Misura di copertura ripetuta su un elenco esterno**, prima e dopo le
+   nuove fonti: quella del 13/11/2026 non è stata ripetuta. È la "Prova di
+   copertura" di "Prima della demo con il consulente pilota".
+5. **Ammissibilità più stretta** (risposte "generalmente adatte"): nodo di
+   classificazione dell'architettura a passi ("Prossimi passi",
+   architettura della risposta in due passi, passo 1).
+6. **Aggiornamento periodico delle fonti** ("Prossimi passi", voce 3):
+   diventa necessario con l'aumento delle fonti.
+7. **Fasi successive** (documenti da preparare, figure da coinvolgere,
+   controllo dei documenti): dopo il confronto con il consulente pilota
+   sull'obiettivo dello strumento. Vedi "Prossimi passi", voce 10
+   (percorso guidato), che copre documenti, figure da coinvolgere e
+   controllo dei documenti.
+
+### Difetti dalla prova completa del 14 novembre
+
 Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
 2026, in ordine: prima i più visibili per chi usa l'app.
 
@@ -619,6 +672,9 @@ LangGraph), non come agente libero.
 10. **Percorso guidato per gli iscritti**: passi definiti dal bando (requisiti,
    documenti, scadenze intermedie, contatti), controllo dei documenti con ogni
    requisito citato. Percorso a passi fissi, non un agente libero.
+   Figure da coinvolgere (per esempio tecnico abilitato, commercialista,
+   progettista) ricavate dal testo del bando con la frase di origine, mai
+   dedotte dal modello senza fonte.
 11. **Docker** per Postgres con pgvector in locale.
 
 ## In coda
