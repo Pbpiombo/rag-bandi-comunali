@@ -403,10 +403,23 @@ Ordine dei passi:
    risultato.
 6. **Risposta in funzioni in sequenza** (classifica, forma, scrivi):
    l'architettura della risposta in due passi, prima voce dei "Prossimi
-   passi". LangGraph solo con cicli o rami.
+   passi". LangGraph solo con cicli o rami. Mappa delle regole dei due
+   prompt per passo, con contraddizioni e ridondanze:
+   `docs/revisione-prompt-2026-11-18.md` (revisione esterna, non
+   applicata).
 7. **Esecuzioni ripetute sulle domande instabili; insieme di controllo**
    con domande reali dello sportello, mai usato per tarare ("Insieme di
    prova: dopo").
+8. **Forma dell'aiuto come campo dei bandi** (fondo perduto, prestito,
+   garanzia, abbattimento degli interessi), con la frase di origine. Caso
+   P11: la risposta raggruppa dei bandi come «Contributi a fondo perduto»
+   senza appoggio nelle righe, e l'attesa a mano «distinguere fondo
+   perduto da prestiti e garanzie» oggi si può soddisfare solo dai titoli.
+9. **Attese con polarità** ("proposto", "non proposto", forma attesa):
+   oggi una citazione fatta per escludere un bando conta come trovata.
+   Caso C03 della regressione del 16/11/2026: la risposta cita Punti
+   Digitale Facile per dire che non lo presenta come pertinente, e
+   `attese_esito` lo segna trovato.
 
 ### Difetti dalla prova completa del 14 novembre
 
