@@ -282,3 +282,15 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
   cartella manca o è cambiata, senza ripiegare su `comune.sqlite`.
   Test in `tests/test_misure_congelate.py`. Procedura della copia
   congelata in `docs/piano-insieme-prova.md`, "Regola delle misure".
+- **Passo 2a** (18/11/2026, senza modello): tre correzioni a mano in
+  `bandi.csv`. Filiera SMART (incentivi-4804): url della pagina della
+  Regione, scadenza 2026-04-30. Edizione precedente del Bando 2026 Pmi
+  EU-Blending (incentivi-3662, non un doppione dell'edizione 2026): url
+  della pagina della Regione, scadenza 2026-04-30. Fondo di garanzia
+  energie rinnovabili: scadenza 2021-12-31 dal decreto dirigenziale 2649
+  del 27/02/2018, `verificato_il` invariato. I due indirizzi BURT
+  sostituiti sono in `doppioni.csv`, perché l'importazione da Incentivi
+  Italia non li salvi di nuovo. `bilancio.csv` e `turismo.csv` creati con
+  la sola intestazione, così `crea_da_csv` trova tutti i CSV. Dopo la
+  ricreazione del database: 112 righe in `bandi`, aperti al 16/11 da 54 a
+  51; Abetone Cutigliano 7, 3 e 1 al 16/11, 1/12 e 6/12, invariati.

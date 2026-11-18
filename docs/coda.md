@@ -768,8 +768,10 @@ Dettaglio del passo 2, spostato da `docs/roadmap.md` il 18/11/2026.
 - **2a**, dopo il primo giro di etichette. Bandi con 8 o più tipi:
   quattro in archivio, due aperti al 16/11 (risorse genetiche agrarie,
   12 tipi; fondo di garanzia, 9) e due no (risorse genetiche
-  forestali, 11; premi per gli imboschimenti, 9). Si correggono tutti
-  e quattro (`coda.md`, voci 4 e 14 dei Difetti del 14/11). Poi gli
+  forestali, 11; premi per gli imboschimenti, 9). Deciso il 18/11/2026: i
+  quattro bandi con 8 o più tipi non si correggono. Sono bandi 'per
+  requisito', la classificazione rispecchia la pagina. Vedi
+  docs/roadmap.md, passo 2a. Poi gli
   aperti sospetti: Tax credit cinema 2024, sportelli senza chiusura
   aperti da più di due anni (`coda.md`, "Nuova Sabatini, Smart&Start,
   ISI INAIL" tra le voci di "Prima della demo").
@@ -784,6 +786,26 @@ Dettaglio del passo 2, spostato da `docs/roadmap.md` il 18/11/2026.
 Dalla pulizia non ci si aspetta un calo dei bandi ricorrenti oltre
 risorse genetiche. Poi la nuova baseline: tre registrazioni delle 55
 domande, circa 10,5 $; assorbe il passo 6.
+
+Rimaste dopo il passo 2a (18/11/2026):
+
+- **Fondo di garanzia energie rinnovabili**: aprire a mano il decreto
+  dirigenziale 2649 del 27/02/2018 nella banca dati degli atti della
+  Regione e, se confermato, aggiornare `verificato_il`. La scadenza
+  2021-12-31 oggi non è protetta da una riestrazione esplicita
+  (`estrai_bando --auto`, `riclassifica_bandi --id`): la protezione, una
+  riga "manuale" in `scadenze_bando`, aspetta la frase letta a mano.
+- **incentivi-5013 e incentivi-3373** hanno il link alla banca dati del
+  BURT: pagina vera da cercare a mano.
+- **incentivi-3373** (abbattimento interessi sotto 50.000 euro, 2024) è
+  probabilmente l'edizione precedente del Bando 2026 Pmi fino a 50 mila
+  euro: da verificare come si è fatto per incentivi-3662.
+- **Tax credit cinema anno 2024** (incentivi-3838) risulta aperto: data
+  di chiusura della sessione da verificare.
+- **`doppioni.csv` protegge anche due correzioni a mano dell'indirizzo**
+  (incentivi-3662 e incentivi-4804, dal BURT alla pagina della Regione):
+  è una soluzione provvisoria, la protezione vera è la voce sulle
+  correzioni a mano protette dalla riestrazione.
 
 ## Testo di ricerca (passo 17)
 

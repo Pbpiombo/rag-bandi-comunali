@@ -93,6 +93,12 @@ in sequenza, non in parallelo.
    nuova baseline: tre registrazioni delle 55 domande, circa 10,5 $;
    assorbe il passo 6. Dettaglio in `coda.md`, "Pulizia dei dati (passi
    2a e 2b)".
+   2a fatto il 18/11/2026: scadenze corrette a mano per Filiera SMART,
+   per l'edizione precedente del Bando Pmi EU-Blending (incentivi-3662,
+   non un doppione) e per il fondo di garanzia energie rinnovabili;
+   aperti al 16/11 da 54 a 51. I quattro bandi con 8 o più tipi non sono
+   errori di classificazione ma bandi "per requisito": restano come
+   sono, e il rimedio è il passo 4.
 3. **Simulazione del router, senza modello**, dopo il passo 4, sulle
    risposte grezze già salvate e solo sulle decisioni che restano al
    router: chi chiede, bando nominato o elenco, documenti sì o no.
