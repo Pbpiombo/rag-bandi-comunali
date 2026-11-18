@@ -545,13 +545,41 @@ def stato_git() -> dict:
     }
 
 
+# La versione del calcolo di impronta_csv, scritta dentro l'impronta.
+# Senza versione l'impronta e' quella di prima del 18/11/2026, sui byte:
+# cambia con le fine riga, e non si confronta con quella di oggi.
+VERSIONE_IMPRONTA = 2
+FORMATO_VECCHIO = "in formato vecchio, non confrontabile"
+
+
+def impronta_righe(percorso: Path) -> str:
+    """L'impronta sha256 delle righe di un CSV come le legge csv.reader.
+
+    Fine riga e BOM non contano; le righe vuote si', come ogni dato.
+    """
+    h = hashlib.sha256()
+    with percorso.open(encoding="utf-8-sig", newline="") as f:
+        for riga in csv.reader(f):
+            h.update(json.dumps(riga, ensure_ascii=False).encode("utf-8") + b"\n")
+    return h.hexdigest()
+
+
 def impronta_csv(cartella: Path = PROCESSED_DIR) -> dict:
-    """L'impronta di ogni CSV di data/processed e una complessiva."""
-    per_file = {p.name: impronta(p) for p in sorted(cartella.glob("*.csv"))}
+    """L'impronta di ogni CSV di data/processed e una complessiva, con la versione."""
+    per_file = {p.name: impronta_righe(p) for p in sorted(cartella.glob("*.csv"))}
     complessiva = hashlib.sha256(
         "".join(f"{nome}:{h}\n" for nome, h in per_file.items()).encode()
     ).hexdigest()
-    return {"file": per_file, "complessiva": complessiva}
+    return {
+        "versione_impronta": VERSIONE_IMPRONTA,
+        "file": per_file,
+        "complessiva": complessiva,
+    }
+
+
+def impronta_confrontabile(impronta_meta: dict | None) -> bool:
+    """L'impronta di un meta.json e' calcolata come quella di oggi."""
+    return (impronta_meta or {}).get("versione_impronta") == VERSIONE_IMPRONTA
 
 
 def registrazioni(cartella_lotto: Path) -> list[Path]:
@@ -893,7 +921,12 @@ def registra_nel_contesto(
     else:
         if git["commit"] != meta.get("commit"):
             print("ATTENZIONE: il commit è cambiato dall'inizio della registrazione.")
-        if csv_ora["complessiva"] != meta["impronta_csv"]["complessiva"]:
+        if not impronta_confrontabile(meta.get("impronta_csv")):
+            print(
+                f"ATTENZIONE: l'impronta dei CSV di {nome_csv} nel meta è "
+                f"{FORMATO_VECCHIO}."
+            )
+        elif csv_ora["complessiva"] != meta["impronta_csv"]["complessiva"]:
             print(f"ATTENZIONE: i CSV di {nome_csv} sono cambiati.")
         if data_di_oggi().isoformat() != meta.get("data_di_oggi"):
             print("ATTENZIONE: la data di oggi è cambiata: stati dei bandi diversi.")

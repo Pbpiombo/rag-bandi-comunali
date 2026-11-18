@@ -32,6 +32,9 @@ Il database dipende dal meta.json (passo 0 della roadmap):
   è quella del meta, errore: non si ripiega su comune.sqlite;
 - senza "archivio", comune.sqlite di oggi: se i CSV di data/processed sono
   cambiati dalla prova, il rapporto lo avvisa.
+Un'impronta senza versione_impronta è calcolata sui byte (prima del
+18/11/2026): è "in formato vecchio, non confrontabile", non "cambiata";
+con "archivio" è un errore, perché l'archivio non si può verificare.
 Più registrazioni su archivi diversi si accettano, con un avviso in testa:
 i totali non sono una misura appaiata. --titolo legge sempre comune.sqlite.
 
@@ -58,12 +61,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from scripts.diagnostica.prova_insieme import (
+    FORMATO_VECCHIO,
     adesso,
     cancella_temporanea,
     celle,
     controlla_attese,
     corrisponde,
     domanda_di,
+    impronta_confrontabile,
     impronta_csv,
     leggi_json,
     leggi_voci,
@@ -230,6 +235,12 @@ def database_dell_archivio(
         raise ErroreDiagnosi(
             f"impronta dell'archivio {cartella} mancante nel meta.json: "
             "l'archivio non si può verificare"
+        )
+    if not impronta_confrontabile(impronta_attesa):
+        raise ErroreDiagnosi(
+            f"impronta dell'archivio {cartella} nel meta.json {FORMATO_VECCHIO}: "
+            "l'archivio non si può verificare e la diagnosi non ripiega su "
+            "comune.sqlite"
         )
     ora = impronta_csv(cartella)
     if ora["complessiva"] != attesa:
@@ -418,16 +429,19 @@ def diagnosi_cartella(conn: sqlite3.Connection, cartella: Path) -> Registrazione
     nome = f"{cartella.parent.name}/{cartella.name}"
     lotto = str(meta.get("lotto", ""))
     avvisi = []
-    impronta = (meta.get("impronta_csv") or {}).get("complessiva")
-    if (
-        not meta.get("archivio")
-        and impronta
-        and impronta != impronta_csv()["complessiva"]
-    ):
-        avvisi.append(
-            "i CSV di data/processed sono cambiati dalla prova: l'archivio "
-            "letto non è quello della registrazione"
-        )
+    impronta_meta = meta.get("impronta_csv") or {}
+    impronta = impronta_meta.get("complessiva")
+    if not meta.get("archivio") and impronta:
+        if not impronta_confrontabile(impronta_meta):
+            avvisi.append(
+                f"l'impronta dei CSV di data/processed nel meta è {FORMATO_VECCHIO}: "
+                "non si sa se l'archivio letto è quello della registrazione"
+            )
+        elif impronta != impronta_csv()["complessiva"]:
+            avvisi.append(
+                "i CSV di data/processed sono cambiati dalla prova: l'archivio "
+                "letto non è quello della registrazione"
+            )
     voci = leggi_voci(cartella)
     mancanti = len(meta.get("codici", [])) - len(voci)
     if mancanti:

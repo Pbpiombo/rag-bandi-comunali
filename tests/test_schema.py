@@ -1,6 +1,7 @@
 """Caricamento dei CSV nello schema ed esportazione in ordine stabile."""
 
 import csv
+import sqlite3
 
 from src.database import schema
 
@@ -79,3 +80,50 @@ def test_chiave_primaria_composta(conn):
         "frase",
     ]
     assert schema.chiave_primaria(conn, "scadenze_bando") == ["id_bando", "numero"]
+
+
+# --- esportazione: nessun a-capo dentro i campi ---
+
+
+def test_un_a_capo_diventa_uno_spazio_nel_csv_e_nel_database(
+    tmp_path, monkeypatch, capsys
+):
+    """Il CSV e il database restano uguali: l'a-capo si toglie da entrambi.
+
+    Database su file e connessioni separate, come in aggiorna_csv: il
+    valore corretto deve essere confermato, non solo visibile alla
+    connessione che esporta.
+    """
+    monkeypatch.setattr(schema, "PROCESSED_DIR", tmp_path)
+    percorso = tmp_path / "prova.sqlite"
+    conn = sqlite3.connect(percorso)
+    schema.crea_schema(conn)
+    conn.execute(
+        "INSERT INTO fonti (codice, nome, url_base, schema_link, fonte, "
+        "verificato_il) VALUES ('f', 'Fonte', 'https://x', '^/-/', 'p', '2026-11-11')"
+    )
+    conn.execute(
+        "INSERT INTO bandi (id, titolo, ente, beneficiari, url, fonte, "
+        "codice_fonte, verificato_il, scadenza_nota, premialita) VALUES ('a', 'T', "
+        "'E', 'B', 'https://x/a', 'p', 'f', '2026-11-11', ?, ?)",
+        ("entro il 1 ottobre\n2026", "prima riga\r\nseconda riga"),
+    )
+    conn.commit()
+    conn.close()
+
+    esporta = sqlite3.connect(percorso)
+    esporta.row_factory = sqlite3.Row
+    schema.esporta_csv(esporta, "bandi", schema.TABELLE_DA_CSV["bandi"])
+    esporta.close()
+
+    with (tmp_path / "bandi.csv").open(encoding="utf-8-sig", newline="") as f:
+        nel_csv = next(csv.DictReader(f))
+    rilettura = sqlite3.connect(percorso)
+    nel_db = rilettura.execute(
+        "SELECT scadenza_nota, premialita FROM bandi WHERE id = 'a'"
+    ).fetchone()
+    rilettura.close()
+    attesi = ("entro il 1 ottobre 2026", "prima riga seconda riga")
+    assert (nel_csv["scadenza_nota"], nel_csv["premialita"]) == attesi
+    assert nel_db == attesi
+    assert "a-capo" in capsys.readouterr().out

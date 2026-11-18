@@ -627,3 +627,86 @@ def test_diagnosi_avvisa_delle_righe_scartate_dall_archivio(
     assert (
         "- lotto_1/r: righe scartate dai CSV dell'archivio: {'beneficiari_bando': 1}"
     ) in rapporto
+
+
+# --- impronta dei CSV: sulle righe lette, non sui byte ---
+
+
+def scrivi_csv_prova(cartella: Path, fine: str, titolo: str = "Bando a") -> Path:
+    """Un CSV con BOM, un campo tra virgolette e la fine riga indicata."""
+    cartella.mkdir(parents=True)
+    righe = ["id,titolo", f"a,{titolo}", 'b,"Bando, b"']
+    (cartella / "bandi.csv").write_bytes(("﻿" + fine.join(righe) + fine).encode("utf-8"))
+    return cartella
+
+
+def test_l_impronta_dei_csv_non_dipende_dalle_fine_riga(tmp_path):
+    lf = p.impronta_csv(scrivi_csv_prova(tmp_path / "lf", "\n"))
+    crlf = p.impronta_csv(scrivi_csv_prova(tmp_path / "crlf", "\r\n"))
+
+    assert lf == crlf
+    assert lf["versione_impronta"] == p.VERSIONE_IMPRONTA
+
+
+def test_un_dato_diverso_cambia_l_impronta(tmp_path):
+    prima = p.impronta_csv(scrivi_csv_prova(tmp_path / "prima", "\r\n"))
+    dopo = p.impronta_csv(scrivi_csv_prova(tmp_path / "dopo", "\r\n", "Bando A"))
+
+    assert prima["file"]["bandi.csv"] != dopo["file"]["bandi.csv"]
+    assert prima["complessiva"] != dopo["complessiva"]
+
+
+def test_diagnosi_con_impronta_dell_archivio_in_formato_vecchio_e_un_errore(
+    tmp_path, monkeypatch, diagnosi_su_prova
+):
+    """Un'impronta senza versione è sui byte: non si confronta, e l'archivio
+    non si può verificare."""
+    archivio = scrivi_archivio(tmp_path / "congelato", {"strade": "2027-01-31"})
+    cartella = registrazione_su(tmp_path / "lotto_1" / "r", archivio, "Bando strade")
+    meta = p.leggi_json(cartella / "meta.json")
+    meta["impronta_csv"].pop("versione_impronta", None)
+    p.scrivi_json(cartella / "meta.json", meta)
+    monkeypatch.setattr(diagnosi_attese, "SQLITE_PATH", tmp_path / "manca.sqlite")
+
+    with pytest.raises(
+        diagnosi_attese.ErroreDiagnosi, match="formato vecchio, non confrontabile"
+    ):
+        diagnosi_attese.main([str(cartella)])
+    assert not (tmp_path / "diagnosi").exists()
+
+
+def test_diagnosi_senza_archivio_con_impronta_vecchia_non_dice_cambiati(
+    tmp_path, diagnosi_su_prova
+):
+    archivio = scrivi_archivio(tmp_path / "congelato", {"strade": "2027-01-31"})
+    cartella = registrazione_su(tmp_path / "lotto_1" / "r", archivio, "Bando strade")
+    meta = p.leggi_json(cartella / "meta.json")
+    meta["archivio"] = None
+    meta["impronta_csv"] = {"file": {}, "complessiva": "x"}
+    p.scrivi_json(cartella / "meta.json", meta)
+
+    uscita = diagnosi_attese.main([str(cartella)])
+
+    rapporto = (uscita / "rapporto.md").read_text(encoding="utf-8")
+    assert "formato vecchio, non confrontabile" in rapporto
+    assert "sono cambiati" not in rapporto
+
+
+def test_la_ripresa_con_impronta_vecchia_non_dice_cambiati(
+    tmp_path, monkeypatch, capsys
+):
+    registra_finto(tmp_path, monkeypatch)
+    cartella_csv = scrivi_archivio(tmp_path / "csv", {"strade": "2027-01-31"})
+    registrazione = p.registra(1, data=date(2026, 11, 16), archivio=cartella_csv)
+    meta = p.leggi_json(registrazione / "meta.json")
+    meta["stato"] = "incompleta"
+    meta["impronta_csv"].pop("versione_impronta", None)
+    p.scrivi_json(registrazione / "meta.json", meta)
+    sorted((registrazione / "domande").glob("*.json"))[-1].unlink()
+    capsys.readouterr()
+
+    p.registra(1, riprendi=registrazione)
+
+    uscita = capsys.readouterr().out
+    assert "formato vecchio, non confrontabile" in uscita
+    assert "sono cambiati" not in uscita

@@ -1,6 +1,7 @@
 """Creazione e popolamento del database dei dati numerici."""
 
 import csv
+import re
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -524,6 +525,10 @@ def _per_csv(valore):
     return valore
 
 
+# Un a-capo in qualunque forma, dentro un valore da esportare
+A_CAPO = re.compile(r"\r\n|\r|\n")
+
+
 def chiave_primaria(conn: sqlite3.Connection, tabella: str) -> list[str]:
     """Le colonne della chiave primaria di una tabella, nel loro ordine."""
     # PRAGMA table_info: (cid, name, type, notnull, dflt_value, pk)
@@ -536,19 +541,49 @@ def esporta_csv(conn: sqlite3.Connection, tabella: str, colonne: list[str]) -> i
 
     Le righe sono in ordine di chiave primaria: lo stesso contenuto da' lo
     stesso file, e i diff dei CSV mostrano solo i dati cambiati.
+
+    Un a-capo dentro un valore di testo diventa uno spazio, nel CSV e nel
+    database, e si stampa dove: git converte le fine riga al checkout,
+    anche dentro i campi, e il dato cambierebbe da una copia all'altra.
+    Non e' un errore perche' l'esportazione arriva quando il database e'
+    gia' scritto: fermarla lascerebbe i CSV indietro. La correzione nel
+    database si conferma qui, salvo dentro una transazione gia' aperta da
+    chi chiama, che resta sua.
     """
     percorso = PROCESSED_DIR / f"{tabella}.csv"
     elenco = ", ".join(colonne)
-    ordine = ", ".join(chiave_primaria(conn, tabella)) or colonne[0]
-    righe = conn.execute(f"SELECT {elenco} FROM {tabella} ORDER BY {ordine}").fetchall()
+    chiave = chiave_primaria(conn, tabella)
+    ordine = ", ".join(chiave) or colonne[0]
+    righe = conn.execute(
+        f"SELECT rowid AS _riga, {elenco} FROM {tabella} ORDER BY {ordine}"
+    ).fetchall()
+    gia_in_transazione = conn.in_transaction
 
+    corretti = []
     with percorso.open("w", encoding="utf-8-sig", newline="") as f:
         scrittore = csv.DictWriter(f, fieldnames=colonne)
         scrittore.writeheader()
         for riga in righe:
-            scrittore.writerow({c: _per_csv(riga[c]) for c in colonne})
+            valori = {c: _per_csv(riga[c]) for c in colonne}
+            for c, valore in valori.items():
+                if isinstance(valore, str) and A_CAPO.search(valore):
+                    valori[c] = A_CAPO.sub(" ", valore)
+                    conn.execute(
+                        f"UPDATE {tabella} SET {c} = ? WHERE rowid = ?",
+                        (valori[c], riga["_riga"]),
+                    )
+                    nome = "/".join(str(riga[k]) for k in chiave) or riga["_riga"]
+                    corretti.append(f"{nome}.{c}")
+            scrittore.writerow(valori)
 
+    if corretti and not gia_in_transazione:
+        conn.commit()
     print(f"  {tabella}: {len(righe)} righe esportate in {percorso.name}")
+    if corretti:
+        print(
+            f"  {tabella}: a-capo sostituiti con uno spazio, nel CSV e nel "
+            f"database, in {len(corretti)} campi: {', '.join(corretti)}"
+        )
     return len(righe)
 
 
