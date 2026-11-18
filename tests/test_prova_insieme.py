@@ -174,6 +174,13 @@ def test_attese_apostrofo_tipografico():
     assert p.controlla_attese(d, ["Altro"])["mancanti"] == ["dell'Appennino"]
 
 
+def test_corrisponde_normalizza_apostrofi_maiuscole_e_spazi():
+    assert p.corrisponde("dell'Appennino", "Bando dell’Appennino")
+    assert p.corrisponde("strade", "Fondo per le STRADE dei piccoli comuni")
+    assert p.corrisponde("mercati rionali", "Mercati  rionali 2026")
+    assert not p.corrisponde("strade", "Mercati rionali 2026")
+
+
 # --- Router ---
 
 

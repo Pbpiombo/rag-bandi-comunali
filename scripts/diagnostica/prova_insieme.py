@@ -317,13 +317,19 @@ def normalizza(testo: str) -> str:
     return " ".join(testo.casefold().split())
 
 
+def corrisponde(atteso: str, titolo: str) -> bool:
+    """L'attesa compare nel titolo, dopo la normalizzazione di tutti e due.
+
+    È la corrispondenza di controlla_attese; la usa anche diagnosi_attese.
+    """
+    return normalizza(atteso) in normalizza(titolo)
+
+
 def controlla_attese(domanda: Domanda, titoli: list[str]) -> dict:
     """Le attese trovate e mancanti, e le vietate comparse, tra i titoli citati."""
-    titoli_n = [normalizza(t) for t in titoli]
 
     def compare(atteso: str) -> bool:
-        cercato = normalizza(atteso)
-        return any(cercato in t for t in titoli_n)
+        return any(corrisponde(atteso, t) for t in titoli)
 
     return {
         "trovate": [a for a in domanda.attese if compare(a)],
