@@ -1,5 +1,7 @@
 # Roadmap
 
+I documenti scritti prima del 18/11/2026 citano sezioni di questa roadmap che oggi stanno in docs/coda.md con il loro numero originale (Difetti del 14/11, Dopo la demo, Prossimi passi, In coda, priorità del consulente pilota, indicazioni del revisore tecnico) e in docs/fatto.md.
+
 Stato al 18 novembre 2026. Da aggiornare alla fine di ogni passo.
 
 Qui stanno solo stato, principi, ordine dei passi e decisioni prese. Il

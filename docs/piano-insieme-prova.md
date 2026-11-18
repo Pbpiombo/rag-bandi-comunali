@@ -122,6 +122,10 @@ Spostata da `docs/roadmap.md` il 18/11/2026: passo 0, metodo delle
 etichette del passo 1, metodo del passo 4, regola del confronto
 appaiato della sezione B, riga "Prova" dei principi.
 
+Aggiunte il 18/11/2026, fino ad allora solo nelle conversazioni: le
+definizioni e le regole dell'etichettatura ("Etichettatura: definizioni
+e regole", dopo il metodo delle etichette).
+
 ### Passo 0
 
 **Regola delle misure.** Tutte le misure di A e B su una copia
@@ -147,11 +151,50 @@ Verifica del 18/11/2026: 52 bandi aperti al 18/11.
 
 - Prima del primo giro: definizione scritta di "generico", con esempi;
   colonna "chi atteso" per domanda.
-- Confronto con un secondo modello sulle stesse 10, con l'accordo
-  misurato per classe. Se è alto, il modello pre-etichetta il resto e
-  si controllano i disaccordi e un campione.
+- Confronto con un secondo modello sulle stesse 10: regola di chiusura
+  in "Etichettatura: definizioni e regole".
 - Un bando senza etichetta nei primi 10 del passo 4 si etichetta, non
   conta come "no".
+
+### Etichettatura: definizioni e regole
+
+**Gruppi delle domande.** C comuni, P privati, A aperte, L "viste":
+usate durante lo sviluppo, solo nel lotto 1, mai a freddo.
+
+**Giudizi delle schede.**
+- **pertinente**: chi chiede può partecipare, anche a una condizione, e
+  lo scopo rientra in ciò che il bando finanzia;
+- **generico**: non pensato per lo scopo ma potrebbe finanziarlo
+  (credito, interessi, garanzie per qualunque Pmi); si nomina in fondo;
+- **no**: chi chiede non può partecipare, oppure lo scopo non c'entra,
+  oppure è scaduto e la domanda cerca opportunità attuali.
+
+Gli scaduti possono essere pertinenti solo per le domande sullo
+storico. Nel dubbio si sceglie un giudizio e si scrive "dubbio" nella
+nota.
+
+Esempi: l'abbattimento interessi è generico per un investimento e "no"
+per un'assunzione; un incentivo all'assunzione è pertinente per P05 e
+P24 e "no" per P01.
+
+**Forma attesa**, calcolata dai giudizi:
+- `elenco`: almeno un pertinente;
+- `solo_generici`: nessun pertinente, almeno un generico;
+- `non_trovo`: altrimenti.
+
+**Procedura.**
+- Si lavora su una copia delle schede, fuori dal repository.
+- Non si guardano le risposte dell'app.
+- Prima il giro per domanda, poi il controllo di coerenza per bando.
+- Si segna il tempo.
+- Le schede non si rigenerano finché i giudizi stanno solo nella copia.
+
+**Regola di chiusura del confronto con il secondo modello.**
+- Passa con un accordo di almeno l'85% e al massimo un disaccordo
+  "pertinente contro no" per domanda.
+- Se passa, il modello propone le altre 40 e si rivedono tutte; se no,
+  si etichettano tutte a mano.
+- L'accordo per classe si riporta, non è una soglia.
 
 ### Metodo del confronto sull'ordinamento (passo 4)
 
