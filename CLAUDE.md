@@ -69,6 +69,8 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
   dei prompt non si applicano direttamente.
 - Una tabella nuova in SQLite va aggiunta a `TABELLE_DA_CSV` ed esportata,
   altrimenti si perde alla prima ricreazione del database.
+- - Quando proponi un comando di commit, aggiungi sempre in fondo
+  -m "Co-Authored-By: <il tuo modello> <noreply@anthropic.com>".
 
 ## Documenti
 
