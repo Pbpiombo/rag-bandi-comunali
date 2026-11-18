@@ -294,3 +294,15 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
   la sola intestazione, così `crea_da_csv` trova tutti i CSV. Dopo la
   ricreazione del database: 112 righe in `bandi`, aperti al 16/11 da 54 a
   51; Abetone Cutigliano 7, 3 e 1 al 16/11, 1/12 e 6/12, invariati.
+- **Impronta indipendente dalle fine riga** (18/11/2026, senza modello):
+  `impronta_csv` calcola l'impronta sulle righe lette con `csv.reader`,
+  non sui byte, con `versione_impronta` 2 dentro l'impronta; un meta
+  senza versione è "in formato vecchio, non confrontabile" in
+  `prova_insieme` e `diagnosi_attese` (con `archivio`, errore). Motivo:
+  `core.autocrlf=true` su questa macchina, nessun `.gitattributes`; git
+  riscrive le fine riga al checkout, anche dentro i campi. `esporta_csv`
+  sostituisce gli a-capo dentro i campi con uno spazio, nel CSV e nel
+  database. Tolto l'unico a-capo nei CSV: `scadenza_nota` di
+  incentivi-8581. L'impronta di `data/processed` è la stessa prima e
+  dopo un checkout simulato. Test in `tests/test_misure_congelate.py` e
+  `tests/test_schema.py`.

@@ -806,6 +806,9 @@ Rimaste dopo il passo 2a (18/11/2026):
   (incentivi-3662 e incentivi-4804, dal BURT alla pagina della Regione):
   è una soluzione provvisoria, la protezione vera è la voce sulle
   correzioni a mano protette dalla riestrazione.
+- **`_frase` in `src/estrazione/incentivi.py`** può tenere un a-capo
+  della pagina dentro la frase: oggi lo corregge l'esportazione
+  (`esporta_csv`), la correzione alla fonte è da fare.
 
 ## Testo di ricerca (passo 17)
 

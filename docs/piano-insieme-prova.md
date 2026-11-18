@@ -162,11 +162,21 @@ Procedura per creare la copia:
   (`src/database/schema.py`), non il resto di `data/processed` (copie
   `.bak`, pagine `.txt`, `scansione.log`, `doppioni.csv`);
   `crea_da_csv` si rifiuta se ne manca uno. `bilancio.csv` e
-  `turismo.csv` oggi non sono in `data/processed`: entrano lì, vuoti
-  con la sola intestazione, con il passo 2a;
+  `turismo.csv` sono in `data/processed` dal passo 2a (18/11/2026),
+  vuoti con la sola intestazione;
 - `origine.txt` nella cartella, con il commit, la data della copia e
   l'impronta complessiva calcolata da `impronta_csv` sulla copia, la
   stessa che finisce in `meta.json`;
+- l'impronta (versione 2, dal 18/11/2026: `versione_impronta` dentro
+  `impronta_csv`) è calcolata sulle righe lette con `csv.reader`, non
+  sui byte: fine riga e BOM non contano, le righe vuote sì. Una copia
+  fatta da un checkout con fine riga diverse ha la stessa impronta. Nei
+  CSV non ci sono a-capo dentro i campi: `esporta_csv` li sostituisce
+  con uno spazio, nel CSV e nel database, e lo stampa. Un `meta.json`
+  con un'impronta senza versione è "in formato vecchio, non
+  confrontabile", non "cambiato": `prova_insieme` lo dice alla ripresa,
+  `diagnosi_attese` nel rapporto e, con `archivio`, si ferma con un
+  errore;
 - la copia non si modifica mai dopo la prima registrazione: se i dati
   cambiano, se ne fa una nuova, con una cartella nuova.
 
