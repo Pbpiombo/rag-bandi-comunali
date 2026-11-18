@@ -350,6 +350,64 @@ Ordine dei prossimi passi:
    (percorso guidato), che copre documenti, figure da coinvolgere e
    controllo dei documenti.
 
+### Indicazioni del revisore tecnico (18/11)
+
+Indicazioni ricevute:
+- separare classificazione, scelta della forma e scrittura;
+- confronti numerici (popolazione e soglia del bando) nel codice, con il
+  modello che spiega il risultato. Oggi `ISTRUZIONI` vieta le deduzioni
+  ma chiede di concludere sulla soglia;
+- funzioni in sequenza finché il flusso è lineare, LangGraph solo con
+  rami o cicli (per esempio rigenerare se il verificatore fallisce);
+- baseline prima di cambiare;
+- router: voto più ripieghi nel codice, e provare l'unione delle scelte
+  delle chiamate al posto della maggioranza, misurando bandi recuperati e
+  bandi fuori tema aggiunti;
+- per ogni errore distinguere: bando non in archivio, non recuperato,
+  recuperato ma escluso dalla risposta;
+- verifiche a mano sulle conclusioni (attribuzione, ammissibilità), che
+  il verificatore non controlla;
+- confronti domanda per domanda, esecuzioni ripetute per misurare la
+  variabilità, insieme di controllo nuovo mai usato per tarare, con casi
+  senza risposta e domande scritte da chi lavora nei Comuni.
+
+Ordine dei passi:
+
+1. **Baseline**: la regressione finale del 16/11/2026 (commit `715b411`),
+   già registrata.
+2. **Diagnosi a tre categorie** (archivio, recupero, esclusione), senza
+   modello. Per ogni attesa delle 55 domande e per i bandi mancati
+   segnalati dal consulente pilota, cercare il titolo:
+   - nel database (non c'è: archivio);
+   - nel blocco dati salvato nel JSON della prova (non c'è: recupero);
+   - nei bandi citati (non c'è: esclusione).
+
+   Comprende il punto 1 delle priorità qui sopra.
+3. **Simulazione del router senza modello**, sulle risposte grezze già
+   salvate (`grezzi_router`). Quattro strategie:
+   - prima chiamata (oggi);
+   - maggioranza (voce 16 di "Difetti dalla prova completa del 14
+     novembre");
+   - unione delle scelte delle chiamate;
+   - unione più ripieghi (per esempio, con un Comune, aggiungere
+     `bandi_aperti_per_ente`).
+
+   Interrogazioni eseguite nel codice. Misure per domanda: attese
+   presenti nei dati, numero di bandi in più rispetto alla prima
+   chiamata.
+4. **Scelta di strategia e ripieghi** in base al punto 3, poi
+   implementazione e misura con il modello contro la baseline, domanda
+   per domanda. Sostituisce la maggioranza data per scontata nella voce
+   16 e nella prima voce dei "Prossimi passi".
+5. **Soglie di popolazione confrontate nel codice**; il modello spiega il
+   risultato.
+6. **Risposta in funzioni in sequenza** (classifica, forma, scrivi):
+   l'architettura della risposta in due passi, prima voce dei "Prossimi
+   passi". LangGraph solo con cicli o rami.
+7. **Esecuzioni ripetute sulle domande instabili; insieme di controllo**
+   con domande reali dello sportello, mai usato per tarare ("Insieme di
+   prova: dopo").
+
 ### Difetti dalla prova completa del 14 novembre
 
 Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
@@ -480,6 +538,10 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
       2 chiamate su 3 prima di G e in 4 su 9 dopo.
     - **P24** cita 1 bando invece di 2: il router sceglie una sola
       interrogazione tra tema e beneficiario.
+
+    La strategia (maggioranza, unione, ripieghi) si sceglie dopo la
+    simulazione senza modello: "Indicazioni del revisore tecnico
+    (18/11)", punti 3 e 4.
 17. **Verificatore, citazione posta prima della condizione**: il dato si
     cerca anche nella citazione precedente della stessa voce di elenco.
     Caso P01 della regressione finale del 16/11/2026: la citazione sta
@@ -520,9 +582,11 @@ Proposta:
 - (3) il modello scrive il testo dentro quella forma.
 
 Insieme:
-- router a maggioranza tra le 3 chiamate (voce 16 di "Dopo la demo:
-  dalla prova completa del 14 novembre"), con ripiego automatico
-  sull'elenco dei bandi aperti per l'ente (caso C02);
+- router con la strategia scelta dopo la simulazione (unione,
+  maggioranza o prima chiamata, più ripieghi nel codice), per esempio il
+  ripiego sull'elenco dei bandi aperti per l'ente (caso C02). Vedi la voce
+  16 di "Dopo la demo: dalla prova completa del 14 novembre" e
+  "Indicazioni del revisore tecnico (18/11)", punti 3 e 4;
 - distinzione tra bandi generici per imprese, che valgono per quasi ogni
   investimento, e bandi a scopo preciso per enti, che non vanno proposti
   come generici;
@@ -531,8 +595,9 @@ Insieme:
 - attese di prova sulla forma della risposta: non comincia con "Non
   trovo", nomina X come generico, non nomina Y.
 
-Realizzazione come flusso orchestrato a passi fissi (per esempio con
-LangGraph), non come agente libero.
+Realizzazione come flusso a passi fissi, non come agente libero. Si
+parte con funzioni semplici in sequenza; LangGraph serve solo con rami
+o cicli (punto 6 delle Indicazioni del revisore tecnico).
 - Il modello decide solo in punti definiti: router, classificazione,
   scrittura, ed eventualmente un validatore che segnala bandi omessi o
   affermazioni senza supporto.
