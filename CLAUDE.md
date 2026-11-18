@@ -50,7 +50,10 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
 
 - Un compito alla volta. Non toccare file estranei al compito.
 - Prima di implementare, proponi: file da creare o modificare, e per ogni
-  file esistente il motivo. Aspetta l'approvazione.
+  file esistente il motivo. Aspetta l'approvazione. Vale anche per i
+  documenti in `docs/`.
+- Se il messaggio chiede di vedere prima il diff o il piano, mostralo e
+  fermati: non applicare.
 - Se sposti o rinomini una funzione, cerca in tutto il progetto chi la
   importa e aggiorna ogni punto.
 - Non lanciare `ruff format` su tutto il progetto: solo sui file modificati.
@@ -58,8 +61,36 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
   modificata va eseguita almeno una volta, o coperta da un test.
 - I test usano il database in memoria di `tests/conftest.py`, mai quello vero.
   Per il codice che legge pagine web, test su pagine salvate, non sui siti.
+- Un test nuovo deve fallire senza la modifica che protegge: verificalo
+  prima di dichiararlo.
+- Se un test esistente va modificato, fermati prima e spiega perché.
+- `ISTRUZIONI` e `ISTRUZIONI_ROUTER` non si modificano senza una regressione
+  contro la baseline (`docs/piano-insieme-prova.md`). Le revisioni esterne
+  dei prompt non si applicano direttamente.
 - Una tabella nuova in SQLite va aggiunta a `TABELLE_DA_CSV` ed esportata,
   altrimenti si perde alla prima ricreazione del database.
+
+## Documenti
+
+- `docs/roadmap.md` contiene solo stato, principi, ordine dei passi e
+  decisioni, e deve restare leggibile in una volta: intorno alle 200 righe,
+  senza un limite rigido. Il lavoro chiuso sta in `docs/fatto.md`, le voci
+  in attesa in `docs/coda.md`, il dettaglio nei `docs/piano-*.md`. Non si
+  taglia contenuto per rientrare in un numero.
+- Quando si divide o si sposta un documento, il testo si sposta parola per
+  parola e non si cancella. Ogni voce spostata porta "(era la voce N di …)".
+- Se una parte viene riassorbita invece che spostata, dichiaralo e cerca in
+  `docs/`, `src/` e `scripts/` chi la cita per numero.
+- I numeri dei passi della roadmap non cambiano: gli altri documenti li
+  citano. I passi nuovi prendono un numero nuovo, e l'ordine di lavoro sta
+  nella riga "Ordine di esecuzione".
+- Un testo vecchio da ricopiare si prende da un file o da un commit
+  (`git show <commit>:<file>`), con la fonte scritta accanto. Mai dalla
+  memoria della sessione.
+- I documenti scritti da un modello esterno hanno in testa "Revisione
+  esterna" o "Studio esterno", e si salvano solo dopo un controllo delle
+  citazioni o una verifica a mano, con le righe verificate marcate
+  "verificato a mano il …".
 
 ## Principi del progetto
 
@@ -84,5 +115,8 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
 - Leggere domande, rapporti o giudizi di un lotto dell'insieme di prova non
   ancora registrato a freddo, e aprire il lotto 4 senza un'istruzione
   esplicita (`docs/piano-insieme-prova.md`, "Metodo dei lotti").
-- - Il repository è pubblico: niente nomi di persone, email o dati
-  personali nei file. Per le persone si usa il ruolo.
+- Rigenerare le schede di etichettatura senza un'istruzione esplicita: i
+  giudizi a mano stanno solo nella copia di lavoro, fuori dal repository.
+- Mettere nei file nomi di persone, email o dati personali: il repository
+  è pubblico. Per le persone si usa il ruolo ("consulente pilota",
+  "revisore tecnico").
