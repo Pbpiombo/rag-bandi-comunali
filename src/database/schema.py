@@ -2,8 +2,11 @@
 
 import csv
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
 
-from src.config import PROCESSED_DIR, SQLITE_PATH
+from src.config import DATA_DIR, PROCESSED_DIR, SQLITE_PATH
 from src.estrazione.beneficiari import ORIGINI, PER_REQUISITO, TIPI_BENEFICIARIO
 
 
@@ -362,29 +365,63 @@ TABELLE_DA_CSV = {
 }
 
 
+class ErroreArchivio(Exception):
+    """Un archivio di CSV da cui non si puo' creare il database."""
+
+
+# Il database aperto da connetti al posto di SQLITE_PATH, dentro archivio_da.
+# Si imposta solo da codice, dentro un blocco with: nessuna variabile
+# d'ambiente o configurazione lo attiva, e l'app non lo usa.
+_PERCORSO_ALTERNATIVO: Path | None = None
+
+
 def connetti() -> sqlite3.Connection:
-    """Apre la connessione, creando la cartella se serve."""
-    SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(SQLITE_PATH)
+    """Apre la connessione, creando la cartella se serve.
+
+    Il database e' SQLITE_PATH, o quello indicato da archivio_da.
+    """
+    percorso = _PERCORSO_ALTERNATIVO or SQLITE_PATH
+    percorso.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(percorso)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
     return conn
+
+
+@contextmanager
+def archivio_da(percorso: Path) -> Iterator[None]:
+    """connetti apre percorso al posto di SQLITE_PATH fino all'uscita.
+
+    Il file deve esistere: connetti non ne crea uno vuoto per sbaglio.
+    """
+    global _PERCORSO_ALTERNATIVO
+    if not Path(percorso).is_file():
+        raise ErroreArchivio(f"database non trovato: {percorso}")
+    precedente = _PERCORSO_ALTERNATIVO
+    _PERCORSO_ALTERNATIVO = Path(percorso)
+    try:
+        yield
+    finally:
+        _PERCORSO_ALTERNATIVO = precedente
 
 
 def crea_schema(conn: sqlite3.Connection) -> None:
     """Crea le tabelle se non esistono."""
     conn.executescript(DDL)
     conn.commit()
-    print(f"  Schema creato in {SQLITE_PATH}")
+    # PRAGMA database_list: (seq, name, file) del database principale
+    print(f"  Schema creato in {conn.execute('PRAGMA database_list').fetchone()[2]}")
 
 
-def carica_csv(conn: sqlite3.Connection, tabella: str, colonne: list[str]) -> int:
-    """Carica un CSV da data/processed, se presente."""
-    percorso = PROCESSED_DIR / f"{tabella}.csv"
+def _carica(
+    conn: sqlite3.Connection, tabella: str, colonne: list[str], cartella: Path
+) -> tuple[int, int]:
+    """Carica un CSV della cartella, se presente: righe caricate e scartate."""
+    percorso = cartella / f"{tabella}.csv"
 
     if not percorso.exists():
         print(f"  [saltato] {percorso.name} non presente")
-        return 0
+        return 0, 0
 
     inserite = 0
     scartate = 0
@@ -416,7 +453,68 @@ def carica_csv(conn: sqlite3.Connection, tabella: str, colonne: list[str]) -> in
         messaggio += f", {scartate} scartate"
     print(messaggio + f" da {percorso.name}")
 
-    return inserite
+    return inserite, scartate
+
+
+def carica_csv(
+    conn: sqlite3.Connection,
+    tabella: str,
+    colonne: list[str],
+    cartella: Path | None = None,
+) -> int:
+    """Carica un CSV da data/processed, o da cartella, se presente."""
+    # PROCESSED_DIR si legge qui, non nel valore predefinito: i test lo
+    # sostituiscono nel modulo
+    return _carica(conn, tabella, colonne, cartella or PROCESSED_DIR)[0]
+
+
+def popola_da_csv(
+    conn: sqlite3.Connection, cartella: Path | None = None
+) -> dict[str, dict[str, int]]:
+    """Carica tutte le tabelle di TABELLE_DA_CSV dai CSV della cartella.
+
+    La strada unica per popolare il database: la usano step4_crea_db e
+    crea_da_csv. Restituisce, per tabella, le righe caricate e scartate.
+    """
+    conteggi = {}
+    for tabella, colonne in TABELLE_DA_CSV.items():
+        caricate, scartate = _carica(conn, tabella, colonne, cartella or PROCESSED_DIR)
+        conteggi[tabella] = {"caricate": caricate, "scartate": scartate}
+    return conteggi
+
+
+def crea_da_csv(destinazione: Path, cartella: Path) -> dict[str, dict[str, int]]:
+    """Un database nuovo in destinazione, dai CSV di cartella.
+
+    Per le misure su un archivio congelato (passo 0 della roadmap). Si
+    rifiuta se manca un CSV di TABELLE_DA_CSV, se destinazione esiste gia'
+    o se sta in data/db: il database dell'app non si tocca mai. La
+    connessione si chiude prima di uscire. Restituisce, per tabella, le
+    righe caricate e scartate.
+    """
+    destinazione = Path(destinazione)
+    cartella = Path(cartella)
+    if not cartella.is_dir():
+        raise ErroreArchivio(f"cartella dei CSV non trovata: {cartella}")
+    mancanti = [t for t in TABELLE_DA_CSV if not (cartella / f"{t}.csv").is_file()]
+    if mancanti:
+        raise ErroreArchivio(f"in {cartella} mancano i CSV di: {', '.join(mancanti)}")
+    vietate = {SQLITE_PATH.resolve().parent, (DATA_DIR / "db").resolve()}
+    if vietate & set(destinazione.resolve().parents):
+        raise ErroreArchivio(
+            f"{destinazione} sta in data/db: il database dell'app non si tocca"
+        )
+    if destinazione.exists():
+        raise ErroreArchivio(f"{destinazione} esiste gia'")
+
+    destinazione.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(destinazione)
+    try:
+        conn.execute("PRAGMA foreign_keys = ON")
+        crea_schema(conn)
+        return popola_da_csv(conn, cartella)
+    finally:
+        conn.close()
 
 
 def _per_csv(valore):

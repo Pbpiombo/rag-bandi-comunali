@@ -10,6 +10,8 @@ tipi di beneficiari.
 import re
 import sqlite3
 import unicodedata
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date
 
 from src.database.modelli import Approfondimento, Risultato, VoceBando
@@ -117,9 +119,36 @@ def filtro_ente(tipo: str) -> tuple[str, list]:
     return sql, parametri
 
 
+# La data fissata da data_fissata, per le misure (passo 0 della roadmap).
+# Si imposta solo da codice, dentro un blocco with: nessuna variabile
+# d'ambiente o configurazione la attiva, e l'app non la usa.
+_DATA_FISSA: date | None = None
+
+
 def data_di_oggi() -> date:
-    """La data di oggi: l'unico punto in cui le interrogazioni la leggono."""
-    return date.today()
+    """La data di oggi: l'unico punto in cui le interrogazioni la leggono.
+
+    Dentro data_fissata e' la data fissata. Vale per chi importa questa
+    funzione per nome (repertorio, src.chains.rag): la data si legge qui
+    dentro a ogni chiamata, non si sostituisce il nome.
+    """
+    return _DATA_FISSA or date.today()
+
+
+@contextmanager
+def data_fissata(giorno: date) -> Iterator[None]:
+    """data_di_oggi restituisce giorno fino all'uscita dal blocco.
+
+    All'uscita torna la data di prima: la data vera, o quella di un blocco
+    esterno.
+    """
+    global _DATA_FISSA
+    precedente = _DATA_FISSA
+    _DATA_FISSA = giorno
+    try:
+        yield
+    finally:
+        _DATA_FISSA = precedente
 
 
 def tipo_ente(conn: sqlite3.Connection, codice_ente: str) -> str | None:

@@ -27,9 +27,9 @@ approfondire" dei risultati non sono candidati (il modello non li vede):
 si elencano nel riepilogo.
 
 Data di riferimento: le interrogazioni leggono la data da
-interrogazioni_bandi.data_di_oggi. Il contesto alla_data la sostituisce
-per la durata dell'esecuzione, in interrogazioni_bandi e nel nome
-importato da repertorio, e la ripristina all'uscita. Lo stato dei bandi si
+interrogazioni_bandi.data_di_oggi. Il contesto alla_data la fissa per la
+durata dell'esecuzione con interrogazioni_bandi.data_fissata, che vale per
+tutti i moduli che la importano, e la ripristina all'uscita. Lo stato dei bandi si
 calcola con le funzioni di diagnosi_attese (scaduto, stato_bando).
 
 Legge solo il file delle domande, i JSON salvati e SQLite in sola lettura:
@@ -51,8 +51,7 @@ import json
 import sqlite3
 import sys
 from collections import Counter
-from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -76,8 +75,7 @@ from scripts.diagnostica.prova_insieme import (
 )
 from src.chains.router import estrai_decisione
 from src.config import DATI_GREZZI_DIR, ENTE_PREDEFINITO
-from src.database import interrogazioni_bandi, repertorio
-from src.database.interrogazioni_bandi import NOMI_TIPI, _parole, _simili
+from src.database.interrogazioni_bandi import NOMI_TIPI, _parole, _simili, data_fissata
 from src.database.repertorio import PER_NOME, esegui_su
 from src.estrazione.beneficiari import PER_REQUISITO
 
@@ -154,25 +152,14 @@ class ErroreSchede(Exception):
 # --- Data di riferimento ---
 
 
-@contextmanager
-def alla_data(giorno: date) -> Iterator[None]:
+def alla_data(giorno: date) -> AbstractContextManager[None]:
     """Le interrogazioni vedono giorno come data di oggi, fino all'uscita.
 
-    Sostituisce data_di_oggi in interrogazioni_bandi, dove la chiamano
-    tutte le interrogazioni sui bandi, e il nome importato da repertorio
-    (stato_archivio). Nessun altro modulo del percorso legge la data.
+    È interrogazioni_bandi.data_fissata: la data si fissa dentro
+    data_di_oggi, e la vedono tutti i moduli che la importano per nome
+    (repertorio, src.chains.rag).
     """
-    originali = (interrogazioni_bandi.data_di_oggi, repertorio.data_di_oggi)
-
-    def fissa() -> date:
-        return giorno
-
-    interrogazioni_bandi.data_di_oggi = fissa
-    repertorio.data_di_oggi = fissa
-    try:
-        yield
-    finally:
-        interrogazioni_bandi.data_di_oggi, repertorio.data_di_oggi = originali
+    return data_fissata(giorno)
 
 
 # --- Parole ---

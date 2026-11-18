@@ -25,7 +25,15 @@ Modi:
                                 prima risposta
     --registra --lotto N --riprendi CARTELLA
                                 completa una registrazione interrotta,
-                                nella stessa cartella
+                                nella stessa cartella, con la data e
+                                l'archivio scritti nel suo meta.json
+    --registra --lotto N --data AAAA-MM-GG --archivio CARTELLA
+                                con la data di oggi fissata e i CSV di
+                                CARTELLA al posto di data/processed: il
+                                SQLite si ricrea da lì in una cartella
+                                temporanea, mai in data/db (passo 0 della
+                                roadmap). Una sola delle due si può, con
+                                un avviso
     --registra --lotto N --codici C1,C2
                                 solo quelle domande del lotto, in una
                                 registrazione non a freddo nella propria
@@ -35,7 +43,8 @@ Modi:
     --riepilogo                 le misure a freddo dei lotti registrati
 
 Ogni registrazione va in dati-grezzi/prova/lotto_N/<data-ora>/: meta.json
-(data, commit, impronta dei CSV di data/processed, stato), un file JSON per
+(data, data fissata, archivio, commit, impronta dei CSV di
+data/processed o dell'archivio, stato), un file JSON per
 domanda in domande/ con tutto ciò che serve a riverificare, rapporto.md. La
 prima registrazione di un lotto è "a freddo" e non si sovrascrive: ogni
 registrazione nuova ha la sua cartella. Le riverifiche vanno in
@@ -56,18 +65,23 @@ Uso: python -m scripts.diagnostica.prova_insieme --dividi
 
 import argparse
 import csv
+import gc
 import hashlib
 import json
 import os
 import random
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import traceback
 import unicodedata
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -714,16 +728,99 @@ def costruisci_catena_di_prova() -> tuple:
     return costruisci_catena(ENTE_PREDEFINITO, router=router), router, "Chroma"
 
 
+def avvisi_misura(data: date | None, archivio: Path | None) -> list[str]:
+    """Gli avvisi di una misura con una sola delle due opzioni del passo 0.
+
+    Le misure vogliono data fissa e archivio congelato insieme
+    (docs/piano-insieme-prova.md, "Regola delle misure"). Una sola delle
+    due non si vieta, ma si segnala prima di partire e nel rapporto.
+    """
+    if archivio is not None and data is None:
+        return [
+            (
+                "archivio congelato ma data vera (manca --data): gli stati dei "
+                "bandi dipendono dal giorno della registrazione"
+            )
+        ]
+    if data is not None and archivio is None:
+        return [
+            (
+                "data fissata ma archivio vero (manca --archivio): i CSV di "
+                "data/processed possono cambiare da una misura all'altra"
+            )
+        ]
+    return []
+
+
+def stampa_avvisi(avvisi: list[str]) -> None:
+    for avviso in avvisi:
+        bordo = "!" * 72
+        print(f"{bordo}\nATTENZIONE: {avviso}\n{bordo}")
+
+
+def cancella_temporanea(cartella: Path) -> None:
+    """Cancella la cartella temporanea; se non si può, avvisa e basta.
+
+    Su Windows un file SQLite ancora aperto non si cancella: prima si
+    raccolgono le connessioni rimaste senza riferimenti, che così si
+    chiudono. Una connessione ancora in uso lascia la cartella dov'è.
+    """
+    gc.collect()
+    try:
+        shutil.rmtree(cartella)
+    except OSError as errore:
+        print(f"AVVISO: cartella temporanea non cancellata, {cartella}: {errore}")
+
+
+@contextmanager
+def archivio_congelato(cartella_csv: Path) -> Iterator[dict]:
+    """connetti legge un SQLite ricreato dai CSV di cartella_csv, fino all'uscita.
+
+    Il SQLite sta in una cartella temporanea, mai in data/db, e si cancella
+    all'uscita. Restituisce le righe caricate e scartate per tabella.
+    """
+    from src.database.schema import ErroreArchivio, archivio_da, crea_da_csv
+
+    temporanea = Path(tempfile.mkdtemp(prefix="archivio_congelato_"))
+    try:
+        percorso = temporanea / "archivio.sqlite"
+        try:
+            conteggi = crea_da_csv(percorso, cartella_csv)
+        except ErroreArchivio as errore:
+            raise ErroreProva(str(errore)) from errore
+        with archivio_da(percorso):
+            yield conteggi
+    finally:
+        cancella_temporanea(temporanea)
+
+
+def scartate(conteggi: dict) -> dict:
+    """Le tabelle con righe scartate e quante, dai conteggi di crea_da_csv."""
+    return {t: c["scartate"] for t, c in conteggi.items() if c["scartate"]}
+
+
 def registra(
-    lotto: int, riprendi: Path | None = None, codici: list[str] | None = None
+    lotto: int,
+    riprendi: Path | None = None,
+    codici: list[str] | None = None,
+    data: date | None = None,
+    archivio: Path | None = None,
 ) -> Path:
     """Registra il lotto, o completa una registrazione interrotta.
 
     codici: solo quelle domande del lotto, nell'ordine dato, in una
     registrazione non a freddo (correzione D, misura ristretta). La ripresa
     di una registrazione parziale riprende solo i suoi codici.
+
+    data: la data di oggi per tutta la registrazione (data_fissata).
+    archivio: una cartella di CSV al posto di data/processed; il SQLite si
+    ricrea da lì in una cartella temporanea. La ripresa rilegge entrambe
+    da meta.json.
     """
-    from src.database.interrogazioni_bandi import data_di_oggi
+    from src.database.interrogazioni_bandi import data_fissata
+
+    if riprendi is not None and (data is not None or archivio is not None):
+        raise ErroreProva("la ripresa rilegge data e archivio da meta.json")
 
     domande = domande_del_lotto(lotto)
     if codici:
@@ -732,37 +829,83 @@ def registra(
     cartella, meta = prepara_registrazione(cartella_lotto, lotto, riprendi, codici)
     if meta.get("codici_scelti") and not codici:
         domande = scegli_domande(domande, meta["codici_scelti"], lotto)
+    if riprendi is not None:
+        if meta.get("data_fissata"):
+            data = date.fromisoformat(meta["data_fissata"])
+        if meta.get("archivio"):
+            archivio = Path(meta["archivio"])
+    elif archivio is not None:
+        archivio = archivio.resolve()
+
+    avvisi = avvisi_misura(data, archivio)
+    stampa_avvisi(avvisi)
+    with ExitStack() as contesti:
+        if data is not None:
+            contesti.enter_context(data_fissata(data))
+        conteggi = None
+        if archivio is not None:
+            conteggi = contesti.enter_context(archivio_congelato(archivio))
+            if scartate(conteggi):
+                print(f"ATTENZIONE: righe scartate dai CSV: {scartate(conteggi)}")
+        return registra_nel_contesto(
+            lotto, domande, cartella, meta, riprendi, data, archivio, conteggi, avvisi
+        )
+
+
+def registra_nel_contesto(
+    lotto: int,
+    domande: list[Domanda],
+    cartella: Path,
+    meta: dict,
+    riprendi: Path | None,
+    data: date | None,
+    archivio: Path | None,
+    conteggi: dict | None,
+    avvisi: list[str],
+) -> Path:
+    """Il corpo di registra, con data e archivio già fissati."""
+    from src.database.interrogazioni_bandi import data_di_oggi
+
     cartella_domande = cartella / "domande"
     cartella_domande.mkdir(parents=True, exist_ok=True)
 
     git = stato_git()
-    csv_ora = impronta_csv()
+    # Senza archivio la chiamata resta senza argomenti, come prima
+    csv_ora = impronta_csv(archivio) if archivio is not None else impronta_csv()
+    nome_csv = str(archivio) if archivio is not None else "data/processed"
     impronta_domande = impronta(FILE_DOMANDE)
     if riprendi is None:
         meta.update(
             {
                 "data_di_oggi": data_di_oggi().isoformat(),
+                "data_fissata": data.isoformat() if data is not None else None,
+                "archivio": str(archivio) if archivio is not None else None,
                 **git,
                 "impronta_csv": csv_ora,
                 "impronta_domande": impronta_domande,
                 "codici": [d.codice for d in domande],
             }
         )
+        if avvisi:
+            meta["avvisi_misura"] = avvisi
+        if conteggi is not None:
+            meta["archivio_scartate"] = scartate(conteggi)
     else:
         if git["commit"] != meta.get("commit"):
             print("ATTENZIONE: il commit è cambiato dall'inizio della registrazione.")
         if csv_ora["complessiva"] != meta["impronta_csv"]["complessiva"]:
-            print("ATTENZIONE: i CSV di data/processed sono cambiati.")
+            print(f"ATTENZIONE: i CSV di {nome_csv} sono cambiati.")
         if data_di_oggi().isoformat() != meta.get("data_di_oggi"):
             print("ATTENZIONE: la data di oggi è cambiata: stati dei bandi diversi.")
-        meta["riprese"].append(
-            {
-                "momento": adesso().isoformat(timespec="seconds"),
-                "data_di_oggi": data_di_oggi().isoformat(),
-                **git,
-                "impronta_csv": csv_ora["complessiva"],
-            }
-        )
+        ripresa = {
+            "momento": adesso().isoformat(timespec="seconds"),
+            "data_di_oggi": data_di_oggi().isoformat(),
+            **git,
+            "impronta_csv": csv_ora["complessiva"],
+        }
+        if conteggi is not None:
+            ripresa["archivio_scartate"] = scartate(conteggi)
+        meta["riprese"].append(ripresa)
 
     catena, router, recupero = costruisci_catena_di_prova()
     meta.setdefault("recupero", recupero)
@@ -1071,11 +1214,18 @@ def rapporto(
         + (" (con modifiche non salvate)" if meta.get("modifiche_non_salvate") else "")
     )
     impronta_tot = (meta.get("impronta_csv") or {}).get("complessiva", "")
-    righe.append(f"- CSV di data/processed: {impronta_tot[:16]}")
     righe.append(
-        f"- data di oggi: {meta.get('data_di_oggi')}; modello {meta.get('modello')}; "
+        f"- CSV di {meta.get('archivio') or 'data/processed'}: {impronta_tot[:16]}"
+    )
+    fissata = " (fissata)" if meta.get("data_fissata") else ""
+    righe.append(
+        f"- data di oggi: {meta.get('data_di_oggi')}{fissata}; "
+        f"modello {meta.get('modello')}; "
         f"recupero {meta.get('recupero')}; ente {meta.get('ente')}"
     )
+    righe += [f"- **ATTENZIONE**: {a}" for a in meta.get("avvisi_misura", [])]
+    if meta.get("archivio_scartate"):
+        righe.append(f"- righe scartate dai CSV: {meta['archivio_scartate']}")
     righe.append(f"- domande registrate: {len(voci)} su {len(meta.get('codici', []))}")
     righe.append("")
 
@@ -1456,6 +1606,8 @@ def main(argomenti: list[str] | None = None) -> int:
         type=lambda testo: [c.strip() for c in testo.split(",") if c.strip()],
         metavar="C1,C2",
     )
+    parser.add_argument("--data", type=date.fromisoformat, metavar="AAAA-MM-GG")
+    parser.add_argument("--archivio", type=Path, metavar="CARTELLA")
     a = parser.parse_args(argomenti)
 
     if (a.stima or a.registra) and a.lotto is None:
@@ -1468,6 +1620,13 @@ def main(argomenti: list[str] | None = None) -> int:
         parser.error("--codici non si usa con --riprendi: si riprendono i suoi codici")
     if a.codici is not None and not a.codici:
         parser.error("--codici vuole almeno un codice")
+    for opzione, valore in (("--data", a.data), ("--archivio", a.archivio)):
+        if valore is not None and not a.registra:
+            parser.error(f"{opzione} si usa con --registra")
+        if valore is not None and a.riprendi is not None:
+            parser.error(
+                f"{opzione} non si usa con --riprendi: si rilegge da meta.json"
+            )
 
     try:
         if a.dividi:
@@ -1475,7 +1634,7 @@ def main(argomenti: list[str] | None = None) -> int:
         elif a.stima:
             stima(a.lotto)
         elif a.registra:
-            registra(a.lotto, a.riprendi, a.codici)
+            registra(a.lotto, a.riprendi, a.codici, a.data, a.archivio)
         elif a.riverifica is not None:
             riverifica(a.riverifica)
         else:

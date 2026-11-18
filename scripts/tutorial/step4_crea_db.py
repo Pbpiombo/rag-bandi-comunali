@@ -1,10 +1,9 @@
 """STEP 4 - crea il database dei dati numerici e lo popola dai CSV."""
 
 from src.database.schema import (
-    TABELLE_DA_CSV,
-    carica_csv,
     connetti,
     crea_schema,
+    popola_da_csv,
     riepilogo,
 )
 
@@ -15,8 +14,7 @@ def main() -> None:
     crea_schema(conn)
 
     print("\n  Caricamento dai CSV in data/processed:")
-    for tabella, colonne in TABELLE_DA_CSV.items():
-        carica_csv(conn, tabella, colonne)
+    popola_da_csv(conn)
 
     riepilogo(conn)
     conn.close()
