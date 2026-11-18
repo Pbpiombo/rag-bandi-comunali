@@ -115,3 +115,60 @@ Note:
   soddisfatta, e C02. 6 non trovati in 4 domande, nessun errore
   vero. Esito: correzioni chiuse, piano B non necessario. Dettagli in
   `docs/piano-correzioni-lotto1.md`, "Regressione finale".
+
+## Regola delle misure (18/11/2026)
+
+Spostata da `docs/roadmap.md` il 18/11/2026: passo 0, metodo delle
+etichette del passo 1, metodo del passo 4, regola del confronto
+appaiato della sezione B, riga "Prova" dei principi.
+
+### Passo 0
+
+**Regola delle misure.** Tutte le misure di A e B su una copia
+congelata dei CSV e con data di riferimento 2026-11-16. Motivo: 54
+bandi aperti al 16/11, 43 al 1/12. Per il Comune 7 al 16/11, 3 al
+1/12, 1 dal 6/12: 4 scadono tra il 26 e il 30/11 e 2 il 5/12. Sono 7
+come li mostra l'app; la query ne trova 8, e l'ottavo (fondo di
+garanzia energie rinnovabili) è senza scadenza, non a sportello e non
+recente. Tre parti:
+- (a) data fissa 2026-11-16, sostituita anche in `src.chains.rag` e
+  letta da `prova_insieme` per `meta.json`;
+- (b) SQLite ricreato dai CSV congelati, con `connetti` puntato lì e
+  l'impronta calcolata su quella cartella;
+- (c) i documenti non si congelano: nessuna ingestione tra la baseline
+  e i confronti di un ciclo, altrimenti si rifà la baseline.
+
+(a) e (b) sono un compito di codice a parte, con i suoi test, prima
+della nuova baseline.
+
+Verifica del 18/11/2026: 52 bandi aperti al 18/11.
+
+### Metodo delle etichette (passo 1)
+
+- Prima del primo giro: definizione scritta di "generico", con esempi;
+  colonna "chi atteso" per domanda.
+- Confronto con un secondo modello sulle stesse 10, con l'accordo
+  misurato per classe. Se è alto, il modello pre-etichetta il resto e
+  si controllano i disaccordi e un campione.
+- Un bando senza etichetta nei primi 10 del passo 4 si etichetta, non
+  conta come "no".
+
+### Metodo del confronto sull'ordinamento (passo 4)
+
+Tre bracci: ricerca attuale; filtro per chi più ordinamento per cosa; lo
+stesso con le famiglie di bisogno. Risultati separati per bandi con e
+senza interventi; pertinenti persi dal filtro contati a parte.
+
+### Regola del confronto appaiato (sezione B)
+
+Regola per B: confronto appaiato domanda per domanda, con la soglia
+decisa prima; una variante passa solo se i miglioramenti netti superano i
+cambi osservati tra le ripetizioni della baseline.
+
+### Prova: tabella "Bandi ricorrenti"
+
+- **Prova**: tabella "Bandi ricorrenti" del 18/11/2026. Su 54 bandi aperti
+  un'impresa generica ne ammette 25. Sei bandi compaiono in 29 domande
+  private su 30: quattro per assunzioni e tirocini, più il welfare
+  aziendale e cloud e cyber security; risorse genetiche agrarie compare
+  in 30 su 30.

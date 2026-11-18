@@ -261,3 +261,14 @@ la prova della chiusura.
   misura prima e dopo.
   Chiusa il 15 novembre 2026 (commit `694936f`, `app/app.py`, riga
   "×n" del pannello); la citazione più breve resta da valutare.
+
+## Fatti il 18 novembre 2026
+
+Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
+
+- Fatti il 18/11/2026, senza modello: diagnosi delle attese a tre
+  categorie, archivio, recupero, esclusione
+  (`scripts/diagnostica/diagnosi_attese.py`); revisione esterna dei prompt
+  (`docs/revisione-prompt-2026-11-18.md`); schede di etichettatura con la
+  tabella "Bandi ricorrenti" (`scripts/diagnostica/schede_etichette.py`);
+  studio delle fonti (`docs/piano-fonti-burt-ministeri.md`).

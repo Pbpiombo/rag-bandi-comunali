@@ -25,7 +25,7 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
    correzione prima della demo). Compare all'utente su una domanda fuori
    ambito (apertura degli impianti sciistici). Da unire alla voce già in
    coda sulle domande fuori ambito con frase fissa.
-- (era la voce 4 dei Difetti del 14/11, → passo 2) **Pertinenza**: nella domanda sulle attività artigianali compare il
+- (era la voce 4 dei Difetti del 14/11, → passo 2a) **Pertinenza**: nella domanda sulle attività artigianali compare il
    bando delle risorse genetiche agrarie. Controllare cosa restituisce
    `bandi_per_beneficiario` per gli artigiani.
 - (era la voce 5 dei Difetti del 14/11) **"fra 16 giorni" risulta verificato**: controllare da dove viene il
@@ -56,6 +56,11 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
    aggiunge un blocco "comune nominato nella domanda" con regione,
    provincia, Unione e fonte; il codice dell'ente resta passato dal
    programma.
+
+   Dettaglio del passo 18 della roadmap, spostato il 18/11/2026: Casi da
+   coprire: menu "Comune" e domanda da privato; soggetti di due tipi;
+   chi vuole aprire un'attività; il consulente che chiede per conto di
+   altri; comune nominato diverso dal profilo.
 - (era la voce 10 dei Difetti del 14/11, → passo 4) **Domande da imprenditore** ("vorrei aprire una palestra", "un laghetto
     da pesca"): restituiscono soprattutto bandi generici per PMI a
     sportello. Valutare la ricerca per bisogno, già nei prossimi passi
@@ -99,7 +104,7 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
     - Nidi gratis 2026-2027: il secondo termine, il 6/10/2026 per i Comuni
       già candidati, è solo nella `scadenza_nota`, non in
       `scadenze_bando`.
-- (era la voce 14 dei Difetti del 14/11, → passo 2) **Risorse genetiche forestali 2026 e SRA28, frase classificata sotto
+- (era la voce 14 dei Difetti del 14/11, → passo 2a) **Risorse genetiche forestali 2026 e SRA28, frase classificata sotto
     quasi tutti i tipi**: "proprietari, possessori, pubblici o privati …"
     ha una riga per quasi ogni tipo di beneficiario (anche
     `impresa_turistica`, `professionista_autonomo`,
@@ -138,7 +143,13 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
 
     La strategia (maggioranza, unione, ripieghi) si sceglie dopo la
     simulazione senza modello: "Indicazioni del revisore tecnico
-    (18/11)", punti 3 e 4.
+    (18/11)", punti 3 e 4 (oggi in coda.md,
+    "Revisore tecnico (18/11/2026)", "Ordine dei passi proposto, superato").
+
+    Dettaglio del passo 3 della roadmap, spostato il 18/11/2026: Quattro
+    strategie: prima chiamata (oggi), maggioranza, unione delle scelte
+    delle chiamate, unione più ripieghi nel codice. Un tema fuori elenco
+    conta come anomalia (caso P11: tema "montagna").
 - (era la voce 17 dei Difetti del 14/11, → riempitivi) **Verificatore, citazione posta prima della condizione**: il dato si
     cerca anche nella citazione precedente della stessa voce di elenco.
     Caso P01 della regressione finale del 16/11/2026: la citazione sta
@@ -183,7 +194,7 @@ Difetti e richieste emersi dalla prova completa dall'app del 14 novembre
 - (era tra le voci di "Prima della demo") **Barra laterale, tabelle vuote**: scelta di presentazione per le righe
   "bilancio: VUOTA" e "turismo: VUOTA" che compaiono oggi. Da decidere:
   nasconderle o riformularle come dati in arrivo.
-- (era tra le voci di "Prima della demo", → passo 2) **Se c'è tempo: Nuova Sabatini, Smart&Start, ISI INAIL verificati a
+- (era tra le voci di "Prima della demo", → passo 2a) **Se c'è tempo: Nuova Sabatini, Smart&Start, ISI INAIL verificati a
   mano**, con la frase della pagina come prova: misure nazionali per le
   imprese escluse dalla regola degli sportelli ma ancora attive
   (Incentivi Italia, tappa 5: sportelli senza chiusura aperti da più di
@@ -223,7 +234,8 @@ Insieme:
   maggioranza o prima chiamata, più ripieghi nel codice), per esempio il
   ripiego sull'elenco dei bandi aperti per l'ente (caso C02). Vedi la voce
   16 di "Dopo la demo: dalla prova completa del 14 novembre" e
-  "Indicazioni del revisore tecnico (18/11)", punti 3 e 4;
+  "Indicazioni del revisore tecnico (18/11)", punti 3 e 4 (oggi in
+  coda.md, "Revisore tecnico (18/11/2026)", "Ordine dei passi proposto, superato");
 - distinzione tra bandi generici per imprese, che valgono per quasi ogni
   investimento, e bandi a scopo preciso per enti, che non vanno proposti
   come generici;
@@ -234,7 +246,8 @@ Insieme:
 
 Realizzazione come flusso a passi fissi, non come agente libero. Si
 parte con funzioni semplici in sequenza; LangGraph serve solo con rami
-o cicli (punto 6 delle Indicazioni del revisore tecnico).
+o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
+"Revisore tecnico (18/11/2026)", "Ordine dei passi proposto, superato").
 - Il modello decide solo in punti definiti: router, classificazione,
   scrittura, ed eventualmente un validatore che segnala bandi omessi o
   affermazioni senza supporto.
@@ -359,7 +372,7 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico).
    AGPL: da riconsiderare se il servizio diventa a pagamento.
    L'alternativa con licenza permissiva per le tabelle è pdfplumber, da
    provare.
-- (era la voce 7 dei Prossimi passi, → principio "per chi") **Privati nell'app**: selettore pubblico/privato e tipo di privato a
+- (era la voce 7 dei Prossimi passi, → principio "per chi", → passo 18) **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione
    ("Adeguamento e ampliamento della viabilità rurale, solo enti
@@ -443,7 +456,7 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico).
   provare su Streamlit Cloud.
 - Dopo la demo. Revisione dei test: segnalare quelli che ricopiano il
   codice invece di proteggere un comportamento.
-- Dopo la demo. Simulazione senza modello: quanti bandi per "PMI" o
+- (→ passo 2b) Dopo la demo. Simulazione senza modello: quanti bandi per "PMI" o
   "imprese" senza settore sono classificati solo come `altra_impresa`, e
   quindi non compaiono nelle ricerche per settore (turistiche, artigiane
   e commerciali, agricole). Caso del 13/11/2026: il minibond.
@@ -468,6 +481,9 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico).
   abitanti, fondo strade MIT) confrontate con i dati ISTAT del comune:
   oggi la soglia sta solo nelle condizioni dei beneficiari, e il bando
   compare a tutti i comuni.
+  Dettaglio del passo 8 della roadmap, spostato il 18/11/2026: Nella
+  prova, alcune domande con San Marcello Piteglio come ente (7.410
+  abitanti; Abetone Cutigliano 1.834).
 - Dopo la demo. Campo strutturato per gli importi per fascia di ente (es.
   mutuo massimo di 2, 4 o 6 milioni secondo tipo e dimensione dell'ente,
   Sport e Cultura Missione Comune): oggi la frase della pagina sta nel
@@ -609,3 +625,122 @@ Metodo in `docs/piano-insieme-prova.md`.
   giudizi a mano. La stessa taratura vale per il validatore
   dell'architettura della risposta in due passi (prima voce dei
   "Prossimi passi").
+
+## Revisore tecnico (18/11/2026)
+
+Spostato da `docs/roadmap.md` il 18/11/2026.
+
+### Indicazioni ricevute
+
+- separare classificazione, scelta della forma e scrittura;
+- confronti numerici (popolazione e soglia del bando) nel codice, con il
+  modello che spiega il risultato. Oggi `ISTRUZIONI` vieta le deduzioni
+  ma chiede di concludere sulla soglia;
+- funzioni in sequenza finché il flusso è lineare, LangGraph solo con
+  rami o cicli (per esempio rigenerare se il verificatore fallisce);
+- baseline prima di cambiare;
+- router: voto più ripieghi nel codice, e provare l'unione delle scelte
+  delle chiamate al posto della maggioranza, misurando bandi recuperati e
+  bandi fuori tema aggiunti;
+- per ogni errore distinguere: bando non in archivio, non recuperato,
+  recuperato ma escluso dalla risposta;
+- verifiche a mano sulle conclusioni (attribuzione, ammissibilità), che
+  il verificatore non controlla;
+- confronti domanda per domanda, esecuzioni ripetute per misurare la
+  variabilità, insieme di controllo nuovo mai usato per tarare, con casi
+  senza risposta e domande scritte da chi lavora nei Comuni.
+
+### Ordine dei passi proposto, superato
+
+Superato dall'ordine dei passi di docs/roadmap.md. Conservato perché
+coda.md, docs/revisione-prompt-2026-11-18.md e
+scripts/diagnostica/schede_etichette.py lo citano per numero.
+Testo copiato da `git show fbe391c:docs/roadmap.md`, righe 376-422;
+accanto a ogni punto il passo della roadmap che lo ha assorbito.
+
+1. (→ Stato e passo 2 della roadmap) **Baseline**: la regressione finale del 16/11/2026 (commit `715b411`),
+   già registrata.
+2. (→ Stato e "In attesa" della roadmap) **Diagnosi a tre categorie** (archivio, recupero, esclusione), senza
+   modello. Per ogni attesa delle 55 domande e per i bandi mancati
+   segnalati dal consulente pilota, cercare il titolo:
+   - nel database (non c'è: archivio);
+   - nel blocco dati salvato nel JSON della prova (non c'è: recupero);
+   - nei bandi citati (non c'è: esclusione).
+
+   Comprende il punto 1 delle priorità qui sopra.
+3. (→ passo 3) **Simulazione del router senza modello**, sulle risposte grezze già
+   salvate (`grezzi_router`). Quattro strategie:
+   - prima chiamata (oggi);
+   - maggioranza (voce 16 di "Difetti dalla prova completa del 14
+     novembre");
+   - unione delle scelte delle chiamate;
+   - unione più ripieghi (per esempio, con un Comune, aggiungere
+     `bandi_aperti_per_ente`).
+
+   Interrogazioni eseguite nel codice. Misure per domanda: attese
+   presenti nei dati, numero di bandi in più rispetto alla prima
+   chiamata.
+4. (→ passo 7) **Scelta di strategia e ripieghi** in base al punto 3, poi
+   implementazione e misura con il modello contro la baseline, domanda
+   per domanda. Sostituisce la maggioranza data per scontata nella voce
+   16 e nella prima voce dei "Prossimi passi".
+5. (→ passo 8) **Soglie di popolazione confrontate nel codice**; il modello spiega il
+   risultato.
+6. (→ passo 9) **Risposta in funzioni in sequenza** (classifica, forma, scrivi):
+   l'architettura della risposta in due passi, prima voce dei "Prossimi
+   passi". LangGraph solo con cicli o rami. Mappa delle regole dei due
+   prompt per passo, con contraddizioni e ridondanze:
+   `docs/revisione-prompt-2026-11-18.md` (revisione esterna, non
+   applicata).
+7. (→ passi 2 e 5) **Esecuzioni ripetute sulle domande instabili; insieme di controllo**
+   con domande reali dello sportello, mai usato per tarare ("Insieme di
+   prova: dopo").
+8. (→ passo 10) **Forma dell'aiuto come campo dei bandi** (fondo perduto, prestito,
+   garanzia, abbattimento degli interessi), con la frase di origine. Caso
+   P11: la risposta raggruppa dei bandi come «Contributi a fondo perduto»
+   senza appoggio nelle righe, e l'attesa a mano «distinguere fondo
+   perduto da prestiti e garanzie» oggi si può soddisfare solo dai titoli.
+9. (→ passo 1) **Attese con polarità** ("proposto", "non proposto", forma attesa):
+   oggi una citazione fatta per escludere un bando conta come trovata.
+   Caso C03 della regressione del 16/11/2026: la risposta cita Punti
+   Digitale Facile per dire che non lo presenta come pertinente, e
+   `attese_esito` lo segna trovato.
+
+## Pulizia dei dati (passi 2a e 2b)
+
+Dettaglio del passo 2, spostato da `docs/roadmap.md` il 18/11/2026.
+
+- **2a**, dopo il primo giro di etichette. Bandi con 8 o più tipi:
+  quattro in archivio, due aperti al 16/11 (risorse genetiche agrarie,
+  12 tipi; fondo di garanzia, 9) e due no (risorse genetiche
+  forestali, 11; premi per gli imboschimenti, 9). Si correggono tutti
+  e quattro (`coda.md`, voci 4 e 14 dei Difetti del 14/11). Poi gli
+  aperti sospetti: Tax credit cinema 2024, sportelli senza chiusura
+  aperti da più di due anni (`coda.md`, "Nuova Sabatini, Smart&Start,
+  ISI INAIL" tra le voci di "Prima della demo").
+- **2b**: il resto, con la simulazione "PMI senza settore" di
+  `coda.md`. `altra_impresa` ha due significati: impresa senza settore
+  nelle estrazioni vecchie; settore senza un tipo suo in Incentivi
+  Italia. I bandi per imprese senza settore prendono i quattro tipi
+  d'impresa; quelli di un settore senza tipo restano `altra_impresa`.
+  Al 16/11, tra gli aperti: `altra_impresa` 25, turistica 23, artigiana
+  e commerciale 19, agricola 14.
+
+Dalla pulizia non ci si aspetta un calo dei bandi ricorrenti oltre
+risorse genetiche. Poi la nuova baseline: tre registrazioni delle 55
+domande, circa 10,5 $; assorbe il passo 6.
+
+## Testo di ricerca (passo 17)
+
+Dettaglio del passo 17, spostato da `docs/roadmap.md` il 18/11/2026.
+
+17. **Testo di ricerca per bando**, senza modello: titolo, interventi con
+descrizione e frase, e per Incentivi Italia le colonne `Descrizione`,
+`Obiettivo_Finalita` e `Settore_Attivita` del catalogo. Sta in un file
+separato, `data/processed/testo_ricerca.csv`, con la fonte e la
+licenza (CC BY 4.0), mai in `bandi.csv`. Serve solo all'ordinamento:
+non va al modello che scrive e non si cita. Il motivo di
+"`Descrizione` non si copia" (`docs/piano-fonti.md`, punto 5 della
+tappa 5) non è documentato; la regola resta valida per `bandi.csv`.
+`Forma_agevolazione` non entra nel testo di ricerca: è un aiuto per
+l'etichettatura a mano del passo 10.

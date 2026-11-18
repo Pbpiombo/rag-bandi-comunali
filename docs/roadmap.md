@@ -10,15 +10,13 @@ originale, in `docs/coda.md`.
 
 - Demo mandata al consulente pilota il 16/11/2026, riscontro ricevuto il
   18/11/2026. Revisione del revisore tecnico ricevuta il 18/11/2026.
+  Revisione esterna del piano ricevuta il 18/11/2026.
 - Baseline: la regressione finale del 16/11/2026 (commit `715b411`), 55
   domande in 4 lotti. Vale fino alla pulizia dei dati (passo 2); dopo,
   la baseline è la nuova registrazione delle 55 domande.
-- Fatti il 18/11/2026, senza modello: diagnosi delle attese a tre
-  categorie, archivio, recupero, esclusione
-  (`scripts/diagnostica/diagnosi_attese.py`); revisione esterna dei prompt
-  (`docs/revisione-prompt-2026-11-18.md`); schede di etichettatura con la
-  tabella "Bandi ricorrenti" (`scripts/diagnostica/schede_etichette.py`);
-  studio delle fonti (`docs/piano-fonti-burt-ministeri.md`).
+- Attese: 18 sui titoli nel file delle domande, su 14 domande. La tabella
+  a freddo ne conta 17: manca quella di L05, che nel lotto 1 a freddo ha
+  avuto il router fallito 3 volte su 3 (attesa 0/1).
 
 Riscontro del consulente pilota del 18/11/2026, in sintesi:
 - prova con tre domande;
@@ -27,104 +25,131 @@ Riscontro del consulente pilota del 18/11/2026, in sintesi:
 - su una ha trovato opportunità corrette ma generiche;
 - suggerimenti: includere il BURT e provare con qualche ministero.
 
-Indicazioni del revisore tecnico (18/11), ricevute:
-- separare classificazione, scelta della forma e scrittura;
-- confronti numerici (popolazione e soglia del bando) nel codice, con il
-  modello che spiega il risultato. Oggi `ISTRUZIONI` vieta le deduzioni
-  ma chiede di concludere sulla soglia;
-- funzioni in sequenza finché il flusso è lineare, LangGraph solo con
-  rami o cicli (per esempio rigenerare se il verificatore fallisce);
-- baseline prima di cambiare;
-- router: voto più ripieghi nel codice, e provare l'unione delle scelte
-  delle chiamate al posto della maggioranza, misurando bandi recuperati e
-  bandi fuori tema aggiunti;
-- per ogni errore distinguere: bando non in archivio, non recuperato,
-  recuperato ma escluso dalla risposta;
-- verifiche a mano sulle conclusioni (attribuzione, ammissibilità), che
-  il verificatore non controlla;
-- confronti domanda per domanda, esecuzioni ripetute per misurare la
-  variabilità, insieme di controllo nuovo mai usato per tarare, con casi
-  senza risposta e domande scritte da chi lavora nei Comuni.
+Indicazioni del revisore tecnico (18/11): `docs/coda.md`, "Revisore
+tecnico (18/11/2026)".
 
 ## Principi dell'architettura della risposta
 
-- **"Per chi" è un filtro deciso dal codice**: chi chiede (ente del menu o
-  tipo di privato) esclude con certezza i bandi a cui non può partecipare.
+- **"Per chi" è un filtro deciso dal codice**, a partire da chi chiede
+  (ente del menu o tipo di privato). È un filtro largo, che esclude solo
+  dove il bando esclude: `qualsiasi_soggetto` passa sempre (oggi
+  `bandi_per_beneficiario` non lo fa passare, le interrogazioni per ente
+  sì); un bando senza righe di beneficiari passa con un segno; i
+  pertinenti persi dal filtro si misurano a parte.
 - **"Per cosa" è un ordinamento**: tra i bandi rimasti, vicinanza a ciò
-  che chi chiede vuole fare, su titolo, interventi e finalità, con
-  somiglianza di significato (embedding locali) più parole esatte, come il
-  recupero ibrido dei documenti.
+  che chi chiede vuole fare, su un testo di ricerca per bando (passo 17),
+  con somiglianza di significato (embedding locali) più parole esatte,
+  come il recupero ibrido dei documenti.
 - **Il modello classifica i primi 10-15** (pertinente, generico possibile,
   no) con uscita strutturata; il codice decide la forma della risposta; il
   modello scrive.
+- **I bandi generici stanno in una sezione separata, con un tetto.**
+  "Generico" dipende dal bisogno, non dal bando. Il criterio delle
+  famiglie di bisogno è un'ipotesi da provare al passo 4, non un
+  principio.
+- **"Chi chiede" è un passo esplicito** (passo 18).
+- **Il principio copre le domande "cerca bandi".** Prima di progettare il
+  passo 9 si elencano gli altri rami: scaduti recenti, bando nominato,
+  scadenze e importi, documenti.
+- **Filtro e ordinamento servono soprattutto ai privati.** Per i Comuni
+  contano il passo 9, la copertura e gli scaduti recenti.
 - **Funzioni in sequenza**; LangGraph solo con cicli o rami.
 - **Il settore di chi chiede, se manca, si chiede con un menu** e si
   conserva come dato della sessione, non come memoria della chat.
-- **Prova**: tabella "Bandi ricorrenti" del 18/11/2026. Su 54 bandi aperti
-  un'impresa generica ne ammette 25; i bandi per assunzioni compaiono in 29
-  domande private su 30.
+- **Prova**: su 54 bandi aperti un'impresa generica ne ammette 25; sei
+  bandi compaiono in 29 domande private su 30
+  (`docs/piano-insieme-prova.md`, "Regola delle misure (18/11/2026)").
 
 ## Ordine dei passi
 
+I numeri dei passi non cambiano. **Ordine di esecuzione:** 0; 1 (primo
+giro); 2a; 17; 1 (resto); 2b e nuova baseline; 4; 3; 5; 18; 8; 9; poi C
+in sequenza, non in parallelo.
+
 ### A. Misure e dati, senza modello salvo dove indicato
 
-1. **Etichette.** Schede in `dati-grezzi/etichette/2026-11-18_152225`.
-   Primo giro a mano su C02, C03, C07, C14, P03, P09, P11, P22, P24, L02;
-   poi il confronto con un secondo modello sulle stesse 10; poi il resto.
-   Dalle etichette nascono le attese con polarità (proposto, non proposto,
-   forma attesa): oggi una citazione fatta per escludere un bando conta
-   come trovata (caso C03). Serve un'opzione di `diagnosi_attese` per
-   leggere le attese attuali invece di quelle salvate. Metodo:
-   `docs/piano-insieme-prova.md`.
-2. **Pulizia dei dati, in un blocco solo:**
-   - classificazioni troppo larghe: risorse genetiche agrarie, 12 tipi, in
-     50 domande su 50; controllare ogni bando con 8 o più tipi (`coda.md`,
-     voci 4 e 14 dei Difetti del 14/11);
-   - bandi aperti sospetti: Tax credit cinema 2024, sportelli senza
-     chiusura aperti da più di due anni (`coda.md`, "Nuova Sabatini,
-     Smart&Start, ISI INAIL" tra le voci di "Prima della demo").
+0. **Regola delle misure.** Tutte le misure di A e B su una copia
+   congelata dei CSV e con data di riferimento 2026-11-16; data fissa e
+   SQLite congelato sono un compito di codice a parte, prima della nuova
+   baseline (`docs/piano-insieme-prova.md`, "Regola delle misure").
+1. **Etichette.** Schede in `dati-grezzi/etichette/2026-11-18_152225`, per
+   50 domande: le 5 domande A non hanno schede e restano misurate con le
+   attese attuali.
+   - Primo giro a mano su C02, C03, C07, C14, P03, P09, P11, P22, P24,
+     L02; due o tre domande anche al consulente pilota.
+   - Dalle etichette nascono le attese con polarità (proposto, non
+     proposto); `forma_attesa` si calcola dalle etichette. Oggi una
+     citazione fatta per escludere un bando conta come trovata (caso C03).
+   - Serve un'opzione di `diagnosi_attese` per leggere le attese attuali
+     invece di quelle salvate. Metodo: `docs/piano-insieme-prova.md`,
+     "Regola delle misure".
+2. **Pulizia dei dati**: 2a dopo il primo giro di etichette (bandi con 8
+   o più tipi, aperti sospetti); 2b il resto (`altra_impresa`). Poi la
+   nuova baseline: tre registrazioni delle 55 domande, circa 10,5 $;
+   assorbe il passo 6. Dettaglio in `coda.md`, "Pulizia dei dati (passi
+   2a e 2b)".
+3. **Simulazione del router, senza modello**, dopo il passo 4, sulle
+   risposte grezze già salvate e solo sulle decisioni che restano al
+   router: chi chiede, bando nominato o elenco, documenti sì o no.
+   Strategie e casi in `coda.md`, voce 16 dei Difetti del 14/11.
+4. **Confronto sull'ordinamento**, sulle etichette, solo sulle domande P e
+   L: quanti bandi pertinenti stanno nei primi 10. Embedding locali,
+   nessun costo. Metodo in `docs/piano-insieme-prova.md`, "Regola delle
+   misure". Riprende la ricerca per bisogno (`coda.md`, voce 6 dei
+   Prossimi passi) e le domande da imprenditore (voce 10 dei Difetti del
+   14/11).
 
-   Poi una nuova baseline: 55 domande, circa 3,5 $.
-3. **Simulazione del router, senza modello**, sulle risposte grezze già
-   salvate. Quattro strategie: prima chiamata (oggi), maggioranza, unione
-   delle scelte delle chiamate, unione più ripieghi nel codice. Un tema
-   fuori elenco conta come anomalia (caso P11: tema "montagna"). Casi in
-   `coda.md`, voce 16 dei Difetti del 14/11.
-4. **Confronto tra la ricerca attuale e "filtro per chi più ordinamento per
-   cosa"** sulle etichette: quanti bandi pertinenti stanno nei primi 10.
-   Embedding locali, nessun costo. Riprende la ricerca per bisogno
-   (`coda.md`, voce 6 dei Prossimi passi) e le domande da imprenditore
-   (voce 10 dei Difetti del 14/11).
+Passo nuovo della sezione A:
+
+17. **Testo di ricerca per bando**, senza modello, in un file separato
+    (`data/processed/testo_ricerca.csv`); serve solo all'ordinamento.
+    Dettaglio in `coda.md`, "Testo di ricerca (passo 17)".
 
 ### B. Correzioni del flusso, con il modello
 
 Misurate contro la baseline e l'insieme di controllo, domanda per domanda.
+Regola del confronto appaiato: `docs/piano-insieme-prova.md`, "Regola
+delle misure".
 
 5. **Insieme di controllo**: domande vere dello sportello più casi senza
    risposta, registrato una volta a freddo prima delle correzioni, mai
-   usato per tarare (`coda.md`, "Insieme di prova: dopo";
-   `docs/piano-insieme-prova.md`).
-6. **Variabilità**: due ripetizioni delle 55 domande sulla baseline.
+   usato per tarare. Le tre domande già provate dal consulente pilota
+   entrano subito. Vale come veto, non per scegliere (`coda.md`,
+   "Insieme di prova: dopo"; `docs/piano-insieme-prova.md`).
+6. **Variabilità**: sostituito dalle tre registrazioni della nuova
+   baseline (passo 2).
 7. **Router**: strategia e ripieghi scelti dalla simulazione del passo 3
    (`coda.md`, voce 16 dei Difetti del 14/11).
-8. **Soglie di popolazione nel codice**, con la soglia come campo
-   strutturato e la frase di origine; il modello spiega il risultato
-   (`coda.md`, "In coda", soglie di popolazione dei bandi).
+8. **Soglie di popolazione nel codice**, il minimo: la soglia come campo
+   compilato a mano, con la frase di origine, e il confronto nel codice
+   (fondo strade, fasce di Missione Comune); il modello spiega il
+   risultato. `coda.md`, "In coda", soglie di popolazione dei bandi.
 9. **Risposta in funzioni in sequenza** (classifica, forma, scrivi), con
    la mappa delle regole in `docs/revisione-prompt-2026-11-18.md`.
+   Nella regola di chiusura: verifiche a mano sulle conclusioni, quota di
+   bandi proposti con etichetta "no", costo e tempo per domanda.
    Dettaglio in `coda.md`, "Architettura della risposta" (era la prima
    voce dei Prossimi passi).
-10. **Forma dell'aiuto come campo dei bandi** (fondo perduto, prestito,
-    garanzia, interessi), con la frase di origine. Caso P11: la risposta
-    raggruppa dei bandi come «Contributi a fondo perduto» senza appoggio
-    nelle righe.
+10. **Forma dell'aiuto** (fondo perduto, prestito, garanzia, interessi):
+    estrazione come campo dei bandi rimandata; subito, etichettata a mano
+    sui 54 aperti. Caso P11: la risposta raggruppa dei bandi come
+    «Contributi a fondo perduto» senza appoggio nelle righe.
 
-### C. Fonti, binario parallelo
+Passo nuovo della sezione B:
+
+18. **Chi chiede**, prima del passo 9. In dubbio, unione dei tipi. Casi
+    da coprire in `coda.md`, voce 9 dei Difetti del 14/11.
+
+### C. Fonti, in sequenza
 
 Studio in `docs/piano-fonti-burt-ministeri.md`.
 
-11. **Scansione settimanale del Portale della Regione**, con la sua lista
-    di requisiti (`coda.md`, era la voce 3 dei Prossimi passi).
+11. **Scansione settimanale del Portale della Regione**, con i requisiti
+    di `coda.md`, era la voce 3 dei Prossimi passi.
+
+    Prima della videochiamata con il consulente pilota, una scansione a
+    mano del Portale, perché la demo online usa la data vera. Tocca solo
+    l'archivio vero, mai la copia congelata del passo 0.
 12. **MIT**: elenco dei contributi attivi (studio, 2.3 B).
 13. **BURT**: sommario della Parte III, ogni mercoledì; mai la Parte IV
     (studio, 1.3 e 3.3).
@@ -134,8 +159,8 @@ Studio in `docs/piano-fonti-burt-ministeri.md`.
     (`coda.md`, "Prova di copertura" tra le voci di "Prima della demo";
     `docs/ricognizione-fonti.md`, sezione 8).
 
-L'ordine delle fonti va riconfermato quando arrivano i due bandi mancati
-dal consulente pilota.
+I passi 13, 14 e 15 sono fermi finché non arrivano i due bandi mancati
+dal consulente pilota; allora si riconferma l'ordine delle fonti.
 
 ### D. Dopo il confronto con il consulente pilota sull'obiettivo
 
@@ -145,8 +170,9 @@ approvazione (`coda.md`, voci 5, 4 e 10 dei Prossimi passi).
 
 ### Riempitivi e passi manuali
 
-- Senza modello: verificatore, voci 17 e 18 dei Difetti del 14/11 e i
-  codici spezzati in più numeri (`coda.md`, "In coda").
+- Senza modello: i codici spezzati in più numeri nel verificatore
+  (`coda.md`, "In coda"). Le voci 17 e 18 dei Difetti del 14/11
+  (verificatore) aspettano il passo 9.
 - Manuali: limite di spesa mensile nella console di Anthropic; HF_TOKEN
   nei secrets di Streamlit Cloud (oggi il modello degli embedding si
   scarica senza token a ogni avvio dell'app online).
@@ -154,10 +180,10 @@ approvazione (`coda.md`, voci 5, 4 e 10 dei Prossimi passi).
 ### In attesa
 
 - Dal consulente pilota: i due bandi mancati, le domande vere, le fonti
-  che usa. Con i bandi mancati, diagnosi a tre categorie senza modello
+  che usa; e se la domanda con risposte "generiche" era per un ente o per
+  un privato. Con i bandi mancati, diagnosi a tre categorie senza modello
   (archivio, recupero, esclusione) e domande come casi fissi dell'insieme
   di prova.
-- La revisione esterna del piano.
 
 ## Decisioni prese
 
@@ -184,3 +210,7 @@ approvazione (`coda.md`, voci 5, 4 e 10 dei Prossimi passi).
   (passo 3), non a maggioranza per principio (18/11/2026).
 - **BURT: solo Parte III e supplementi, dal sommario**; mai la Parte IV,
   che contiene dati personali (18/11/2026).
+- **Misure su archivio congelato e data fissa** (2026-11-16), passo 0
+  (18/11/2026).
+- **Baseline in tre registrazioni** delle 55 domande (18/11/2026).
+- **Il passo 4 viene prima del passo 3** (18/11/2026).
