@@ -158,10 +158,18 @@ Procedura per creare la copia:
   dell'impronta>/`, per esempio `2026-11-20_3fa91c02`. Nel nome mai la
   data di riferimento delle misure: quella sta in `--data` e in
   `meta.json`;
-- si copiano solo i CSV delle tabelle di `TABELLE_DA_CSV`
-  (`src/database/schema.py`), non il resto di `data/processed` (copie
-  `.bak`, pagine `.txt`, `scansione.log`, `doppioni.csv`);
-  `crea_da_csv` si rifiuta se ne manca uno. `bilancio.csv` e
+- prima della copia, `python -m scripts.manutenzione.crea_testo_ricerca
+  --file <OpenData_Incentivi.csv> --controlla` deve dire "aggiornato":
+  altrimenti il testo di ricerca (passo 17) è vecchio rispetto ai bandi
+  e va rigenerato senza `--controlla`, e il working tree non è più pulito
+  (19/11/2026);
+- si copiano solo i CSV delle tabelle di `TABELLE_DA_CSV` e di
+  `CSV_FUORI_DATABASE` (`src/database/schema.py`), non il resto di
+  `data/processed` (copie `.bak`, pagine `.txt`, `scansione.log`,
+  `doppioni.csv`). `CSV_FUORI_DATABASE` (oggi `testo_ricerca.csv`, dal
+  19/11/2026) entra nella copia e nell'impronta ma non in SQLite: il
+  passo 4 dovrà leggerlo dalla copia e fermarsi se manca.
+  `crea_da_csv` si rifiuta se manca un CSV di `TABELLE_DA_CSV`. `bilancio.csv` e
   `turismo.csv` sono in `data/processed` dal passo 2a (18/11/2026),
   vuoti con la sola intestazione;
 - `origine.txt` nella cartella, con il commit, la data della copia e

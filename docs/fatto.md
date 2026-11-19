@@ -312,3 +312,22 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
 - **Etichette dell'insieme di prova** (19/11/2026): 990 etichette su 50
   domande, da due modelli con un arbitro e revisione a mano di 96 righe
   dei Comuni. In `docs/piano-insieme-prova.md`, "Come sono state fatte le etichette".
+- **Passo 17, testo di ricerca per bando** (19/11/2026, senza modello):
+  `data/processed/testo_ricerca.csv`, una riga per bando, costruita da
+  `scripts/manutenzione/crea_testo_ricerca.py` (`--file` il catalogo,
+  `--controlla` per confrontare senza scrivere) con
+  `src/ordinamento/testo_ricerca.py`. Testo: titolo; interventi in ordine
+  di numero, descrizione e frase (la frase si omette se uguale alla
+  descrizione); per Incentivi Italia `Descrizione`, `Obiettivo_Finalita`
+  e `Settore_Attivita` di `OpenData_Incentivi.csv` del 2026-11-12;
+  `Forma_agevolazione` no. Ogni riga ha la fonte di ogni parte e, per il
+  catalogo, licenza CC BY 4.0 e data del file. Il file non si carica in
+  SQLite (`CSV_FUORI_DATABASE` in `src/database/schema.py`), quindi
+  nessuna interrogazione del repertorio lo legge; entra nell'impronta e
+  nella copia congelata. Errore, senza file parziale, se il catalogo
+  manca, ha una data diversa da quella nella fonte dei bandi o non
+  contiene un bando. Stesso ingresso, stesso file byte per byte. Esito:
+  112 bandi su 112 con un testo, tutti i 51 aperti al 16/11 compresi; 58
+  con interventi (166, 590, 3686 caratteri: minimo, mediana, massimo), 49
+  di Incentivi Italia (408, 1602, 7561), 5 con il solo titolo (26, 76,
+  130). Test in `tests/test_testo_ricerca.py`.

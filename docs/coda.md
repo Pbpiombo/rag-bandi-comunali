@@ -393,6 +393,11 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
    - nota: oggi l'app consulta i documenti solo quando il router lo
      decide, quindi il caricamento da solo non migliora le domande
      "ci sono bandi per…".
+   - Tre tipi di pagina, visti il 19/11/2026: pagine ricche (per
+     esempio Credito Sportivo); pagine brevi che rimandano al PDF (per
+     esempio il bando parcheggi); notizie al posto della pagina del
+     bando (fondo strade del ministero: un solo intervento estratto).
+     Anche le pagine ricche si approfondiscono molto nel PDF.
 - (era la voce 7 dei Prossimi passi, → principio "per chi", → passo 18) **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione
@@ -880,6 +885,22 @@ non va al modello che scrive e non si cita. Il motivo di
 tappa 5) non è documentato; la regola resta valida per `bandi.csv`.
 `Forma_agevolazione` non entra nel testo di ricerca: è un aiuto per
 l'etichettatura a mano del passo 10.
+
+Voci aperte dopo il passo 17 (19/11/2026):
+
+- **Doppioni tra fonti**: le righe del catalogo elencate in
+  `doppioni.csv` come doppioni di un bando di un'altra fonte non danno
+  il testo del catalogo al bando tenuto. Da valutare al passo 4.
+- **Bandi aperti con il solo titolo**: tre bandi aperti al 16/11 hanno
+  come testo il solo titolo
+  (`bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-7057d9`,
+  `immobili-emergenza-abitativa-2026`,
+  `sostegno-a-progetti-di-promozione-ed-educazione-music-e81761`). Il
+  rimedio atteso è il passo 19.
+- **Lunghezze sbilanciate**: mediana 1602 caratteri per Incentivi
+  Italia, 590 per i bandi con interventi, 76 per quelli senza. Al passo
+  4 i risultati si riportano separati per questi gruppi, e si controlla
+  se il modello di embedding tronca i testi lunghi.
 
 ## Proposte del 19/11/2026, da decidere dopo la prima prova del passo 19
 

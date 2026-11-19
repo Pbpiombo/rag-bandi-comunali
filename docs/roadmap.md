@@ -66,7 +66,7 @@ tecnico (18/11/2026)".
 ## Ordine dei passi
 
 I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
-1 (etichette, fatto); 2a (fatto); 17; 1 (resto: "chi atteso", domande
+1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
 A, attese con polarità); 19; 2b; 4; 3; nuova baseline; 5; 18; 8; 9; poi
 le fonti (C) in sequenza, non in parallelo. Perché la nuova baseline
 viene dopo il passo 19: "Decisioni prese" (19/11/2026).
@@ -124,6 +124,7 @@ Passi nuovi della sezione A:
 17. **Testo di ricerca per bando**, senza modello, in un file separato
     (`data/processed/testo_ricerca.csv`); serve solo all'ordinamento.
     Dettaglio in `coda.md`, "Testo di ricerca (passo 17)".
+    Fatto il 19/11/2026 (`docs/fatto.md`).
 19. **PDF degli avvisi dei bandi aperti**: l'avviso in PDF di ogni
     bando aperto entra nell'archivio dei documenti, legato al bando con
     `id_bando`. Prerequisito del passo 9, non una correzione delle
