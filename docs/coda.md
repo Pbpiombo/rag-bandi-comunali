@@ -408,6 +408,35 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
      della ricerca vede circa il primo terzo di un frammento di 1500
      caratteri. Da misurare al compito 19d prima di cambiare la
      divisione in frammenti o il modello.
+   - **Stesso file per più bandi**: "Codici Ateco ammissibili" (PMI 50
+     mila, decreto 9505 All. 4) e "Codici attività ammissibili" (PMI EU
+     blending, decreto 9506 All. 4) hanno lo stesso sha256. Il registro
+     del 19c va tenuto per impronta del file, con più `id_bando` per un
+     file, non una copia per bando; Chroma accetta un solo valore per
+     metadato, quindi il legame bando-frammento passa dal registro.
+   - **Allegati di soli codici**: gli elenchi di codici ATECO o NACE (236
+     pagine) non si dividono in frammenti di testo come un avviso: si
+     caricano come dato strutturato o si escludono dall'archivio dei
+     documenti. Da decidere al 19c.
+   - **Falso positivo tra gli allegati richiamati**: "Allegato 5 Obblighi
+     di pubblicità" (PMI 50 mila e PMI EU blending) è stato scaricato come
+     allegato richiamato per beneficiari o ATECO, ma non lo è: la ricerca
+     di "beneficiari" vicino a "Allegato N" è troppo larga. Da restringere
+     prima del prossimo giro.
+   - **Scadenze spesso assenti dai PDF**: l'avviso consolidato dei punti
+     digitale (decreto 25205) non contiene la scadenza, che sta nella
+     pagina e in `bandi.csv` (26/11/2026). Conferma la decisione del
+     19/11/2026: per scadenza e stato vale l'archivio, mai il PDF. Il
+     `riferimento_atto` dei punti digitale non cita il decreto 25205 da
+     cui viene il testo consolidato: da aggiornare prima di usarlo
+     nell'intestazione dei frammenti.
+   - **Bandi senza avviso riconosciuto**: fondo strade (il PDF del MIT ha
+     3 pagine e 2 sezioni su 5) e incentivi-8659 (tra i link della pagina
+     MIMIT ci sono solo guide e presentazioni). Restano senza avviso
+     finché non si decide a mano.
+   - **Soglie provvisorie**: 3 sezioni per i link avviso o consolidato, 4
+     per le altre classi e mai con testo "da rivedere", tarate il
+     19/11/2026 su 12 bandi. Vanno riviste con più bandi.
 - (era la voce 7 dei Prossimi passi, → principio "per chi", → passo 18) **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione
@@ -880,6 +909,12 @@ Rimaste dopo il passo 2a (18/11/2026):
 - **`_frase` in `src/estrazione/incentivi.py`** può tenere un a-capo
   della pagina dentro la frase: oggi lo corregge l'esportazione
   (`esporta_csv`), la correzione alla fonte è da fare.
+- (→ passo 2b, 19/11/2026) **`riferimento_atto` dei punti digitale**
+  (contributi-a-enti-locali-e-ets-per-punti-digitale-fac-8db4be): oggi è
+  "Decreto dirigenziale 24316 del 30 ottobre 2026, modificato con decreto
+  24443 del 6 novembre 2026"; va aggiornato con il decreto 25205 del
+  16/11/2026, da cui viene il testo consolidato dell'avviso, dopo averlo
+  verificato sulla pagina del bando.
 
 ## Testo di ricerca (passo 17)
 

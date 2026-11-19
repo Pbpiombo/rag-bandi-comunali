@@ -331,3 +331,35 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
   con interventi (166, 590, 3686 caratteri: minimo, mediana, massimo), 49
   di Incentivi Italia (408, 1602, 7561), 5 con il solo titolo (26, 76,
   130). Test in `tests/test_testo_ricerca.py`.
+- **Passo 19, compiti 19a e 19b: elenco e PDF degli avvisi della prima
+  prova** (19/11/2026, senza modello): 12 bandi (immobili-emergenza-abitativa-2026 escluso, è
+  un non_bando). Script `scripts/ingestione/elenco_pdf_bandi.py` in tre
+  fasi (`--robots`, `--pagine`, `--file`), lettore
+  `src/estrazione/lettore_siti.py`: robots.txt per nome del programma
+  secondo RFC 9309, intestazione che dichiara il progetto, pause
+  (Crawl-delay o 5 s), tentativi per errori temporanei e 429, rifiuti che
+  fermano l'host, cache su disco, registro `richieste.csv`. Eccezione al
+  robots.txt per i PDF degli avvisi (decisione del 19/11/2026, CLAUDE.md
+  "Lettura dei siti"): 7 file del Credito Sportivo. Link agli atti della
+  Regione su www301 (`bancadati/atti/Contenuto.xml`, nome da `nomeFile`)
+  e `/documents/d/…-pdf`; www301 non ha un robots.txt (pagina HTML
+  d'errore, registrata come assente). Classi: avviso, consolidato,
+  proroga, modulistica, allegato, atto, da decidere, altro; versione più
+  recente per data del decreto nel nome del file. Riconoscimento
+  dell'avviso dalle sezioni del testo (beneficiari, spese ammissibili,
+  criteri, cumulo, modalità di presentazione), soglie provvisorie: 3 per
+  i link avviso o consolidato, 4 per gli altri e mai con testo da
+  rivedere. Esito: 42 richieste in tutto (4 robots.txt, 12 pagine, 1
+  robots.txt di www301, 25 file), nessun errore né rifiuto; avviso
+  riconosciuto in 10 bandi su 12 (apistici in quattro parti); nessun
+  avviso per il fondo strade (PDF del MIT con 2 sezioni) e per
+  incentivi-8659 (nessun avviso tra i link della pagina). File ed elenco
+  in `dati-grezzi/avvisi/2026-11-19/`, fuori dal repository. Test in
+  `tests/test_lettore_siti.py`, `test_robots_rfc.py`,
+  `test_robots_html.py`, `test_pdf_bando.py`, `test_documenti_regione.py`,
+  `test_versioni_avviso.py`, `test_elenco_pdf_bandi.py`,
+  `test_elenco_versioni.py`, `test_scelta_bandi.py`,
+  `test_soglie_senza_rete.py`. CLAUDE.md: il principio 'Lettura dei siti'
+  è stato riscritto il 19/11/2026 (le pagine rispettano il robots.txt; i
+  PDF degli avvisi si scaricano una volta anche se vietati, quando la
+  pagina del bando è consentita; un rifiuto del sito non si aggira mai).

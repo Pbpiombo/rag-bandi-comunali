@@ -67,7 +67,7 @@ tecnico (18/11/2026)".
 
 I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
 1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
-A, attese con polarità); 19; 2b; 4; 3; nuova baseline; 5; 18; 8; 9; poi
+A, attese con polarità); 19 (19a e 19b fatti, prossimo 19c); 2b; 4; 3; nuova baseline; 5; 18; 8; 9; poi
 le fonti (C) in sequenza, non in parallelo. Perché la nuova baseline
 viene dopo il passo 19: "Decisioni prese" (19/11/2026).
 
@@ -129,6 +129,7 @@ Passi nuovi della sezione A:
     bando aperto entra nell'archivio dei documenti, legato al bando con
     `id_bando`. Prerequisito del passo 9, non una correzione delle
     risposte. Dettaglio in `coda.md`, "PDF dei bandi" (passo 19).
+    19a e 19b fatti il 19/11/2026 (`docs/fatto.md`); prossimo: 19c.
 
 ### B. Correzioni del flusso, con il modello
 
