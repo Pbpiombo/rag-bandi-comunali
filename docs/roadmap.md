@@ -72,9 +72,12 @@ tecnico (18/11/2026)".
 
 I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
 1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
-A, attese con polarità); 19 (19a e 19b fatti, prossimo 19c); 2b; 4; 3; nuova baseline; 5; 18; 8; 9; poi
-le fonti (C) in sequenza, non in parallelo. Perché la nuova baseline
-viene dopo il passo 19: "Decisioni prese" (19/11/2026).
+A, attese con polarità); 19 (19a e 19b fatti, prossimo 19c); 20 (prima
+della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
+baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
+Il passo 21 si fa prima di dare il link della demo a chiunque oltre al
+consulente pilota, in qualunque punto della sequenza. Perché la nuova
+baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
 
 ### A. Misure e dati, senza modello salvo dove indicato
 
@@ -207,12 +210,26 @@ Proposte del 19/11/2026 in docs/coda.md: valutazione a tre livelli,
 interventi collegati, colonna sinistra, app in due fasi con il fascicolo.
 Ordine previsto: PDF, valutazione, fascicolo.
 
+### E. App online
+
+20. **Tasto di segnalazione sulla risposta**, versione minima: una
+    scelta tra quelle elencate in `coda.md`, "Tasto di segnalazione sulla
+    risposta"; un campo libero facoltativo; salvataggio su Supabase solo
+    quando l'utente preme il tasto. Dopo il passo 19c e comunque prima
+    della videochiamata con il consulente pilota (prima settimana di
+    dicembre).
+21. **Limite di 3 domande per sessione e tetto giornaliero
+    complessivo** (`coda.md`, "Sezione riservata", parte sul limite).
+    Prima di dare il link della demo a chiunque oltre al consulente
+    pilota.
+
 ### Riempitivi e passi manuali
 
 - Senza modello: i codici spezzati in più numeri nel verificatore
   (`coda.md`, "In coda"). Le voci 17 e 18 dei Difetti del 14/11
   (verificatore) aspettano il passo 9.
-- Manuali: limite di spesa mensile nella console di Anthropic; HF_TOKEN
+- Manuali: limite di spesa mensile nella console di Anthropic, da fare
+  prima di tutto il resto; HF_TOKEN
   nei secrets di Streamlit Cloud (oggi il modello degli embedding si
   scarica senza token a ogni avvio dell'app online).
 

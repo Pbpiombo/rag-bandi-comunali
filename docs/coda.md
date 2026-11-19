@@ -450,12 +450,12 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
    ("Adeguamento e ampliamento della viabilità rurale, solo enti
    pubblici", AS01 del GAL), e un terzo settore che chiede quali
    interventi può fare non riceve un filtro, solo il testo.
-- (era la voce 8 dei Prossimi passi) **Sezione riservata**: accesso, iscrizioni con mail e ricerche salvate su
+- (era la voce 8 dei Prossimi passi, → passo 21) **Sezione riservata**: accesso, iscrizioni con mail e ricerche salvate su
    Supabase, tasto "aggiorna adesso" che lancia il processo su GitHub,
    segnalazione manuale di un bando. Parte pubblica limitata a 3 domande per
    sessione, con un tetto giornaliero complessivo e un invito a scrivere per
    l'accesso.
-- (nuova, 19/11/2026) **Tasto di segnalazione sulla risposta**, prima di
+- (nuova, 19/11/2026, → passo 20) **Tasto di segnalazione sulla risposta**, prima di
    pubblicare il link della demo, insieme al limite per sessione e al
    tetto giornaliero della voce precedente:
    - una scelta tra: un dato è sbagliato; manca un bando che conosco
@@ -696,6 +696,13 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
   copia in `dati-grezzi/elenchi/`: estratto in `tests/pagine/`, riga in
   `LEGGIMI.md`, e correzione di `totale_dichiarato` se la forma reale è
   diversa da quella della nota in `piano-fonti.md`.
+- (nuova, 19/11/2026) `estrai_bando` legge le pagine con l'intestazione
+  di un browser e senza robots.txt, e non stampa token né costo: va
+  allineato a `lettore_siti` e deve dire quanto ha speso.
+- (nuova, 19/11/2026) Data di pubblicazione presa dalla data del decreto
+  citato nel testo (fondo rievocazioni, 19/11/2026): un caso solo. Se si
+  ripete, diventa una regola nel codice o una riga nel prompt
+  dell'estrattore.
 
 ## Insieme di prova: dopo
 
@@ -1074,6 +1081,19 @@ prova.
   vicina (passi 4 e 9, 'interventi collegati'); scrive 'per il terzo
   settore a condizione' senza dire la condizione; ripete la stessa fonte
   per intero cinque volte (presentazione, passo 9).
+- Risposta dopo l'inserimento (19/11/2026, stesso ente): il Fondo
+  nazionale rievocazione storica 2027 compare per primo come aperto, con
+  il requisito dei cinque anni e senza importi; compaiono anche Cultura
+  Missione Comune 2026 e il bando sull'educazione musicale; 16 dati
+  verificati su 16. Tre osservazioni: (1) il fine statutario sulla
+  memoria storica è attribuito a tutti i richiedenti, mentre sulla pagina
+  riguarda associazioni e fondazioni e non gli enti locali (condizioni di
+  una riga di beneficiari applicate alle altre: passo 9); (2) i bandi
+  vicini stanno allo stesso livello di quello centrato, senza dire che
+  non finanziano una rievocazione ('interventi collegati'); (3) la
+  comparsa dei bandi vicini non è dimostrata stabile: una prova sola, da
+  ripetere con il caso fisso F01. Le due risposte sono conservate fuori
+  dal repository.
 - Etichette del bando nuovo contro le 55 domande: servono prima della
   nuova baseline.
 
