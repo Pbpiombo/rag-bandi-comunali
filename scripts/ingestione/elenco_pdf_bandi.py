@@ -90,11 +90,14 @@ OLTRE_IL_TETTO = "oltre il tetto"
 NON_NECESSARIO = "non necessario"
 SCARICATO_ECCEZIONE = "scaricato (eccezione robots)"
 ALTRO_ALTRO_HOST = "classe altro su un host diverso dalla pagina"
+VERSIONE_SUPERATA = "versione superata"
+SOSTITUITO = "sostituito dal consolidato"
+AVVISO_IN_PIU_PARTI = "avviso in più parti"
 
 # L'eccezione al robots.txt per i PDF degli avvisi, in un punto solo:
 # False la spegne. Le classi a cui vale.
 ECCEZIONE_ROBOTS_AVVISI = True
-CLASSI_ECCEZIONE = (pb.CONSOLIDATO, pb.AVVISO, pb.ALLEGATO)
+CLASSI_ECCEZIONE = (pb.CONSOLIDATO, pb.AVVISO, pb.PROROGA, pb.ALLEGATO)
 
 
 class ErroreElenco(Exception):
@@ -223,9 +226,16 @@ def esclusione(riga: dict, host_pagine: set[str]) -> str | None:
     return None
 
 
-def da_scaricare(righe: list[dict], host_pagine: set[str]) -> list[dict]:
-    """Le righe in ordine di scarico, senza quelle escluse."""
-    return [r for r in pb.ordine_di_scarico(righe) if not esclusione(r, host_pagine)]
+def da_scaricare(
+    righe: list[dict], host_pagine: set[str], superate: list[dict] | None = None
+) -> list[dict]:
+    """Le righe in ordine di scarico, senza le escluse e le versioni superate."""
+    superate = superate or []
+    return [
+        r
+        for r in pb.ordine_di_scarico(righe)
+        if not esclusione(r, host_pagine) and not any(r is s for s in superate)
+    ]
 
 
 def collegamenti_del_bando(
@@ -299,11 +309,16 @@ def stampa_piano(
             f"({riga['host_file']}) {riga['motivo_classe']}"
         )
     host_pagine = host_delle_pagine(cartella, id_bando, url)
+    superate, problema = pb.versioni(righe)
+    if problema:
+        stampa(f"    VERSIONI DA DECIDERE A MANO: {problema}")
     for riga in pb.ordine_di_scarico(righe):
-        motivo = esclusione(riga, host_pagine)
+        motivo = esclusione(riga, host_pagine) or (
+            VERSIONE_SUPERATA if any(riga is s for s in superate) else None
+        )
         if motivo:
             stampa(f"    escluso: {riga['n']} ({motivo})")
-    ordine = da_scaricare(righe, host_pagine)
+    ordine = da_scaricare(righe, host_pagine, superate)
     stampa(
         "    ordine di scarico: "
         + (", ".join(str(r["n"]) for r in ordine) or "nessun file")
@@ -361,7 +376,12 @@ def file_del_bando(
 
     Prima i file messi a mano (nessuna richiesta), poi i link in ordine di
     scarico, fino al primo avviso; dopo l'avviso, solo gli allegati
-    richiamati. gia_scaricati: i file gia' presi dagli altri bandi.
+    richiamati e le proroghe. Le versioni superate non si scaricano; un
+    avviso dopo un consolidato con le sezioni e' "sostituito dal
+    consolidato". Senza link di classe avviso o consolidato, gli allegati
+    si scaricano tutti (nei tetti) e decide il contenuto: piu' file con
+    le sezioni di un avviso sono un "avviso in piu' parti".
+    gia_scaricati: i file gia' presi dagli altri bandi.
     """
     collegamenti = collegamenti_del_bando(cartella, id_bando, url)
     righe = pb.righe_elenco(id_bando, url, collegamenti)
@@ -373,20 +393,40 @@ def file_del_bando(
     testo_pagina = a_testo(testo_html(file_pagina(cartella, id_bando)))
 
     host_pagine = host_delle_pagine(cartella, id_bando, url)
+    superate, problema = pb.versioni(righe)
+    if problema:
+        raise ErroreElenco(f"{id_bando}: {problema}")
     for riga in righe:
-        stato = esclusione(riga, host_pagine)
+        stato = esclusione(riga, host_pagine) or (
+            VERSIONE_SUPERATA if any(riga is s for s in superate) else None
+        )
         if stato:
             riga["stato_scarico"] = stato
 
     trovato = False
+    da_consolidato = False
     richiamati: list[dict] = []
+    con_sezioni: list[dict] = []
     presi = 0
     pagine_ok = pagine_consentite(lettore, cartella, id_bando, url)
+    ordine = da_scaricare([r for r in righe if r["url_file"]], host_pagine, superate)
+    in_parti = not any(r["classe"] in (pb.AVVISO, pb.CONSOLIDATO) for r in ordine)
 
-    def dopo_avviso(pagine: list[str]) -> None:
-        nonlocal trovato, richiamati
+    def dopo_avviso(riga: dict, pagine: list[str]) -> None:
+        nonlocal trovato, da_consolidato, richiamati
+        con_sezioni.append(riga)
+        if trovato:
+            return
         trovato = True
+        da_consolidato = riga["classe"] == pb.CONSOLIDATO
         richiamati = pb.allegati_richiamati([*pagine, testo_pagina], righe)
+
+    def ancora_utile(riga: dict) -> bool:
+        return (
+            any(riga is r for r in richiamati)
+            or riga["classe"] == pb.PROROGA
+            or (in_parti and riga["classe"] == pb.ALLEGATO)
+        )
 
     # file messi a mano: senza nessuna richiesta
     attesi = set(nomi.values())
@@ -400,11 +440,14 @@ def file_del_bando(
         riga["stato_scarico"] = A_MANO
         avviso, pagine = completa_con_pdf(riga, percorso)
         righe.append(riga)
-        if avviso and not trovato:
-            dopo_avviso(pagine)
+        if avviso:
+            dopo_avviso(riga, pagine)
 
-    for riga in da_scaricare([r for r in righe if r["url_file"]], host_pagine):
-        if trovato and not any(riga is r for r in richiamati):
+    for riga in ordine:
+        if trovato and da_consolidato and riga["classe"] == pb.AVVISO:
+            riga["stato_scarico"] = SOSTITUITO
+            continue
+        if trovato and not ancora_utile(riga):
             riga["stato_scarico"] = NON_NECESSARIO
             continue
         destinazione = dove / nomi[riga["url_file"]]
@@ -430,8 +473,11 @@ def file_del_bando(
             continue
         presi += 1
         avviso, pagine = completa_con_pdf(riga, destinazione)
-        if avviso and not trovato:
-            dopo_avviso(pagine)
+        if avviso:
+            dopo_avviso(riga, pagine)
+    if len(con_sezioni) > 1:
+        for riga in con_sezioni:
+            riga["sezioni"] += f" | {AVVISO_IN_PIU_PARTI}"
     return righe, trovato, presi
 
 

@@ -34,6 +34,7 @@ import io
 import re
 import statistics
 from dataclasses import dataclass
+from datetime import date
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urldefrag, urljoin, urlsplit
@@ -73,6 +74,7 @@ GENERICI = {
 # Il testo confrontato e' etichetta e nome del file, in minuscolo, con
 # trattini, trattini bassi e punti trasformati in spazi.
 CONSOLIDATO = "consolidato"
+PROROGA = "proroga"
 DA_DECIDERE = "da_decidere"
 MODULISTICA = "modulistica"
 AVVISO = "avviso"
@@ -81,6 +83,8 @@ ATTO = "atto"
 ALTRO = "altro"
 
 REGOLE = (
+    # piu' versioni dello stesso testo (decisione del 19/11/2026): tra
+    # piu' consolidati o avvisi vince il decreto piu' recente (versioni)
     (
         CONSOLIDATO,
         re.compile(
@@ -88,10 +92,12 @@ REGOLE = (
             r"|testo integrat"
         ),
     ),
+    # la proroga porta la scadenza vera: si scarica subito dopo l'avviso
+    (PROROGA, re.compile(r"prorog|rettific|differiment|riapertur|errata corrige")),
     (
         DA_DECIDERE,
         re.compile(
-            r"rettific|errata corrige|prorog|graduatori|\belenco\b|ammessi"
+            r"graduatori|\belenco\b|ammessi"
             r"|\besit[oi]\b|\bfaq\b|estratto|\bburt\b|parte iii|assegnati"
             r"|revocat|rinunciatar"
         ),
@@ -100,21 +106,36 @@ REGOLE = (
         MODULISTICA,
         re.compile(
             r"\bmodul[oi]\b|modulistica|\bdomanda\b|fac ?simile|dichiarazion"
-            r"|\bschema\b|\bformat\b|\bistanz[ae]\b"
+            r"|\bschema\b|\bformat\b|\bistanz[ae]\b|formulari"
         ),
     ),
-    (AVVISO, re.compile(r"avvis[oi]|\bband[oi]\b|disciplinar")),
+    # "elementi essenziali" (la delibera con i criteri) e' un atto, anche
+    # se dice "del bando"
+    (ATTO, re.compile(r"elementi essenziali")),
+    (
+        AVVISO,
+        re.compile(
+            r"avvis[oi]|\bband[oi]\b|disciplinar|chiamata di progetti"
+            r"|invito a presentare|manifestazion[ei] di interesse"
+        ),
+    ),
     (ALLEGATO, re.compile(r"allegat|\ball [a-z0-9]\b")),
     # "Testo Atto": il link al decreto quando nomeFile non dice nulla
     (ATTO, re.compile(r"decret|delibera|determin|\btesto (?:dell')?atto\b")),
 )
 
-CLASSI = (*[classe for classe, _ in REGOLE], ALTRO)
+CLASSI = (*dict.fromkeys(classe for classe, _ in REGOLE), ALTRO)
+
+# Parole di una versione del testo, che fanno consolidato solo con
+# "testo", "bando" o "avviso" nell'etichetta o nel nome del file:
+# "Progetti ammissibili ... Allegato 1A aggiornato" resta un allegato
+VERSIONE = re.compile(r"aggiornat|corrett|definitiv|coordinat")
+DI_UN_TESTO = re.compile(r"\btesto\b|\bband[oi]\b|avvis[oi]")
 
 # "istanza" fa modulistica, salvo "avviso" o "bando" nell'etichetta:
 # "Avviso per la presentazione di istanze" resta un avviso
 ISTANZA = re.compile(r"\bistanz[ae]\b")
-AVVISO_IN_ETICHETTA = dict(REGOLE)[AVVISO]
+AVVISO_IN_ETICHETTA = next(s for c, s in REGOLE if c == AVVISO)
 
 # Un'etichetta che e' solo "Allegato A" o "All. A": in Regione Toscana
 # l'avviso e' spesso l'allegato A del decreto
@@ -204,12 +225,14 @@ CARATTERI_ANTEPRIMA = 200
 PRIORITA = {
     CONSOLIDATO: 0,
     AVVISO: 1,
-    # 2: allegato con "probabile avviso"
-    ALLEGATO: 3,
-    ATTO: 4,
-    ALTRO: 5,
-    DA_DECIDERE: 6,
+    PROROGA: 2,
+    # 3: allegato con "probabile avviso"
+    ALLEGATO: 4,
+    ATTO: 5,
+    ALTRO: 6,
+    DA_DECIDERE: 7,
 }
+PRIORITA_PROBABILE_AVVISO = 3
 
 # Un allegato nominato vicino a beneficiari o codici ATECO
 _ALLEGATO = r"(?i:allegat[oi])\s+(?:n\.\s*)?([A-Z]|\d{1,2})\b"
@@ -365,6 +388,9 @@ def _per_regole(testo: str) -> str:
 def classifica(etichetta: str, nome_file: str) -> tuple[str, str]:
     """La classe proposta e il motivo, dalla prima regola che corrisponde."""
     testo = _per_regole(f"{etichetta} {_da_nome(nome_file)}")
+    versione = VERSIONE.search(testo)
+    if versione and DI_UN_TESTO.search(testo):
+        return CONSOLIDATO, f"'{versione.group(0)}' in un testo"
     for classe, schema in REGOLE:
         trovato = schema.search(testo)
         if not trovato:
@@ -666,10 +692,65 @@ def ordine_di_scarico(righe: list[dict]) -> list[dict]:
         classe = riga["classe"]
         valore = PRIORITA[classe]
         if classe == ALLEGATO and PROBABILE_AVVISO in riga["motivo_classe"]:
-            valore = 2
+            valore = PRIORITA_PROBABILE_AVVISO
         return valore, int(riga["n"])
 
     return sorted((r for r in righe if not da_non_scaricare(r)), key=priorita)
+
+
+# La data di un atto nel nome del file: 16-11-2026, 30_04_2026, 30.04.2026
+DATA_NEL_NOME = re.compile(r"(\d{2})[-_.](\d{2})[-_.](\d{4})")
+
+
+def nome_per_la_data(riga: dict) -> str:
+    """Il nome del file di una riga: nomeFile per gli atti della banca dati."""
+    parti = urlsplit(riga["url_file"])
+    nome_file = parse_qs(parti.query).get("nomeFile")
+    return nome_file[0] if nome_file else unquote(parti.path.rsplit("/", 1)[-1])
+
+
+def data_del_documento(riga: dict) -> date | None:
+    """La data dell'atto nel nome del file, o None se non si ricava."""
+    trovata = DATA_NEL_NOME.search(nome_per_la_data(riga))
+    if not trovata:
+        return None
+    giorno, mese, anno = (int(g) for g in trovata.groups())
+    try:
+        return date(anno, mese, giorno)
+    except ValueError:
+        return None
+
+
+def versioni(righe: list[dict]) -> tuple[list[dict], str | None]:
+    """Le versioni superate tra consolidati e avvisi dello stesso bando.
+
+    Vince la versione con l'atto piu' recente, data dal nome del file
+    (decisione del 19/11/2026). Con una sola versione nulla e' superato.
+    Se una data non si ricava, o se piu' versioni hanno la data piu'
+    recente, non si sceglie: restituisce il problema.
+    """
+    candidati = [
+        r
+        for r in righe
+        if r["classe"] in (CONSOLIDATO, AVVISO)
+        and r["url_file"]
+        and not da_non_scaricare(r)
+    ]
+    if len(candidati) < 2:
+        return [], None
+    date_ = [(r, data_del_documento(r)) for r in candidati]
+    senza = [r for r, d in date_ if d is None]
+    if senza:
+        return [], "data non ricavabile dal nome del file per " + ", ".join(
+            f"{r['n']} ({r['etichetta']})" for r in senza
+        )
+    piu_recente = max(d for _, d in date_)
+    vincitori = [r for r, d in date_ if d == piu_recente]
+    if len(vincitori) > 1:
+        return [], f"stessa data ({piu_recente.isoformat()}) per " + ", ".join(
+            f"{r['n']} ({r['etichetta']})" for r in vincitori
+        )
+    return [r for r, _ in date_ if r is not vincitori[0]], None
 
 
 def allegati_richiamati(testi: list[str], righe: list[dict]) -> list[dict]:

@@ -142,7 +142,7 @@ def test_classi_sulle_pagine_del_gal():
     srd14 = classi(righe_srd14)
 
     assert as01["Bando-AS01-13.05.2026.pdf"] == pb.AVVISO
-    assert as01["167_2026-ERRATA-CORRIGE.pdf"] == pb.DA_DECIDERE
+    assert as01["167_2026-ERRATA-CORRIGE.pdf"] == pb.PROROGA
     assert as01["Delibera-1_2026-approvaz.-elenco-Int.-SRD14.pdf"] == pb.DA_DECIDERE
     assert as01["estratto-PARTE-III-n.-37-del-16.09.2026.pdf"] == pb.DA_DECIDERE
     assert as01["estrattoPARTE-III-n.-20-del-20.05.2026.pdf"] == pb.DA_DECIDERE
@@ -159,7 +159,7 @@ def test_classi_sulle_pagine_del_gal():
         ("Allegato B - Modulo di domanda", "allegato-b.pdf", pb.MODULISTICA),
         ("Avviso – testo coordinato con le modifiche", "avviso.pdf", pb.CONSOLIDATO),
         ("Avviso aggiornato alle modifiche del 2026", "avviso.pdf", pb.CONSOLIDATO),
-        ("Proroga dei termini dell'avviso", "proroga.pdf", pb.DA_DECIDERE),
+        ("Proroga dei termini dell'avviso", "proroga.pdf", pb.PROROGA),
         ("Decreto dirigenziale 18191", "dd-18191.pdf", pb.ATTO),
         ("Avviso pubblico", "avviso-2026.pdf", pb.AVVISO),
         ("Allegato C - Tabella dei punteggi", "all-c.pdf", pb.ALLEGATO),
@@ -237,7 +237,7 @@ def test_classi_della_pagina_sintetica():
         pb.ALLEGATO,
         pb.MODULISTICA,
         pb.CONSOLIDATO,
-        pb.DA_DECIDERE,
+        pb.PROROGA,
         pb.ALLEGATO,
         pb.DA_DECIDERE,
     ]

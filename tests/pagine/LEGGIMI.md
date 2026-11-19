@@ -96,3 +96,10 @@ Li usa `tests/test_documenti_regione.py`.
 | `regione-documenti-pmi-eu-blending.html` | bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-8cd3ac |
 | `regione-documenti-apistici.html` | sostegno-agli-investimenti-strutturali-aziende-apisti-401650 |
 | `regione-documenti-educazione-musicale.html` | sostegno-a-progetti-di-promozione-ed-educazione-music-e81761 |
+
+Limite noto (19/11/2026): in `regione-documenti-risorse-genetiche.html` il
+link "Disposizioni per la costituzione ed aggiornamento del Fascicolo
+Aziendale ... Dichiarazione unica aziendale" (`allA_DA140_15.pdf`) prende la
+classe modulistica per la parola "dichiarazione", ma e' una disposizione, non
+un modulo. La regola resta com'e' (decisione del 19/11/2026): il file non si
+scarica.
