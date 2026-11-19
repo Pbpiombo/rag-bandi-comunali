@@ -14,8 +14,9 @@ originale, in `docs/coda.md`.
   18/11/2026. Revisione del revisore tecnico ricevuta il 18/11/2026.
   Revisione esterna del piano ricevuta il 18/11/2026.
 - Baseline: la regressione finale del 16/11/2026 (commit `715b411`), 55
-  domande in 4 lotti. Vale fino alla pulizia dei dati (passo 2); dopo,
-  la baseline è la nuova registrazione delle 55 domande.
+  domande in 4 lotti. La baseline del 16/11/2026 non corrisponde più
+  all'archivio dopo il passo 2a (18/11/2026). Resta l'unico riferimento
+  fino alla nuova registrazione delle 55 domande, dopo il passo 3.
 - Attese: 18 sui titoli nel file delle domande, su 14 domande. La tabella
   a freddo ne conta 17: manca quella di L05, che nel lotto 1 a freddo ha
   avuto il router fallito 3 volte su 3 (attesa 0/1).
@@ -64,10 +65,11 @@ tecnico (18/11/2026)".
 
 ## Ordine dei passi
 
-I numeri dei passi non cambiano. **Ordine di esecuzione:** 0; 1
-(etichette); 2a; 17; 1 (resto: "chi atteso", domande A, attese con
-polarità); 2b e nuova baseline; 4; 3; 5; 18; 8; 9; poi C
-in sequenza, non in parallelo.
+I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
+1 (etichette, fatto); 2a (fatto); 17; 1 (resto: "chi atteso", domande
+A, attese con polarità); 19; 2b; 4; 3; nuova baseline; 5; 18; 8; 9; poi
+le fonti (C) in sequenza, non in parallelo. Perché la nuova baseline
+viene dopo il passo 19: "Decisioni prese" (19/11/2026).
 
 ### A. Misure e dati, senza modello salvo dove indicato
 
@@ -95,10 +97,11 @@ in sequenza, non in parallelo.
      invece di quelle salvate. Metodo: `docs/piano-insieme-prova.md`,
      "Regola delle misure".
 2. **Pulizia dei dati**: 2a dopo il primo giro di etichette (bandi con 8
-   o più tipi, aperti sospetti); 2b il resto (`altra_impresa`). Poi la
-   nuova baseline: tre registrazioni delle 55 domande, circa 10,5 $;
-   assorbe il passo 6. Dettaglio in `coda.md`, "Pulizia dei dati (passi
-   2a e 2b)".
+   o più tipi, aperti sospetti); 2b il resto (`altra_impresa`). La
+   nuova baseline, tre registrazioni delle 55 domande (circa 10,5 $;
+   assorbe il passo 6), si registra dopo i passi 19, 2b, 4 e 3
+   (decisione del 19/11/2026). Dettaglio in `coda.md`, "Pulizia dei
+   dati (passi 2a e 2b)".
    2a fatto il 18/11/2026: scadenze corrette a mano per Filiera SMART,
    per l'edizione precedente del Bando Pmi EU-Blending (incentivi-3662,
    non un doppione) e per il fondo di garanzia energie rinnovabili;
@@ -116,11 +119,15 @@ in sequenza, non in parallelo.
    Prossimi passi) e le domande da imprenditore (voce 10 dei Difetti del
    14/11).
 
-Passo nuovo della sezione A:
+Passi nuovi della sezione A:
 
 17. **Testo di ricerca per bando**, senza modello, in un file separato
     (`data/processed/testo_ricerca.csv`); serve solo all'ordinamento.
     Dettaglio in `coda.md`, "Testo di ricerca (passo 17)".
+19. **PDF degli avvisi dei bandi aperti**: l'avviso in PDF di ogni
+    bando aperto entra nell'archivio dei documenti, legato al bando con
+    `id_bando`. Prerequisito del passo 9, non una correzione delle
+    risposte. Dettaglio in `coda.md`, "PDF dei bandi" (passo 19).
 
 ### B. Correzioni del flusso, con il modello
 
@@ -169,7 +176,9 @@ Studio in `docs/piano-fonti-burt-ministeri.md`.
     l'archivio vero, mai la copia congelata del passo 0.
 12. **MIT**: elenco dei contributi attivi (studio, 2.3 B).
 13. **BURT**: sommario della Parte III, ogni mercoledì; mai la Parte IV
-    (studio, 1.3 e 3.3).
+    (studio, 1.3 e 3.3). Fermo finché il consulente pilota non dice
+    quali sono i due bandi mancati e se passavano dal BURT; prima
+    vengono i PDF dei bandi già in archivio (passo 19).
 14. **Ministero dell'Interno, Finanza locale** (studio, 2.3 A).
 15. **Dipartimento per lo Sport e Sport e Salute** (studio, 2.3 C).
 16. **Misura di copertura su un elenco esterno**, prima e dopo
@@ -231,3 +240,11 @@ approvazione (`coda.md`, voci 5, 4 e 10 dei Prossimi passi).
   (18/11/2026).
 - **Baseline in tre registrazioni** delle 55 domande (18/11/2026).
 - **Il passo 4 viene prima del passo 3** (18/11/2026).
+- **La nuova baseline si registra dopo il passo 19** e prima dei passi
+  che cambiano le risposte: la regola delle misure vieta di aggiungere
+  documenti durante un ciclo, e i passi 17, 19, 2b, 4 e 3 non chiamano
+  il modello (19/11/2026).
+- **I link del catalogo Incentivi Italia alla banca dati del BURT non
+  entrano tra i bandi**: vanno in `scansioni` come da verificare, anche
+  per incentivi-5013 e incentivi-3373. Dettaglio in `coda.md`, "Pulizia
+  dei dati" (19/11/2026).

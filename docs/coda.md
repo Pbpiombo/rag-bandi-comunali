@@ -371,7 +371,28 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
    l'OCR e resta "da OCR", non indicizzato in automatico. PyMuPDF è
    AGPL: da riconsiderare se il servizio diventa a pagamento.
    L'alternativa con licenza permissiva per le tabelle è pdfplumber, da
-   provare.
+   provare. Per il passo 19 si usa il lettore attuale; la valutazione di
+   PyMuPDF viene dopo la prima prova, se i testi estratti non bastano.
+
+   **PDF degli avvisi dei bandi aperti (passo 19, 19/11/2026).**
+   L'avviso in PDF dei bandi aperti entra nell'archivio dei documenti,
+   legato al bando con `id_bando`; è un prerequisito del passo 9, non
+   una correzione delle risposte.
+   - prima prova su circa 12 bandi: gli 8 con "non_basta" nelle
+     etichette più i bandi aperti per il Comune non già compresi;
+   - uno script propone per ogni bando i link ai PDF con etichetta,
+     numero di pagine e leggibilità del testo; l'elenco si approva a
+     mano prima di caricare;
+   - solo l'avviso, più un allegato se la pagina vi rimanda per
+     beneficiari o codici ATECO; i PDF scansionati restano "da OCR";
+     lettore attuale, nessuna dipendenza nuova;
+   - solo file consentiti dai robots.txt; per i siti non regionali il
+     robots.txt si legge prima, uno per uno;
+   - fuori dal passo: estrazione di punteggio minimo, criteri,
+     premialità e cumulo dagli avvisi;
+   - nota: oggi l'app consulta i documenti solo quando il router lo
+     decide, quindi il caricamento da solo non migliora le domande
+     "ci sono bandi per…".
 - (era la voce 7 dei Prossimi passi, → principio "per chi", → passo 18) **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione
@@ -383,6 +404,22 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
    segnalazione manuale di un bando. Parte pubblica limitata a 3 domande per
    sessione, con un tetto giornaliero complessivo e un invito a scrivere per
    l'accesso.
+- (nuova, 19/11/2026) **Tasto di segnalazione sulla risposta**, prima di
+   pubblicare il link della demo, insieme al limite per sessione e al
+   tetto giornaliero della voce precedente:
+   - una scelta tra: un dato è sbagliato; manca un bando che conosco
+     (con un campo: quale); un bando proposto non c'entra; un bando
+     proposto è scaduto o non più disponibile; un link o una fonte non
+     si apre; non ha trovato niente ma mi aspettavo qualcosa; la
+     risposta è poco chiara; risposta utile;
+   - campo libero facoltativo;
+   - si salvano con la segnalazione: domanda, ente del menu, risposta,
+     bandi citati, esito del verificatore, commit e impronta delle
+     istruzioni, data;
+   - il testo della domanda si salva solo quando l'utente preme il
+     tasto, con una riga che dice cosa viene salvato e di non scrivere
+     dati personali; nessun account;
+   - ogni segnalazione è un caso per l'insieme di controllo del passo 5.
 - (era la voce 9 dei Prossimi passi) **Newsletter come segnali**: casella dedicata iscritta alle newsletter di
    Regione, fondazioni e GAL; i link estratti passano dalla verifica sulla
    pagina ufficiale.
@@ -396,7 +433,7 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
 
 ## In coda
 
-- Dopo la demo. Avviso del decreto 9550 del 28/04/2026 (rafforzamento
+- (→ passo 19) Dopo la demo. Avviso del decreto 9550 del 28/04/2026 (rafforzamento
   amministrativo dei Capofila delle Aree interne) nella tabella dei
   bandi, con la sua fonte: oggi sta solo nell'archivio documentale, unica
   opportunità di finanziamento che manca dalla tabella (C18 del lotto 3,
@@ -594,6 +631,14 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
   - nella tabella `enti`, valutare la partita IVA come secondo
     identificativo degli enti (nei dati PNRR compaiono con l'una o con
     l'altra).
+- (nuova, 19/11/2026) **Notifica degli errori a chi mantiene l'app**, in
+  due parti:
+  - archivio: alla fine di ogni aggiornamento delle fonti un rapporto di
+    manutenzione con righe scartate, link che non si aprono, scansioni
+    fallite, bandi senza scadenza (→ passo 11);
+  - app online: registro su Supabase degli errori della catena, del
+    router e del verificatore, con un riepilogo periodico.
+  L'indirizzo a cui notificare sta nei segreti, mai nel repository.
 
 ## Insieme di prova: dopo
 
@@ -784,8 +829,9 @@ Dettaglio del passo 2, spostato da `docs/roadmap.md` il 18/11/2026.
   e commerciale 19, agricola 14.
 
 Dalla pulizia non ci si aspetta un calo dei bandi ricorrenti oltre
-risorse genetiche. Poi la nuova baseline: tre registrazioni delle 55
-domande, circa 10,5 $; assorbe il passo 6.
+risorse genetiche. La nuova baseline (dopo i passi 19, 2b, 4 e 3,
+decisione del 19/11/2026): tre registrazioni delle 55 domande, circa
+10,5 $; assorbe il passo 6.
 
 Rimaste dopo il passo 2a (18/11/2026):
 
@@ -797,6 +843,16 @@ Rimaste dopo il passo 2a (18/11/2026):
   riga "manuale" in `scadenze_bando`, aspetta la frase letta a mano.
 - **incentivi-5013 e incentivi-3373** hanno il link alla banca dati del
   BURT: pagina vera da cercare a mano.
+- **Link alla banca dati del BURT** (decisione del 19/11/2026): una riga
+  del catalogo Incentivi Italia il cui indirizzo porta a
+  regione.toscana.it/bancadati o a www301.regione.toscana.it non entra
+  tra i bandi; va nel registro delle scansioni come "da verificare:
+  pagina del bando non trovata". Vale anche per incentivi-5013 e
+  incentivi-3373, che escono dalle risposte finché non hanno una
+  pagina vera. È una modifica al codice dell'importazione, da fare
+  insieme al passo 19. Il controllo dei doppioni resta prima di questo:
+  le due righe di protezione di incentivi-3662 e incentivi-4804 in
+  doppioni.csv devono continuare a valere.
 - **incentivi-3373** (abbattimento interessi sotto 50.000 euro, 2024) è
   probabilmente l'edizione precedente del Bando 2026 Pmi fino a 50 mila
   euro: da verificare come si è fatto per incentivi-3662.
