@@ -137,8 +137,74 @@ COLONNE_ELENCO = [
     "giudizio",
     "motivo_giudizio",
     "sha256",
+    "stato_scarico",
+    "anteprima",
+    "sezioni",
     "decisione",
 ]
+
+# Le sezioni di un avviso, cercate pagina per pagina (compito 19b)
+SEZIONI = {
+    "beneficiari": re.compile(
+        r"soggetti beneficiari|beneficiari|soggetti ammess|"
+        r"possono presentare (?:la )?domand|destinatari",
+        re.IGNORECASE,
+    ),
+    "spese ammissibili": re.compile(
+        r"spese ammissibili|spese ammesse|costi ammissibili|interventi ammissibili",
+        re.IGNORECASE,
+    ),
+    "criteri o punteggio": re.compile(
+        r"criteri di (?:valutazione|selezione)|punteggi|griglia di valutazione|premialit",
+        re.IGNORECASE,
+    ),
+    "cumulo": re.compile(r"cumul", re.IGNORECASE),
+    "modalità di presentazione": re.compile(
+        r"modalit[àa] (?:di|e termini di) presentazione|"
+        r"presentazione dell[ae] domand|termini di presentazione",
+        re.IGNORECASE,
+    ),
+}
+# I segnali contrari: un decreto, un modulo
+DECRETA = "DECRETA"
+SOTTOSCRITTO = "il sottoscritto dichiara"
+CONTRARI = {
+    DECRETA: re.compile(r"\bDECRETA\b"),
+    SOTTOSCRITTO: re.compile(
+        r"\b(?:il|la)\s+sottoscritt[oa]\b.{0,300}?\bdichiar", re.IGNORECASE | re.DOTALL
+    ),
+}
+# Provvisoria: un file con almeno tante sezioni ha le sezioni di un avviso
+SEZIONI_MINIME_AVVISO = 3
+# Un file con "il sottoscritto dichiara" su piu' di questa quota di pagine
+# e' un modulo
+QUOTA_PAGINE_MODULO = 0.5
+# Pagine elencate per sezione nella colonna sezioni
+PAGINE_PER_SEZIONE = 3
+CARATTERI_ANTEPRIMA = 200
+
+# L'ordine di scarico per classe; modulistica e .p7m non si scaricano
+PRIORITA = {
+    CONSOLIDATO: 0,
+    AVVISO: 1,
+    # 2: allegato con "probabile avviso"
+    ALLEGATO: 3,
+    ATTO: 4,
+    ALTRO: 5,
+    DA_DECIDERE: 6,
+}
+
+# Un allegato nominato vicino a beneficiari o codici ATECO
+_ALLEGATO = r"(?i:allegat[oi])\s+(?:n\.\s*)?([A-Z]|\d{1,2})\b"
+_MOTIVO_RICHIAMO = r"(?i:beneficiar|soggetti ammissibil|ateco)"
+RICHIAMO = re.compile(
+    rf"{_MOTIVO_RICHIAMO}.{{0,200}}?{_ALLEGATO}|{_ALLEGATO}.{{0,200}}?{_MOTIVO_RICHIAMO}",
+    re.DOTALL,
+)
+
+# Un link che porta alla pagina di un avviso, per le pagine che sono
+# notizie (il fondo strade del MIT)
+VERSO_AVVISO = re.compile(r"avvis", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -361,22 +427,45 @@ def righe_elenco(
             }
         )
         if collegamento.url in letti:
-            ind, sha256 = letti[collegamento.url]
-            esito, perche = giudizio(ind)
-            riga.update(
-                {
-                    "pagine": ind.pagine,
-                    "caratteri_per_pagina": ind.caratteri_per_pagina,
-                    "pagine_vuote": ind.pagine_vuote,
-                    "righe_brevi": ind.righe_brevi,
-                    "righe_ripetute": ind.righe_ripetute,
-                    "giudizio": esito,
-                    "motivo_giudizio": perche,
-                    "sha256": sha256,
-                }
-            )
+            completa_riga(riga, *letti[collegamento.url])
         righe.append(riga)
     return righe
+
+
+def completa_riga(riga: dict, ind: Indicatori, sha256: str) -> dict:
+    """Aggiunge a una riga dell'elenco gli indicatori e lo sha256 del file."""
+    esito, perche = giudizio(ind)
+    riga.update(
+        {
+            "pagine": ind.pagine,
+            "caratteri_per_pagina": ind.caratteri_per_pagina,
+            "pagine_vuote": ind.pagine_vuote,
+            "righe_brevi": ind.righe_brevi,
+            "righe_ripetute": ind.righe_ripetute,
+            "giudizio": esito,
+            "motivo_giudizio": perche,
+            "sha256": sha256,
+        }
+    )
+    return riga
+
+
+def riga_a_mano(id_bando: str, url_pagina: str, n: int, nome_file: str) -> dict:
+    """La riga di un PDF messo a mano nella cartella, senza link nella pagina."""
+    riga = dict.fromkeys(COLONNE_ELENCO, "")
+    classe, motivo = classifica(_da_nome(nome_file), nome_file)
+    riga.update(
+        {
+            "id_bando": id_bando,
+            "url_pagina": url_pagina,
+            "n": n,
+            "etichetta": _da_nome(nome_file),
+            "classe": classe,
+            "motivo_classe": motivo,
+            "p7m": "no",
+        }
+    )
+    return riga
 
 
 def contenuto_elenco(righe: list[dict]) -> bytes:
@@ -406,16 +495,178 @@ def tabella_elenco(righe: list[dict]) -> str:
             "",
             (
                 "| # | etichetta | classe | pag. | car./pag. | vuote | brevi "
-                "| ripetute | giudizio | host | p7m |"
+                "| ripetute | giudizio | host | p7m | scarico | sezioni | anteprima |"
             ),
-            "|---|---|---|---|---|---|---|---|---|---|---|",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
         ]
         corpo = [
-            f"| {r['n']} | {r['etichetta']} | {r['classe']} | {r['pagine']} "
+            f"| {r['n']} | {_cella(r['etichetta'])} | {r['classe']} | {r['pagine']} "
             f"| {r['caratteri_per_pagina']} | {r['pagine_vuote']} "
             f"| {r['righe_brevi']} | {r['righe_ripetute']} | {r['giudizio']} "
-            f"| {r['host_file']} | {r['p7m']} |"
+            f"| {r['host_file']} | {r['p7m']} | {r['stato_scarico']} "
+            f"| {_cella(r['sezioni'])} | {_cella(r['anteprima'])[:80]} |"
             for r in sue
         ]
         blocchi.append("\n".join(testa + corpo))
     return "\n\n".join(blocchi)
+
+
+def _cella(testo) -> str:
+    """Un valore dentro una cella markdown: niente barre verticali."""
+    return str(testo or "").replace("|", "/")
+
+
+# --- compito 19b: verifica sul contenuto e ordine di scarico ---
+
+
+@dataclass(frozen=True)
+class Sezioni:
+    """Le sezioni di un avviso trovate in un file, con le pagine fisiche."""
+
+    pagine: int
+    trovate: dict
+    contrari: dict
+
+
+def sezioni_avviso(pagine: list[str]) -> Sezioni:
+    """Per ogni sezione e segnale contrario, le pagine (da 1) in cui compare."""
+    trovate: dict[str, list[int]] = {}
+    contrari: dict[str, list[int]] = {}
+    for numero, testo in enumerate(pagine, start=1):
+        for nome, schema in SEZIONI.items():
+            if schema.search(testo):
+                trovate.setdefault(nome, []).append(numero)
+        for nome, schema in CONTRARI.items():
+            if schema.search(testo):
+                contrari.setdefault(nome, []).append(numero)
+    return Sezioni(len(pagine), trovate, contrari)
+
+
+def e_avviso(sezioni: Sezioni) -> tuple[bool, str]:
+    """Il file ha le sezioni di un avviso, con una nota.
+
+    Almeno SEZIONI_MINIME_AVVISO sezioni, salvo un modulo ("il
+    sottoscritto dichiara" su piu' di QUOTA_PAGINE_MODULO delle pagine).
+    Un decreto con le sezioni solo dopo "DECRETA" conta come avviso, con
+    la segnalazione.
+    """
+    quante = len(sezioni.trovate)
+    if quante < SEZIONI_MINIME_AVVISO:
+        return False, f"{quante} sezioni su {len(SEZIONI)}"
+    modulo = sezioni.contrari.get(SOTTOSCRITTO, [])
+    if sezioni.pagine and len(modulo) / sezioni.pagine > QUOTA_PAGINE_MODULO:
+        return False, f"modulo: '{SOTTOSCRITTO}' su {len(modulo)} pagine"
+    decreta = sezioni.contrari.get(DECRETA, [])
+    if decreta:
+        prima = min(min(p) for p in sezioni.trovate.values())
+        if prima > max(decreta):
+            return True, f"decreto con l'avviso allegato da pag. {prima}"
+    return True, ""
+
+
+def testo_sezioni(sezioni: Sezioni) -> str:
+    """La colonna sezioni: quante, quali con le pagine, i segnali contrari."""
+
+    def pagine(numeri: list[int]) -> str:
+        mostrate = ", ".join(str(n) for n in numeri[:PAGINE_PER_SEZIONE])
+        return mostrate + (", …" if len(numeri) > PAGINE_PER_SEZIONE else "")
+
+    parti = [f"{len(sezioni.trovate)} su {len(SEZIONI)}"]
+    parti += [
+        f"{nome} p. {pagine(sezioni.trovate[nome])}"
+        for nome in SEZIONI
+        if nome in sezioni.trovate
+    ]
+    testo = "; ".join(parti)
+    if sezioni.contrari:
+        contrari = "; ".join(
+            f"{nome} p. {pagine(numeri)}" for nome, numeri in sezioni.contrari.items()
+        )
+        testo += f" | contrari: {contrari}"
+    _, nota = e_avviso(sezioni)
+    if nota:
+        testo += f" | {nota}"
+    return testo
+
+
+def anteprima(pagine: list[str], caratteri: int = CARATTERI_ANTEPRIMA) -> str:
+    """Le prime righe della prima pagina con testo, su una riga sola."""
+    for testo in pagine:
+        righe = [_spazi(r) for r in testo.splitlines() if _spazi(r)]
+        if righe:
+            unite = " / ".join(righe)
+            return unite if len(unite) <= caratteri else unite[: caratteri - 1] + "…"
+    return ""
+
+
+def da_non_scaricare(riga: dict) -> str | None:
+    """Lo stato di una riga che non si scarica mai: modulistica o .p7m."""
+    if riga["p7m"] == "sì":
+        return "p7m"
+    if riga["classe"] == MODULISTICA:
+        return "modulistica"
+    return None
+
+
+def ordine_di_scarico(righe: list[dict]) -> list[dict]:
+    """Le righe da scaricare, in ordine di probabilita' di essere l'avviso.
+
+    Consolidato, avviso, allegato con "probabile avviso", poi gli altri;
+    a parita', l'ordine della pagina. Modulistica e .p7m restano fuori.
+    """
+
+    def priorita(riga: dict) -> tuple[int, int]:
+        classe = riga["classe"]
+        valore = PRIORITA[classe]
+        if classe == ALLEGATO and PROBABILE_AVVISO in riga["motivo_classe"]:
+            valore = 2
+        return valore, int(riga["n"])
+
+    return sorted((r for r in righe if not da_non_scaricare(r)), key=priorita)
+
+
+def allegati_richiamati(testi: list[str], righe: list[dict]) -> list[dict]:
+    """Le righe degli allegati nominati vicino a beneficiari o codici ATECO.
+
+    testi: le pagine dell'avviso e il testo della pagina del bando. Un
+    allegato si riconosce dalla lettera o dal numero ("Allegato B"),
+    confrontato con etichetta e nome del file della riga.
+    """
+    sigle = set()
+    for testo in testi:
+        for trovato in RICHIAMO.finditer(testo):
+            sigle.add((trovato.group(1) or trovato.group(2)).lower())
+    scelte = []
+    for riga in righe:
+        if da_non_scaricare(riga):
+            continue
+        testo = _per_regole(
+            f"{riga['etichetta']} {riga['url_file'].rsplit('/', 1)[-1]}"
+        )
+        if any(re.search(rf"\ball(?:egato)? {re.escape(s)}\b", testo) for s in sigle):
+            scelte.append(riga)
+    return scelte
+
+
+def link_verso_avviso(html: str, url_pagina: str) -> list[str]:
+    """I link di una pagina-notizia che portano alla pagina di un avviso.
+
+    Link http o https, non a PDF, diversi dalla pagina stessa, con "avvis"
+    nel testo o nell'indirizzo; senza doppioni, nell'ordine della pagina.
+    """
+    lettore = _LettoreLink()
+    lettore.feed(html)
+    pagina = urldefrag(url_pagina)[0]
+    trovati: list[str] = []
+    for href, titolo, testo in lettore.link:
+        if not href:
+            continue
+        url = urldefrag(urljoin(url_pagina, href.strip()))[0]
+        parti = urlsplit(url)
+        if parti.scheme not in ("http", "https") or DOCUMENTO.search(parti.path):
+            continue
+        if url == pagina or url in trovati:
+            continue
+        if VERSO_AVVISO.search(f"{testo} {titolo} {unquote(parti.path)}"):
+            trovati.append(url)
+    return trovati

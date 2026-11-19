@@ -374,3 +374,147 @@ def test_nessuna_richiesta_di_rete(monkeypatch, tmp_path):
 
 def test_intestazione_che_dichiara_il_progetto():
     assert "rag-bandi-comunali" in pb.INTESTAZIONI_PROGETTO["User-Agent"]
+
+
+# --- compito 19b: sezioni, anteprima, ordine di scarico, richiami ---
+
+PAGINE_AVVISO = [
+    "REGIONE TOSCANA\nAvviso pubblico per il sostegno dei parcheggi\nArt. 1 Finalità",
+    "Art. 3 Soggetti beneficiari\nPossono presentare domanda i Comuni.",
+    "Art. 5 Spese ammissibili\nSono ammesse le spese tecniche.",
+    "Art. 7 Criteri di valutazione e punteggio\nArt. 8 Cumulo con altri aiuti",
+    "Art. 9 Modalità di presentazione della domanda",
+]
+
+
+def test_sezioni_con_le_pagine():
+    sezioni = pb.sezioni_avviso(PAGINE_AVVISO)
+    assert sezioni.trovate == {
+        "beneficiari": [2],
+        "spese ammissibili": [3],
+        "criteri o punteggio": [4],
+        "cumulo": [4],
+        "modalità di presentazione": [5],
+    }
+    assert sezioni.contrari == {}
+    assert pb.e_avviso(sezioni) == (True, "")
+
+
+def test_soglia_delle_sezioni():
+    due = pb.sezioni_avviso(["Soggetti beneficiari", "Spese ammissibili"])
+    assert pb.e_avviso(due) == (False, f"2 sezioni su {len(pb.SEZIONI)}")
+    tre = pb.sezioni_avviso(["Soggetti beneficiari", "Spese ammissibili", "Cumulo"])
+    assert pb.e_avviso(tre)[0] is True
+    assert pb.SEZIONI_MINIME_AVVISO == 3
+
+
+def test_segnali_contrari():
+    pagine = [
+        "IL DIRIGENTE\nDECRETA\ndi approvare l'avviso",
+        "Il sottoscritto (nome e cognome)\ndichiara di essere",
+        "si decreta in minuscolo",
+    ]
+    sezioni = pb.sezioni_avviso(pagine)
+    assert sezioni.contrari == {pb.DECRETA: [1], pb.SOTTOSCRITTO: [2]}
+
+
+def test_modulo_non_e_un_avviso():
+    modulo = [
+        f"Il sottoscritto dichiara\n{s}"
+        for s in ("beneficiari", "spese ammissibili", "cumulo")
+    ]
+    esito, nota = pb.e_avviso(pb.sezioni_avviso(modulo))
+    assert esito is False
+    assert nota.startswith("modulo")
+
+
+def test_decreto_con_l_avviso_allegato():
+    pagine = ["IL DIRIGENTE\nDECRETA\ndi approvare l'Allegato A", *PAGINE_AVVISO[1:]]
+    sezioni = pb.sezioni_avviso(pagine)
+    assert pb.e_avviso(sezioni) == (True, "decreto con l'avviso allegato da pag. 2")
+    testo = pb.testo_sezioni(sezioni)
+    assert testo.startswith("5 su 5; beneficiari p. 2;")
+    assert "contrari: DECRETA p. 1" in testo
+    assert testo.endswith("decreto con l'avviso allegato da pag. 2")
+
+
+def test_anteprima_prima_pagina_con_testo():
+    assert (
+        pb.anteprima(["", "  Riga uno  \n\nRiga   due", "altro"])
+        == "Riga uno / Riga due"
+    )
+    lunga = pb.anteprima(["x" * 500])
+    assert len(lunga) == pb.CARATTERI_ANTEPRIMA
+    assert lunga.endswith("…")
+
+
+def riga_finta(n, classe, motivo="", p7m="no", etichetta="", url=""):
+    return {
+        "n": n,
+        "classe": classe,
+        "motivo_classe": motivo,
+        "p7m": p7m,
+        "etichetta": etichetta,
+        "url_file": url or f"https://x.it/{n}.pdf",
+    }
+
+
+def test_ordine_di_scarico():
+    righe = [
+        riga_finta(1, pb.DA_DECIDERE),
+        riga_finta(2, pb.ALTRO),
+        riga_finta(3, pb.ATTO),
+        riga_finta(4, pb.ALLEGATO),
+        riga_finta(5, pb.ALLEGATO, f"'allegat'; {pb.PROBABILE_AVVISO}"),
+        riga_finta(6, pb.AVVISO),
+        riga_finta(7, pb.CONSOLIDATO),
+        riga_finta(8, pb.MODULISTICA),
+        riga_finta(9, pb.ALLEGATO, p7m="sì"),
+    ]
+    assert [r["n"] for r in pb.ordine_di_scarico(righe)] == [7, 6, 5, 4, 3, 2, 1]
+    assert pb.da_non_scaricare(righe[7]) == "modulistica"
+    assert pb.da_non_scaricare(righe[8]) == "p7m"
+
+
+def test_allegati_richiamati_per_beneficiari_o_ateco():
+    righe = [
+        riga_finta(1, pb.ALLEGATO, etichetta="Allegato B - Codici ammessi"),
+        riga_finta(2, pb.ALLEGATO, etichetta="Allegato C - Schema di relazione"),
+        riga_finta(
+            3, pb.ALLEGATO, url="https://x.it/All_D_beneficiari.pdf", etichetta="Elenco"
+        ),
+        riga_finta(4, pb.MODULISTICA, etichetta="Allegato E - Modulo"),
+    ]
+    testi = [
+        "Le imprese con codici ATECO di cui all'Allegato B possono partecipare.",
+        "I soggetti beneficiari sono elencati nell'Allegato D.",
+        "La relazione segue l'Allegato C. Allegato al presente avviso.",
+        "beneficiari: si veda l'Allegato E",
+    ]
+    scelte = pb.allegati_richiamati(testi, righe)
+    # B per i codici ATECO, D per i beneficiari; C non e' richiamato per
+    # questi motivi; E e' modulistica
+    assert [r["n"] for r in scelte] == [1, 3]
+
+
+def test_link_verso_la_pagina_dell_avviso():
+    html = """
+    <a href="/comunicazione/news/notizia">Questa notizia</a>
+    <a href="/documentazione/avviso-pubblico-2026">Leggi l'avviso pubblico</a>
+    <a href="/documentazione/avviso-pubblico-2026#modulistica">Modulistica</a>
+    <a href="/files/avviso.pdf">Avviso in PDF</a>
+    <a href="mailto:avvisi@mit.gov.it">Scrivi</a>
+    <a href="/contatti">Contatti</a>
+    """
+    pagina = "https://www.mit.gov.it/comunicazione/news/notizia"
+    assert pb.link_verso_avviso(html, pagina) == [
+        "https://www.mit.gov.it/documentazione/avviso-pubblico-2026"
+    ]
+
+
+def test_riga_a_mano():
+    riga = pb.riga_a_mano("prova", URL_SINTETICA, 9, "Avviso_pubblico_firmato.pdf")
+    assert riga["etichetta"] == "Avviso pubblico firmato"
+    assert riga["classe"] == pb.AVVISO
+    assert riga["url_file"] == ""
+    assert set(riga) == set(pb.COLONNE_ELENCO)
