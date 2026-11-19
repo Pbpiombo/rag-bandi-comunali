@@ -87,6 +87,9 @@ HOST_FERMATO = "host fermato"
 # Esiti del robots.txt
 LETTO = "letto"
 ASSENTE = "assente"
+# Una risposta 200 con una pagina HTML (per esempio "la pagina non esiste")
+# al posto del robots.txt: vale come robots.txt assente (19/11/2026, www301)
+ASSENTE_HTML = "assente (pagina HTML al posto del robots.txt)"
 ROBOTS_RIFIUTATO = "rifiutato"
 PERMESSO_A_MANO = "permesso a mano senza robots.txt"
 
@@ -168,6 +171,14 @@ class RegoleRobots:
 
     regole: list
     crawl_delay: float | None = None
+
+
+def pagina_html(testo: str, tipo_contenuto: str = "") -> bool:
+    """La risposta al robots.txt e' una pagina HTML, non un robots.txt."""
+    inizio = testo.lstrip("\ufeff \t\r\n").lower()
+    return "text/html" in (tipo_contenuto or "").lower() or inizio.startswith(
+        ("<html", "<!doctype")
+    )
 
 
 def leggi_robots(testo: str) -> list[GruppoRobots]:
@@ -499,14 +510,34 @@ class Lettore:
         salvato = self._file_robots(host)
         if salvato.exists():
             regole = RegoleHost(**json.loads(salvato.read_text(encoding="utf-8")))
+            if regole.esito == LETTO and pagina_html(regole.testo):
+                # salvato prima del 19/11/2026 come "letto": si corregge
+                # l'esito dal file, senza richiederlo
+                regole.esito = ASSENTE_HTML
+                regole.crawl_delay = None
+                salvato.write_text(
+                    json.dumps(regole.__dict__, ensure_ascii=False, indent=1),
+                    encoding="utf-8",
+                )
+                self.annota(
+                    "scelta",
+                    host,
+                    regole.url,
+                    ASSENTE_HTML,
+                    nota="esito corretto dal file salvato, senza nuova richiesta",
+                )
             return self._tieni(regole)
 
         indirizzo = radice(url) + "/robots.txt"
         try:
             _, corpo = self._richiesta("robots", indirizzo, None)
-            regole = RegoleHost(
-                host, indirizzo, LETTO, 200, corpo.decode("utf-8", errors="replace")
+            testo = corpo.decode("utf-8", errors="replace")
+            esito = (
+                ASSENTE_HTML
+                if pagina_html(testo, self.ultimo_tipo_contenuto)
+                else LETTO
             )
+            regole = RegoleHost(host, indirizzo, esito, 200, testo)
         except urllib.error.HTTPError as errore:
             if errore.code in (404, 410):
                 regole = RegoleHost(host, indirizzo, ASSENTE, errore.code)
@@ -529,7 +560,7 @@ class Lettore:
         salvato.write_text(
             json.dumps(regole.__dict__, ensure_ascii=False, indent=1), encoding="utf-8"
         )
-        if regole.esito == LETTO:
+        if regole.testo:
             (salvato.with_suffix(".txt")).write_text(regole.testo, encoding="utf-8")
         return self._tieni(regole)
 
@@ -558,7 +589,7 @@ class Lettore:
         if host in self.fermati:
             return False
         regole = self.regole(url)
-        if regole.esito in (ASSENTE, PERMESSO_A_MANO):
+        if regole.esito in (ASSENTE, ASSENTE_HTML, PERMESSO_A_MANO):
             return True
         if regole.esito == LETTO:
             return permesso(self._robots[host], url)

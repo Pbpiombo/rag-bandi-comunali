@@ -161,6 +161,12 @@ letto il robots.txt: lo script `scripts/ingestione/elenco_pdf_bandi.py`
 lo legge, con il lettore `src/estrazione/lettore_siti.py`, prima del
 primo file chiesto a quell'host, e si ferma se non si legge.
 
+19/11/2026: `www301.regione.toscana.it` non ha un robots.txt (verificato
+il 19/11/2026): `/robots.txt` risponde 200 con una pagina HTML "La pagina
+che hai richiesto non esiste..". Il lettore la registra come "assente
+(pagina HTML al posto del robots.txt)" e vale come robots.txt assente:
+nessuna regola, pausa di 5 secondi tra le richieste.
+
 **robots.txt di www.regione.toscana.it**: letto a mano il 18/11/2026,
 identico alle regole annotate il 12/11/2026 in `piano-fonti.md`:
 `Disallow` su `*/search`, `*/ricerca`, `/combo/*`, `*/asset_publisher/`,
