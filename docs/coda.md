@@ -437,6 +437,13 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
    - **Soglie provvisorie**: 3 sezioni per i link avviso o consolidato, 4
      per le altre classi e mai con testo "da rivedere", tarate il
      19/11/2026 su 12 bandi. Vanno riviste con più bandi.
+   - **Verifica a mano dei PDF del 19/11/2026**: per i 10 bandi con
+     l'avviso riconosciuto, i 15 file sono il testo del bando.
+     fondo-strade-piccoli-comuni-2026: il PDF del MIT (3 pagine) è
+     l'avviso vero, da segnare come avviso deciso a mano al 19c.
+     incentivi-8659: il file è una presentazione del ministero, non
+     l'avviso, da etichettare come tale. In 4 bandi su 12 la scadenza
+     non è scritta come data nel PDF.
 - (era la voce 7 dei Prossimi passi, → principio "per chi", → passo 18) **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione
@@ -683,6 +690,11 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
   - app online: registro su Supabase degli errori della catena, del
     router e del verificatore, con un riepilogo periodico.
   L'indirizzo a cui notificare sta nei segreti, mai nel repository.
+- (nuova, 19/11/2026) **Pagine di prova con il totale vero**
+  ("Risultati: N") dell'elenco generale della Regione, prese dalla prima
+  copia in `dati-grezzi/elenchi/`: estratto in `tests/pagine/`, riga in
+  `LEGGIMI.md`, e correzione di `totale_dichiarato` se la forma reale è
+  diversa da quella della nota in `piano-fonti.md`.
 
 ## Insieme di prova: dopo
 
@@ -915,6 +927,12 @@ Rimaste dopo il passo 2a (18/11/2026):
   24443 del 6 novembre 2026"; va aggiornato con il decreto 25205 del
   16/11/2026, da cui viene il testo consolidato dell'avviso, dopo averlo
   verificato sulla pagina del bando.
+- (→ passo 2b, 19/11/2026) **Aziende apistiche, scadenze diverse per
+  azione** (sostegno-agli-investimenti-strutturali-aziende-apisti-401650):
+  4 dicembre 2026 per le azioni B1, B3 e B5; 21 maggio 2027 per la B4,
+  dall'allegato A4. In archivio c'è solo il 4 dicembre. Da verificare
+  sulla pagina del bando e da decidere come rappresentare un bando con
+  più scadenze.
 
 ## Testo di ricerca (passo 17)
 

@@ -363,3 +363,11 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
   è stato riscritto il 19/11/2026 (le pagine rispettano il robots.txt; i
   PDF degli avvisi si scaricano una volta anche se vietati, quando la
   pagina del bando è consentita; un rifiuto del sito non si aggira mai).
+- **Copia degli elenchi e scarti nel riepilogo** (19 novembre 2026, dalla
+  diagnosi di Art Bonus e rievocazioni 2026): `estrai_nuovi` e
+  `scopri_bandi` conservano ogni elenco letto in
+  `dati-grezzi/elenchi/<data>/`, HTML e CSV delle voci e degli scartati,
+  anche con `--prova`; il riepilogo riporta voci, totale dichiarato ("!!
+  totale non letto !!" se non si riconosce), un avviso vicino a `delta` o
+  `_per_page`, e i collegamenti `/-/` scartati da `schema_link` e da
+  `esclusi`, con l'indirizzo (`src/estrazione/elenco.py`).
