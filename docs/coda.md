@@ -523,7 +523,8 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
   aperti e chiusi tra due scansioni), Uncem, associazioni di categoria
   della montagna, Toscana Notizie, Cesvot, Giovanisì, ANCI nazionale.
   Stessa regola di ANCI Toscana: segnalano, i dati si prendono dalla
-  pagina ufficiale.
+  pagina ufficiale. Toscana Notizie e Cesvot provati a mano il
+  19/11/2026: esito in 'Riscontro del consulente pilota e fonti'.
 
   Buco ancora aperto: nella misura di copertura del 13/11/2026 mancano
   tutti i 10 bandi di enti nazionali segnalati da ANCI Toscana
@@ -766,7 +767,7 @@ Riscontro del consulente pilota del 18/11/2026, in sintesi:
 
 Ordine dei prossimi passi:
 
-1. (→ "In attesa" della roadmap) **Diagnosi dei due bandi mancati**, appena arrivano domanda e titoli.
+1. (→ fatta il 19/11/2026, vedi 'Riscontro del consulente pilota e fonti') (→ "In attesa" della roadmap) **Diagnosi dei due bandi mancati**, appena arrivano domanda e titoli.
    Per ciascun bando, verificare se è in archivio:
    - se c'è, la causa è il router;
    - se non c'è, è la copertura.
@@ -1029,3 +1030,121 @@ Proposte, non passi: nessun numero di passo. Ordine previsto: PDF
     "Sezione riservata".
   - Da chiedere al consulente pilota: lavorano per pratica, con un
     richiedente seguito nel tempo?
+
+## Riscontro del consulente pilota e fonti (19/11/2026)
+
+Il consulente pilota ha indicato la domanda usata e i due casi mancati.
+Videochiamata nella prima settimana di dicembre.
+
+Domanda: bandi o contributi per associazioni ed enti in materia di
+rievocazioni storiche o culturali. Diventa un caso fisso dell'insieme di
+prova.
+
+**Diagnosi (senza modello).**
+- Fondo nazionale rievocazione storica 2027, Ministero della Cultura,
+  Direzione generale Spettacolo (spettacolo.cultura.gov.it): domande dal
+  3/11/2026 al 31/01/2027, ammessi enti locali e associazioni, per
+  manifestazioni che si svolgono con continuità da almeno cinque anni.
+  Non era in archivio: il sito non è tra le fonti lette, e il bando non è
+  nel catalogo di Incentivi Italia del 12/11/2026, da cui arrivano già
+  alcune pagine dello stesso sito. Causa: copertura. Da inserire a mano con la sua fonte prima della copia congelata; è il
+  pertinente atteso del caso fisso.
+- "Bando della Regione sulla Resistenza": il link indicato è un
+  comunicato del 17/11/2026 su contributi già assegnati, senza atti. Non
+  è un bando. L'unico avviso trovato sul tema è quello sulla legge
+  regionale 38/2002, annualità 2025-2026 (decreto dirigenziale 11159 del
+  19/05/2025): domande chiuse il 3/07/2025, dotazione 200.000 euro,
+  contributo massimo 5.000 euro a progetto, graduatoria con decreto 22881
+  del 30/09/2025. Gli importi del comunicato (20-30 mila euro a soggetto)
+  superano quel massimo: il comunicato somma contributi di canali
+  diversi. Per l'insieme di prova quell'avviso è un "no" per scadenza.
+  Chiesto al consulente che cosa si aspettava di vedere.
+- Esito: un pertinente mancato per copertura, non due. Nessuno dei due
+  casi passava dal BURT e nessuno dipendeva dal router.
+
+**Cosa ne segue per le fonti.**
+- La Direzione generale Spettacolo è una candidata nuova. Lo studio
+  (`piano-fonti-burt-ministeri.md`, 3.2) sconsiglia l'elenco generale
+  degli avvisi della Cultura per il rumore: resta valido. La candidata è
+  il sito della sola Direzione. robots.txt da leggere.
+- L'ordine delle fonti (passi 12-15) si riconferma dopo la videochiamata,
+  con la risposta su quali siti il consulente controlla.
+- Regola: uno strumento a pagamento o fornito su contratto ad altri enti
+  non si usa né come fonte né come indice. Si usano solo documenti che un
+  ente pubblica per tutti.
+
+**Una notizia è una pista, non un dato.** Estende la regola "segnalano, i
+dati si prendono dalla pagina ufficiale". Il comunicato del 17/11
+sembrava un bando ed erano contributi già assegnati. Una notizia può far
+partire una verifica; nessun dato entra in archivio da un articolo; la
+riga nasce solo dalla pagina ufficiale o dall'atto.
+
+**Prove sulle fonti di scoperta, fatte a mano il 19/11/2026.**
+- Toscana Notizie. robots.txt: articoli (`/-/titolo`) permessi; archivio,
+  RSS e ricerca vietati. La mappa del sito è un indice di circa 200
+  mappe secondarie, senza articoli né date. Campione di 10 articoli
+  (ricerca esterna, parziale): 4 bandi aperti, di cui 3 già in archivio e
+  1 più recente dell'ultima scansione; 3 bandi annunciati senza pagina; 3
+  contributi già assegnati. Nessun bando aperto scoperto grazie alla
+  notizia. Vale solo per i bandi annunciati (il comunicato del 12/11
+  sull'Art Bonus ha preceduto la pagina). Nessun lettore per ora.
+- Cesvot, agenda bandi (cesvot.it/consulenza/agenda-bandi). robots.txt
+  senza divieti. Sette pagine di schede per il terzo settore, con il
+  rimando al sito dell'ente. Sulle prime 16 schede: 3 contributi utili e
+  non in archivio (Sport e Salute, otto per mille di una confessione
+  religiosa, otto per mille dello Stato), 1 già in archivio, 3 di altri
+  territori, 4 premi o patrocini, 2 selezioni per persone singole, 3 di
+  nicchia. Circa una scheda su cinque è utile. Prima di leggerla in
+  automatico: scrivere al Cesvot; serve un filtro "chi presenta la
+  domanda", perché le selezioni per persone singole non sono bandi per
+  enti.
+- Altri indici visti: newsletter mensile sui bandi del Comune di Livorno
+  (in PDF, con i link alle pagine ufficiali), candidata come segnale per
+  i Comuni; Infobandi di CSVnet, solo consultazione a mano (nella pagina
+  c'è testo estraneo al tema); ConfiniOnline esclusa, è il servizio di
+  una società privata con le schede dietro iscrizione.
+- Avvisi del Consiglio regionale: oltre alla Festa della Toscana già
+  nello studio, nel 2026 una manifestazione di interesse per progetti su
+  identità e tradizioni della Toscana.
+
+**Proposte, da decidere dopo la videochiamata.**
+- Bandi in arrivo, caso A: pagina pubblicata con apertura futura. È
+  correttezza dello stato. `interrogazioni_bandi.py` calcola già la
+  prossima finestra: verificare come arriva all'utente, prima della nuova
+  baseline. Caso di prova: il bando sull'internazionalizzazione, apertura
+  18/11/2026, alla data fissata del 16/11.
+- Bandi in arrivo, caso B: bando annunciato senza pagina. Sezione
+  separata dagli aperti; solo ciò che dice la fonte (delibera con gli
+  elementi essenziali, stato "in arrivo" di Sviluppo Toscana, comunicato
+  dell'ente che finanzia), con la parola "prevista" per le date previste;
+  una data di ricontrollo; fuori dalle misure sui bandi aperti. Ha senso
+  solo con la scansione settimanale.
+- Bandi ricorrenti scaduti, mostrati a parte come "da tenere d'occhio".
+  Esempio: l'avviso sulla legge regionale 38/2002 esce ogni due anni
+  (2023, 2025). Le graduatorie delle edizioni passate dicono chi ha vinto
+  e con quanto. La prossima edizione è una previsione nostra e va
+  etichettata come tale.
+- Perimetro dichiarato: nell'app, l'elenco delle fonti lette con la data
+  dell'ultimo aggiornamento. Si lega alla proposta sulla colonna sinistra.
+- Registro delle fonti con la resa: per ogni fonte o indice, quanti bandi
+  utili ha dato (aperti, adatti al territorio, non già in archivio). È la
+  regola di chiusura della ricognizione, tenuta nel tempo.
+
+**Domande per la videochiamata**, in aggiunta a quelle di
+`ricognizione-fonti.md` (sezione 2) e di `piano-fonti-burt-ministeri.md`
+(4.2):
+1. Quanto pesano le associazioni e il terzo settore rispetto ai Comuni nel
+   suo lavoro? La domanda che ha usato riguardava "associazioni ed enti".
+   La risposta decide il perimetro: chi finanzia il terzo settore
+   (fondazioni bancarie e d'impresa, otto per mille, enti internazionali)
+   è una coda lunga che non si legge sito per sito, ma da un indice
+   pubblico come l'agenda del Cesvot. Fino alla risposta, nessuna fonte
+   dedicata al terzo settore.
+2. Tre esempi recenti in cui lo strumento che usa oggi non lo ha
+   soddisfatto, e di che tipo era il difetto: bando mancante, non trovato
+   con le sue parole, sommerso da risultati inutili, dato vecchio, nessun
+   aiuto a decidere.
+3. Cosa fa a mano per rimediare.
+4. Gli servono i bandi in arrivo, i ricorrenti, o entrambi?
+5. La domanda a cui l'app ha risposto con opportunità corrette ma
+   generiche (riscontro del 18/11) era per un ente o per un privato?

@@ -28,6 +28,11 @@ Riscontro del consulente pilota del 18/11/2026, in sintesi:
 - su una ha trovato opportunità corrette ma generiche;
 - suggerimenti: includere il BURT e provare con qualche ministero.
 
+Riscontro del 19/11/2026: domanda e casi indicati; diagnosi in
+`coda.md`, 'Riscontro del consulente pilota e fonti': un pertinente
+mancato per copertura (Fondo nazionale rievocazione storica 2027),
+l'altro caso non era un bando.
+
 Indicazioni del revisore tecnico (18/11): `docs/coda.md`, "Revisore
 tecnico (18/11/2026)".
 
@@ -178,17 +183,19 @@ Studio in `docs/piano-fonti-burt-ministeri.md`.
     l'archivio vero, mai la copia congelata del passo 0.
 12. **MIT**: elenco dei contributi attivi (studio, 2.3 B).
 13. **BURT**: sommario della Parte III, ogni mercoledì; mai la Parte IV
-    (studio, 1.3 e 3.3). Fermo finché il consulente pilota non dice
-    quali sono i due bandi mancati e se passavano dal BURT; prima
-    vengono i PDF dei bandi già in archivio (passo 19).
+    (studio, 1.3 e 3.3). Nessuno dei due casi del consulente passava
+    dal BURT (19/11/2026); prima vengono i PDF dei bandi già in
+    archivio (passo 19).
 14. **Ministero dell'Interno, Finanza locale** (studio, 2.3 A).
 15. **Dipartimento per lo Sport e Sport e Salute** (studio, 2.3 C).
 16. **Misura di copertura su un elenco esterno**, prima e dopo
     (`coda.md`, "Prova di copertura" tra le voci di "Prima della demo";
     `docs/ricognizione-fonti.md`, sezione 8).
 
-I passi 13, 14 e 15 sono fermi finché non arrivano i due bandi mancati
-dal consulente pilota; allora si riconferma l'ordine delle fonti.
+I due casi sono arrivati il 19/11/2026: nessuno passava dal BURT.
+L'ordine dei passi 12-15 si riconferma dopo la videochiamata della prima
+settimana di dicembre. Candidata nuova: Direzione generale Spettacolo
+del Ministero della Cultura.
 
 ### D. Dopo il confronto con il consulente pilota sull'obiettivo
 
@@ -211,13 +218,11 @@ Ordine previsto: PDF, valutazione, fascicolo.
 
 ### In attesa
 
-- Dal consulente pilota: i due bandi mancati, le domande vere, le fonti
-  che usa; e se la domanda con risposte "generiche" era per un ente o per
-  un privato. Con i bandi mancati, diagnosi a tre categorie senza modello
-  (archivio, recupero, esclusione) e domande come casi fissi dell'insieme
-  di prova. Due domande del 19/11/2026: allo sportello la domanda è
-  "vale la pena?" o "cosa c'è per me?"; lavorate per pratica, con un
-  richiedente seguito nel tempo?
+- Dal consulente pilota: risposta alla diagnosi del 19/11/2026 e
+  videochiamata nella prima settimana di dicembre; restano da ricevere le
+  domande vere e le fonti che usa. Domande per la videochiamata in
+  `coda.md`, 'Riscontro del consulente pilota e fonti', più le due del
+  19/11 già scritte (vale la pena o cosa c'è per me; lavoro per pratica).
 
 ## Decisioni prese
 
