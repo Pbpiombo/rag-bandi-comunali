@@ -65,3 +65,14 @@ data di chiusura sulla pagina dell'ente (`src/estrazione/incentivi.py`).
 | `incentivi-proroga.html` | c'e' un'altra data (proroga): la data del catalogo non si trova |
 | `incentivi-sportello.html` | sportello senza parole di chiusura |
 | `incentivi-sportello-chiuso.html` | sportello "chiuso per esaurimento delle risorse" |
+
+## Link ai PDF della pagina di un bando (passo 19, compito 19a)
+
+Le usa `tests/test_pdf_bando.py` per `src/estrazione/pdf_bando.py`: link ai
+PDF, etichette e classi proposte. Usa anche le pagine vere del GAL
+`gal-as01.html` e `gal-srd14.html` (sezione sopra): 20 link a PDF in
+`gal-as01.html`, 16 file diversi, link senza testo, "Leggi" e "CLICCA QUI".
+
+| File | Perche' |
+|---|---|
+| `pdf-regione-sintetica.html` | pagina **costruita a mano, non reale**, sul modello di una pagina di bando della Regione Toscana; indirizzi inventati. Link relativi e assoluti, `.PDF` maiuscolo, `.pdf/uuid?t=…`, un `.p7m`, un link a un altro host, un'ancora, un mailto e un `ftp://`. Le pagine vere si salvano nel compito 19b |
