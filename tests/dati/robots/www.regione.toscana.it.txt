@@ -1,0 +1,14 @@
+User-Agent: *
+Disallow: */search
+Disallow: */ricerca
+Disallow: *%2Fsearch
+Disallow: *%2Fricerca
+Disallow: /*/search
+Disallow: /search
+Disallow: /tv-digitale-terrestre/*
+Disallow: /combo/*
+Disallow: /territorio-e-paesaggio/-/asset_publisher/rk7yQqiVXUJa/content/consulenti-collaboratori-attestazioni
+Disallow: */asset_publisher/
+Disallow: /web/guest/login
+Disallow: /login
+Sitemap: https://www.regione.toscana.it/sitemap.xml

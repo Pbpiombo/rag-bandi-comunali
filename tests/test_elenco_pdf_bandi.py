@@ -9,6 +9,7 @@ import csv
 import pytest
 
 import scripts.ingestione.elenco_pdf_bandi as script
+from src.estrazione import lettore_siti as ls
 from src.estrazione import pdf_bando as pb
 from src.estrazione.lettore_siti import Lettore
 from tests.test_lettore_siti import Errore, ReteFinta
@@ -308,3 +309,99 @@ def test_main_senza_robots_permesso_a_mano(tmp_path):
     assert script.main(["--pagine"], lettore=lettore, bandi=BANDI[2:]) == 0
     assert script.main(["--file"], lettore=lettore, bandi=BANDI[2:]) == 0
     assert f"{FILE_MIT}/avviso-mit.pdf" in rete.url_chiamati()
+
+
+# --- eccezione al robots.txt per i PDF degli avvisi (19/11/2026) ---
+
+VIETA_PDF = b"User-agent: *\nDisallow: /*.pdf\nDisallow: /*.p7m\n"
+PAGINA_VIETATA = f"""
+<a href="{RT}/doc/avviso.pdf">Avviso pubblico</a>
+<a href="{RT}/doc/modulo.pdf">Modulo di domanda</a>
+<a href="{RT}/doc/relazione.pdf">Relazione finale</a>
+"""
+
+
+def sito_che_vieta_i_pdf() -> dict:
+    return {
+        **sito(),
+        f"{RT}/robots.txt": VIETA_PDF,
+        f"{RT}/-/bando-a": PAGINA_VIETATA.encode(),
+        f"{RT}/doc/relazione.pdf": NON_AVVISO,
+        f"{RT}/doc/modulo.pdf": NON_AVVISO,
+    }
+
+
+def test_eccezione_scarica_l_avviso_vietato_e_lo_annota(tmp_path):
+    righe, rete, stampato = esegui_fino_ai_file(
+        tmp_path, BANDI[:1], sito_che_vieta_i_pdf()
+    )
+    assert stati(righe, "bando-a")["avviso.pdf"] == script.SCARICATO_ECCEZIONE
+    assert f"{RT}/doc/avviso.pdf" in rete.url_chiamati()
+    with (tmp_path / "richieste.csv").open(encoding="utf-8-sig", newline="") as f:
+        registro = [r for r in csv.DictReader(f) if r["url"] == f"{RT}/doc/avviso.pdf"]
+    assert [r["nota"] for r in registro] == [ls.NOTA_ECCEZIONE]
+    assert (
+        "VIETATO dal robots.txt: 1 (si scarica per l'eccezione sugli avvisi)"
+        in stampato
+    )
+
+
+def test_eccezione_non_vale_per_modulistica_ne_per_altre_classi(tmp_path):
+    # senza avviso, la relazione (classe altro) sarebbe la prossima da scaricare
+    pagina = f"""
+    <a href="{RT}/doc/modulo.pdf">Modulo di domanda</a>
+    <a href="{RT}/doc/relazione.pdf">Relazione finale</a>
+    """
+    risposte = {**sito_che_vieta_i_pdf(), f"{RT}/-/bando-a": pagina.encode()}
+    righe, rete, _ = esegui_fino_ai_file(tmp_path, BANDI[:1], risposte)
+    assert stati(righe, "bando-a") == {
+        "modulo.pdf": "modulistica",
+        "relazione.pdf": ls.VIETATO,
+    }
+    assert f"{RT}/doc/modulo.pdf" not in rete.url_chiamati()
+    assert f"{RT}/doc/relazione.pdf" not in rete.url_chiamati()
+
+
+def test_eccezione_non_vale_per_le_pagine(tmp_path):
+    risposte = {**sito(), f"{RT}/robots.txt": b"User-agent: *\nDisallow: /-/\n"}
+    lettore, rete = prepara(tmp_path, risposte)
+    script.fase_pagine(lettore, BANDI[:1], tmp_path, stampa=lambda *_: None)
+    assert f"{RT}/-/bando-a" not in rete.url_chiamati()
+    assert not script.file_pagina(tmp_path, "bando-a").exists()
+
+
+def test_eccezione_spenta_non_scarica_niente_di_vietato(tmp_path, monkeypatch):
+    monkeypatch.setattr(script, "ECCEZIONE_ROBOTS_AVVISI", False)
+    righe, rete, stampato = esegui_fino_ai_file(
+        tmp_path, BANDI[:1], sito_che_vieta_i_pdf()
+    )
+    assert set(stati(righe, "bando-a").values()) == {ls.VIETATO, "modulistica"}
+    assert not [u for u in rete.url_chiamati() if u.endswith(".pdf")]
+    assert "VIETATO dal robots.txt: 1 (non si scarica)" in stampato
+
+
+def test_eccezione_non_supera_un_rifiuto_tecnico(tmp_path):
+    risposte = {**sito_che_vieta_i_pdf(), f"{RT}/doc/avviso.pdf": Errore(403)}
+    righe, rete, _ = esegui_fino_ai_file(tmp_path, BANDI[:1], risposte)
+    assert stati(righe, "bando-a")["avviso.pdf"] == ls.RIFIUTATO
+    assert rete.url_chiamati().count(f"{RT}/doc/avviso.pdf") == 1
+    assert all(h == ls.INTESTAZIONI_PROGETTO for _, h in rete.chiamate)
+
+
+def test_eccezione_non_vale_se_la_pagina_non_e_consentita(tmp_path):
+    # pagina salvata prima, poi vietata: il link non gode dell'eccezione
+    lettore, _ = prepara(tmp_path, sito_che_vieta_i_pdf())
+    script.fase_pagine(lettore, BANDI[:1], tmp_path, stampa=lambda *_: None)
+    vieta_tutto = {
+        **sito_che_vieta_i_pdf(),
+        f"{RT}/robots.txt": b"User-agent: *\nDisallow: /\n",
+    }
+    altra = tmp_path / "altra"
+    altra.mkdir()
+    (altra / "pagine").mkdir()
+    pagina = script.file_pagina(tmp_path, "bando-a")
+    (altra / "pagine" / pagina.name).write_bytes(pagina.read_bytes())
+    lettore2, rete2 = prepara(altra, vieta_tutto)
+    righe = script.fase_file(lettore2, BANDI[:1], altra, stampa=lambda *_: None)
+    assert stati(righe, "bando-a")["avviso.pdf"] == ls.VIETATO
+    assert f"{RT}/doc/avviso.pdf" not in rete2.url_chiamati()

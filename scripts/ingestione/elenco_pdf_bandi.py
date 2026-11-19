@@ -23,6 +23,13 @@ di oggi. Quello che e' gia' nella cartella non si richiede di nuovo.
 --senza-robots HOST: permette di procedere per un host il cui robots.txt
 non si legge; la scelta va nel registro delle richieste. Ripetibile.
 
+Eccezione per i PDF degli avvisi (decisione del 19/11/2026, CLAUDE.md
+"Lettura dei siti"): un file vietato dal robots.txt si scarica lo stesso
+se il link sta in una pagina di bando consentita e la classe e' in
+CLASSI_ECCEZIONE; restano pause, Crawl-delay, tetti e intestazione, e un
+rifiuto tecnico resta un limite. Si spegne con ECCEZIONE_ROBOTS_AVVISI.
+Modulistica e .p7m non si scaricano mai.
+
 Regole di rete in src/estrazione/lettore_siti.py. Nessuna chiamata al
 modello. I bandi sono quelli di PRIMA_PROVA; l'indirizzo di ogni pagina
 si legge da data/processed/bandi.csv.
@@ -81,6 +88,12 @@ SCARICATO = "scaricato"
 A_MANO = "a mano"
 OLTRE_IL_TETTO = "oltre il tetto"
 NON_NECESSARIO = "non necessario"
+SCARICATO_ECCEZIONE = "scaricato (eccezione robots)"
+
+# L'eccezione al robots.txt per i PDF degli avvisi, in un punto solo:
+# False la spegne. Le classi a cui vale.
+ECCEZIONE_ROBOTS_AVVISI = True
+CLASSI_ECCEZIONE = (pb.CONSOLIDATO, pb.AVVISO, pb.ALLEGATO)
 
 
 class ErroreElenco(Exception):
@@ -163,6 +176,32 @@ def fase_robots(lettore: Lettore, bandi: list[tuple[str, str]], stampa=print) ->
 # --- fase 2: pagine ---
 
 
+def indirizzo_seguita(cartella: Path, id_bando: str) -> str | None:
+    """L'indirizzo della pagina seguita da una notizia, se c'e'."""
+    seguita = file_pagina(cartella, id_bando, seguita=True)
+    if not seguita.exists():
+        return None
+    return seguita.with_suffix(".url").read_text(encoding="utf-8").strip()
+
+
+def pagine_consentite(
+    lettore: Lettore, cartella: Path, id_bando: str, url: str
+) -> bool:
+    """La pagina del bando, e quella seguita, sono consentite dal robots.txt."""
+    seguita = indirizzo_seguita(cartella, id_bando)
+    return lettore.consentito(url) and (seguita is None or lettore.consentito(seguita))
+
+
+def con_eccezione(riga: dict, pagine_ok: bool) -> bool:
+    """Il file si chiede anche se il robots.txt lo vieta: eccezione per gli avvisi."""
+    return (
+        ECCEZIONE_ROBOTS_AVVISI
+        and pagine_ok
+        and riga["classe"] in CLASSI_ECCEZIONE
+        and not pb.da_non_scaricare(riga)
+    )
+
+
 def collegamenti_del_bando(
     cartella: Path, id_bando: str, url: str
 ) -> list[pb.Collegamento]:
@@ -173,7 +212,7 @@ def collegamenti_del_bando(
     collegamenti = pb.link_ai_documenti(testo_html(principale), url)
     seguita = file_pagina(cartella, id_bando, seguita=True)
     if seguita.exists():
-        url_seguita = (seguita.with_suffix(".url")).read_text(encoding="utf-8").strip()
+        url_seguita = indirizzo_seguita(cartella, id_bando)
         visti = {c.url for c in collegamenti}
         collegamenti += [
             c
@@ -202,7 +241,7 @@ def fase_pagine(
         if id_bando in PAGINE_NOTIZIA and not con_avviso:
             segui_notizia(lettore, cartella, id_bando, url, esito.percorso, stampa)
 
-        stampa_piano(cartella, id_bando, url, stampa)
+        stampa_piano(lettore, cartella, id_bando, url, stampa)
 
 
 def segui_notizia(lettore, cartella, id_bando, url, percorso, stampa) -> None:
@@ -220,7 +259,10 @@ def segui_notizia(lettore, cartella, id_bando, url, percorso, stampa) -> None:
         destinazione.with_suffix(".url").write_text(candidati[0], encoding="utf-8")
 
 
-def stampa_piano(cartella: Path, id_bando: str, url: str, stampa=print) -> None:
+def stampa_piano(
+    lettore: Lettore, cartella: Path, id_bando: str, url: str, stampa=print
+) -> None:
+    """Link e classi, ordine di scarico, file vietati dal robots.txt, host."""
     righe = pb.righe_elenco(
         id_bando, url, collegamenti_del_bando(cartella, id_bando, url)
     )
@@ -236,6 +278,20 @@ def stampa_piano(cartella: Path, id_bando: str, url: str, stampa=print) -> None:
         + (", ".join(str(r["n"]) for r in ordine) or "nessun file")
         + f" (al massimo {FILE_PER_BANDO})"
     )
+    pagine_ok = pagine_consentite(lettore, cartella, id_bando, url)
+    for riga in ordine:
+        noto = lettore.permesso_noto(riga["url_file"])
+        if noto is False:
+            seguito = (
+                "si scarica per l'eccezione sugli avvisi"
+                if con_eccezione(riga, pagine_ok)
+                else "non si scarica"
+            )
+            stampa(f"    VIETATO dal robots.txt: {riga['n']} ({seguito})")
+        elif noto is None:
+            stampa(
+                f"    robots.txt di {riga['host_file']} non ancora letto: {riga['n']}"
+            )
     altri_host = sorted({r["host_file"] for r in ordine} - {host_di(url)})
     if altri_host:
         stampa(
@@ -293,6 +349,7 @@ def file_del_bando(
     trovato = False
     richiamati: list[dict] = []
     presi = 0
+    pagine_ok = pagine_consentite(lettore, cartella, id_bando, url)
 
     def dopo_avviso(pagine: list[str]) -> None:
         nonlocal trovato, richiamati
@@ -325,11 +382,18 @@ def file_del_bando(
             riga["stato_scarico"] = OLTRE_IL_TETTO
             continue
         esito = lettore.prendi(
-            riga["url_file"], destinazione, "file", MASSIMO_FILE, solo_pdf=True
+            riga["url_file"],
+            destinazione,
+            "file",
+            MASSIMO_FILE,
+            solo_pdf=True,
+            eccezione_robots=con_eccezione(riga, pagine_ok),
         )
         riga["stato_scarico"] = {OK: SCARICATO, GIA_PRESENTE: GIA_PRESENTE}.get(
             esito.stato, esito.stato
         )
+        if esito.eccezione:
+            riga["stato_scarico"] = SCARICATO_ECCEZIONE
         if not esito.presente:
             continue
         presi += 1

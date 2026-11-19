@@ -1,0 +1,24 @@
+User-agent: DomainCrawler
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: *
+Disallow: /*.jpg
+Disallow: /*.JPG
+Disallow: /*.png
+Disallow: /*.PDF
+Disallow: /*.pdf
+Disallow: /*.mp3
+Disallow: /*.MOV
+Disallow: /*.mov
+Disallow: /*.AVI
+Disallow: /*.avi
+Disallow: /*.csv
+Disallow: /*.data
+Crawl-delay: 2
+

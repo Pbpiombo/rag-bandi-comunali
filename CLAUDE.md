@@ -106,11 +106,14 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
 - Lo stato di un bando (aperto o chiuso) si calcola dalla scadenza, non si
   memorizza.
 - Percorso fisso, niente agent: il router decide una volta, il codice esegue.
-- Lettura dei siti: si rispettano i limiti espliciti, cioè robots.txt,
-  blocchi tecnici e condizioni d'uso scritte. Dove non c'è un limite
-  esplicito, le pagine pubbliche si leggono, con poche richieste e una
-  pausa tra l'una e l'altra. Un rifiuto del sito è un limite esplicito:
-  non si aggira, si riporta.
+- Lettura dei siti: per le pagine si rispettano i limiti espliciti,
+  cioè robots.txt, blocchi tecnici e condizioni d'uso scritte. I PDF
+  degli avvisi dei bandi si scaricano una volta sola anche se il
+  robots.txt li vieta, quando la pagina del bando è consentita, con
+  pause tra le richieste e con l'intestazione che dichiara il progetto;
+  ogni caso si annota nel registro delle richieste. Un rifiuto tecnico
+  del sito è un limite: non si aggira, si riporta. Dove non c'è un
+  limite esplicito, le pagine pubbliche si leggono, con poche richieste.
 
 ## Mai
 

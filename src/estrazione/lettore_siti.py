@@ -8,7 +8,16 @@ Tutta la rete del compito 19b passa da qui, con le regole di CLAUDE.md
 - il robots.txt di ogni host si legge prima di ogni altra richiesta a
   quell'host, e si interroga con il nome del programma (NOME_PROGRAMMA),
   non con l'intera intestazione: una regola per quel nome vale, in sua
-  assenza valgono le regole per "*";
+  assenza valgono le regole per "*". Il confronto segue RFC 9309 ed e'
+  scritto qui (regole_per, permesso): gruppi con lo stesso nome uniti,
+  jolly "*" e "$" a fine regola, vince la regola piu' lunga, a parita'
+  Allow. urllib.robotparser non si usa: legge le regole alla lettera e
+  applica la prima che corrisponde;
+- eccezione per i PDF degli avvisi (decisione del 19/11/2026): chi
+  chiama puo' chiedere un file vietato dal robots.txt con
+  eccezione_robots; il permesso vero si calcola e si riporta lo stesso,
+  e la richiesta va nel registro con NOTA_ECCEZIONE. La decisione su
+  quando chiederlo sta nello script (ECCEZIONE_ROBOTS_AVVISI);
 - tra due richieste allo stesso host, il Crawl-delay o PAUSA_PREDEFINITA;
 - errore temporaneo (5xx, tempo scaduto, connessione caduta): dopo il
   primo tentativo, fino a 3 nuovi tentativi, con le attese di
@@ -33,6 +42,7 @@ possono sostituire: i test girano senza rete e senza attese vere.
 
 import csv
 import json
+import re
 import socket
 import time
 import urllib.error
@@ -43,7 +53,6 @@ from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
-from urllib.robotparser import RobotFileParser
 from zoneinfo import ZoneInfo
 
 from src.estrazione.incentivi import indirizzo_ascii
@@ -79,6 +88,10 @@ LETTO = "letto"
 ASSENTE = "assente"
 ROBOTS_RIFIUTATO = "rifiutato"
 PERMESSO_A_MANO = "permesso a mano senza robots.txt"
+
+NOTA_ECCEZIONE = (
+    "vietato dal robots.txt, scaricato per la regola del progetto sugli avvisi"
+)
 
 COLONNE_REGISTRO = [
     "ora",
@@ -125,10 +138,109 @@ class Esito:
     byte: int = 0
     percorso: Path | None = None
     nota: str = ""
+    # scaricato con l'eccezione per gli avvisi, malgrado il robots.txt
+    eccezione: bool = False
 
     @property
     def presente(self) -> bool:
         return self.stato in (OK, GIA_PRESENTE)
+
+
+# --- robots.txt secondo RFC 9309 ---
+
+
+@dataclass
+class GruppoRobots:
+    """Un gruppo del robots.txt: i nomi, le regole, il Crawl-delay."""
+
+    agenti: list
+    regole: list
+    crawl_delay: float | None = None
+
+
+@dataclass
+class RegoleRobots:
+    """Le regole che valgono per un programma: (Allow?, regola), Crawl-delay."""
+
+    regole: list
+    crawl_delay: float | None = None
+
+
+def leggi_robots(testo: str) -> list[GruppoRobots]:
+    """I gruppi del robots.txt, nell'ordine del file.
+
+    Righe User-agent consecutive aprono un solo gruppo; Allow, Disallow e
+    Crawl-delay appartengono al gruppo aperto. Commenti e righe senza ":"
+    si ignorano, come le altre chiavi (Sitemap). Un Disallow vuoto non
+    vieta nulla.
+    """
+    gruppi: list[GruppoRobots] = []
+    corrente: GruppoRobots | None = None
+    tra_i_nomi = False
+    for riga in testo.splitlines():
+        riga = riga.split("#", 1)[0].strip()
+        if ":" not in riga:
+            continue
+        chiave, valore = (parte.strip() for parte in riga.split(":", 1))
+        chiave = chiave.lower()
+        if chiave == "user-agent":
+            if corrente is None or not tra_i_nomi:
+                corrente = GruppoRobots([], [])
+                gruppi.append(corrente)
+            corrente.agenti.append(valore.lower())
+            tra_i_nomi = True
+        elif chiave in ("allow", "disallow") and corrente is not None:
+            tra_i_nomi = False
+            if valore:
+                corrente.regole.append((chiave == "allow", valore))
+        elif chiave == "crawl-delay" and corrente is not None:
+            tra_i_nomi = False
+            try:
+                corrente.crawl_delay = float(valore)
+            except ValueError:
+                pass
+    return gruppi
+
+
+def regole_per(testo: str, nome: str = NOME_PROGRAMMA) -> RegoleRobots:
+    """Le regole per il programma: i gruppi con il suo nome, altrimenti "*".
+
+    Piu' gruppi con lo stesso nome si uniscono. Il Crawl-delay e' il
+    primo dei gruppi scelti.
+    """
+    gruppi = leggi_robots(testo)
+    scelti = [g for g in gruppi if nome.lower() in g.agenti] or [
+        g for g in gruppi if "*" in g.agenti
+    ]
+    ritardi = [g.crawl_delay for g in scelti if g.crawl_delay is not None]
+    return RegoleRobots(
+        [r for g in scelti for r in g.regole], ritardi[0] if ritardi else None
+    )
+
+
+def _schema_regola(regola: str) -> re.Pattern:
+    """La regola come espressione: "*" qualunque sequenza, "$" finale la fine."""
+    fine = regola.endswith("$")
+    corpo = regola[:-1] if fine else regola
+    schema = ".*".join(re.escape(p) for p in corpo.split("*"))
+    return re.compile(schema + ("$" if fine else ""))
+
+
+def permesso(regole: RegoleRobots, url: str) -> bool:
+    """Il percorso, con la query, e' permesso dalle regole.
+
+    Vince la regola piu' lunga che corrisponde dall'inizio del percorso;
+    a parita' di lunghezza, Allow. Senza regole che corrispondono, si'.
+    """
+    parti = urlsplit(url)
+    percorso = (parti.path or "/") + (f"?{parti.query}" if parti.query else "")
+    migliore: tuple[int, bool] | None = None
+    for consente, regola in regole.regole:
+        if _schema_regola(regola).match(percorso):
+            chiave = (len(regola), consente)
+            if migliore is None or chiave > migliore:
+                migliore = chiave
+    return True if migliore is None else migliore[1]
 
 
 def _apri(url: str, intestazioni: dict):
@@ -185,7 +297,7 @@ class Lettore:
         self._orologio = orologio or time.monotonic
         self.permetti_senza_robots = {h.lower() for h in permetti_senza_robots or ()}
         self._regole: dict[str, RegoleHost] = {}
-        self._parser: dict[str, RobotFileParser] = {}
+        self._robots: dict[str, RegoleRobots] = {}
         self._ultima: dict[str, float] = {}
         self._rifiuti_di_fila: dict[str, int] = {}
         self.fermati: dict[str, str] = {}
@@ -257,7 +369,7 @@ class Lettore:
             return mancano
         return 0.0
 
-    def _richiesta(self, tipo: str, url: str, massimo_byte: int | None):
+    def _richiesta(self, tipo: str, url: str, massimo_byte: int | None, nota: str = ""):
         """GET con i tentativi; restituisce (codice, byte) o solleva l'errore finale.
 
         Errori temporanei e 429 si ritentano qui; gli altri errori HTTP
@@ -294,7 +406,15 @@ class Lettore:
                             raise ValueError(f"oltre {massimo_byte} byte")
                     codice = getattr(risposta, "status", 200)
                 self.annota(
-                    tipo, host, url, OK, tentativo, codice, len(corpo), f"{attesa:g}"
+                    tipo,
+                    host,
+                    url,
+                    OK,
+                    tentativo,
+                    codice,
+                    len(corpo),
+                    f"{attesa:g}",
+                    nota,
                 )
                 return codice, bytes(corpo)
             except ValueError as errore:
@@ -311,6 +431,7 @@ class Lettore:
                     tentativo,
                     errore.code,
                     attesa=f"{attesa:g}",
+                    nota=nota,
                 )
                 if errore.code == 429 and troppe < NUOVI_TENTATIVI_429:
                     secondi = attesa_retry_after(
@@ -395,10 +516,7 @@ class Lettore:
             return self._illeggibile(host, indirizzo, str(errore))
 
         if regole.esito == LETTO:
-            parser = RobotFileParser()
-            parser.parse(regole.testo.splitlines())
-            ritardo = parser.crawl_delay(NOME_PROGRAMMA)
-            regole.crawl_delay = float(ritardo) if ritardo is not None else None
+            regole.crawl_delay = regole_per(regole.testo).crawl_delay
         salvato.parent.mkdir(parents=True, exist_ok=True)
         salvato.write_text(
             json.dumps(regole.__dict__, ensure_ascii=False, indent=1), encoding="utf-8"
@@ -419,9 +537,9 @@ class Lettore:
     def _tieni(self, regole: RegoleHost) -> RegoleHost:
         self._regole[regole.host] = regole
         if regole.esito == LETTO:
-            parser = RobotFileParser()
-            parser.parse(regole.testo.splitlines())
-            self._parser[regole.host] = parser
+            # una sola interpretazione, anche per un file salvato prima
+            self._robots[regole.host] = regole_per(regole.testo)
+            regole.crawl_delay = self._robots[regole.host].crawl_delay
         if regole.esito == ROBOTS_RIFIUTATO:
             self.ferma(regole.host, f"robots.txt rifiutato (HTTP {regole.codice})")
         return regole
@@ -435,8 +553,20 @@ class Lettore:
         if regole.esito in (ASSENTE, PERMESSO_A_MANO):
             return True
         if regole.esito == LETTO:
-            return self._parser[host].can_fetch(NOME_PROGRAMMA, url)
+            return permesso(self._robots[host], url)
         return False
+
+    def permesso_noto(self, url: str) -> bool | None:
+        """Come consentito, ma senza richieste.
+
+        None se il robots.txt dell'host non e' ancora stato letto.
+        """
+        host = host_di(url)
+        if host in self.fermati:
+            return False
+        if host in self._regole or self._file_robots(host).exists():
+            return self.consentito(url)
+        return None
 
     # --- pagine e file ---
 
@@ -447,12 +577,17 @@ class Lettore:
         tipo: str,
         massimo_byte: int | None = None,
         solo_pdf: bool = False,
+        eccezione_robots: bool = False,
     ) -> Esito:
         """Scarica url in destinazione, se non c'e' gia'.
 
         tipo: "pagina" (401 e 403 fermano l'host) o "file" (401, 403 e
         404 valgono per il file; RIFIUTI_PER_FERMARE rifiuti di fila
         fermano l'host).
+
+        eccezione_robots: un file vietato dal robots.txt si chiede lo
+        stesso, con NOTA_ECCEZIONE nel registro. Vale solo per i file,
+        mai per le pagine, e non per un host fermato.
         """
         destinazione = Path(destinazione)
         if destinazione.exists():
@@ -460,14 +595,17 @@ class Lettore:
         host = host_di(url)
         if host in self.fermati:
             return Esito(url, HOST_FERMATO, nota=self.fermati[host])
+        nota = ""
         if not self.consentito(url):
             if host in self.fermati:
                 return Esito(url, HOST_FERMATO, nota=self.fermati[host])
-            self.annota(tipo, host, url, VIETATO)
-            return Esito(url, VIETATO)
+            if not (eccezione_robots and tipo == "file"):
+                self.annota(tipo, host, url, VIETATO)
+                return Esito(url, VIETATO)
+            nota = NOTA_ECCEZIONE
 
         try:
-            codice, corpo = self._richiesta(tipo, url, massimo_byte)
+            codice, corpo = self._richiesta(tipo, url, massimo_byte, nota)
         except ValueError as errore:
             return Esito(url, TROPPO_GRANDE, nota=str(errore))
         except urllib.error.HTTPError as errore:
@@ -491,7 +629,7 @@ class Lettore:
         provvisorio = destinazione.with_name(destinazione.name + ".parziale")
         provvisorio.write_bytes(corpo)
         provvisorio.replace(destinazione)
-        return Esito(url, OK, codice, len(corpo), destinazione)
+        return Esito(url, OK, codice, len(corpo), destinazione, nota, bool(nota))
 
     def _errore_http(self, tipo: str, host: str, url: str, codice: int) -> Esito:
         if codice == 429:
