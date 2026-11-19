@@ -197,6 +197,11 @@ Opzioni:
 
 ### Metodo delle etichette (passo 1)
 
+Metodo previsto il 18/11/2026 e non seguito: le etichette sono state
+fatte come descritto in 'Come sono state fatte le etichette'. Resta
+valido l'ultimo punto, sui bandi senza etichetta nei primi 10 del
+passo 4.
+
 - Prima del primo giro: definizione scritta di "generico", con esempi;
   colonna "chi atteso" per domanda.
 - Confronto con un secondo modello sulle stesse 10: regola di chiusura
@@ -225,24 +230,109 @@ Esempi: l'abbattimento interessi è generico per un investimento e "no"
 per un'assunzione; un incentivo all'assunzione è pertinente per P05 e
 P24 e "no" per P01.
 
+Pertinenza e ipotesi di utilizzo sono due cose distinte. Se il bando
+può finanziare proprio l'intervento chiesto, anche a una condizione, è
+pertinente o generico. Se per usarlo serve un progetto diverso da
+quello chiesto, è 'no' per la pertinenza, e l'idea va nella colonna
+ipotesi_da_verificare. Le ipotesi sono idee di utilizzo, non giudizi.
+
 **Forma attesa**, calcolata dai giudizi:
 - `elenco`: almeno un pertinente;
 - `solo_generici`: nessun pertinente, almeno un generico;
 - `non_trovo`: altrimenti.
 
-**Procedura.**
+**Procedura.** Valeva per l'etichettatura a mano. Per le 96 righe
+giudicate a mano resta valido: si lavora su una copia fuori dal
+repository e non si guardano le risposte dell'app.
 - Si lavora su una copia delle schede, fuori dal repository.
 - Non si guardano le risposte dell'app.
 - Prima il giro per domanda, poi il controllo di coerenza per bando.
 - Si segna il tempo.
 - Le schede non si rigenerano finché i giudizi stanno solo nella copia.
 
-**Regola di chiusura del confronto con il secondo modello.**
+**Regola di chiusura del confronto con il secondo modello.** Non
+applicata: sostituita il 18/11/2026 dal metodo descritto in 'Come sono
+state fatte le etichette'.
 - Passa con un accordo di almeno l'85% e al massimo un disaccordo
   "pertinente contro no" per domanda.
 - Se passa, il modello propone le altre 40 e si rivedono tutte; se no,
   si etichettano tutte a mano.
 - L'accordo per classe si riporta, non è una soglia.
+
+### Come sono state fatte le etichette (18-19/11/2026)
+
+Le etichette sono giudizi sulla base della pagina web del bando, cioè
+delle stesse informazioni che l'app ha oggi. Non sono giudizi sugli
+avvisi in PDF. Quando l'archivio leggerà i PDF, le righe di quei bandi
+vanno rietichettate.
+
+**Metodo.** Due modelli indipendenti hanno giudicato le 888 righe non
+automatiche. Un terzo modello ha fatto da arbitro sui 112 disaccordi,
+con il testo delle pagine web, indicando la frase che decide oppure
+"non_basta" quando la pagina non bastava. 102 righe sono "no"
+automatici: il Comune non è tra i beneficiari. A mano sono state
+giudicate 96 righe, tutte dei Comuni: 8 nelle domande C01-C03 e le 88
+righe in cui entrambi i modelli dicevano "no" a un bando aperto nelle
+domande C04-C20.
+
+**Giudizio finale di ogni riga**, per chiave (codice, id_bando), dalla
+priorità più alta:
+1. giudizio a mano della revisione dei Comuni;
+2. giudizio a mano nel foglio di controllo, dove compilato;
+3. arbitro; con "non_basta": generico se nessuno dei due modelli aveva
+   detto "no", altrimenti "no";
+4. accordo dei due modelli;
+5. automatici.
+
+**Scadenza.** Non la giudica chi etichetta, la applica una regola: se
+il bando è scaduto alla data di riferimento (16/11/2026) e la domanda
+non è sullo storico (C19), l'etichetta è "no". Il giudizio sul
+contenuto resta nella colonna giudizio_contenuto.
+
+**Righe incerte.** Una riga è incerta se la nota di chi ha giudicato a
+mano esprime un dubbio o rimanda al PDF, se l'arbitro dice "non_basta",
+oppure se è un "generico" dato a mano nella revisione dei Comuni.
+L'etichetta resta, con incerta = sì.
+
+**Forma attesa di ogni domanda**, calcolata dalle etichette: "elenco"
+con almeno un pertinente; "solo_generici" senza pertinenti ma con
+almeno un generico; "non_trovo" altrimenti. Se la forma cambia
+togliendo le righe incerte, la domanda ha "forma incerta" e non si usa
+per giudicare l'app finché non si leggono i PDF.
+
+**Regola per la misura.** Una riga "generico" è neutra: non conta come
+errore né se l'app la cita né se non la cita. Contano come errori solo
+i pertinenti mancati e i "no" presentati come opportunità.
+
+**Numeri al 19/11/2026**, sull'archivio dopo il passo 2a:
+- 990 righe su 50 domande: 836 no, 115 generici, 39 pertinenti; 28
+  decise dalla regola della scadenza;
+- fonti: 88 dalla revisione dei Comuni, 8 dal foglio di controllo, 112
+  dall'arbitro, 680 dall'accordo dei modelli, 102 automatici;
+- 27 righe incerte: 14 dalla revisione, 13 "non_basta" dell'arbitro;
+  16 nei Comuni e 11 nei privati;
+- forme attese: 20 elenco, 29 solo_generici, 1 non_trovo (C07);
+- forma incerta: C18 e C20;
+- 35 ipotesi di utilizzo conservate, tutte sulle domande dei Comuni.
+
+**Limiti.**
+- Sono etichette di modelli, riviste a mano solo in parte e solo per i
+  Comuni. Le righe dei privati (P e L) non hanno revisione umana.
+- L'accordo tra i due modelli è dell'87% su tutte le righe, ma del 49%
+  sulle 221 righe in cui almeno uno dei due non dice "no": il confine
+  di "generico" è largo.
+- Nella revisione dei Comuni, su 88 "no" concordi dei modelli ne sono
+  stati cambiati 5, tutti in generici dubbi. Con la regola che separa
+  la pertinenza dalle ipotesi di utilizzo, il "no" dei modelli regge.
+- Per molti bandi, soprattutto dei Comuni, requisiti e spese decisive
+  stanno negli avvisi in PDF. Le righe incerte ne sono l'elenco
+  minimo, non completo.
+- Le etichette dipendono dallo stato dei bandi in archivio: dopo ogni
+  correzione di una scadenza vanno ricalcolate.
+- Le 5 domande A non hanno etichette.
+
+**Uso.** Confronti tra varianti sullo stesso insieme. Non servono a
+dire quanto l'app è corretta in assoluto.
 
 ### Metodo del confronto sull'ordinamento (passo 4)
 

@@ -64,8 +64,9 @@ tecnico (18/11/2026)".
 
 ## Ordine dei passi
 
-I numeri dei passi non cambiano. **Ordine di esecuzione:** 0; 1 (primo
-giro); 2a; 17; 1 (resto); 2b e nuova baseline; 4; 3; 5; 18; 8; 9; poi C
+I numeri dei passi non cambiano. **Ordine di esecuzione:** 0; 1
+(etichette); 2a; 17; 1 (resto: "chi atteso", domande A, attese con
+polarità); 2b e nuova baseline; 4; 3; 5; 18; 8; 9; poi C
 in sequenza, non in parallelo.
 
 ### A. Misure e dati, senza modello salvo dove indicato
@@ -80,8 +81,13 @@ in sequenza, non in parallelo.
 1. **Etichette.** Schede in `dati-grezzi/etichette/2026-11-18_152225`, per
    50 domande: le 5 domande A non hanno schede e restano misurate con le
    attese attuali.
-   - Primo giro a mano su C02, C03, C07, C14, P03, P09, P11, P22, P24,
-     L02; due o tre domande anche al consulente pilota.
+   - Fatto il 19/11/2026 con un metodo diverso da quello previsto: due
+     modelli, un arbitro, revisione a mano di 96 righe dei Comuni. 990
+     etichette, 27 incerte, forma incerta per C18 e C20. Metodo, numeri
+     e limiti in docs/piano-insieme-prova.md, 'Come sono state fatte le
+     etichette'. Resta da fare: la colonna 'chi atteso' per domanda e le
+     5 domande A.
+   - Due o tre domande anche al consulente pilota.
    - Dalle etichette nascono le attese con polarità (proposto, non
      proposto); `forma_attesa` si calcola dalle etichette. Oggi una
      citazione fatta per escludere un bando conta come trovata (caso C03).

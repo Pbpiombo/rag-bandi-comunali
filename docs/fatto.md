@@ -306,3 +306,9 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
   incentivi-8581. L'impronta di `data/processed` è la stessa prima e
   dopo un checkout simulato. Test in `tests/test_misure_congelate.py` e
   `tests/test_schema.py`.
+
+## Fatti il 19 novembre 2026
+
+- **Etichette dell'insieme di prova** (19/11/2026): 990 etichette su 50
+  domande, da due modelli con un arbitro e revisione a mano di 96 righe
+  dei Comuni. In `docs/piano-insieme-prova.md`, "Come sono state fatte le etichette".
