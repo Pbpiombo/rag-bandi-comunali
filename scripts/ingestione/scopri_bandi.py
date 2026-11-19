@@ -6,14 +6,20 @@ Uso:
     python -m scripts.ingestione.scopri_bandi --promettenti   solo quelli con indizi
                                                               di pertinenza per un Comune
     python -m scripts.ingestione.scopri_bandi --comandi       stampa i comandi di estrazione
+
+Ogni elenco letto si conserva, HTML e voci, in dati-grezzi/elenchi/<data>/
+(ELENCHI_DIR); per ciascuno si stampano voci, totale dichiarato, avviso
+sul limite delta e collegamenti scartati.
 """
 
 import sys
 
+from src.config import ELENCHI_DIR
 from src.estrazione.elenco import (
     gia_in_archivio,
     id_da_slug,
     leggi_elenchi,
+    riepilogo_elenchi,
     scopri,
 )
 
@@ -68,7 +74,8 @@ def mostra_spariti(letti: list) -> None:
 
 def main() -> None:
     print("Lettura degli elenchi delle fonti...")
-    letti = leggi_elenchi()
+    letti = leggi_elenchi(cartella=ELENCHI_DIR)
+    print(riepilogo_elenchi(letti))
     voci = scopri(letti)
 
     nuove = [v for v in voci if v.nuovo]

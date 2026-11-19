@@ -6,20 +6,30 @@ fonte di tipo 'pagine' ha uno o piu' elenchi; di ogni elenco si leggono i
 collegamenti al dominio della fonte che corrispondono al suo schema_link,
 tolti quelli esclusi. Una voce vista in piu' elenchi della stessa fonte
 compare una volta. Le fonti di tipo 'file' non hanno elenchi da leggere.
+
+Di ogni elenco si tengono anche i collegamenti scartati (da schema_link o
+da esclusi) e il totale che la pagina dichiara; se lo script indica una
+cartella, l'elenco letto si conserva li', HTML e voci, per sapere dopo
+che cosa conteneva.
 """
 
+import csv
 import hashlib
 import re
 import unicodedata
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, field
+from datetime import date, datetime
 from html.parser import HTMLParser
 from http.client import HTTPException
-from urllib.parse import unquote, urljoin, urlsplit
+from pathlib import Path
+from urllib.parse import parse_qs, unquote, urljoin, urlsplit
+from zoneinfo import ZoneInfo
 
 from src.database.schema import connetti
 from src.estrazione.indirizzi import url_canonico
-from src.estrazione.pagina import scarica
+from src.estrazione.pagina import a_testo, scarica
+
+FUSO = ZoneInfo("Europe/Rome")
 
 # Lunghezza massima dell'identificativo di un bando, e del codice che lo
 # chiude quando lo slug e' piu' lungo
@@ -43,6 +53,25 @@ ANNO_NELLO_SLUG = re.compile(r"(?<![^-])(20[0-2]\d)(?![^-])")
 # Tempo massimo per scaricare un elenco: le pagine della Regione con 200
 # voci arrivano a un minuto
 ATTESA_ELENCO = 90
+
+# Parametri dell'indirizzo che fissano quante voci mostra una pagina
+# dell'elenco: delta per la Regione, _per_page per Sviluppo Toscana
+PARAMETRI_DELTA = ("delta", "_per_page")
+
+# Quota di delta oltre la quale l'elenco e' vicino al limite della pagina:
+# le voci in piu' finirebbero in una seconda pagina, che non si legge
+AVVISO_DELTA = 0.9
+
+# Il totale dichiarato dalla pagina, nella forma "Risultati: 3 Bandi"
+# (piano-fonti.md, tappa 2), con l'eventuale punto delle migliaia; e la
+# forma dell'elenco vuoto
+RISULTATI = re.compile(r"Risultati:\s*(\d{1,3}(?:\.\d{3})+|\d+)", re.IGNORECASE)
+NESSUN_RISULTATO = re.compile(r"Nessun risultato trovato", re.IGNORECASE)
+
+# Motivi di scarto di un collegamento al dominio della fonte
+SCHEMA = "schema"
+ESCLUSI = "esclusi"
+VOCE = "voce"
 
 
 @dataclass(frozen=True)
@@ -79,13 +108,20 @@ class Letto:
     """Il risultato della lettura di un elenco.
 
     collegamenti: (slug, url canonico) nell'ordine della pagina, senza
-    ripetizioni; errore: il motivo se l'elenco non si e' scaricato.
+    ripetizioni; errore: il motivo se l'elenco non si e' scaricato;
+    scartati: (url, motivo) dei collegamenti al dominio della fonte
+    scartati da schema_link (SCHEMA) o da esclusi (ESCLUSI); totale: le
+    voci che la pagina dichiara, None se non lo dichiara o non si
+    riconosce; copia: il file HTML conservato, None se non si conserva.
     """
 
     elenco: Elenco
     fonte: Fonte
     collegamenti: list[tuple[str, str]]
     errore: str | None = None
+    scartati: list[tuple[str, str]] = field(default_factory=list)
+    totale: int | None = None
+    copia: Path | None = None
 
 
 @dataclass
@@ -184,6 +220,52 @@ class _Collegamenti(HTMLParser):
             self.href.extend(v for k, v in attrs if k == "href" and v)
 
 
+def _analizza(html: str, url_pagina: str, fonte: Fonte) -> list[tuple[str, str, str]]:
+    """I collegamenti al dominio della fonte, nell'ordine della pagina.
+
+    Restituisce (slug, url, esito): esito VOCE per le voci dell'elenco,
+    SCHEMA o ESCLUSI per gli scartati. Per una voce lo slug e' il gruppo
+    'slug', senza punti e barre finali, e l'URL e' url_base seguito dal
+    gruppo 'percorso', con lo slug cosi' ripulito.
+
+    Tra gli scartati per SCHEMA entrano solo i percorsi con "/-/", la
+    forma delle pagine di contenuto della Regione: i menu e le pagine di
+    sezione non sono scarti. Per le fonti che non usano "/-/" il
+    conteggio e' quindi sempre zero. Le ripetizioni non si contano; i
+    collegamenti ad altri domini non sono scarti.
+    """
+    schema = re.compile(fonte.schema_link)
+    esclusi = re.compile(fonte.esclusi, re.IGNORECASE) if fonte.esclusi else None
+
+    lettore = _Collegamenti()
+    lettore.feed(html)
+
+    righe, visti, scartati_visti = [], set(), set()
+    for href in lettore.href:
+        indirizzo = urljoin(url_pagina, href)
+        if _dominio(indirizzo) != fonte.dominio:
+            continue
+        percorso = urlsplit(indirizzo).path
+        m = schema.match(percorso)
+        if not m:
+            url = url_canonico(indirizzo)
+            if "/-/" in percorso and url not in scartati_visti:
+                scartati_visti.add(url)
+                righe.append(("", url, SCHEMA))
+            continue
+
+        slug = m["slug"].rstrip("./")
+        if not slug or slug in visti:
+            continue
+        visti.add(slug)
+
+        prima = m["percorso"][: m.start("slug") - m.start("percorso")]
+        url = url_canonico(f"{fonte.url_base}/{prima}{slug}")
+        righe.append((slug, url, ESCLUSI if esclusi and esclusi.match(slug) else VOCE))
+
+    return righe
+
+
 def collegamenti(html: str, url_pagina: str, fonte: Fonte) -> list[tuple[str, str]]:
     """Le voci di un elenco: (slug, url canonico), nell'ordine della pagina.
 
@@ -193,55 +275,188 @@ def collegamenti(html: str, url_pagina: str, fonte: Fonte) -> list[tuple[str, st
     slug cosi' ripulito. Uno slug che corrisponde a esclusi, o gia' visto,
     si salta.
     """
-    schema = re.compile(fonte.schema_link)
-    esclusi = re.compile(fonte.esclusi, re.IGNORECASE) if fonte.esclusi else None
-
-    lettore = _Collegamenti()
-    lettore.feed(html)
-
-    voci, visti = [], set()
-    for href in lettore.href:
-        indirizzo = urljoin(url_pagina, href)
-        if _dominio(indirizzo) != fonte.dominio:
-            continue
-        m = schema.match(urlsplit(indirizzo).path)
-        if not m:
-            continue
-
-        slug = m["slug"].rstrip("./")
-        if not slug or slug in visti or (esclusi and esclusi.match(slug)):
-            continue
-        visti.add(slug)
-
-        prima = m["percorso"][: m.start("slug") - m.start("percorso")]
-        voci.append((slug, url_canonico(f"{fonte.url_base}/{prima}{slug}")))
-
-    return voci
+    return [
+        (slug, url)
+        for slug, url, esito in _analizza(html, url_pagina, fonte)
+        if esito == VOCE
+    ]
 
 
-def leggi_elenco(elenco: Elenco, fonte: Fonte) -> list[tuple[str, str]]:
-    """Scarica un elenco e ne restituisce le voci (slug, url canonico).
+def totale_dichiarato(html: str) -> int | None:
+    """Le voci che la pagina dell'elenco dichiara di avere.
 
-    L'ordine e' informativo: i portali presentano per primi i bandi
-    pubblicati piu' di recente.
+    Riconosce "Risultati: N" e "Nessun risultato trovato" (zero) nel
+    testo della pagina, non nel markup. None se la pagina non dichiara
+    un totale o lo scrive in una forma che non si riconosce.
     """
-    return collegamenti(scarica(elenco.url, timeout=ATTESA_ELENCO), elenco.url, fonte)
+    testo = a_testo(html)
+    trovato = RISULTATI.search(testo)
+    if trovato:
+        return int(trovato[1].replace(".", ""))
+    if NESSUN_RISULTATO.search(testo):
+        return 0
+    return None
 
 
-def leggi_elenchi(codice_fonte: str | None = None) -> list[Letto]:
+def delta_di(url: str) -> int | None:
+    """Quante voci mostra una pagina dell'elenco, dal suo indirizzo.
+
+    Legge il primo dei PARAMETRI_DELTA presente; None se non c'e' o non
+    e' un numero.
+    """
+    parametri = parse_qs(urlsplit(url).query)
+    for nome in PARAMETRI_DELTA:
+        valori = parametri.get(nome)
+        if valori and valori[0].isdigit():
+            return int(valori[0])
+    return None
+
+
+def avviso_delta(url: str, totale: int | None, voci: int) -> str | None:
+    """Un avviso se l'elenco supera o si avvicina al limite della pagina.
+
+    Il confronto si fa con il totale dichiarato; se la pagina non lo
+    dichiara, con le voci lette. Senza delta nell'indirizzo, nessun
+    avviso.
+    """
+    delta = delta_di(url)
+    if delta is None:
+        return None
+    if totale is not None and totale > delta:
+        return (
+            f"il totale dichiarato ({totale}) supera delta ({delta}): "
+            "le voci oltre la prima pagina non si leggono"
+        )
+    quante, cosa = (totale, "dichiarate") if totale is not None else (voci, "lette")
+    if quante >= AVVISO_DELTA * delta:
+        return (
+            f"{quante} voci {cosa} con delta {delta}: vicino al limite della "
+            "pagina, le voci in piu' finirebbero in una seconda pagina non letta"
+        )
+    return None
+
+
+def _nome_elenco(url: str) -> str:
+    """Il nome dei file di un elenco: host, percorso e parametri ripuliti."""
+    parti = urlsplit(url)
+    nome = f"{parti.netloc}{parti.path}-{parti.query}".lower()
+    return re.sub(r"[^a-z0-9]+", "-", nome).strip("-") or "elenco"
+
+
+def _base_libera(cartella: Path, nome: str) -> Path:
+    """Il primo nome non usato: nome, nome-2, nome-3, ... (senza estensione)."""
+    base, numero = cartella / nome, 2
+    while base.with_suffix(".html").exists() or base.with_suffix(".csv").exists():
+        base = cartella / f"{nome}-{numero}"
+        numero += 1
+    return base
+
+
+def conserva_elenco(
+    cartella: Path,
+    elenco: Elenco,
+    html: str,
+    righe: list[tuple[str, str, str]],
+    quando: datetime | None = None,
+) -> Path:
+    """Conserva un elenco letto: l'HTML e le sue righe, in una cartella del giorno.
+
+    Scrive <cartella>/<AAAA-MM-GG>/<nome>.html, l'HTML come lo restituisce
+    scarica, e <nome>.csv con posizione, slug, url ed esito (voce, schema,
+    esclusi) nell'ordine della pagina. Una seconda lettura dello stesso
+    elenco nello stesso giorno prende il suffisso -2, -3 e cosi' via.
+    Restituisce il percorso dell'HTML.
+    """
+    quando = quando or datetime.now(FUSO)
+    giorno = cartella / quando.date().isoformat()
+    giorno.mkdir(parents=True, exist_ok=True)
+
+    base = _base_libera(giorno, _nome_elenco(elenco.url))
+    pagina = base.with_suffix(".html")
+    pagina.write_text(html, encoding="utf-8", newline="")
+
+    with base.with_suffix(".csv").open("w", encoding="utf-8", newline="") as f:
+        scrittore = csv.writer(f)
+        scrittore.writerow(["posizione", "slug", "url", "esito"])
+        for posizione, (slug, url, esito) in enumerate(righe, start=1):
+            scrittore.writerow([posizione, slug, url, esito])
+
+    return pagina
+
+
+def leggi_elenco(elenco: Elenco, fonte: Fonte, cartella: Path | None = None) -> Letto:
+    """Scarica un elenco e ne restituisce voci, scartati e totale dichiarato.
+
+    L'ordine delle voci e' informativo: i portali presentano per primi i
+    bandi pubblicati piu' di recente. Con cartella, l'elenco letto si
+    conserva (conserva_elenco); senza, non si scrive nulla.
+    """
+    html = scarica(elenco.url, timeout=ATTESA_ELENCO)
+    righe = _analizza(html, elenco.url, fonte)
+    copia = conserva_elenco(cartella, elenco, html, righe) if cartella else None
+    return Letto(
+        elenco,
+        fonte,
+        [(slug, url) for slug, url, esito in righe if esito == VOCE],
+        scartati=[(url, esito) for _, url, esito in righe if esito != VOCE],
+        totale=totale_dichiarato(html),
+        copia=copia,
+    )
+
+
+def leggi_elenchi(
+    codice_fonte: str | None = None, cartella: Path | None = None
+) -> list[Letto]:
     """Legge gli elenchi attivi, di tutte le fonti o di quella indicata.
 
     Un elenco che non si scarica non ferma gli altri: il suo errore resta
-    nel risultato.
+    nel risultato, e non se ne conserva copia. cartella: dove conservare
+    gli elenchi letti; None, il valore predefinito, non scrive nulla.
     """
     letti = []
     for fonte, elenchi in elenchi_attivi(codice_fonte):
         for elenco in elenchi:
             try:
-                letti.append(Letto(elenco, fonte, leggi_elenco(elenco, fonte)))
+                letti.append(leggi_elenco(elenco, fonte, cartella))
             except (OSError, HTTPException) as errore:
                 letti.append(Letto(elenco, fonte, [], str(errore)))
     return letti
+
+
+def riepilogo_elenchi(letti: list[Letto]) -> str:
+    """Per ogni elenco: voci, totale dichiarato, delta, copia e scartati.
+
+    Un totale che non si legge si scrive "!! totale non letto !!", perche'
+    si noti: senza totale non si sa se l'elenco e' stato letto per intero.
+    """
+    righe = ["Elenchi letti:"]
+    for letto in letti:
+        intestazione = f"  [{letto.fonte.codice}] {letto.elenco.url}"
+        if letto.errore:
+            righe.append(f"{intestazione}: ERRORE ({letto.errore})")
+            continue
+
+        totale = (
+            f"totale dichiarato {letto.totale}"
+            if letto.totale is not None
+            else "!! totale non letto !!"
+        )
+        delta = delta_di(letto.elenco.url)
+        delta = f", delta {delta}" if delta is not None else ""
+        righe.append(f"{intestazione}: {len(letto.collegamenti)} voci, {totale}{delta}")
+
+        avviso = avviso_delta(letto.elenco.url, letto.totale, len(letto.collegamenti))
+        if avviso:
+            righe.append(f"      AVVISO: {avviso}")
+        if letto.copia:
+            righe.append(f"      copia: {letto.copia}")
+
+        for motivo, nome in ((SCHEMA, "schema_link"), (ESCLUSI, "esclusi")):
+            scartati = [url for url, m in letto.scartati if m == motivo]
+            righe.append(f"      scartati per {nome} ({len(scartati)})")
+            righe.extend(f"        {url}" for url in scartati)
+
+    return "\n".join(righe)
 
 
 def _titolo_da_slug(slug: str) -> str:

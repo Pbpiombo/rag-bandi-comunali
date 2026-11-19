@@ -16,7 +16,10 @@ registro delle scansioni le ricorda.
 
 Fonti, elenchi e regole di lettura vengono dal database (tabelle fonti
 ed elenchi): si leggono tutti gli elenchi attivi delle fonti di tipo
-'pagine', e si stampa quante voci ha dato ciascuno.
+'pagine', e per ciascuno si stampano le voci, il totale dichiarato
+dalla pagina, un avviso se si avvicina al limite delta, e i collegamenti
+scartati con l'indirizzo. Ogni elenco letto si conserva, HTML e voci, in
+dati-grezzi/elenchi/<data>/ (ELENCHI_DIR), anche con --prova.
 
 Prima del modello, una preselezione gratuita (src/estrazione/scadenza.py)
 scarica ogni pagina candidata:
@@ -46,6 +49,7 @@ from zoneinfo import ZoneInfo
 from anthropic import AuthenticationError, PermissionDeniedError
 from langchain_core.callbacks import get_usage_metadata_callback
 
+from src.config import ELENCHI_DIR
 from src.database.schema import aggiorna_csv
 from src.estrazione.bandi import (
     costruisci_estrattore,
@@ -53,7 +57,12 @@ from src.estrazione.bandi import (
     estrai,
     valida,
 )
-from src.estrazione.elenco import id_da_slug, leggi_elenchi, scopri
+from src.estrazione.elenco import (
+    id_da_slug,
+    leggi_elenchi,
+    riepilogo_elenchi,
+    scopri,
+)
 from src.estrazione.grezzi import conservatore
 from src.estrazione.pagina import a_testo, ritaglia, scarica
 from src.estrazione.registro import da_non_riesaminare, registra, riepilogo
@@ -111,21 +120,21 @@ def opzione_testo(nome: str) -> str | None:
 
 
 def mostra_elenchi(letti: list) -> None:
-    """Quante voci ha dato ogni elenco: uno che smette di darne si vede."""
-    print("Elenchi letti:")
-    for letto in letti:
-        esito = (
-            f"ERRORE ({letto.errore})"
-            if letto.errore
-            else f"{len(letto.collegamenti)} voci"
-        )
-        print(f"  [{letto.fonte.codice}] {letto.elenco.url}: {esito}")
+    """Per ogni elenco: voci, totale dichiarato, delta, copia e scartati.
+
+    Un elenco che smette di dare voci, o che si avvicina al limite della
+    pagina, si vede.
+    """
+    print(riepilogo_elenchi(letti))
 
 
 def scegli_candidati() -> list:
-    """I bandi da esaminare, applicando i filtri richiesti."""
+    """I bandi da esaminare, applicando i filtri richiesti.
+
+    Gli elenchi letti si conservano in ELENCHI_DIR, anche con --prova.
+    """
     codice_fonte = opzione_testo("--fonte")
-    letti = leggi_elenchi(codice_fonte)
+    letti = leggi_elenchi(codice_fonte, cartella=ELENCHI_DIR)
     if codice_fonte and not letti:
         print(f"Nessun elenco attivo per la fonte '{codice_fonte}'.")
     mostra_elenchi(letti)

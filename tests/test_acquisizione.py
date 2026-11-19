@@ -1,11 +1,14 @@
 """Registro delle scansioni, salvataggio dei bandi e lettura dell'elenco,
 con gli URL in forma canonica."""
 
+import csv
 import importlib
 import re
 import sqlite3
 import sys
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -196,9 +199,14 @@ def test_registra_senza_avvisi_lascia_la_colonna_vuota(db_su_file):
 
 
 @pytest.fixture
-def elenco_salvato(monkeypatch):
-    """L'elenco del portale letto dall'estratto salvato, non dal sito."""
+def elenco_salvato(monkeypatch, tmp_path):
+    """L'elenco del portale letto dall'estratto salvato, non dal sito.
+
+    Le copie degli elenchi letti da scopri_bandi vanno in tmp_path, non
+    in dati-grezzi.
+    """
     monkeypatch.setattr(elenco, "scarica", lambda url, timeout=30: ELENCO_SALVATO)
+    monkeypatch.setattr(scopri_bandi, "ELENCHI_DIR", tmp_path / "elenchi")
 
 
 EMERGENZA = (
@@ -698,3 +706,252 @@ def test_un_bando_della_montagna_entra_con_le_regole_della_regione(
     assert voci["custodi-della-montagna-bando-2027"].elenco == ELENCO_MONTAGNA
     assert voci["bando-parcheggi-2026"].elenco == ELENCO_REGIONE
     assert len(voci) == 8
+
+
+# --- copia degli elenchi letti, totale dichiarato e collegamenti scartati ---
+
+# L'elenco di Sviluppo Toscana, come in data/processed/elenchi.csv
+ELENCO_SVILUPPO = (
+    "https://www.sviluppo.toscana.it/bandi"
+    "?_stato=aperto%2Cin-scadenza%2Cin-arrivo&_per_page=100"
+)
+
+# Il giorno di una lettura fissata, per i test che chiamano conserva_elenco
+QUANDO = datetime(2026, 11, 20, 9, 30, tzinfo=ZoneInfo("Europe/Rome"))
+
+# Collegamenti a pie' di pagina dell'elenco dello sviluppo rurale, tolti
+# da esclusi: nell'ordine della pagina salvata
+ESCLUSI_RURALE = [
+    f"{BASE}/-/accessibilita-e-uso-del-sito",
+    f"{BASE}/-/atti-di-notifica",
+    (
+        f"{BASE}/-/tutela-del-dipendente-che-segnala-illeciti-whistleblower-"
+        "la-disciplina-dal-15-luglio-2023"
+    ),
+    f"{BASE}/-/posta-elettronica-certificata-pec",
+]
+
+
+def _righe_csv(percorso: Path) -> list[dict]:
+    with percorso.open(encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def test_la_copia_dell_elenco_ha_html_voci_e_scarti(db_su_file, monkeypatch, tmp_path):
+    """L'HTML si conserva tale e quale; il CSV ha voci e scartati
+    nell'ordine della pagina, senza le notizie di un altro dominio."""
+    _elenco(db_su_file, URL_RURALE)
+    _pagine(monkeypatch, {ELENCO_REGIONE: "", URL_RURALE: RURALE})
+    cartella = tmp_path / "elenchi"
+
+    letti = {x.elenco.url: x for x in elenco.leggi_elenchi(cartella=cartella)}
+    copia = letti[URL_RURALE].copia
+
+    assert copia.parent.parent == cartella
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", copia.parent.name)
+    assert copia.read_text(encoding="utf-8") == RURALE
+
+    righe = _righe_csv(copia.with_suffix(".csv"))
+    assert [(r["url"], r["esito"]) for r in righe] == [
+        *((_url(s), "voce") for s in BANDI_RURALE),
+        *((u, "esclusi") for u in ESCLUSI_RURALE),
+    ]
+    assert [r["posizione"] for r in righe] == [str(n) for n in range(1, 8)]
+    assert [r["slug"] for r in righe[:3]] == BANDI_RURALE
+    assert not any("toscana-notizie" in r["url"] for r in righe)
+
+
+def test_senza_cartella_l_elenco_non_si_conserva(db_su_file, monkeypatch):
+    def vietata(*argomenti, **opzioni):
+        raise AssertionError("conserva_elenco chiamata senza cartella")
+
+    monkeypatch.setattr(elenco, "conserva_elenco", vietata)
+    _pagine(monkeypatch, {ELENCO_REGIONE: ELENCO_SALVATO})
+
+    letti = elenco.leggi_elenchi()
+
+    assert letti
+    assert all(x.copia is None for x in letti)
+
+
+def test_due_letture_nello_stesso_giorno_non_si_sovrascrivono(tmp_path):
+    voce = elenco.Elenco(ELENCO_REGIONE, TOSCANA, "Bandi aperti")
+    righe = [("bando-parcheggi-2026", _url("bando-parcheggi-2026"), "voce")]
+
+    prima = elenco.conserva_elenco(tmp_path, voce, "<p>prima</p>", righe, QUANDO)
+    seconda = elenco.conserva_elenco(tmp_path, voce, "<p>seconda</p>", [], QUANDO)
+
+    assert prima.parent == seconda.parent == tmp_path / "2026-11-20"
+    assert prima.name == "www-regione-toscana-it-bandi-aperti-delta-200.html"
+    assert seconda.name == "www-regione-toscana-it-bandi-aperti-delta-200-2.html"
+    assert prima.read_text(encoding="utf-8") == "<p>prima</p>"
+    assert seconda.read_text(encoding="utf-8") == "<p>seconda</p>"
+    assert len(_righe_csv(prima.with_suffix(".csv"))) == 1
+    assert _righe_csv(seconda.with_suffix(".csv")) == []
+
+
+def test_scarti_per_schema_con_l_indirizzo(db_su_file, monkeypatch):
+    """Un bando sotto il percorso di una sezione e uno slug troppo corto
+    sono scarti di schema_link; menu e notizie di un altro dominio no."""
+    html = (
+        '<a href="/cultura/-/bando-di-prova-2026">sezione</a>'
+        '<a href="/-/breve">corto</a>'
+        '<a href="/-/bando-parcheggi-2026">voce</a>'
+        '<a href="/cultura/-/bando-di-prova-2026#dettagli">ripetuto</a>'
+        '<a href="https://www.toscana-notizie.it/-/notizia-qualsiasi-2026">n</a>'
+        '<a href="/bandi-aperti">menu</a>'
+    )
+    _pagine(monkeypatch, {ELENCO_REGIONE: html})
+
+    [letto] = [x for x in elenco.leggi_elenchi() if x.elenco.url == ELENCO_REGIONE]
+
+    assert letto.collegamenti == [
+        ("bando-parcheggi-2026", _url("bando-parcheggi-2026"))
+    ]
+    assert letto.scartati == [
+        (f"{BASE}/cultura/-/bando-di-prova-2026", "schema"),
+        (f"{BASE}/-/breve", "schema"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("html", "atteso"),
+    [
+        (MONTAGNA_VUOTA, 0),
+        (RURALE, None),
+        # La forma "Risultati: 3 Bandi" viene dalla nota di
+        # docs/piano-fonti.md (tappa 2), non da una pagina salvata: le
+        # pagine con il totale vero sono un compito a parte
+        ("<div><span>Risultati: 3 Bandi</span></div>", 3),
+        ("<p>Risultati: 1.918 Bandi</p>", 1918),
+    ],
+)
+def test_totale_dichiarato(html, atteso):
+    assert elenco.totale_dichiarato(html) == atteso
+
+
+def test_il_totale_dichiarato_arriva_nel_letto(db_su_file, monkeypatch):
+    _pagine(monkeypatch, {ELENCO_REGIONE: ELENCO_SALVATO})
+
+    letti = {x.elenco.url: x for x in elenco.leggi_elenchi()}
+
+    assert letti[ELENCO_MONTAGNA].totale == 0
+    assert letti[ELENCO_REGIONE].totale is None
+
+
+@pytest.mark.parametrize(
+    ("url", "atteso"),
+    [
+        (ELENCO_REGIONE, 200),
+        (ELENCO_SVILUPPO, 100),
+        (ELENCO_GAL, None),
+    ],
+)
+def test_delta_di(url, atteso):
+    assert elenco.delta_di(url) == atteso
+
+
+@pytest.mark.parametrize(
+    ("totale", "voci", "atteso"),
+    [
+        (190, 150, "vicino al limite"),
+        (152, 159, None),
+        (230, 200, "oltre la prima pagina"),
+        (None, 185, "vicino al limite"),
+        (None, 159, None),
+    ],
+)
+def test_avviso_su_delta(totale, voci, atteso):
+    avviso = elenco.avviso_delta(ELENCO_REGIONE, totale, voci)
+    if atteso is None:
+        assert avviso is None
+    else:
+        assert atteso in avviso
+
+
+def test_senza_delta_nell_indirizzo_nessun_avviso():
+    assert elenco.avviso_delta(ELENCO_GAL, 5000, 5000) is None
+
+
+def _fonte_regione() -> elenco.Fonte:
+    return elenco.Fonte(
+        codice=TOSCANA,
+        nome=FONTE,
+        tipo="pagine",
+        url_base=BASE,
+        schema_link="",
+        esclusi=None,
+        etichetta_scadenza=None,
+        filtro_anno_slug=True,
+        scadenza_obbligatoria=False,
+    )
+
+
+def test_il_riepilogo_conta_e_mostra_gli_scartati():
+    sezione = f"{BASE}/cultura/-/bando-di-prova-2026"
+    pec = f"{BASE}/-/posta-elettronica-certificata-pec"
+    notifica = f"{BASE}/-/atti-di-notifica"
+    letto = elenco.Letto(
+        elenco.Elenco(ELENCO_REGIONE, TOSCANA, "Bandi aperti"),
+        _fonte_regione(),
+        [("bando-parcheggi-2026", _url("bando-parcheggi-2026"))],
+        scartati=[(sezione, "schema"), (pec, "esclusi"), (notifica, "esclusi")],
+        copia=Path("copia.html"),
+    )
+
+    testo = elenco.riepilogo_elenchi([letto])
+
+    assert f"{ELENCO_REGIONE}: 1 voci, !! totale non letto !!, delta 200" in testo
+    assert "scartati per schema_link (1)" in testo
+    assert "scartati per esclusi (2)" in testo
+    for url in (sezione, pec, notifica):
+        assert f"        {url}" in testo
+    assert "copia: copia.html" in testo
+
+
+def test_il_riepilogo_mostra_totale_e_avviso():
+    letto = elenco.Letto(
+        elenco.Elenco(ELENCO_REGIONE, TOSCANA, "Bandi aperti"),
+        _fonte_regione(),
+        [],
+        totale=230,
+    )
+
+    testo = elenco.riepilogo_elenchi([letto])
+
+    assert "0 voci, totale dichiarato 230, delta 200" in testo
+    assert "AVVISO: il totale dichiarato (230) supera delta (200)" in testo
+    assert "totale non letto" not in testo
+    assert "scartati per schema_link (0)" in testo
+
+
+def test_scopri_bandi_conserva_gli_elenchi_letti(
+    db_su_file, elenco_salvato, monkeypatch, tmp_path, capsys
+):
+    """Le copie vanno nella cartella di scopri_bandi, dirottata su tmp_path."""
+    monkeypatch.setattr(sys, "argv", ["scopri_bandi"])
+
+    scopri_bandi.main()
+
+    copie = list((tmp_path / "elenchi").rglob("*.html"))
+    assert any(c.name.startswith("www-regione-toscana-it-bandi-aperti") for c in copie)
+    assert all(c.read_text(encoding="utf-8") == ELENCO_SALVATO for c in copie)
+    assert "!! totale non letto !!" in capsys.readouterr().out
+
+
+def test_elenco_non_scaricato_senza_copia(db_su_file, monkeypatch, tmp_path):
+    """L'errore resta nel risultato, senza copia; gli altri elenchi si
+    conservano, e nel riepilogo l'errore si vede."""
+    _elenco(db_su_file, URL_RURALE)
+    _pagine(monkeypatch, {ELENCO_REGIONE: OSError("timeout"), URL_RURALE: RURALE})
+
+    letti = {x.elenco.url: x for x in elenco.leggi_elenchi(cartella=tmp_path)}
+
+    assert letti[ELENCO_REGIONE].errore == "timeout"
+    assert letti[ELENCO_REGIONE].copia is None
+    conservati = {x.copia for x in letti.values() if x.copia}
+    assert conservati == set(tmp_path.rglob("*.html"))
+    assert len(conservati) == len(letti) - 1
+    assert f"{ELENCO_REGIONE}: ERRORE (timeout)" in elenco.riepilogo_elenchi(
+        list(letti.values())
+    )

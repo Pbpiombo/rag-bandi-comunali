@@ -28,8 +28,11 @@ SQLITE_PATH = DATA_DIR / "db" / "comune.sqlite"
 # Dati grezzi, fuori dal repository: la cartella accanto al progetto.
 # ESTRAZIONI_DIR: la risposta del modello per ogni estrazione di un bando
 # (src/estrazione/grezzi.py), per rifare la validazione senza ripagarlo.
+# ELENCHI_DIR: la copia di ogni elenco letto dalla scansione, HTML e voci
+# (src/estrazione/elenco.py), per sapere dopo che cosa l'elenco conteneva.
 DATI_GREZZI_DIR = ROOT_DIR.parent / "dati-grezzi"
 ESTRAZIONI_DIR = DATI_GREZZI_DIR / "estrazioni"
+ELENCHI_DIR = DATI_GREZZI_DIR / "elenchi"
 
 # --- Parametri di ingestione ---
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
