@@ -398,6 +398,16 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
      esempio il bando parcheggi); notizie al posto della pagina del
      bando (fondo strade del ministero: un solo intervento estratto).
      Anche le pagine ricche si approfondiscono molto nel PDF.
+   - La scansione della Regione (`scopri_bandi`, `elenco.py`) non legge
+     il robots.txt: da aggiungere prima della prossima scansione. Da
+     decidere a parte: `INTESTAZIONI` si presenta come un browser. Al
+     compito 19b si prova, sui quattro host della prima prova, se
+     un'intestazione che dichiara il progetto viene accettata; se un
+     host la rifiuta, decide chi mantiene il progetto, host per host.
+   - Il modello di embedding ha `max_seq_length` 128: la parte densa
+     della ricerca vede circa il primo terzo di un frammento di 1500
+     caratteri. Da misurare al compito 19d prima di cambiare la
+     divisione in frammenti o il modello.
 - (era la voce 7 dei Prossimi passi, → principio "per chi", → passo 18) **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione
