@@ -76,3 +76,23 @@ PDF, etichette e classi proposte. Usa anche le pagine vere del GAL
 | File | Perche' |
 |---|---|
 | `pdf-regione-sintetica.html` | pagina **costruita a mano, non reale**, sul modello di una pagina di bando della Regione Toscana; indirizzi inventati. Link relativi e assoluti, `.PDF` maiuscolo, `.pdf/uuid?t=…`, un `.p7m`, un link a un altro host, un'ancora, un mailto e un `ftp://`. Le pagine vere si salvano nel compito 19b |
+
+## Documenti delle pagine dei bandi della Regione (passo 19, compito 19b)
+
+Estratti delle 8 pagine della Regione Toscana salvate il 19/11/2026 dalla
+fase `--pagine` di `scripts/ingestione/elenco_pdf_bandi.py`: i soli `<a>`
+verso documenti (`bancadati/atti/Contenuto.xml` su www301, `/documents/`,
+`.pdf`, `.p7m`), nell'ordine della pagina, senza menu né contatti. Gli
+estratti danno gli stessi link, con gli stessi testi, delle pagine intere.
+Li usa `tests/test_documenti_regione.py`.
+
+| File | Bando |
+|---|---|
+| `regione-documenti-parcheggi.html` | parcheggi-2026 |
+| `regione-documenti-punti-digitale.html` | contributi-a-enti-locali-e-ets-per-punti-digitale-fac-8db4be |
+| `regione-documenti-dati.html` | contributi-agli-enti-locali-per-lo-sviluppo-di-proget-01bfe9 |
+| `regione-documenti-risorse-genetiche.html` | contributi-per-uso-e-gestione-sostenibile-delle-risor-9d883c |
+| `regione-documenti-pmi-50mila.html` | bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-7057d9 |
+| `regione-documenti-pmi-eu-blending.html` | bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-8cd3ac |
+| `regione-documenti-apistici.html` | sostegno-agli-investimenti-strutturali-aziende-apisti-401650 |
+| `regione-documenti-educazione-musicale.html` | sostegno-a-progetti-di-promozione-ed-educazione-music-e81761 |

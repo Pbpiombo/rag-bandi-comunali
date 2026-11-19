@@ -89,6 +89,7 @@ A_MANO = "a mano"
 OLTRE_IL_TETTO = "oltre il tetto"
 NON_NECESSARIO = "non necessario"
 SCARICATO_ECCEZIONE = "scaricato (eccezione robots)"
+ALTRO_ALTRO_HOST = "classe altro su un host diverso dalla pagina"
 
 # L'eccezione al robots.txt per i PDF degli avvisi, in un punto solo:
 # False la spegne. Le classi a cui vale.
@@ -202,6 +203,31 @@ def con_eccezione(riga: dict, pagine_ok: bool) -> bool:
     )
 
 
+def host_delle_pagine(cartella: Path, id_bando: str, url: str) -> set[str]:
+    """Gli host della pagina del bando e di quella seguita da una notizia."""
+    seguita = indirizzo_seguita(cartella, id_bando)
+    return {host_di(url)} | ({host_di(seguita)} if seguita else set())
+
+
+def esclusione(riga: dict, host_pagine: set[str]) -> str | None:
+    """Perche' un file non si scarica mai, o None.
+
+    Modulistica e .p7m; un file di classe altro su un host diverso da
+    quello della pagina del bando (per esempio un regolamento europeo).
+    """
+    motivo = pb.da_non_scaricare(riga)
+    if motivo:
+        return motivo
+    if riga["classe"] == pb.ALTRO and riga["host_file"] not in host_pagine:
+        return ALTRO_ALTRO_HOST
+    return None
+
+
+def da_scaricare(righe: list[dict], host_pagine: set[str]) -> list[dict]:
+    """Le righe in ordine di scarico, senza quelle escluse."""
+    return [r for r in pb.ordine_di_scarico(righe) if not esclusione(r, host_pagine)]
+
+
 def collegamenti_del_bando(
     cartella: Path, id_bando: str, url: str
 ) -> list[pb.Collegamento]:
@@ -272,7 +298,12 @@ def stampa_piano(
             f"      {riga['n']:>2}. [{riga['classe']}] {riga['etichetta']} "
             f"({riga['host_file']}) {riga['motivo_classe']}"
         )
-    ordine = pb.ordine_di_scarico(righe)
+    host_pagine = host_delle_pagine(cartella, id_bando, url)
+    for riga in pb.ordine_di_scarico(righe):
+        motivo = esclusione(riga, host_pagine)
+        if motivo:
+            stampa(f"    escluso: {riga['n']} ({motivo})")
+    ordine = da_scaricare(righe, host_pagine)
     stampa(
         "    ordine di scarico: "
         + (", ".join(str(r["n"]) for r in ordine) or "nessun file")
@@ -341,8 +372,9 @@ def file_del_bando(
     dove = cartella_file(cartella, id_bando)
     testo_pagina = a_testo(testo_html(file_pagina(cartella, id_bando)))
 
+    host_pagine = host_delle_pagine(cartella, id_bando, url)
     for riga in righe:
-        stato = pb.da_non_scaricare(riga)
+        stato = esclusione(riga, host_pagine)
         if stato:
             riga["stato_scarico"] = stato
 
@@ -371,7 +403,7 @@ def file_del_bando(
         if avviso and not trovato:
             dopo_avviso(pagine)
 
-    for riga in pb.ordine_di_scarico([r for r in righe if r["url_file"]]):
+    for riga in da_scaricare([r for r in righe if r["url_file"]], host_pagine):
         if trovato and not any(riga is r for r in richiamati):
             riga["stato_scarico"] = NON_NECESSARIO
             continue

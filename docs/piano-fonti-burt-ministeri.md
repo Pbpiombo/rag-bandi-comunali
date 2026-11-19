@@ -153,6 +153,14 @@ a `www301.regione.toscana.it/bancadati/BURTRT/?id=N` [letta], che è
 un'applicazione: la pagina restituita contiene menu e avvisi, non l'atto.
 robots.txt di `www301` non letto. Da non usare.
 
+Aggiornamento del 19/11/2026 (decisione del progetto, passo 19): le
+pagine dei bandi della Regione collegano gli atti come
+`www301.regione.toscana.it/bancadati/atti/Contenuto.xml?id=N&nomeFile=…`
+(decreto e allegati, tra cui l'avviso). `www301` si usa solo dopo averne
+letto il robots.txt: lo script `scripts/ingestione/elenco_pdf_bandi.py`
+lo legge, con il lettore `src/estrazione/lettore_siti.py`, prima del
+primo file chiesto a quell'host, e si ferma se non si legge.
+
 **robots.txt di www.regione.toscana.it**: letto a mano il 18/11/2026,
 identico alle regole annotate il 12/11/2026 in `piano-fonti.md`:
 `Disallow` su `*/search`, `*/ricerca`, `/combo/*`, `*/asset_publisher/`,
@@ -565,7 +573,9 @@ Il MIT è già una fonte; la prima nuova è il BURT.
 `/documents/` permessi; `/burt/ricerca` vietata;
 `www301.regione.toscana.it` da non usare finché non se ne legge il
 robots.txt. **Da fare:** annotare la data del 18/11/2026 nella riga di
-`fonti.csv`, quando la fonte entra.
+`fonti.csv`, quando la fonte entra. (19/11/2026: il robots.txt di
+`www301` lo legge lo script dei PDF degli avvisi prima del primo file;
+vedi "Banca dati" sopra.)
 
 **Elenco leggibile.** <https://www.regione.toscana.it/burt/consultazione>:
 HTML, un link per file, senza paginazione. Regola per i link: tenere

@@ -16,9 +16,16 @@ Gli indicatori si calcolano sul testo come lo legge carica_pdf, lo stesso
 lettore dell'ingestione: misurano il testo che verrebbe caricato. Le
 soglie del giudizio sono provvisorie, da tarare nel 19b sui file veri.
 
-Limite noto: un link a un documento senza estensione nel percorso (per
-esempio /documents/d/... senza .pdf) non si riconosce; si vedra' sulle
-pagine vere del 19b.
+Oltre ai link con .pdf o .p7m nel percorso, due forme del portale della
+Regione Toscana viste il 19/11/2026 nelle pagine dei bandi (compito 19b):
+
+- gli atti della banca dati, bancadati/atti/Contenuto.xml?id=...&nomeFile=...
+  su www301: il nome del file e' nomeFile, decodificato; il formato si
+  controlla allo scarico (%PDF);
+- i documenti del portale /documents/d/...-pdf, e -p7m per i firmati.
+
+Le stesse forme con -docx, -ods, -xlsx, .doc, .xls restano fuori: sono
+moduli, non PDF.
 """
 
 import csv
@@ -29,7 +36,7 @@ import statistics
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import unquote, urldefrag, urljoin, urlsplit
+from urllib.parse import parse_qs, unquote, urldefrag, urljoin, urlsplit
 
 from src.config import SOGLIA_PAGINA_MINIMA
 
@@ -43,6 +50,10 @@ INTESTAZIONI_PROGETTO = {"User-Agent": "Mozilla/5.0 (compatible; rag-bandi-comun
 # parte del percorso (/x.pdf/uuid), in maiuscolo o minuscolo
 DOCUMENTO = re.compile(r"\.(pdf|p7m)(/|$)", re.IGNORECASE)
 P7M = re.compile(r"\.p7m(/|$)", re.IGNORECASE)
+# Gli atti della banca dati della Regione: il nome sta in nomeFile
+ATTO_BANCADATI = re.compile(r"/bancadati/atti/Contenuto\.xml$", re.IGNORECASE)
+# I documenti del portale della Regione: l'estensione e' un suffisso "-pdf"
+DOCUMENTO_PORTALE = re.compile(r"/documents/d/.+-(pdf|p7m)$", re.IGNORECASE)
 
 # Testi di link che non dicono nulla del file: l'etichetta viene dal nome
 GENERICI = {
@@ -89,15 +100,21 @@ REGOLE = (
         MODULISTICA,
         re.compile(
             r"\bmodul[oi]\b|modulistica|\bdomanda\b|fac ?simile|dichiarazion"
-            r"|\bschema\b|\bformat\b"
+            r"|\bschema\b|\bformat\b|\bistanz[ae]\b"
         ),
     ),
     (AVVISO, re.compile(r"avvis[oi]|\bband[oi]\b|disciplinar")),
     (ALLEGATO, re.compile(r"allegat|\ball [a-z0-9]\b")),
-    (ATTO, re.compile(r"decret|delibera|determin")),
+    # "Testo Atto": il link al decreto quando nomeFile non dice nulla
+    (ATTO, re.compile(r"decret|delibera|determin|\btesto (?:dell')?atto\b")),
 )
 
 CLASSI = (*[classe for classe, _ in REGOLE], ALTRO)
+
+# "istanza" fa modulistica, salvo "avviso" o "bando" nell'etichetta:
+# "Avviso per la presentazione di istanze" resta un avviso
+ISTANZA = re.compile(r"\bistanz[ae]\b")
+AVVISO_IN_ETICHETTA = dict(REGOLE)[AVVISO]
 
 # Un'etichetta che e' solo "Allegato A" o "All. A": in Regione Toscana
 # l'avviso e' spesso l'allegato A del decreto
@@ -276,25 +293,49 @@ def link_ai_documenti(html: str, url_pagina: str) -> list[Collegamento]:
         # mailto:, tel: e simili cadono sullo schema; un'ancora sulla pagina
         url = urldefrag(urljoin(url_pagina, href.strip()))[0]
         parti = urlsplit(url)
-        if parti.scheme not in ("http", "https") or not DOCUMENTO.search(parti.path):
+        if parti.scheme not in ("http", "https"):
+            continue
+        nome_file = nome_del_documento(parti)
+        if nome_file is None:
             continue
         testo = _spazi(testo)
         if generico(testo) and _spazi(titolo):
             testo = _spazi(titolo)
-        if url in trovati:
-            if generico(trovati[url]["testo"]) and not generico(testo):
-                trovati[url]["testo"] = testo
+        # lo stesso documento in http e in https e' uno solo
+        chiave = urlsplit(url)._replace(scheme="https").geturl()
+        if chiave in trovati:
+            if generico(trovati[chiave]["testo"]) and not generico(testo):
+                trovati[chiave]["testo"] = testo
+            if parti.scheme == "https":
+                trovati[chiave]["url"] = url
             continue
-        nome = unquote(DOCUMENTO.split(parti.path)[0].rsplit("/", 1)[-1])
-        estensione = DOCUMENTO.search(parti.path).group(1).lower()
-        trovati[url] = {
+        trovati[chiave] = {
             "url": url,
             "testo": testo,
-            "nome_file": f"{nome}.{estensione}",
+            "nome_file": nome_file,
             "host": parti.hostname or "",
-            "p7m": bool(P7M.search(parti.path)),
+            "p7m": nome_file.lower().endswith(".p7m"),
         }
     return [Collegamento(**v) for v in trovati.values()]
+
+
+def nome_del_documento(parti) -> str | None:
+    """Il nome del file di un link a un documento, o None se non lo e'.
+
+    .pdf o .p7m nel percorso; un atto della banca dati con nomeFile; un
+    documento del portale che finisce con -pdf o -p7m.
+    """
+    if DOCUMENTO.search(parti.path):
+        nome = unquote(DOCUMENTO.split(parti.path)[0].rsplit("/", 1)[-1])
+        return f"{nome}.{DOCUMENTO.search(parti.path).group(1).lower()}"
+    if ATTO_BANCADATI.search(parti.path):
+        nome = _spazi(parse_qs(parti.query).get("nomeFile", [""])[0])
+        return f"{nome}.pdf" if nome else None
+    trovato = DOCUMENTO_PORTALE.search(parti.path)
+    if trovato:
+        nome = unquote(parti.path.rsplit("/", 1)[-1])[: -len(trovato.group(1)) - 1]
+        return f"{nome}.{trovato.group(1).lower()}"
+    return None
 
 
 def _da_nome(nome_file: str) -> str:
@@ -327,6 +368,12 @@ def classifica(etichetta: str, nome_file: str) -> tuple[str, str]:
     for classe, schema in REGOLE:
         trovato = schema.search(testo)
         if not trovato:
+            continue
+        if (
+            classe == MODULISTICA
+            and all(ISTANZA.fullmatch(m.group(0)) for m in schema.finditer(testo))
+            and AVVISO_IN_ETICHETTA.search(_per_regole(etichetta))
+        ):
             continue
         motivo = f"'{trovato.group(0)}'"
         if classe == ALLEGATO and SOLO_ALLEGATO_A.fullmatch(_per_regole(etichetta)):
