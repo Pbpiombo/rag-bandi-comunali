@@ -194,6 +194,10 @@ Profilo territoriale, pratiche, percorso guidato: documenti, figure da
 coinvolgere, controllo dei documenti come lista di controllo e mai come
 approvazione (`coda.md`, voci 5, 4 e 10 dei Prossimi passi).
 
+Proposte del 19/11/2026 in docs/coda.md: valutazione a tre livelli,
+interventi collegati, colonna sinistra, app in due fasi con il fascicolo.
+Ordine previsto: PDF, valutazione, fascicolo.
+
 ### Riempitivi e passi manuali
 
 - Senza modello: i codici spezzati in più numeri nel verificatore
@@ -209,7 +213,9 @@ approvazione (`coda.md`, voci 5, 4 e 10 dei Prossimi passi).
   che usa; e se la domanda con risposte "generiche" era per un ente o per
   un privato. Con i bandi mancati, diagnosi a tre categorie senza modello
   (archivio, recupero, esclusione) e domande come casi fissi dell'insieme
-  di prova.
+  di prova. Due domande del 19/11/2026: allo sportello la domanda è
+  "vale la pena?" o "cosa c'è per me?"; lavorate per pratica, con un
+  richiedente seguito nel tempo?
 
 ## Decisioni prese
 

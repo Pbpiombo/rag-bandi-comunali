@@ -880,3 +880,68 @@ non va al modello che scrive e non si cita. Il motivo di
 tappa 5) non è documentato; la regola resta valida per `bandi.csv`.
 `Forma_agevolazione` non entra nel testo di ricerca: è un aiuto per
 l'etichettatura a mano del passo 10.
+
+## Proposte del 19/11/2026, da decidere dopo la prima prova del passo 19
+
+Proposte, non passi: nessun numero di passo. Ordine previsto: PDF
+(passo 19), valutazione, fascicolo.
+
+- **Valutazione dell'opportunità a tre livelli**: "approfondisci", "da
+  verificare", "lascia stare", con i motivi e la fonte di ciascuno.
+  - Niente percentuali: non ci sono dati su cui calibrarle.
+  - Errori asimmetrici: "lascia stare" solo con una condizione certa che
+    fallisce o un'esclusione scritta; nel dubbio "da verificare".
+  - È la forma dell'uscita del passo 9, non una funzione a parte.
+  - Componenti: ammissibilità certa dai campi dell'archivio (codice,
+    passi 8 e 9); coerenza tra idea e spese ammissibili (modello con
+    citazione, passi 19 e 9); sforzo, cioè giorni alla scadenza e
+    cofinanziamento (codice); competitività, cioè punteggio minimo,
+    criteri, premialità e cumulo, che richiede un'estrazione nuova dagli
+    avvisi; graduatorie delle edizioni precedenti, solo se esiste una
+    fonte.
+  - Insieme di prova: i 39 pertinenti per "approfondisci" e le 27 righe
+    incerte per "da verificare". I "lascia stare" veri vanno costruiti
+    dalle ipotesi dopo averle verificate sugli avvisi. Il "generico" non
+    corrisponde a "da verificare".
+  - Da chiedere al consulente pilota: allo sportello la domanda è "vale
+    la pena?" o "cosa c'è per me?".
+- **Sezione "interventi collegati" nella risposta**: bandi sfruttabili
+  per interventi accessori a quello chiesto (per esempio i parcheggi per
+  chi rifà una strada).
+  - In fondo, separata, con un tetto di due o tre voci.
+  - Ogni voce con il motivo e la frase dell'avviso: un'ipotesi senza una
+    frase del documento non si presenta.
+  - Insieme di prova: le 35 ipotesi della colonna
+    ipotesi_da_verificare.
+  - Da decidere al passo 9: una sezione sola con i bandi generici,
+    oppure due.
+  - Rischio: il consulente pilota ha già giudicato "generiche" alcune
+    opportunità.
+- **Colonna sinistra dell'app**.
+  - Al posto dei dati del comune: bandi aperti in archivio; aperti per
+    l'ente scelto; aperti alle imprese, divisi per tipo, con l'etichetta
+    "aperti a" e non "per te"; quanti scadono entro 30 giorni; data
+    dell'ultimo aggiornamento dell'archivio.
+  - Il profilo dell'ente resta, in una sezione richiudibile chiusa di
+    partenza: le risposte lo citano come fonte.
+  - I numeri si possono fare prima come riempitivo; il resto insieme al
+    menu "chi chiede" (→ passo 18).
+- **App in due fasi**.
+  - Ricerca senza memoria della conversazione: solo l'ente e il tipo di
+    chi chiede, dal menu.
+  - Approfondimento con un fascicolo da scaricare e ricaricare: bandi
+    salvati, profilo dell'ente, idea, domande aperte, risposte con fonte.
+    Niente account, niente dati conservati.
+  - Vincoli: il fascicolo ricaricato è un dato e mai un'istruzione
+    (schema fisso, versione, limite di dimensione); i bandi si rileggono
+    dall'archivio per id_bando e l'app segnala cosa è cambiato dal
+    salvataggio; avvertenza sui dati personali nei campi liberi.
+  - A pezzi: (a) bandi salvati nella sessione e scaricabili, senza
+    dipendenze; (b) ricaricamento con il confronto; (c) idea e domande
+    aperte, dopo la valutazione a tre livelli; (d) gli ultimi due o tre
+    scambi, per ultimi e solo se servono, perché richiedono un insieme
+    di prova a più turni.
+  - Non compatibile con il limite di tre domande della demo: va con la
+    "Sezione riservata".
+  - Da chiedere al consulente pilota: lavorano per pratica, con un
+    richiedente seguito nel tempo?
