@@ -366,6 +366,14 @@ TABELLE_DA_CSV = {
 }
 
 
+# I CSV di data/processed che entrano nella copia congelata (e quindi
+# nell'impronta dell'archivio) ma non si caricano in SQLite: nessuna
+# interrogazione del repertorio li legge. testo_ricerca: il testo per
+# l'ordinamento dei bandi (passo 17 della roadmap), che non va al modello
+# che scrive e non si cita (src/ordinamento/testo_ricerca.py).
+CSV_FUORI_DATABASE = ("testo_ricerca",)
+
+
 class ErroreArchivio(Exception):
     """Un archivio di CSV da cui non si puo' creare il database."""
 

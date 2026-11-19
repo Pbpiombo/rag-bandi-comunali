@@ -414,6 +414,15 @@ def leggi_file(percorso: str | Path) -> list[Incentivo]:
     Il separatore si rileva dal file. Un file senza le colonne della
     sezione Incentivi solleva FileNonValido.
     """
+    return [_incentivo(r) for r in leggi_righe(percorso, COLONNE)]
+
+
+def leggi_righe(percorso: str | Path, colonne: tuple[str, ...]) -> list[dict]:
+    """Le righe grezze del file, come dizionari per nome di colonna.
+
+    Il separatore si rileva dal file. Un file senza anche una sola delle
+    colonne indicate solleva FileNonValido.
+    """
     with Path(percorso).open(encoding="utf-8-sig", newline="") as f:
         testo = f.read()
 
@@ -425,13 +434,13 @@ def leggi_file(percorso: str | Path) -> list[Incentivo]:
     # Le descrizioni superano il limite predefinito del modulo csv
     csv.field_size_limit(10_000_000)
     lettore = csv.DictReader(testo.splitlines(keepends=True), dialect=dialetto)
-    mancanti = [c for c in COLONNE if c not in (lettore.fieldnames or [])]
+    mancanti = [c for c in colonne if c not in (lettore.fieldnames or [])]
     if mancanti:
         raise FileNonValido(
             "non e' la sezione Incentivi del catalogo: mancano le colonne "
             + ", ".join(mancanti)
         )
-    return [_incentivo(r) for r in lettore]
+    return list(lettore)
 
 
 def stato(incentivo: Incentivo, oggi: date) -> str:
