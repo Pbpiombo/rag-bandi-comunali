@@ -371,3 +371,30 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
   totale non letto !!" se non si riconosce), un avviso vicino a `delta` o
   `_per_page`, e i collegamenti `/-/` scartati da `schema_link` e da
   `esclusi`, con l'indirizzo (`src/estrazione/elenco.py`).
+- **Fondo nazionale rievocazione storica 2027 inserito a mano** (19
+  novembre 2026, dal riscontro del consulente pilota; `coda.md`,
+  "Riscontro del consulente pilota e fonti"). Fonte nuova
+  `ministero-cultura-spettacolo` in `fonti.csv` (Direzione generale
+  Spettacolo, spettacolo.cultura.gov.it), senza riga in `elenchi.csv`:
+  elenco spento, come per il MIT. Database ricreato dai CSV dopo la copia
+  di sicurezza in `dati-grezzi/backup/`. La pagina è stata letta con
+  `lettore_siti`, non con `estrai_bando`, che non legge il robots.txt e
+  si presenta come un browser: 2 richieste di rete (robots.txt, che vieta
+  solo `/wp-admin/`, e la pagina, 200, 103.939 byte), con l'intestazione
+  del progetto; HTML, testo ritagliato e `richieste.csv` in
+  `dati-grezzi/manuali/2026-11-19/`. Poi `estrai_bando` sul testo salvato
+  (seconda forma, senza rete), id `fondo-rievocazione-storica-2027`: 1
+  chiamata al modello (claude-sonnet-5), costo stimato 0,06 $
+  (`COSTO_BANDO`, non misurato). Confronto campo per campo con i valori
+  letti a mano: titolo ed ente tenuti come estratti (l'intestazione della
+  pagina; "Ministero della Cultura - Direzione generale Spettacolo"); 0
+  interventi e 0 scadenze multiple, come atteso. Due correzioni con
+  `scripts/manutenzione/correggi_da_testo.py` (nuovo: frasi cercate nel
+  testo già salvato, nessuna rete, corregge solo se il valore in archivio
+  è ancora quello atteso, `--prova`, CSV aggiornati alla fine; test in
+  `tests/test_correggi_da_testo.py`): `pubblicato_il` da 2025-03-20 (la
+  data del decreto) a 2026-11-03 con origine `pubblicazione`, prova "3
+  Novembre 2026"; soggetto della riga `altro_ente_pubblico` da "Enti
+  locali" a "soggetti pubblici", origine `manuale`, prova la frase dei
+  beneficiari della pagina. Testo di ricerca rigenerato (113 bandi,
+  `--controlla`: aggiornato). Archivio: 113 bandi da 7 fonti.

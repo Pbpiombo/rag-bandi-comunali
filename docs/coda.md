@@ -703,6 +703,11 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
 
 Metodo in `docs/piano-insieme-prova.md`.
 
+- (nuova, 19/11/2026) **Casi fissi**: `docs/piano-insieme-prova.md`,
+  sezione "Casi fissi" (F01, la domanda del consulente pilota del
+  19/11/2026).
+- (nuova, 19/11/2026) **Modalità `--casi-fissi` di `prova_insieme`**, con
+  il file `dati-grezzi/prova/casi_fissi.txt`: compito di codice a parte.
 - **`--riepilogo` conta i giudizi a mano**: legge
   `dati-grezzi/prova/lotto_<n>/giudizi.csv` e conta i giudizi per
   categoria, sulle righe della registrazione a freddo. Il campione dei
@@ -1047,8 +1052,8 @@ prova.
   manifestazioni che si svolgono con continuità da almeno cinque anni.
   Non era in archivio: il sito non è tra le fonti lette, e il bando non è
   nel catalogo di Incentivi Italia del 12/11/2026, da cui arrivano già
-  alcune pagine dello stesso sito. Causa: copertura. Da inserire a mano con la sua fonte prima della copia congelata; è il
-  pertinente atteso del caso fisso.
+  alcune pagine dello stesso sito. Causa: copertura. Inserito il
+  19/11/2026 (docs/fatto.md); è il pertinente atteso del caso fisso.
 - "Bando della Regione sulla Resistenza": il link indicato è un
   comunicato del 17/11/2026 su contributi già assegnati, senza atti. Non
   è un bando. L'unico avviso trovato sul tema è quello sulla legge
@@ -1061,12 +1066,27 @@ prova.
   Chiesto al consulente che cosa si aspettava di vedere.
 - Esito: un pertinente mancato per copertura, non due. Nessuno dei due
   casi passava dal BURT e nessuno dipendeva dal router.
+- Risposta dell'app alla domanda del consulente prima dell'inserimento
+  (19/11/2026, ente Abetone Cutigliano): nessun bando aperto, corretto
+  per l'archivio di allora; mostrato come storico il bando sulle
+  celebrazioni storiche 2026. Tre difetti: non propone Cultura Missione
+  Comune 2026, aperto fino al 5/12 per Comuni e Unioni, come opportunità
+  vicina (passi 4 e 9, 'interventi collegati'); scrive 'per il terzo
+  settore a condizione' senza dire la condizione; ripete la stessa fonte
+  per intero cinque volte (presentazione, passo 9).
+- Etichette del bando nuovo contro le 55 domande: servono prima della
+  nuova baseline.
 
 **Cosa ne segue per le fonti.**
 - La Direzione generale Spettacolo è una candidata nuova. Lo studio
   (`piano-fonti-burt-ministeri.md`, 3.2) sconsiglia l'elenco generale
   degli avvisi della Cultura per il rumore: resta valido. La candidata è
   il sito della sola Direzione. robots.txt da leggere.
+- Conflitto di `fonte_di`: con la fonte `ministero-cultura-spettacolo`
+  (19/11/2026) ogni indirizzo di spettacolo.cultura.gov.it risulta di
+  quella fonte, anche quello di incentivi-8702 (Bando Sistema Musicale
+  2026, dal catalogo di Incentivi Italia). incentivi-8702 non va
+  riestratto con `estrai_bando`: ne cambierebbe la fonte.
 - L'ordine delle fonti (passi 12-15) si riconferma dopo la videochiamata,
   con la risposta su quali siti il consulente controlla.
 - Regola: uno strumento a pagamento o fornito su contratto ad altri enti

@@ -194,8 +194,8 @@ Studio in `docs/piano-fonti-burt-ministeri.md`.
 
 I due casi sono arrivati il 19/11/2026: nessuno passava dal BURT.
 L'ordine dei passi 12-15 si riconferma dopo la videochiamata della prima
-settimana di dicembre. Candidata nuova: Direzione generale Spettacolo
-del Ministero della Cultura.
+settimana di dicembre. Direzione generale Spettacolo: fonte inserita a
+mano il 19/11/2026, elenco spento.
 
 ### D. Dopo il confronto con il consulente pilota sull'obiettivo
 

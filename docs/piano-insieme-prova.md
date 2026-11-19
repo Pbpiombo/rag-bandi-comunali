@@ -361,3 +361,35 @@ cambi osservati tra le ripetizioni della baseline.
   private su 30: quattro per assunzioni e tirocini, più il welfare
   aziendale e cloud e cyber security; risorse genetiche agrarie compare
   in 30 su 30.
+
+## Casi fissi
+
+Domande reali portate dal consulente pilota, con il bando che avrebbe
+dovuto trovare. Un caso fisso si registra a ogni misura, non è mai "a
+freddo" e non entra nei lotti: `lotti.json` non si rifà, e una riga in
+più nel file delle domande non apparterrebbe a nessun lotto. I casi
+stanno fuori dal repository, in `dati-grezzi/prova/casi_fissi.txt`, con
+lo stesso formato del file delle domande (`gruppo | codice | domanda |
+atteso`); la modalità `--casi-fissi` di `prova_insieme` che li registra
+è un compito di codice a parte (`coda.md`, "Insieme di prova: dopo").
+Ente Comune di Abetone Cutigliano, data di riferimento 2026-11-16.
+
+Per ora i casi fissi si misurano con le attese e le vietate, non con le
+etichette: le etichette del bando nuovo contro le domande dell'insieme
+vanno fatte prima della nuova baseline (`coda.md`, "Riscontro del
+consulente pilota e fonti").
+
+**F01** (gruppo comuni; consulente pilota, 19/11/2026):
+- domanda: "bandi o contributi per associazioni ed enti in materia di
+  rievocazioni storiche o culturali";
+- attesa: Fondo nazionale rievocazione storica 2027 (in archivio come
+  fondo-rievocazione-storica-2027, aperto dal 3/11/2026 al 31/01/2027,
+  quindi aperto alla data di riferimento);
+- opportunità collegata attesa, da valutare al passo 9 e oggi non
+  contata come errore: Cultura Missione Comune 2026;
+- vietata: l'edizione 2025 delle rievocazioni (Sostegno alle
+  manifestazioni di rievocazione storica anno 2025, scaduta il
+  20/02/2025) presentata come opportunità;
+- forma attesa: elenco.
+- Diagnosi del caso in `coda.md`, "Riscontro del consulente pilota e
+  fonti (19/11/2026)".
