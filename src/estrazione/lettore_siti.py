@@ -83,6 +83,8 @@ ERRORE = "errore"
 TROPPO_GRANDE = "troppo grande"
 NON_PDF = "non PDF"
 HOST_FERMATO = "host fermato"
+# Con senza_rete: il file non c'e' e non si chiede
+NON_TENTATO_SENZA_RETE = "non tentato (senza rete)"
 
 # Esiti del robots.txt
 LETTO = "letto"
@@ -109,6 +111,10 @@ COLONNE_REGISTRO = [
     "attesa",
     "nota",
 ]
+
+
+class SenzaRete(Exception):
+    """Una richiesta partita con il lettore senza rete: e' un errore del codice."""
 
 
 class RobotsIlleggibile(Exception):
@@ -305,8 +311,12 @@ class Lettore:
         dormi: Callable[[float], None] | None = None,
         orologio: Callable[[], float] | None = None,
         permetti_senza_robots: set[str] | None = None,
+        senza_rete: bool = False,
     ) -> None:
         self.cartella = Path(cartella)
+        # senza_rete: nessuna richiesta; si usano solo i file gia' presenti
+        # (robots.txt compresi), gli altri sono "non tentato (senza rete)"
+        self.senza_rete = senza_rete
         self._apri = apri or _apri
         self._dormi = dormi or time.sleep
         self._orologio = orologio or time.monotonic
@@ -390,8 +400,11 @@ class Lettore:
         """GET con i tentativi; restituisce (codice, byte) o solleva l'errore finale.
 
         Errori temporanei e 429 si ritentano qui; gli altri errori HTTP
-        si sollevano subito. Oltre massimo_byte solleva ValueError.
+        si sollevano subito. Oltre massimo_byte solleva ValueError. Con
+        senza_rete solleva SenzaRete prima di qualunque richiesta.
         """
+        if self.senza_rete:
+            raise SenzaRete(f"richiesta senza rete: {url}")
         host = host_di(url)
         tentativo = 0
         temporanei = 0
@@ -631,6 +644,8 @@ class Lettore:
         destinazione = Path(destinazione)
         if destinazione.exists():
             return Esito(url, GIA_PRESENTE, percorso=destinazione)
+        if self.senza_rete:
+            return Esito(url, NON_TENTATO_SENZA_RETE)
         host = host_di(url)
         if host in self.fermati:
             return Esito(url, HOST_FERMATO, nota=self.fermati[host])

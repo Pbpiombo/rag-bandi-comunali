@@ -11,11 +11,13 @@ from tests.test_elenco_pdf_bandi import (
     AVVISO,
     NON_AVVISO,
     RT,
+    TESTO,
     VIETA_PDF,
     prepara,
     sito,
     stati,
 )
+from tests.test_pdf_bando import pdf_minimo
 
 ATTI = "https://www301.regione-prova.it/bancadati/atti/Contenuto.xml"
 BANDO = [("bando-a", f"{RT}/-/bando-a")]
@@ -154,6 +156,18 @@ PAGINA_PARTI = f"""
 """
 
 
+# Un allegato vale come avviso con 4 sezioni (soglia del 19/11/2026):
+# beneficiari, spese ammissibili, modalita' di presentazione e criteri
+AVVISO_QUATTRO = pdf_minimo(
+    [
+        ["REGIONE DI PROVA", "Disposizioni per l'azione", TESTO, TESTO],
+        ["Art. 3 Soggetti beneficiari", TESTO],
+        ["Art. 5 Spese ammissibili", "Art. 7 Presentazione della domanda", TESTO],
+        ["Art. 8 Criteri di valutazione", TESTO],
+    ]
+)
+
+
 def url_atto(numero: int, nome: str) -> str:
     return f"{ATTI}?id={numero}&nomeFile={nome}"
 
@@ -162,8 +176,8 @@ def test_avviso_in_piu_parti(tmp_path):
     risposte = con_pagina(
         PAGINA_PARTI,
         **{
-            url_atto(11, "Decreto+n.14025+del+18-06-2026-+Allegato+A1"): AVVISO,
-            url_atto(13, "Decreto+n.14025+del+18-06-2026-+Allegato+A3"): AVVISO,
+            url_atto(11, "Decreto+n.14025+del+18-06-2026-+Allegato+A1"): AVVISO_QUATTRO,
+            url_atto(13, "Decreto+n.14025+del+18-06-2026-+Allegato+A3"): AVVISO_QUATTRO,
         },
     )
     righe, rete, _ = esegui(tmp_path, risposte)
@@ -181,7 +195,7 @@ def test_un_solo_allegato_con_le_sezioni_non_e_in_piu_parti(tmp_path):
     risposte = con_pagina(
         PAGINA_PARTI,
         **{
-            url_atto(11, "Decreto+n.14025+del+18-06-2026-+Allegato+A1"): AVVISO,
+            url_atto(11, "Decreto+n.14025+del+18-06-2026-+Allegato+A1"): AVVISO_QUATTRO,
             url_atto(13, "Decreto+n.14025+del+18-06-2026-+Allegato+A3"): NON_AVVISO,
         },
     )

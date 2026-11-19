@@ -23,6 +23,9 @@ di oggi. Quello che e' gia' nella cartella non si richiede di nuovo.
 --senza-robots HOST: permette di procedere per un host il cui robots.txt
 non si legge; la scelta va nel registro delle richieste. Ripetibile.
 --bando ID: solo questo bando di PRIMA_PROVA. Ripetibile.
+--senza-rete: solo per --file; nessuna richiesta: si usano i file gia'
+nella cartella e gli altri restano "non tentato (senza rete)". Serve a
+ricomporre elenco.csv dopo una modifica delle regole.
 --solo-primo: per ogni bando si tenta solo il primo file dell'ordine di
 scarico; gli altri restano "non tentato". Serve alla prima prova su un
 bando: se il primo file non e' un PDF o non ha le sezioni di un avviso,
@@ -366,9 +369,9 @@ def completa_con_pdf(riga: dict, percorso: Path) -> tuple[bool, list[str]]:
     ind, sha256, pagine = esamina_pdf(percorso)
     pb.completa_riga(riga, ind, sha256)
     sezioni = pb.sezioni_avviso(pagine)
-    riga["sezioni"] = pb.testo_sezioni(sezioni)
+    riga["sezioni"] = pb.testo_sezioni(sezioni, riga["classe"], riga["giudizio"])
     riga["anteprima"] = pb.anteprima(pagine)
-    return pb.e_avviso(sezioni)[0], pagine
+    return pb.e_avviso(sezioni, riga["classe"], riga["giudizio"])[0], pagine
 
 
 def file_del_bando(
@@ -418,7 +421,11 @@ def file_del_bando(
     presi = 0
     pagine_ok = pagine_consentite(lettore, cartella, id_bando, url)
     ordine = da_scaricare([r for r in righe if r["url_file"]], host_pagine, superate)
-    in_parti = not any(r["classe"] in (pb.AVVISO, pb.CONSOLIDATO) for r in ordine)
+    # "avviso in piu' parti" solo quando nessun link del bando ha classe
+    # avviso o consolidato (decisione del 19/11/2026)
+    in_parti = not any(
+        r["classe"] in (pb.AVVISO, pb.CONSOLIDATO) for r in righe if r["url_file"]
+    )
 
     def dopo_avviso(riga: dict, pagine: list[str]) -> None:
         nonlocal trovato, da_consolidato, richiamati
@@ -494,7 +501,7 @@ def file_del_bando(
         avviso, pagine = completa_con_pdf(riga, destinazione)
         if avviso:
             dopo_avviso(riga, pagine)
-    if len(con_sezioni) > 1:
+    if in_parti and len(con_sezioni) > 1:
         for riga in con_sezioni:
             riga["sezioni"] += f" | {AVVISO_IN_PIU_PARTI}"
     return righe, trovato, presi
@@ -550,6 +557,7 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--senza-robots", action="append", default=[], metavar="HOST")
     parser.add_argument("--bando", action="append", default=[], metavar="ID")
     parser.add_argument("--solo-primo", action="store_true")
+    parser.add_argument("--senza-rete", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -575,6 +583,11 @@ def main(
     lettore = lettore or Lettore(
         cartella, permetti_senza_robots=set(argomenti.senza_robots)
     )
+    if argomenti.senza_rete:
+        if not argomenti.file:
+            print("Errore: --senza-rete vale solo con --file", file=sys.stderr)
+            return 1
+        lettore.senza_rete = True
     try:
         bandi = scegli_bandi(bandi or bandi_della_prova(), argomenti.bando)
         print(f"Cartella: {cartella}")

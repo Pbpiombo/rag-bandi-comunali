@@ -214,6 +214,12 @@ CONTRARI = {
 }
 # Provvisoria: un file con almeno tante sezioni ha le sezioni di un avviso
 SEZIONI_MINIME_AVVISO = 3
+# Soglie provvisorie, tarate il 19/11/2026 sui 12 bandi della prima prova
+# del passo 19: 3 sezioni per un link di classe avviso o consolidato; 4 per
+# ogni altra classe, e mai con un testo "da rivedere" (una presentazione in
+# slide passava con 3)
+SEZIONI_MINIME_ALTRE = 4
+CLASSI_DI_AVVISO = ("avviso", "consolidato")
 # Un file con "il sottoscritto dichiara" su piu' di questa quota di pagine
 # e' un modulo
 QUOTA_PAGINE_MODULO = 0.5
@@ -615,17 +621,29 @@ def sezioni_avviso(pagine: list[str]) -> Sezioni:
     return Sezioni(len(pagine), trovate, contrari)
 
 
-def e_avviso(sezioni: Sezioni) -> tuple[bool, str]:
+def e_avviso(
+    sezioni: Sezioni, classe: str | None = None, giudizio_testo: str | None = None
+) -> tuple[bool, str]:
     """Il file ha le sezioni di un avviso, con una nota.
 
-    Almeno SEZIONI_MINIME_AVVISO sezioni, salvo un modulo ("il
-    sottoscritto dichiara" su piu' di QUOTA_PAGINE_MODULO delle pagine).
-    Un decreto con le sezioni solo dopo "DECRETA" conta come avviso, con
-    la segnalazione.
+    Almeno SEZIONI_MINIME_AVVISO sezioni per un link di classe avviso o
+    consolidato (e senza classe); per le altre classi almeno
+    SEZIONI_MINIME_ALTRE, e mai con il testo "da rivedere". Salvo un
+    modulo ("il sottoscritto dichiara" su piu' di QUOTA_PAGINE_MODULO
+    delle pagine). Un decreto con le sezioni solo dopo "DECRETA" conta
+    come avviso, con la segnalazione.
     """
     quante = len(sezioni.trovate)
+    di_avviso = classe is None or classe in CLASSI_DI_AVVISO
     if quante < SEZIONI_MINIME_AVVISO:
         return False, f"{quante} sezioni su {len(SEZIONI)}"
+    if not di_avviso and quante < SEZIONI_MINIME_ALTRE:
+        return False, (
+            f"{quante} sezioni su {len(SEZIONI)}: ne servono "
+            f"{SEZIONI_MINIME_ALTRE} per la classe {classe}"
+        )
+    if not di_avviso and giudizio_testo == DA_RIVEDERE:
+        return False, f"testo da rivedere: non vale come avviso per la classe {classe}"
     modulo = sezioni.contrari.get(SOTTOSCRITTO, [])
     if sezioni.pagine and len(modulo) / sezioni.pagine > QUOTA_PAGINE_MODULO:
         return False, f"modulo: '{SOTTOSCRITTO}' su {len(modulo)} pagine"
@@ -637,7 +655,9 @@ def e_avviso(sezioni: Sezioni) -> tuple[bool, str]:
     return True, ""
 
 
-def testo_sezioni(sezioni: Sezioni) -> str:
+def testo_sezioni(
+    sezioni: Sezioni, classe: str | None = None, giudizio_testo: str | None = None
+) -> str:
     """La colonna sezioni: quante, quali con le pagine, i segnali contrari."""
 
     def pagine(numeri: list[int]) -> str:
@@ -656,7 +676,7 @@ def testo_sezioni(sezioni: Sezioni) -> str:
             f"{nome} p. {pagine(numeri)}" for nome, numeri in sezioni.contrari.items()
         )
         testo += f" | contrari: {contrari}"
-    _, nota = e_avviso(sezioni)
+    _, nota = e_avviso(sezioni, classe, giudizio_testo)
     if nota:
         testo += f" | {nota}"
     return testo
