@@ -22,6 +22,11 @@ la tabella. La colonna decisione resta vuota.
 di oggi. Quello che e' gia' nella cartella non si richiede di nuovo.
 --senza-robots HOST: permette di procedere per un host il cui robots.txt
 non si legge; la scelta va nel registro delle richieste. Ripetibile.
+--bando ID: solo questo bando di PRIMA_PROVA. Ripetibile.
+--solo-primo: per ogni bando si tenta solo il primo file dell'ordine di
+scarico; gli altri restano "non tentato". Serve alla prima prova su un
+bando: se il primo file non e' un PDF o non ha le sezioni di un avviso,
+ci si ferma li'.
 
 Eccezione per i PDF degli avvisi (decisione del 19/11/2026, CLAUDE.md
 "Lettura dei siti"): un file vietato dal robots.txt si scarica lo stesso
@@ -93,6 +98,7 @@ ALTRO_ALTRO_HOST = "classe altro su un host diverso dalla pagina"
 VERSIONE_SUPERATA = "versione superata"
 SOSTITUITO = "sostituito dal consolidato"
 AVVISO_IN_PIU_PARTI = "avviso in più parti"
+NON_TENTATO = "non tentato (--solo-primo)"
 
 # L'eccezione al robots.txt per i PDF degli avvisi, in un punto solo:
 # False la spegne. Le classi a cui vale.
@@ -371,6 +377,8 @@ def file_del_bando(
     id_bando: str,
     url: str,
     gia_scaricati: int,
+    solo_primo: bool = False,
+    stampa=print,
 ) -> tuple[list[dict], bool, int]:
     """Le righe dell'elenco di un bando, se l'avviso e' stato trovato, e i file presi.
 
@@ -443,7 +451,11 @@ def file_del_bando(
         if avviso:
             dopo_avviso(riga, pagine)
 
+    tentati = 0
     for riga in ordine:
+        if solo_primo and tentati >= 1:
+            riga["stato_scarico"] = NON_TENTATO
+            continue
         if trovato and da_consolidato and riga["classe"] == pb.AVVISO:
             riga["stato_scarico"] = SOSTITUITO
             continue
@@ -456,6 +468,7 @@ def file_del_bando(
         ):
             riga["stato_scarico"] = OLTRE_IL_TETTO
             continue
+        tentati += 1
         esito = lettore.prendi(
             riga["url_file"],
             destinazione,
@@ -463,6 +476,12 @@ def file_del_bando(
             MASSIMO_FILE,
             solo_pdf=True,
             eccezione_robots=con_eccezione(riga, pagine_ok),
+        )
+        stampa(
+            f"  {id_bando} #{riga['n']}: {esito.stato}, HTTP {esito.codice}, "
+            f"Content-Type {esito.tipo_contenuto or '?'}, {esito.byte} byte, "
+            f"primi byte {esito.inizio!r}"
+            + (" (eccezione robots)" if esito.eccezione else "")
         )
         riga["stato_scarico"] = {OK: SCARICATO, GIA_PRESENTE: GIA_PRESENTE}.get(
             esito.stato, esito.stato
@@ -482,7 +501,11 @@ def file_del_bando(
 
 
 def fase_file(
-    lettore: Lettore, bandi: list[tuple[str, str]], cartella: Path, stampa=print
+    lettore: Lettore,
+    bandi: list[tuple[str, str]],
+    cartella: Path,
+    stampa=print,
+    solo_primo: bool = False,
 ) -> list[dict]:
     """Scarica, verifica e scrive elenco.csv; stampa la tabella e i bandi senza avviso."""
     tutte: list[dict] = []
@@ -493,7 +516,9 @@ def fase_file(
             stampa(f"{id_bando}: pagina non salvata, nessun file")
             senza_avviso.append(id_bando)
             continue
-        righe, trovato, quanti = file_del_bando(lettore, cartella, id_bando, url, presi)
+        righe, trovato, quanti = file_del_bando(
+            lettore, cartella, id_bando, url, presi, solo_primo, stampa
+        )
         presi += quanti
         tutte += righe
         if not trovato:
@@ -523,7 +548,22 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     fase.add_argument("--file", action="store_true")
     parser.add_argument("--data", type=date.fromisoformat, default=None)
     parser.add_argument("--senza-robots", action="append", default=[], metavar="HOST")
+    parser.add_argument("--bando", action="append", default=[], metavar="ID")
+    parser.add_argument("--solo-primo", action="store_true")
     return parser.parse_args(argv)
+
+
+def scegli_bandi(
+    bandi: list[tuple[str, str]], scelti: list[str]
+) -> list[tuple[str, str]]:
+    """I bandi indicati con --bando, nell'ordine della prova; tutti se nessuno."""
+    if not scelti:
+        return bandi
+    noti = {i for i, _ in bandi}
+    estranei = [i for i in scelti if i not in noti]
+    if estranei:
+        raise ErroreElenco("bandi non della prova: " + ", ".join(estranei))
+    return [(i, u) for i, u in bandi if i in scelti]
 
 
 def main(
@@ -536,14 +576,14 @@ def main(
         cartella, permetti_senza_robots=set(argomenti.senza_robots)
     )
     try:
-        bandi = bandi or bandi_della_prova()
+        bandi = scegli_bandi(bandi or bandi_della_prova(), argomenti.bando)
         print(f"Cartella: {cartella}")
         if argomenti.robots:
             return 0 if fase_robots(lettore, bandi) else 1
         if argomenti.pagine:
             fase_pagine(lettore, bandi, cartella)
         else:
-            fase_file(lettore, bandi, cartella)
+            fase_file(lettore, bandi, cartella, solo_primo=argomenti.solo_primo)
     except RobotsIlleggibile as errore:
         print(
             f"Fermato: {errore}. Per procedere: --senza-robots {errore.host}",

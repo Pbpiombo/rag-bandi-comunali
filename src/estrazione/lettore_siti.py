@@ -69,6 +69,7 @@ ATTESA_429_MASSIMA = 600  # un Retry-After piu' lungo non si aspetta: l'host si 
 RIFIUTI_PER_FERMARE = 3
 TIMEOUT = 30
 BLOCCO = 64 * 1024
+INIZIO_BYTE = 16  # i primi byte di un file, nell'esito
 
 FUSO = ZoneInfo("Europe/Rome")
 
@@ -140,6 +141,9 @@ class Esito:
     nota: str = ""
     # scaricato con l'eccezione per gli avvisi, malgrado il robots.txt
     eccezione: bool = False
+    # il Content-Type della risposta e i primi byte, per dire cosa e' arrivato
+    tipo_contenuto: str = ""
+    inizio: bytes = b""
 
     @property
     def presente(self) -> bool:
@@ -301,6 +305,8 @@ class Lettore:
         self._ultima: dict[str, float] = {}
         self._rifiuti_di_fila: dict[str, int] = {}
         self.fermati: dict[str, str] = {}
+        # il Content-Type dell'ultima risposta riuscita
+        self.ultimo_tipo_contenuto = ""
 
     # --- registro ---
 
@@ -405,6 +411,7 @@ class Lettore:
                         if massimo_byte and len(corpo) > massimo_byte:
                             raise ValueError(f"oltre {massimo_byte} byte")
                     codice = getattr(risposta, "status", 200)
+                    tipo_contenuto = risposta.headers.get("Content-Type") or ""
                 self.annota(
                     tipo,
                     host,
@@ -416,6 +423,7 @@ class Lettore:
                     f"{attesa:g}",
                     nota,
                 )
+                self.ultimo_tipo_contenuto = tipo_contenuto
                 return codice, bytes(corpo)
             except ValueError as errore:
                 self._ultima[host] = self._orologio()
@@ -618,18 +626,37 @@ class Lettore:
         ) as errore:
             return Esito(url, ERRORE, nota=str(errore))
 
+        tipo_contenuto = self.ultimo_tipo_contenuto
+        inizio = corpo[:INIZIO_BYTE]
         if solo_pdf and b"%PDF" not in corpo[:1024]:
             self.annota(
                 "scelta", host, url, NON_PDF, nota="il contenuto non comincia con %PDF"
             )
-            return Esito(url, NON_PDF, codice, len(corpo))
+            return Esito(
+                url,
+                NON_PDF,
+                codice,
+                len(corpo),
+                tipo_contenuto=tipo_contenuto,
+                inizio=inizio,
+            )
 
         self._rifiuti_di_fila[host] = 0
         destinazione.parent.mkdir(parents=True, exist_ok=True)
         provvisorio = destinazione.with_name(destinazione.name + ".parziale")
         provvisorio.write_bytes(corpo)
         provvisorio.replace(destinazione)
-        return Esito(url, OK, codice, len(corpo), destinazione, nota, bool(nota))
+        return Esito(
+            url,
+            OK,
+            codice,
+            len(corpo),
+            destinazione,
+            nota,
+            bool(nota),
+            tipo_contenuto,
+            inizio,
+        )
 
     def _errore_http(self, tipo: str, host: str, url: str, codice: int) -> Esito:
         if codice == 429:
