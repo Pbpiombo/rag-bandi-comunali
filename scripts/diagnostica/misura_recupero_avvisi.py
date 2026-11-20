@@ -741,7 +741,10 @@ def frammento_di(documento) -> tuple[str, Frammento]:
 
 
 def apri_recupero(
-    copia: Path, limite: int | None = None, prefissi: dict[str, str] | None = None
+    copia: Path,
+    limite: int | None = None,
+    prefissi: dict[str, str] | None = None,
+    store=None,
 ):
     """RecuperoMisura sulla copia di Chroma: RecuperoIbrido più la ricerca per bando.
 
@@ -750,6 +753,7 @@ def apri_recupero(
     Con `prefissi` (testo per nome del file), la ricerca per parole indicizza
     il prefisso davanti al testo dei frammenti di quei file; il testo dei
     frammenti restituiti resta quello della copia.
+    Con `store` (per esempio StoreEsatto) si usa quello e `copia` non conta.
     """
     from langchain_chroma import Chroma
 
@@ -810,15 +814,16 @@ def apri_recupero(
             )
             return [(v["doc"], v["punteggio"], v["origini"]) for v in ordinati[:k]]
 
-    embeddings = crea_embeddings()
-    if limite:
-        embeddings._client.max_seq_length = limite
-    store = Chroma(
-        collection_name=COLLECTION_NAME,
-        embedding_function=embeddings,
-        persist_directory=str(copia),
-        collection_metadata={"hnsw:space": "cosine"},
-    )
+    if store is None:
+        embeddings = crea_embeddings()
+        if limite:
+            embeddings._client.max_seq_length = limite
+        store = Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=embeddings,
+            persist_directory=str(copia),
+            collection_metadata={"hnsw:space": "cosine"},
+        )
     return RecuperoMisura(store)
 
 
@@ -1323,11 +1328,17 @@ def rapporto_confronto(misure: list[tuple[str, list[dict]]]) -> list[str]:
         linee += [
             "",
             (
-                f"Condizione {c}, da {base_nome} a {nome}: guadagnati "
-                f"{len(guadagnati)} ({', '.join(guadagnati) or '-'}); persi "
+                f"Condizione {c}, da {base_nome} a {nome}, fatti che cambiano "
+                f"esito: ora trovati {len(guadagnati)} "
+                f"({', '.join(guadagnati) or '-'}); ora non trovati "
                 f"{len(persi)} ({', '.join(persi) or '-'})"
             ),
         ]
+    linee += [
+        "",
+        "Con 40 fatti e uno strumento che oscillava di un fatto, scarti di 1-3",
+        "fatti sono entro il rumore (istruzione del 20/11/2026, quarto giro).",
+    ]
     linee += [
         "",
         "Risposte in più pezzi: posizione del frammento giusto per pezzo, nei",
@@ -2262,6 +2273,540 @@ def esegui_apistici(foglio: Path, divisione: Path, lato: str) -> int:
     return 0
 
 
+# --- quarto giro: ricerca esatta e altri modelli di embedding ---
+
+# La ricerca densa sull'indice HNSW di Chroma non è ripetibile da un
+# processo all'altro (terzo giro: la coda di sqlite si riapplica a ogni
+# apertura). Da qui la misura è esatta: vettori e metadati letti una volta
+# dalla copia, ordinati con il prodotto scalare su tutti i frammenti, con
+# lo stesso filtro e la stessa unione con la ricerca per parole.
+
+
+@dataclass(frozen=True)
+class Modello:
+    """Un modello di embedding da misurare con la ricerca esatta.
+
+    limite: token (None: quello del modello); domanda e passaggio: i
+    prefissi che il modello vuole davanti a domanda e frammenti.
+    """
+
+    nome: str
+    limite: int | None = None
+    domanda: str = ""
+    passaggio: str = ""
+
+
+MODELLI: dict[str, Modello] = {
+    "v0": Modello("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"),
+    "e5-small": Modello("intfloat/multilingual-e5-small", 512, "query: ", "passage: "),
+    "e5-base": Modello("intfloat/multilingual-e5-base", 512, "query: ", "passage: "),
+}
+K_ESATTI = (K, 15)
+FILE_VETTORI = "vettori.npy"
+FILE_FRAMMENTI = "frammenti.json"
+TOLLERANZA_NORMA = 1e-3
+# I fatti non trovati in v1, condizione B, nel terzo giro
+RIGHE_PERSE = (18, 23, 24, 29, 42, 45, 51, 58, 72, 74, 89, 91)
+
+
+def controlla_normalizzati(matrice) -> float:
+    """Lo scarto massimo della norma da 1; ferma se supera la tolleranza."""
+    import numpy as np
+
+    scarto = float(np.max(np.abs(np.linalg.norm(matrice, axis=1) - 1.0)))
+    if scarto > TOLLERANZA_NORMA:
+        raise ErroreMisura(f"vettori non normalizzati: scarto della norma {scarto:.4f}")
+    return scarto
+
+
+class StoreEsatto:
+    """Ricerca densa esatta: prodotto scalare con tutti i vettori.
+
+    Ha get(), similarity_search() ed embeddings come lo store di Chroma
+    che RecuperoMisura si aspetta. I pari merito si ordinano per id, così
+    l'ordine non dipende da nient'altro che dai numeri.
+    """
+
+    def __init__(self, ids, testi, metadati, matrice, embeddings, prefisso="") -> None:
+        import numpy as np
+
+        self.ids = list(ids)
+        self.testi = list(testi)
+        self.metadati = [dict(m) for m in metadati]
+        self.matrice = np.asarray(matrice, dtype=np.float64)
+        if len(self.ids) != len(self.matrice):
+            raise ErroreMisura("vettori e frammenti in numero diverso")
+        controlla_normalizzati(self.matrice)
+        self.embeddings = embeddings
+        self.prefisso = prefisso
+
+    def get(self) -> dict:
+        return {"ids": self.ids, "documents": self.testi, "metadatas": self.metadati}
+
+    def punteggi(self, domanda: str):
+        import numpy as np
+
+        vettore = np.asarray(
+            self.embeddings.embed_query(self.prefisso + domanda), dtype=np.float64
+        )
+        return self.matrice @ vettore
+
+    def similarity_search(self, query: str, k: int = 4, filter: dict | None = None):  # noqa: A002
+        from langchain_core.documents import Document
+
+        punteggi = self.punteggi(query)
+        indici = [
+            i
+            for i, meta in enumerate(self.metadati)
+            if not filter or all(meta.get(c) == v for c, v in filter.items())
+        ]
+        ordine = sorted(indici, key=lambda i: (-punteggi[i], self.ids[i]))[:k]
+        return [
+            Document(page_content=self.testi[i], metadata=dict(self.metadati[i]))
+            for i in ordine
+        ]
+
+
+def esporta_frammenti(copia: Path) -> tuple[list, list, list, list]:
+    """(ids, testi, metadati, vettori) di una copia di Chroma, ordinati per id."""
+    import chromadb
+    from chromadb.config import Settings
+
+    from src.config import COLLECTION_NAME
+
+    cliente = chromadb.PersistentClient(
+        path=str(copia), settings=Settings(anonymized_telemetry=False)
+    )
+    dati = cliente.get_collection(COLLECTION_NAME).get(
+        include=["documents", "metadatas", "embeddings"]
+    )
+    del cliente
+    ordine = sorted(range(len(dati["ids"])), key=lambda i: dati["ids"][i])
+    return (
+        [dati["ids"][i] for i in ordine],
+        [dati["documents"][i] for i in ordine],
+        [dati["metadatas"][i] for i in ordine],
+        [list(dati["embeddings"][i]) for i in ordine],
+    )
+
+
+def salva_vettori(cartella: Path, ids, testi, metadati, matrice) -> str:
+    """Scrive vettori e frammenti; restituisce l'impronta dei frammenti."""
+    import json
+
+    import numpy as np
+
+    cartella.mkdir(parents=True, exist_ok=True)
+    np.save(cartella / FILE_VETTORI, np.asarray(matrice, dtype=np.float32))
+    (cartella / FILE_FRAMMENTI).write_text(
+        json.dumps(
+            {"ids": ids, "testi": testi, "metadati": metadati}, ensure_ascii=False
+        ),
+        encoding="utf-8",
+    )
+    return impronta_frammenti(ids, testi, metadati)
+
+
+def leggi_vettori(cartella: Path) -> tuple[list, list, list, object]:
+    import json
+
+    import numpy as np
+
+    if not (cartella / FILE_VETTORI).exists():
+        raise ErroreMisura(f"mancano i vettori in {cartella}: serve --prepara-vettori")
+    dati = json.loads((cartella / FILE_FRAMMENTI).read_text(encoding="utf-8"))
+    return (
+        dati["ids"],
+        dati["testi"],
+        dati["metadati"],
+        np.load(cartella / FILE_VETTORI),
+    )
+
+
+def crea_embeddings_di(modello: Modello):
+    """Il modello come lo usa il progetto (HuggingFaceEmbeddings, normalizzato)."""
+    from langchain_huggingface import HuggingFaceEmbeddings
+
+    embeddings = HuggingFaceEmbeddings(
+        model_name=modello.nome, encode_kwargs={"normalize_embeddings": True}
+    )
+    if modello.limite:
+        embeddings._client.max_seq_length = modello.limite
+    return embeddings
+
+
+def testi_con_prefisso(testi: list[str], prefisso: str) -> list[str]:
+    return [prefisso + t for t in testi]
+
+
+def esegui_prepara_vettori(nome: str) -> int:
+    """v0: vettori letti dalla copia di v0; gli altri: ricalcolati con il modello."""
+    import time
+
+    import numpy as np
+
+    from scripts.ingestione.carica_avvisi import senza_rete
+
+    senza_rete()
+    modello = MODELLI[nome]
+    cartella = CARTELLA_19D / nome
+    inizio = time.perf_counter()
+    with senza_connessioni():
+        if nome == "v0":
+            copia = CARTELLA_19D / "v0" / "chroma"
+            ids, testi, metadati, matrice = esporta_frammenti(copia)
+        else:
+            ids, testi, metadati, _ = leggi_vettori(CARTELLA_19D / "v0")
+            embeddings = crea_embeddings_di(modello)
+            matrice = embeddings.embed_documents(
+                testi_con_prefisso(testi, modello.passaggio)
+            )
+        scarto = controlla_normalizzati(np.asarray(matrice))
+        firma = salva_vettori(cartella, ids, testi, metadati, matrice)
+    if nome != "v0":
+        _, t0, m0, _ = leggi_vettori(CARTELLA_19D / "v0")
+        if impronta_frammenti(ids, t0, m0) != firma:
+            raise ErroreMisura("i frammenti non sono quelli di v0")
+    print(
+        f"{nome}: {len(ids)} frammenti, dimensione {len(matrice[0])}, scarto massimo "
+        f"della norma {scarto:.2e}, impronta dei frammenti {firma[:16]}, "
+        f"{time.perf_counter() - inizio:.1f} s"
+    )
+    return 0
+
+
+def apri_recupero_esatto(nome: str):
+    """RecuperoMisura sui vettori della cartella del modello, con ricerca esatta."""
+    modello = MODELLI[nome]
+    ids, testi, metadati, matrice = leggi_vettori(CARTELLA_19D / nome)
+    embeddings = crea_embeddings_di(modello)
+    store = StoreEsatto(ids, testi, metadati, matrice, embeddings, modello.domanda)
+    return apri_recupero(Path(), store=store)
+
+
+def esegui_esatta(foglio: Path, divisione: Path, lato: str, nome: str) -> int:
+    """Misura esatta con k=10 e k=15, condizioni A e B (B ripulita)."""
+    import json
+    import time
+
+    from scripts.ingestione.carica_avvisi import senza_rete
+    from src.config import CHROMA_DIR
+
+    senza_rete()
+    modello = MODELLI[nome]
+    cartella = CARTELLA_19D / nome
+    firma, fatti, file_per_bando = apri_misura(foglio, divisione, lato)
+    prima = impronte_cartella(CHROMA_DIR)
+    tempi = {}
+    with senza_connessioni():
+        from src.chains.rag import recupera
+        from src.recupero_documenti import avvolgi, documenti_nominati
+        from src.retrieval import normalizza_domanda
+
+        inizio = time.perf_counter()
+        recupero = apri_recupero_esatto(nome)
+        app = avvolgi(recupero)
+        profondo = avvolgi(Profondo(recupero))
+        frammenti_per_fonte, titolo_del_bando = frammenti_della_copia(
+            recupero, modello.limite
+        )
+        tempi["apertura"] = time.perf_counter() - inizio
+
+        inizio = time.perf_counter()
+        righe = {k: [] for k in K_ESATTI}
+        elenchi_scritti = {}
+        for fatto in fatti:
+            giusti, gemelli = documenti_del_fatto(fatto, file_per_bando)
+            domanda = normalizza_domanda(str(fatto["domanda"]))
+            ripulita = domanda_ripulita(domanda, titolo_del_bando[fatto["id_bando"]])
+            profondi = {
+                "A": recupera(profondo, fatto["domanda"], k=PROFONDITA),
+                "B": recupero.cerca_nel_bando(
+                    ripulita, fatto["id_bando"], PROFONDITA, ampiezza=PROFONDITA
+                ),
+            }
+            nominati = set(documenti_nominati(domanda, app.titoli))
+            for k in K_ESATTI:
+                primi = {
+                    "A": recupera(app, fatto["domanda"], k=k),
+                    "B": recupero.cerca_nel_bando(ripulita, fatto["id_bando"], k),
+                }
+                esiti = {
+                    c: valuta(
+                        fatto,
+                        [frammento_di(d) for d, _, _ in primi[c]],
+                        [frammento_di(d) for d, _, _ in profondi[c]],
+                        giusti,
+                        gemelli,
+                        frammenti_per_fonte,
+                    )
+                    for c in CONDIZIONI_GRIGLIA
+                }
+                di_sempre = sum(not d.metadata.get("sha256") for d, _, _ in primi["A"])
+                riga = riga_misura(
+                    fatto,
+                    giusti,
+                    gemelli,
+                    esiti,
+                    nominati,
+                    di_sempre,
+                    ripulita if ripulita != domanda else "",
+                )
+                _, spezzati_, assenti = stato_dei_pezzi(
+                    fatto, giusti, frammenti_per_fonte
+                )
+                riga.update(pezzi_spezzati=spezzati_, pezzi_assenti=assenti)
+                righe[k].append(riga)
+                for c in CONDIZIONI_GRIGLIA:
+                    elenchi_scritti[f"{fatto['riga']} {c} k={k}"] = [
+                        [d.metadata.get("fonte"), d.metadata.get("chunk_num"), repr(p)]
+                        for d, p, _ in primi[c]
+                    ]
+            for c in CONDIZIONI_GRIGLIA:
+                elenchi_scritti[f"{fatto['riga']} {c} profondi"] = [
+                    [d.metadata.get("fonte"), d.metadata.get("chunk_num"), repr(p)]
+                    for d, p, _ in profondi[c]
+                ]
+        tempi["ricerche"] = time.perf_counter() - inizio
+        del recupero, app, profondo
+    if impronte_cartella(CHROMA_DIR) != prima:
+        raise ErroreMisura("le impronte del Chroma vero sono cambiate")
+
+    testo_elenchi = json.dumps(elenchi_scritti, ensure_ascii=False, indent=0).encode()
+    (cartella / f"elenchi_esatti_{lato}.json").write_bytes(testo_elenchi)
+    for k in K_ESATTI:
+        with (cartella / f"esatta_k{k}_{lato}.csv").open(
+            "w", encoding="utf-8", newline=""
+        ) as f:
+            scrittore = csv.DictWriter(
+                f, fieldnames=COLONNE_MISURA, lineterminator="\n", restval=""
+            )
+            scrittore.writeheader()
+            scrittore.writerows(righe[k])
+
+    intestazione = [
+        f"Passo 19d, quarto giro, misura esatta {nome}, metà: {lato}",
+        f"Divisione: {divisione.name} (sha256 {firma})",
+        NOTA_REGOLA,
+        (
+            f"Modello {modello.nome}, limite {modello.limite or LIMITE_MODELLO} token, "
+            f"prefisso della domanda {modello.domanda!r}, dei frammenti "
+            f"{modello.passaggio!r}; ricerca densa esatta (prodotto scalare su "
+            "tutti i frammenti, pari merito per id)"
+        ),
+        f"Elenchi recuperati: elenchi_esatti_{lato}.json, sha256 {impronta(testo_elenchi)}",
+        f"Chroma vero: {len(prima)} file, impronte uguali prima e dopo",
+        "Tempi: " + "; ".join(f"{n} {s:.1f} s" for n, s in tempi.items()),
+    ]
+    # il rapporto legge i CSV appena scritti, come i confronti
+    scritte = {k: leggi_esatta(nome, k, lato) for k in K_ESATTI}
+    testo = "\n".join(rapporto_esatto(nome, scritte, lato, intestazione))
+    (cartella / f"esatta_{lato}.txt").write_text(testo + "\n", encoding="utf-8")
+    print(testo)
+    return 0
+
+
+def leggi_esatta(nome: str, k: int, lato: str) -> list[dict] | None:
+    percorso = CARTELLA_19D / nome / f"esatta_k{k}_{lato}.csv"
+    return leggi_misura(percorso) if percorso.exists() else None
+
+
+def esiti_diversi(prima: dict[str, bool], dopo: dict[str, bool]) -> list[str]:
+    """Le righe in cui l'esito cambia, in ordine di numero."""
+    if set(prima) != set(dopo):
+        raise ErroreMisura("le due misure non hanno gli stessi fatti")
+    return [r for r in sorted(prima, key=int) if prima[r] != dopo[r]]
+
+
+def rapporto_esatto(
+    nome: str, righe: dict[int, list[dict]], lato: str, intestazione: list[str]
+) -> list[str]:
+    linee = [*intestazione, ""]
+    linee += tabella_affiancata(
+        [(f"k={k} {c}", righe[k], c) for k in K_ESATTI for c in CONDIZIONI_GRIGLIA]
+    )
+    if nome == "v0":
+        # confronto con la misura sull'indice di Chroma
+        chroma = {
+            K: {
+                c: {
+                    r["riga"]: r[f"{c}_trovato"] == "sì"
+                    for r in leggi_misura(CARTELLA_19D / "v0" / f"misura_{lato}.csv")
+                }
+                for c in CONDIZIONI_GRIGLIA
+            },
+            15: {
+                c: {
+                    r["riga"]: r[f"{nome_colonna(AMPIEZZA_APP, 15, c)}_trovato"] == "sì"
+                    for r in leggi_misura(CARTELLA_19D / "v0" / f"griglia_{lato}.csv")
+                }
+                for c in CONDIZIONI_GRIGLIA
+            },
+        }
+        linee += [
+            "",
+            "Esiti diversi dalla misura sull'indice di Chroma (secondo e terzo giro):",
+        ]
+        for k in K_ESATTI:
+            for c in CONDIZIONI_GRIGLIA:
+                esatti = {r["riga"]: r[f"{c}_trovato"] == "sì" for r in righe[k]}
+                diversi = esiti_diversi(chroma[k][c], esatti)
+                linee.append(
+                    f"  k={k}, {c}: {len(diversi)} "
+                    + (
+                        "("
+                        + ", ".join(
+                            f"{r} {'trovato' if esatti[r] else 'non trovato'}"
+                            for r in diversi
+                        )
+                        + ")"
+                        if diversi
+                        else ""
+                    )
+                )
+        return linee
+    for k in K_ESATTI:
+        base = leggi_esatta("v0", k, lato)
+        if base is None:
+            continue
+        linee += ["", f"=== k={k}: confronto con v0 (misura esatta) ==="]
+        linee += rapporto_confronto([("v0", base), (nome, righe[k])])[2:]
+        per_riga = {int(r["riga"]): r for r in righe[k]}
+        base_per_riga = {int(r["riga"]): r for r in base}
+        linee += ["", f"I 12 fatti non trovati in v1 B nel terzo giro, k={k}:"]
+        for numero in RIGHE_PERSE:
+            r, b = per_riga[numero], base_per_riga[numero]
+            celle = [
+                f"{c} v0 {b[f'{c}_trovato']} {b[f'{c}_posizioni_pezzi']} "
+                f"({b[f'{c}_posizioni_profonde']}) -> {nome} {r[f'{c}_trovato']} "
+                f"{r[f'{c}_posizioni_pezzi']} ({r[f'{c}_posizioni_profonde']})"
+                for c in CONDIZIONI_GRIGLIA
+            ]
+            linee.append(f"  riga {numero}: " + "; ".join(celle))
+    return linee
+
+
+def memoria_del_processo() -> int:
+    """Memoria del processo in byte (working set su Windows, RSS altrove)."""
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        class Contatori(ctypes.Structure):
+            _fields_ = [
+                ("cb", wintypes.DWORD),
+                ("PageFaultCount", wintypes.DWORD),
+                ("PeakWorkingSetSize", ctypes.c_size_t),
+                ("WorkingSetSize", ctypes.c_size_t),
+                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                ("PagefileUsage", ctypes.c_size_t),
+                ("PeakPagefileUsage", ctypes.c_size_t),
+            ]
+
+        contatori = Contatori()
+        contatori.cb = ctypes.sizeof(Contatori)
+        # senza i tipi dichiarati la maniglia del processo si tronca a 32 bit
+        corrente = ctypes.windll.kernel32.GetCurrentProcess
+        corrente.restype = wintypes.HANDLE
+        informazioni = ctypes.windll.psapi.GetProcessMemoryInfo
+        informazioni.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(Contatori),
+            wintypes.DWORD,
+        ]
+        informazioni.restype = wintypes.BOOL
+        if not informazioni(corrente(), ctypes.byref(contatori), contatori.cb):
+            raise ErroreMisura("GetProcessMemoryInfo non ha risposto")
+        return int(contatori.WorkingSetSize)
+    import resource
+
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024
+
+
+def dimensione_su_disco(nome_modello: str) -> int:
+    """Byte dei file del modello nella cache di Hugging Face."""
+    from huggingface_hub.constants import HF_HUB_CACHE
+
+    cartella = Path(HF_HUB_CACHE) / f"models--{nome_modello.replace('/', '--')}"
+    if not cartella.exists():
+        raise ErroreMisura(f"modello non scaricato: {nome_modello}")
+    return sum(p.stat().st_size for p in (cartella / "blobs").rglob("*") if p.is_file())
+
+
+def esegui_peso(nome: str) -> int:
+    """Memoria, tempo di caricamento e di una domanda, disco; in un processo nuovo."""
+    import statistics
+    import time
+
+    from scripts.ingestione.carica_avvisi import senza_rete
+
+    senza_rete()
+    modello = MODELLI[nome]
+    mb = 1024 * 1024
+    with senza_connessioni():
+        partenza = memoria_del_processo()
+        import langchain_huggingface  # noqa: F401
+        import sentence_transformers  # noqa: F401
+
+        dopo_import = memoria_del_processo()
+        inizio = time.perf_counter()
+        embeddings = crea_embeddings_di(modello)
+        caricamento = time.perf_counter() - inizio
+        dopo_modello = memoria_del_processo()
+        domanda = modello.domanda + (
+            "Il nostro comune montano può partecipare al bando per la scuola "
+            "di musica se ha già avuto un contributo?"
+        )
+        embeddings.embed_query(domanda)
+        durate = []
+        for _ in range(20):
+            inizio = time.perf_counter()
+            embeddings.embed_query(domanda)
+            durate.append((time.perf_counter() - inizio) * 1000)
+        dopo_domande = memoria_del_processo()
+        linee = [
+            f"{nome} ({modello.nome}):",
+            (
+                f"  memoria all'avvio di Python {partenza / mb:.0f} MB; dopo gli "
+                f"import {dopo_import / mb:.0f} MB; dopo il caricamento del modello "
+                f"{dopo_modello / mb:.0f} MB (modello: "
+                f"+{(dopo_modello - dopo_import) / mb:.0f} MB); "
+                f"dopo 21 domande {dopo_domande / mb:.0f} MB"
+            ),
+            f"  caricamento del modello {caricamento:.1f} s",
+            (
+                f"  vettore di una domanda: mediana {statistics.median(durate):.1f} "
+                f"ms, minimo {min(durate):.1f}, massimo {max(durate):.1f} "
+                "(20 prove, CPU)"
+            ),
+            f"  su disco: {dimensione_su_disco(modello.nome) / mb:.0f} MB",
+        ]
+        if nome == "v0":
+            # Il recupero locale dell'app senza Postgres e senza il modello di
+            # linguaggio, su una copia: Chroma più l'indice BM25.
+            from langchain_chroma import Chroma
+
+            from src.config import COLLECTION_NAME
+
+            store = Chroma(
+                collection_name=COLLECTION_NAME,
+                embedding_function=embeddings,
+                persist_directory=str(CARTELLA_19D / "v0" / "chroma"),
+                collection_metadata={"hnsw:space": "cosine"},
+            )
+            recupero = apri_recupero(Path(), store=store)
+            recupero.cerca("contributo per la musica?", k=10)
+            linee.append(
+                "  con il recupero locale su una copia (Chroma e BM25, 1187 "
+                f"frammenti): {memoria_del_processo() / mb:.0f} MB"
+            )
+    print("\n".join(linee))
+    return 0
+
+
 # --- uso ---
 
 
@@ -2282,6 +2827,20 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="terzo giro: nome dell'azione dagli allegati e misura delle righe 67-74",
     )
+    parser.add_argument(
+        "--prepara-vettori",
+        action="store_true",
+        help="quarto giro: vettori dei frammenti di v0 per --modello",
+    )
+    parser.add_argument(
+        "--esatta",
+        action="store_true",
+        help="quarto giro: misura con la ricerca densa esatta, k=10 e k=15",
+    )
+    parser.add_argument(
+        "--peso", action="store_true", help="quarto giro: memoria e tempi del modello"
+    )
+    parser.add_argument("--modello", choices=sorted(MODELLI), default="v0")
     parser.add_argument(
         "--controllo",
         action="store_true",
@@ -2343,11 +2902,14 @@ def main(argv: list[str] | None = None) -> int:
         argomenti.riepilogo,
         argomenti.griglia,
         argomenti.apistici,
+        argomenti.prepara_vettori,
+        argomenti.esatta,
+        argomenti.peso,
     )
     if sum(comandi) != 1:
         print(
-            "Serve un comando solo: --dividi, --misura, --riepilogo, --griglia o "
-            "--apistici.",
+            "Serve un comando solo: --dividi, --misura, --riepilogo, --griglia, "
+            "--apistici, --prepara-vettori, --esatta o --peso.",
             file=sys.stderr,
         )
         return 2
@@ -2365,6 +2927,14 @@ def main(argv: list[str] | None = None) -> int:
             )
         if argomenti.apistici:
             return esegui_apistici(argomenti.foglio, argomenti.divisione, lato)
+        if argomenti.prepara_vettori:
+            return esegui_prepara_vettori(argomenti.modello)
+        if argomenti.esatta:
+            return esegui_esatta(
+                argomenti.foglio, argomenti.divisione, lato, argomenti.modello
+            )
+        if argomenti.peso:
+            return esegui_peso(argomenti.modello)
         cartella = argomenti.cartella or CARTELLA_19D / argomenti.variante
         return esegui_misura(
             argomenti.foglio, argomenti.divisione, lato, argomenti.variante, cartella

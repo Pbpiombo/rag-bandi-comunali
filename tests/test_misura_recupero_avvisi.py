@@ -785,3 +785,93 @@ def test_copia_con_la_parte_cambia_solo_i_vettori_dei_file_dati(tmp_path, monkey
 def test_griglia_solo_sulle_basi_v0_e_v1(tmp_path):
     with pytest.raises(mr.ErroreMisura, match="base 'v2'"):
         mr.esegui_griglia(tmp_path / "f.xlsx", tmp_path / "d.csv", mr.TARATURA, "v2")
+
+
+# --- quarto giro: ricerca esatta ---
+
+
+class EmbeddingsDomanda:
+    """embed_query restituisce un vettore fisso e ricorda il testo ricevuto."""
+
+    def __init__(self, vettore):
+        self.vettore = vettore
+        self.ricevuti = []
+
+    def embed_query(self, testo):
+        self.ricevuti.append(testo)
+        return self.vettore
+
+
+def store_esatto(embeddings, prefisso=""):
+    import math
+
+    r = 1 / math.sqrt(2)
+    return mr.StoreEsatto(
+        ["c", "a", "b", "d"],
+        ["tre", "uno", "due", "quattro"],
+        [
+            {"fonte": "x.pdf", "id_bando": "alfa"},
+            {"fonte": "x.pdf", "id_bando": "alfa"},
+            {"fonte": "y.pdf", "id_bando": "beta"},
+            {"fonte": "y.pdf", "id_bando": "alfa"},
+        ],
+        [[1.0, 0.0], [r, r], [1.0, 0.0], [0.0, 1.0]],
+        embeddings,
+        prefisso,
+    )
+
+
+def test_store_esatto_ordina_per_prodotto_scalare_e_pari_merito_per_id():
+    embeddings = EmbeddingsDomanda([1.0, 0.0])
+    store = store_esatto(embeddings, "query: ")
+    risultati = store.similarity_search("domanda?", k=4)
+    # b e c hanno lo stesso punteggio: prima b, per id
+    assert [d.page_content for d in risultati] == ["due", "tre", "uno", "quattro"]
+    assert embeddings.ricevuti == ["query: domanda?"]
+    assert store.get()["ids"] == ["c", "a", "b", "d"]
+
+
+def test_store_esatto_con_il_filtro_e_k():
+    store = store_esatto(EmbeddingsDomanda([1.0, 0.0]))
+    per_bando = store.similarity_search("d?", k=2, filter={"id_bando": "alfa"})
+    assert [d.page_content for d in per_bando] == ["tre", "uno"]
+    per_fonte = store.similarity_search("d?", k=5, filter={"fonte": "y.pdf"})
+    assert [d.page_content for d in per_fonte] == ["due", "quattro"]
+
+
+def test_store_esatto_rifiuta_vettori_non_normalizzati():
+    with pytest.raises(mr.ErroreMisura, match="non normalizzati"):
+        mr.StoreEsatto(["a"], ["t"], [{}], [[2.0, 0.0]], EmbeddingsDomanda([1.0, 0.0]))
+
+
+def test_vettori_salvati_e_riletti_uguali(tmp_path):
+    ids, testi, metadati = ["a", "b"], ["uno", "due"], [{"fonte": "x"}, {}]
+    firma = mr.salva_vettori(tmp_path, ids, testi, metadati, [[1.0, 0.0], [0.0, 1.0]])
+    letti = mr.leggi_vettori(tmp_path)
+    assert letti[:3] == (ids, testi, metadati)
+    assert letti[3].tolist() == [[1.0, 0.0], [0.0, 1.0]]
+    assert firma == mr.impronta_frammenti(ids, testi, metadati)
+
+
+def test_prefissi_dei_modelli_e5():
+    for nome in ("e5-small", "e5-base"):
+        assert mr.MODELLI[nome].domanda == "query: "
+        assert mr.MODELLI[nome].passaggio == "passage: "
+        assert mr.MODELLI[nome].limite == 512
+    assert mr.MODELLI["v0"] == mr.Modello(mr.MODELLI["v0"].nome)
+    assert mr.testi_con_prefisso(["a", "b"], "passage: ") == [
+        "passage: a",
+        "passage: b",
+    ]
+
+
+def test_esiti_diversi_tra_due_misure():
+    prima = {"2": True, "10": False, "3": True}
+    dopo = {"2": True, "10": True, "3": False}
+    assert mr.esiti_diversi(prima, dopo) == ["3", "10"]
+    with pytest.raises(mr.ErroreMisura):
+        mr.esiti_diversi(prima, {"2": True})
+
+
+def test_memoria_del_processo_positiva():
+    assert mr.memoria_del_processo() > 0
