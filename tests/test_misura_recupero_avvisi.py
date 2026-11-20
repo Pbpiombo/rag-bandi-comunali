@@ -226,3 +226,205 @@ def test_condizione_impossibile_si_nomina(fatti, monkeypatch):
         mr.dividi(
             fatti, GEMELLI, seme=1, fissi=FISSI, condizioni={"righe di tabella": 0}
         )
+
+
+# --- tempo 2: metà letta, impronta, rete ---
+
+
+def scrivi_divisione(cartella, righe):
+    percorso = cartella / "divisione.csv"
+    testo = "riga,id_bando,meta,gruppo,registro,in_tabella,pezzi,gemello,visti\n"
+    testo += "".join(f"{r},{b},{m},{r},semplice,no,1,no,no\n" for r, b, m in righe)
+    percorso.write_text(testo, encoding="utf-8")
+    firma = mr.impronta(percorso.read_bytes())
+    (cartella / "divisione.csv.sha256").write_text(f"{firma}  divisione.csv\n")
+    return percorso
+
+
+def test_si_legge_solo_la_meta_chiesta(tmp_path):
+    percorso = scrivi_divisione(
+        tmp_path, [(2, "alfa", mr.TARATURA), (3, "alfa", mr.CONTROLLO)]
+    )
+    righe = mr.righe_della_meta(percorso, mr.TARATURA)
+    assert set(righe) == {2}
+    foglio = [
+        fatto(2, "alfa", "Frase di taratura."),
+        fatto(3, "alfa", "Frase di controllo."),
+    ]
+    fatti = mr.fatti_della_meta(foglio, righe)
+    assert [f["riga"] for f in fatti] == [2]
+    assert all("controllo" not in f["frase"] for f in fatti)
+
+
+def test_senza_opzione_si_misura_la_taratura():
+    assert mr.leggi_argomenti(["--misura"]).controllo is False
+    assert mr.leggi_argomenti(["--misura", "--controllo"]).controllo is True
+
+
+def test_impronta_alterata_ferma(tmp_path):
+    percorso = scrivi_divisione(tmp_path, [(2, "alfa", mr.TARATURA)])
+    assert mr.verifica_impronta(percorso) == mr.impronta(percorso.read_bytes())
+    percorso.write_text(percorso.read_text() + "4,alfa,taratura,4,caso,no,1,no,no\n")
+    with pytest.raises(mr.ErroreMisura, match="sha256"):
+        mr.verifica_impronta(percorso)
+
+
+def test_bando_diverso_dalla_divisione_ferma(tmp_path):
+    percorso = scrivi_divisione(tmp_path, [(2, "beta", mr.TARATURA)])
+    righe = mr.righe_della_meta(percorso, mr.TARATURA)
+    with pytest.raises(mr.ErroreMisura):
+        mr.fatti_della_meta([fatto(2, "alfa", "Frase.")], righe)
+
+
+def test_connessioni_vietate_e_poi_ripristinate():
+    import socket
+
+    originale = socket.create_connection
+    with mr.senza_connessioni(), pytest.raises(mr.ErroreMisura, match="rete"):
+        socket.create_connection(("example.invalid", 80))
+    assert socket.create_connection is originale
+
+
+# --- tempo 2: criterio di "trovato" ---
+
+
+def fr(numero, testo, car_visti=None):
+    return mr.Frammento(
+        numero, 1, testo, len(testo) if car_visti is None else car_visti
+    )
+
+
+GIUSTI = {"giusto.pdf"}
+GEMELLI_DOC = {"gemello.pdf"}
+
+
+def valuta(fatto_, primi, profondi=(), per_fonte=None):
+    return mr.valuta(
+        fatto_, list(primi), list(profondi), GIUSTI, GEMELLI_DOC, per_fonte or {}
+    )
+
+
+def test_trovato_se_ogni_pezzo_sta_in_un_frammento_giusto():
+    f = fatto(2, "alfa", "Il contributo è di 40.000 euro [...] entro il 30 giugno")
+    primi = [
+        ("altro.pdf", fr(0, "Il contributo è di 40.000 euro entro il 30 giugno")),
+        ("giusto.pdf", fr(4, "Art. 5: Il contri buto è di 40.000\neuro per Comune")),
+        ("giusto.pdf", fr(9, "domande entro il 30  giugno 2026")),
+    ]
+    esito = valuta(f, primi)
+    assert esito["trovato"] is True
+    assert esito["posizioni_pezzi"] == [2, 3]
+    assert esito["primo_giusto"] == 2
+    assert esito["cause"] == []
+
+
+def test_un_pezzo_mancante_basta_per_non_trovare():
+    f = fatto(2, "alfa", "Il contributo è di 40.000 euro [...] entro il 30 giugno")
+    primi = [("giusto.pdf", fr(4, "Il contributo è di 40.000 euro per Comune"))]
+    esito = valuta(f, primi)
+    assert esito["trovato"] is False
+    assert esito["posizioni_pezzi"] == [1, None]
+    assert esito["primo_giusto"] == 1
+
+
+def test_frammento_di_un_altro_bando_non_vale():
+    f = fatto(2, "alfa", "Il contributo è di 40.000 euro")
+    esito = valuta(f, [("altro.pdf", fr(0, "Il contributo è di 40.000 euro"))])
+    assert esito["trovato"] is False
+    assert esito["primo_giusto"] is None
+
+
+def test_tabella_tutte_le_celle_nello_stesso_frammento():
+    f = fatto(2, "alfa", "Azione A1 | 20%", in_tabella="sì")
+    insieme = [("giusto.pdf", fr(3, "Tabella 1\nAzione A1\n20%\nAzione A2\n30%"))]
+    assert valuta(f, insieme)["trovato"] is True
+    separate = [
+        ("giusto.pdf", fr(3, "Tabella 1\nAzione A1")),
+        ("giusto.pdf", fr(4, "20%\nAzione A2\n30%")),
+    ]
+    assert valuta(f, separate)["trovato"] is False
+
+
+def test_documenti_del_fatto_apistici_e_bandi_gemelli(monkeypatch):
+    monkeypatch.setattr(
+        mr, "GEMELLI_DEI_BANDI", {"cultura": "sport", "sport": "cultura"}
+    )
+    registro = {
+        "api": [
+            {"nome_file": "a1.pdf", "parte": "Azione B1"},
+            {"nome_file": "a3.pdf", "parte": "Azione B3"},
+        ],
+        "cultura": [
+            {"nome_file": "cultura.pdf", "parte": ""},
+            {"nome_file": "cultura-proroga.pdf", "parte": ""},
+        ],
+        "sport": [{"nome_file": "sport.pdf", "parte": ""}],
+    }
+    apistico = {"riga": 9, "id_bando": "api", "note": "Azione B3 (Allegato A3). Par. 2"}
+    assert mr.documenti_del_fatto(apistico, registro) == ({"a3.pdf"}, {"a1.pdf"})
+    cultura = {"riga": 10, "id_bando": "cultura", "note": ""}
+    assert mr.documenti_del_fatto(cultura, registro) == (
+        {"cultura.pdf", "cultura-proroga.pdf"},
+        {"sport.pdf"},
+    )
+
+
+# --- tempo 2: cause dei mancati ---
+
+
+def test_causa_gemello_al_posto_del_giusto():
+    f = fatto(2, "alfa", "Le spese generali non sono ammesse.")
+    testo = "Art. 4 Le spese generali non sono ammesse."
+    primi = [("gemello.pdf", fr(1, testo))]
+    per_fonte = {"giusto.pdf": [fr(7, testo)]}
+    esito = valuta(
+        f, primi, profondi=[*primi, ("giusto.pdf", fr(7, testo))], per_fonte=per_fonte
+    )
+    assert esito["trovato"] is False
+    assert esito["pezzo_dal_gemello"] is True
+    assert esito["gemello_senza_giusto"] is True
+    assert mr.GEMELLO in esito["cause"][0]
+    assert "posizione 2" in esito["cause"][0]
+
+
+def test_causa_fuori_vista_e_posizione_oltre_i_primi():
+    f = fatto(2, "alfa", "La spesa minima ammissibile è di 3.000 euro")
+    testo = "Premessa lunga. " * 10 + "La spesa minima ammissibile è di 3.000 euro."
+    giusto = fr(5, testo, car_visti=40)
+    primi = [("giusto.pdf", fr(i, f"Altro testo {i}")) for i in range(10)]
+    profondi = [*primi, *[("altro.pdf", fr(20 + i, "x")) for i in range(6)]]
+    profondi.append(("giusto.pdf", giusto))
+    esito = valuta(f, primi, profondi, per_fonte={"giusto.pdf": [giusto]})
+    assert esito["trovato"] is False
+    cause = esito["cause"][0]
+    assert mr.FUORI_VISTA in cause
+    assert "posizione 17" in cause
+    assert mr.GEMELLO not in cause
+
+
+def test_causa_oltre_la_profondita():
+    f = fatto(2, "alfa", "La spesa minima ammissibile è di 3.000 euro")
+    giusto = fr(5, "La spesa minima ammissibile è di 3.000 euro.")
+    esito = valuta(f, [], [], per_fonte={"giusto.pdf": [giusto]})
+    assert f"oltre i primi {mr.PROFONDITA}" in esito["cause"][0]
+    assert mr.FUORI_VISTA not in esito["cause"][0]
+
+
+def test_causa_pezzo_spezzato_tra_frammenti():
+    f = fatto(2, "alfa", "La spesa minima ammissibile è di 3.000 euro")
+    per_fonte = {
+        "giusto.pdf": [
+            fr(0, "Art. 3. La spesa minima ammissibile"),
+            fr(1, "ammissibile è di 3.000 euro per domanda."),
+        ]
+    }
+    esito = valuta(f, [], [], per_fonte=per_fonte)
+    assert esito["cause"] == [mr.SPEZZATO]
+
+
+def test_cause_per_pezzo_in_una_risposta_in_piu_pezzi():
+    f = fatto(2, "alfa", "Il contributo è di 40.000 euro [...] entro il 30 giugno")
+    per_fonte = {"giusto.pdf": [fr(0, "Il contributo è di 40.000 euro.")]}
+    primi = [("giusto.pdf", fr(0, "Il contributo è di 40.000 euro."))]
+    esito = valuta(f, primi, primi, per_fonte=per_fonte)
+    assert esito["cause"] == [f"pezzo 2: {mr.ASSENTE_FRAMMENTI}"]
