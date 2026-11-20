@@ -17,9 +17,10 @@ Colonne:
 - uso: "frammenti" (si divide e va nell'archivio dei documenti, 19c-3) o
   "solo_registro";
 - parte: per un avviso in più parti, la parte (dal testo di pagina 1);
-- atto: l'atto del file, dal nome del file, mai da bandi.riferimento_atto
-  (quello dei punti digitale cita ancora il decreto superato);
-  atto_origine dice da dove;
+- atto: l'atto del file, dal nome del file o, per decisione a mano, dal
+  titolo della prima pagina; mai da bandi.riferimento_atto (quello dei
+  punti digitale cita ancora il decreto superato); atto_origine dice da
+  dove;
 - url_file, url_pagina, nome_file, atto: un valore per bando, nell'ordine
   di id_bandi, separati da "|" (lo stesso file ha un indirizzo e un nome
   diverso per ogni bando);
@@ -110,11 +111,33 @@ class Decisione:
     uso: str
     motivo: str
     deciso_il: str
+    # L'atto preso dal titolo della prima pagina, quando il nome del file non
+    # si legge: pezzi del testo di pagina 1, uniti con ", ". Lo script
+    # controlla che ogni pezzo compaia nella pagina (spazi e maiuscole a
+    # parte) e scrive atto_origine "prima pagina del file".
+    atto_prima_pagina: tuple[str, ...] = ()
 
 
 # Decisioni a mano (verifica del 19/11/2026 in docs/coda.md, passo 19,
 # "Verifica a mano dei PDF"; decisioni del 20/11/2026 sul compito 19c-2).
 DECISIONI_A_MANO = {
+    "aa0d0bd1b0192161369309f812926f41f9d9d632dab6a829038d17b9bc746bb1": Decisione(
+        "testo-coordinato-bando-sra-aca-16b-8ac2656c.pdf",
+        pb.CONSOLIDATO,
+        FRAMMENTI,
+        "testo coordinato del bando, 5 sezioni su 5; atto dal titolo della "
+        "prima pagina, perché il nome del file non si legge",
+        "2026-11-20",
+        atto_prima_pagina=(
+            "Allegato A",
+            (
+                'SRA16-ACA16.B "Recupero, caratterizzazione, monitoraggio, '
+                "valorizzazione e tutela delle risorse genetiche locali a rischio "
+                'di estinzione"'
+            ),
+            "Bando - annualità 2026",
+        ),
+    ),
     "33fd1f31f1f4df657c9d433981aa3534f4ba90010ea8cc893289fab792d4d15b": Decisione(
         "avviso_pubblico_prot_26286_del_03_11_2026-74a82f09.pdf",
         pb.AVVISO,
@@ -195,6 +218,7 @@ PROTOCOLLO = re.compile(
 DA_NOME_DECRETO = "nome del file: decreto"
 DA_NOME_PROTOCOLLO = "nome del file: protocollo"
 DA_NOME_TITOLO = "nome del file: titolo, senza numero d'atto"
+DA_PRIMA_PAGINA = "prima pagina del file"
 
 # La parte di un avviso in più parti, dalla prima pagina ("Azione B1")
 PARTE = re.compile(r"\bAzione\s+(B\d+)\b")
@@ -234,6 +258,23 @@ def atto_dal_nome(nome: str) -> tuple[str, str]:
             DA_NOME_PROTOCOLLO,
         )
     return " ".join(base.replace("-", " ").split()), DA_NOME_TITOLO
+
+
+def _per_confronto(testo: str) -> str:
+    return " ".join(testo.split()).casefold()
+
+
+def atto_dalla_prima_pagina(
+    f: "FileScaricato", decisione: Decisione
+) -> tuple[str, str]:
+    """L'atto dai pezzi della decisione, dopo averli trovati a pagina 1."""
+    pagina = _per_confronto(pagine_pdf(f.percorso)[0])
+    for pezzo in decisione.atto_prima_pagina:
+        if _per_confronto(pezzo) not in pagina:
+            raise ErroreRegistro(
+                f"{f.percorso.name}: '{pezzo}' non è nella prima pagina del file"
+            )
+    return ", ".join(decisione.atto_prima_pagina), DA_PRIMA_PAGINA
 
 
 def leggi_csv(percorso: Path) -> list[dict]:
@@ -390,7 +431,10 @@ def costruisci(cartella: Path, data: str) -> list[dict]:
                 "frammenti: per ora non si fa (decisione del 20/11/2026)"
             )
 
-        atti = [atto_dal_nome(f.nome_originale) for f in copie]
+        if decisione and decisione.atto_prima_pagina:
+            atti = [atto_dalla_prima_pagina(f, decisione) for f in copie]
+        else:
+            atti = [atto_dal_nome(f.nome_originale) for f in copie]
         origini = {origine for _, origine in atti}
         date = {f.richiesta["ora"][:10] for f in copie}
         eccezioni = {

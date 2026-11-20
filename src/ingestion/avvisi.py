@@ -229,14 +229,33 @@ def togli_contatti(
 PAROLA_SPEZZATA = re.compile(r"(?<=[a-zà-ÿ])-[ \t]*\n[ \t]*(?=[a-zà-ÿ])")
 
 
+def _in_un_indirizzo(testo: str, posizione: int) -> bool:
+    """Il pezzo che finisce in `posizione` fa parte di un indirizzo web.
+
+    Il pezzo va dall'ultimo spazio o a capo al trattino; un indirizzo
+    contiene "://" o comincia con "www.", anche dopo una parentesi o una
+    virgoletta aperta.
+    """
+    inizio = max(testo.rfind(s, 0, posizione) for s in (" ", "\t", "\n")) + 1
+    pezzo = testo[inizio:posizione]
+    return "://" in pezzo or pezzo.lstrip("(<[«\"'").startswith("www.")
+
+
 def ricuci_parole(testo: str) -> tuple[str, int]:
     """Unisce le parole spezzate a fine riga, e dice quante.
 
     Solo tra lettere minuscole: "2021-\\n2027" e "PR-\\nFESR" restano.
     Un trattino vero a fine riga ("socio-\\neconomico") si perde: la
-    parola resta comunque leggibile.
+    parola resta comunque leggibile. In un indirizzo web il trattino
+    resta ("https://www.regione.toscana.it/agricoltura-e-" e
+    "alimentazione/..." sulla riga dopo): lì è quasi sempre vero, e senza
+    l'indirizzo non si apre.
     """
-    return PAROLA_SPEZZATA.subn("", testo)
+
+    def unisci(m: re.Match) -> str:
+        return "-" if _in_un_indirizzo(testo, m.start()) else ""
+
+    return PAROLA_SPEZZATA.subn(unisci, testo)
 
 
 # --- insieme ---
