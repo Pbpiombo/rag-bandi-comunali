@@ -396,7 +396,25 @@ def rapporto(righe: list[dict], seme: int, tentativi: int) -> list[str]:
 K = 10
 AMPIEZZA_APP = 20  # quella di RecuperoIbrido.cerca, usata dall'app
 PROFONDITA = 50  # per la posizione del frammento giusto oltre i primi K
-V0 = DATI_GREZZI_DIR / "prova" / "19d" / "v0"
+CARTELLA_19D = DATI_GREZZI_DIR / "prova" / "19d"
+
+# Varianti: nome -> limite di token del modello di embedding (None: quello
+# del modello, 128). v1 ricalcola i vettori di tutti i frammenti, avvisi e
+# documenti di sempre; frammenti, testo e metadati restano quelli di v0.
+VARIANTI: dict[str, int | None] = {"v0": None, "v1": 512}
+LIMITE_MODELLO = 128
+
+# Condizioni della misura.
+# A: il percorso dell'app.
+# Bi: filtro sul bando, domanda intera (la definizione di B della prima
+#     misura di taratura, 20/11/2026).
+# B: filtro sul bando, domanda ripulita con ripulisci_domanda e le parole
+#    del titolo del bando del fatto (definizione cambiata dopo la prima
+#    misura di taratura, decisione del 20/11/2026: l'app, quando riconosce
+#    il documento, cerca con la domanda ripulita). Dove non c'è un tratto
+#    che nomina il bando la domanda resta intera; la punteggiatura rimasta
+#    orfana resta, come nell'app.
+CONDIZIONI_MISURA = ("A", "Bi", "B")
 
 # Documenti gemelli tra bandi (docs/coda.md, "Passo 19d", punto 5). Gli
 # allegati degli apistici sono gemelli tra loro: si ricavano dalla nota.
@@ -416,6 +434,21 @@ FUORI_VISTA = "pezzo fuori dalla parte vista"
 SPEZZATO = "pezzo spezzato tra frammenti"
 ASSENTE_FRAMMENTI = "pezzo in nessun frammento del documento giusto"
 
+# Classi delle restrizioni di avvolgi
+RISTRETTA_GIUSTO = "giusto"
+RISTRETTA_GEMELLO = "giusto + gemello"
+RISTRETTA_ALTRO = "giusto + altro"
+RISTRETTA_SBAGLIATO = "sbagliato"
+
+_PER_CONDIZIONE = [
+    "trovato",
+    "primo_giusto",
+    "posizioni_pezzi",
+    "posizioni_profonde",
+    "cause",
+    "gemello_senza_giusto",
+    "pezzo_dal_gemello",
+]
 COLONNE_MISURA = [
     "riga",
     "id_bando",
@@ -425,21 +458,11 @@ COLONNE_MISURA = [
     "visti",
     "gemello",
     "documenti_giusti",
-    "trovato_A",
-    "primo_giusto_A",
-    "posizioni_pezzi_A",
-    "cause_A",
-    "gemello_senza_giusto_A",
-    "pezzo_dal_gemello_A",
+    "domanda_B",
     "ristretta_A",
-    "ristretta_giusta_A",
+    "classe_ristretta_A",
     "di_sempre_A",
-    "trovato_B",
-    "primo_giusto_B",
-    "posizioni_pezzi_B",
-    "cause_B",
-    "gemello_senza_giusto_B",
-    "pezzo_dal_gemello_B",
+    *(f"{c}_{n}" for c in CONDIZIONI_MISURA for n in _PER_CONDIZIONE),
 ]
 
 
@@ -643,6 +666,7 @@ def valuta(
         "trovato": all(p is not None for p in posizioni),
         "primo_giusto": min(trovate) if trovate else None,
         "posizioni_pezzi": posizioni,
+        "posizioni_profonde": [prima_posizione(p, profondi, giusti) for p in unita],
         "cause": cause,
         "gemello_senza_giusto": bool(fonti_primi & gemelli)
         and not fonti_primi & giusti,
@@ -667,8 +691,12 @@ def frammento_di(documento) -> tuple[str, Frammento]:
     )
 
 
-def apri_recupero(copia: Path):
-    """RecuperoMisura sulla copia di Chroma: RecuperoIbrido più la ricerca per bando."""
+def apri_recupero(copia: Path, limite: int | None = None):
+    """RecuperoMisura sulla copia di Chroma: RecuperoIbrido più la ricerca per bando.
+
+    Con `limite`, il modello di embedding delle domande usa quel limite di
+    token (lo stesso con cui sono stati calcolati i vettori della copia).
+    """
     from langchain_chroma import Chroma
 
     from src.config import COLLECTION_NAME
@@ -723,9 +751,12 @@ def apri_recupero(copia: Path):
             )
             return [(v["doc"], v["punteggio"], v["origini"]) for v in ordinati[:k]]
 
+    embeddings = crea_embeddings()
+    if limite:
+        embeddings._client.max_seq_length = limite
     store = Chroma(
         collection_name=COLLECTION_NAME,
-        embedding_function=crea_embeddings(),
+        embedding_function=embeddings,
         persist_directory=str(copia),
         collection_metadata={"hnsw:space": "cosine"},
     )
@@ -745,6 +776,90 @@ class Profondo:
         return self.base.cerca(domanda, k=k, ampiezza=PROFONDITA, fonte=fonte)
 
 
+# --- restrizioni, domanda ripulita, parte vista ---
+
+
+def classe_restrizione(nominati: set[str], giusti: set[str], gemelli: set[str]) -> str:
+    """Giusto, giusto + gemello, giusto + altro o sbagliato; vuota se nessuna."""
+    if not nominati:
+        return ""
+    if not nominati & giusti:
+        return RISTRETTA_SBAGLIATO
+    altri = nominati - giusti
+    if not altri:
+        return RISTRETTA_GIUSTO
+    return RISTRETTA_GEMELLO if altri <= gemelli else RISTRETTA_ALTRO
+
+
+def domanda_ripulita(domanda: str, titolo: str) -> str:
+    """La domanda senza il tratto che nomina il bando, con la funzione di avvolgi."""
+    from src.recupero_documenti import parole_titolo, ripulisci_domanda
+
+    return ripulisci_domanda(domanda, parole_titolo(titolo))
+
+
+def car_visti(tokenizer, testo: str, limite: int) -> int:
+    """I caratteri del frammento che il modello vede con `limite` token ([CLS] e [SEP] compresi)."""
+    codifica = tokenizer(testo, return_offsets_mapping=True)
+    if len(codifica["input_ids"]) <= limite:
+        return len(testo)
+    return codifica["offset_mapping"][limite - 2][1]
+
+
+# --- copie di Chroma ---
+
+
+def prepara_copia(cartella: Path, limite: int | None, sorgente: Path) -> dict:
+    """Copia di Chroma nella cartella; con `limite`, vettori ricalcolati.
+
+    Si ricalcolano i vettori di tutti i frammenti (avvisi e documenti di
+    sempre) dal testo salvato, con lo stesso modello e il limite dato;
+    ids, testo e metadati restano. Il controllo: i frammenti che stanno
+    nel limite del modello devono avere lo stesso vettore di prima.
+    """
+    import shutil
+
+    copia = cartella / "chroma"
+    if copia.exists():
+        shutil.rmtree(copia)
+    cartella.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(sorgente, copia)
+    if not limite:
+        return {}
+
+    import chromadb
+    import numpy as np
+    from chromadb.config import Settings
+
+    from src.config import COLLECTION_NAME
+    from src.vectorstore import crea_embeddings
+
+    embeddings = crea_embeddings()
+    embeddings._client.max_seq_length = limite
+    tokenizer = embeddings._client.tokenizer
+    cliente = chromadb.PersistentClient(
+        path=str(copia), settings=Settings(anonymized_telemetry=False)
+    )
+    collezione = cliente.get_collection(COLLECTION_NAME)
+    dati = collezione.get(include=["documents", "embeddings"])
+    nuovi = embeddings.embed_documents(dati["documents"])
+    for i in range(0, len(dati["ids"]), 500):
+        collezione.update(ids=dati["ids"][i : i + 500], embeddings=nuovi[i : i + 500])
+    vecchi = np.asarray(dati["embeddings"])
+    coseni = np.sum(vecchi * np.asarray(nuovi), axis=1)
+    corti = np.array(
+        [len(tokenizer(d)["input_ids"]) <= LIMITE_MODELLO for d in dati["documents"]]
+    )
+    del cliente
+    return {
+        "frammenti": len(dati["ids"]),
+        "corti": int(corti.sum()),
+        "coseno_minimo_corti": float(coseni[corti].min()) if corti.any() else None,
+        "lunghi": int((~corti).sum()),
+        "coseno_medio_lunghi": float(coseni[~corti].mean()) if (~corti).any() else None,
+    }
+
+
 # --- numeri ---
 
 
@@ -752,82 +867,117 @@ def _quota(parte: int, tutto: int) -> str:
     return f"{parte}/{tutto}" + (f" ({100 * parte / tutto:.1f}%)" if tutto else "")
 
 
-def riepilogo_condizione(righe: list[dict], c: str) -> list[str]:
-    trovati = [r for r in righe if r[f"trovato_{c}"] == "sì"]
-    linee = [f"Condizione {c}: trovati {_quota(len(trovati), len(righe))}"]
-    gruppi_righe = [
-        ("registro semplice", lambda r: r["registro"] == "semplice"),
-        ("registro caso", lambda r: r["registro"] == "caso"),
-        ("tabella sì", lambda r: r["in_tabella"] == "sì"),
-        ("tabella no", lambda r: r["in_tabella"] != "sì"),
-        ("tutti i pezzi nella parte vista", lambda r: r["visti"] == "sì"),
-        ("non tutti nella parte vista", lambda r: r["visti"] != "sì"),
-        ("risposta in un pezzo", lambda r: int(r["pezzi"]) == 1),
-        ("risposta in più pezzi", lambda r: int(r["pezzi"]) > 1),
-    ]
-    for nome, scelta in gruppi_righe:
+GRUPPI_DEI_FATTI = [
+    ("registro semplice", lambda r: r["registro"] == "semplice"),
+    ("registro caso", lambda r: r["registro"] == "caso"),
+    ("tabella sì", lambda r: r["in_tabella"] == "sì"),
+    ("tabella no", lambda r: r["in_tabella"] != "sì"),
+    ("tutti i pezzi visti (128 token)", lambda r: r["visti"] == "sì"),
+    ("non tutti visti (128 token)", lambda r: r["visti"] != "sì"),
+    ("risposta in un pezzo", lambda r: int(r["pezzi"]) == 1),
+    ("risposta in più pezzi", lambda r: int(r["pezzi"]) > 1),
+]
+
+
+def numeri(righe: list[dict], c: str) -> list[tuple[str, str]]:
+    """Le misure di una condizione, come (etichetta, valore)."""
+    trovato = [r for r in righe if r[f"{c}_trovato"] == "sì"]
+    valori = [("trovati", _quota(len(trovato), len(righe)))]
+    for nome, scelta in GRUPPI_DEI_FATTI:
         sue = [r for r in righe if scelta(r)]
-        linee.append(
-            f"  {nome:<34} {_quota(sum(r[f'trovato_{c}'] == 'sì' for r in sue), len(sue))}"
+        valori.append(
+            (nome, _quota(sum(r[f"{c}_trovato"] == "sì" for r in sue), len(sue)))
         )
-    primi = [int(r[f"primo_giusto_{c}"]) for r in righe if r[f"primo_giusto_{c}"]]
+    primi = [int(r[f"{c}_primo_giusto"]) for r in righe if r[f"{c}_primo_giusto"]]
+    valori += [
+        ("primo giusto al 1° posto", str(sum(p == 1 for p in primi))),
+        ("primo giusto tra i primi 3", str(sum(p <= 3 for p in primi))),
+        ("primo giusto tra i primi 5", str(sum(p <= 5 for p in primi))),
+        ("primo giusto tra i primi 10", str(len(primi))),
+        ("nessun giusto tra i primi 10", str(len(righe) - len(primi))),
+        (
+            "gemello tra i primi 10, giusto assente",
+            str(sum(r[f"{c}_gemello_senza_giusto"] == "sì" for r in righe)),
+        ),
+        (
+            "pezzo preso dal gemello",
+            str(sum(r[f"{c}_pezzo_dal_gemello"] == "sì" for r in righe)),
+        ),
+    ]
+    return valori
+
+
+def tabella_affiancata(colonne: list[tuple[str, list[dict], str]]) -> list[str]:
+    """Le misure di più (titolo, righe, condizione) una accanto all'altra."""
+    tabelle = [numeri(righe, c) for _, righe, c in colonne]
+    larghezza = max(len(e) for e, _ in tabelle[0]) + 2
+    linee = [" " * larghezza + "".join(f"{t:>20}" for t, _, _ in colonne)]
+    for i, (etichetta, _) in enumerate(tabelle[0]):
+        linee.append(
+            f"{etichetta:<{larghezza}}" + "".join(f"{t[i][1]:>20}" for t in tabelle)
+        )
+    return linee
+
+
+def righe_restrizioni(righe: list[dict]) -> list[str]:
+    ristrette = [r for r in righe if r["ristretta_A"]]
+    classi = Counter(r["classe_ristretta_A"] for r in ristrette)
+    linee = [
+        f"avvolgi ha ristretto la ricerca {len(ristrette)} volte: "
+        + ", ".join(f"{k} {v}" for k, v in sorted(classi.items()))
+    ]
+    linee += [
+        f"  riga {r['riga']}: {r['classe_ristretta_A']} ({r['ristretta_A']})"
+        for r in ristrette
+    ]
+    sempre = [int(r["di_sempre_A"]) for r in righe]
     linee.append(
-        "  primo frammento giusto: al 1° posto "
-        f"{sum(p == 1 for p in primi)}, tra i primi 3 {sum(p <= 3 for p in primi)}, "
-        f"tra i primi 5 {sum(p <= 5 for p in primi)}, tra i primi 10 {len(primi)}, "
-        f"nessuno tra i primi 10 {len(righe) - len(primi)}"
-    )
-    linee.append(
-        "  gemello tra i primi 10 e nessun frammento giusto: "
-        f"{sum(r[f'gemello_senza_giusto_{c}'] == 'sì' for r in righe)}; "
-        "pezzo preso dal gemello prima che dal giusto: "
-        f"{sum(r[f'pezzo_dal_gemello_{c}'] == 'sì' for r in righe)}"
+        f"frammenti dai documenti di sempre tra i primi 10 (A): {sum(sempre)} su "
+        f"{K * len(righe)}; fatti con almeno uno: {sum(s > 0 for s in sempre)}"
     )
     return linee
+
+
+def righe_gemelle(righe: list[dict], c: str) -> list[str]:
+    gemelle = [r for r in righe if r["gemello"] == "sì" or int(r["riga"]) == 23]
+    return [
+        f"  riga {r['riga']} ({r['id_bando']}): trovato {r[f'{c}_trovato']}, "
+        f"posizioni {r[f'{c}_posizioni_pezzi']}, preso dal gemello "
+        f"{r[f'{c}_pezzo_dal_gemello']}"
+        for r in gemelle
+    ]
 
 
 def rapporto_misura(righe: list[dict], intestazione: list[str]) -> list[str]:
     linee = [*intestazione, ""]
-    linee += riepilogo_condizione(righe, "A")
-    ristrette = [r for r in righe if r["ristretta_A"]]
-    sempre = [int(r["di_sempre_A"]) for r in righe]
-    linee += [
-        (
-            f"  avvolgi ha ristretto la ricerca: {len(ristrette)} volte, al documento "
-            f"giusto {sum(r['ristretta_giusta_A'] == 'sì' for r in ristrette)}"
-        ),
-        *(
-            f"    riga {r['riga']}: {r['ristretta_A']} "
-            f"({'giusto' if r['ristretta_giusta_A'] == 'sì' else 'sbagliato'})"
-            for r in ristrette
-        ),
-        (
-            f"  frammenti dai documenti di sempre tra i primi 10: {sum(sempre)} su "
-            f"{10 * len(righe)}; fatti con almeno uno: {sum(s > 0 for s in sempre)}"
-        ),
-        "",
-    ]
-    linee += riepilogo_condizione(righe, "B")
-    gemelle = [r for r in righe if r["gemello"] == "sì" or r["riga"] in GRUPPI_FISSI[0]]
-    linee.append("  frasi gemelle e gruppo della riga 23:")
-    for r in gemelle:
-        linee.append(
-            f"    riga {r['riga']} ({r['id_bando']}): trovato {r['trovato_B']}, "
-            f"posizioni {r['posizioni_pezzi_B']}, preso dal gemello "
-            f"{r['pezzo_dal_gemello_B']}"
-        )
-    for c in ("A", "B"):
-        mancati = [r for r in righe if r[f"trovato_{c}"] != "sì"]
+    linee += tabella_affiancata([(c, righe, c) for c in CONDIZIONI_MISURA])
+    linee += ["", *righe_restrizioni(righe), ""]
+    for c in ("Bi", "B"):
+        linee += [f"Frasi gemelle e riga 23, condizione {c}:", *righe_gemelle(righe, c)]
+    linee += ["", "Domande cambiate dalla pulizia di B:"]
+    linee += [f"  riga {r['riga']}: {r['domanda_B']}" for r in righe if r["domanda_B"]]
+    for c in CONDIZIONI_MISURA:
+        mancati = [r for r in righe if r[f"{c}_trovato"] != "sì"]
         linee += ["", f"Non trovati in {c}: {len(mancati)}"]
-        for r in mancati:
-            linee.append(f"  riga {r['riga']} ({r['id_bando']}): {r[f'cause_{c}']}")
+        linee += [
+            f"  riga {r['riga']} ({r['id_bando']}): {r[f'{c}_cause']}" for r in mancati
+        ]
     return linee
 
 
-def riga_misura(fatto: dict, giusti, a: dict, b: dict, nominati, di_sempre) -> dict:
-    def testo_posizioni(pos):
-        return " || ".join("-" if p is None else str(p) for p in pos)
+def _posizioni(pos) -> str:
+    return " || ".join("-" if p is None else str(p) for p in pos)
 
+
+def riga_misura(
+    fatto: dict,
+    giusti: set[str],
+    gemelli: set[str],
+    esiti: dict[str, dict],
+    nominati: set[str],
+    di_sempre: int,
+    domanda_b: str,
+) -> dict:
     def sì_no(valore):
         return "sì" if valore else "no"
 
@@ -840,26 +990,106 @@ def riga_misura(fatto: dict, giusti, a: dict, b: dict, nominati, di_sempre) -> d
         "visti": fatto["visti"],
         "gemello": fatto["gemello"],
         "documenti_giusti": " | ".join(sorted(giusti)),
+        "domanda_B": domanda_b,
         "ristretta_A": " | ".join(sorted(nominati)),
-        "ristretta_giusta_A": sì_no(nominati & giusti) if nominati else "",
+        "classe_ristretta_A": classe_restrizione(nominati, giusti, gemelli),
         "di_sempre_A": di_sempre,
     }
-    for c, esito in (("A", a), ("B", b)):
+    for c, esito in esiti.items():
         riga.update(
             {
-                f"trovato_{c}": sì_no(esito["trovato"]),
-                f"primo_giusto_{c}": esito["primo_giusto"] or "",
-                f"posizioni_pezzi_{c}": testo_posizioni(esito["posizioni_pezzi"]),
-                f"cause_{c}": " / ".join(esito["cause"]),
-                f"gemello_senza_giusto_{c}": sì_no(esito["gemello_senza_giusto"]),
-                f"pezzo_dal_gemello_{c}": sì_no(esito["pezzo_dal_gemello"]),
+                f"{c}_trovato": sì_no(esito["trovato"]),
+                f"{c}_primo_giusto": esito["primo_giusto"] or "",
+                f"{c}_posizioni_pezzi": _posizioni(esito["posizioni_pezzi"]),
+                f"{c}_posizioni_profonde": _posizioni(esito["posizioni_profonde"]),
+                f"{c}_cause": " / ".join(esito["cause"]),
+                f"{c}_gemello_senza_giusto": sì_no(esito["gemello_senza_giusto"]),
+                f"{c}_pezzo_dal_gemello": sì_no(esito["pezzo_dal_gemello"]),
             }
         )
     return riga
 
 
-def esegui_misura(foglio: Path, divisione: Path, lato: str, cartella: Path) -> int:
-    import shutil
+# --- confronto tra varianti ---
+
+
+def cambi_di_esito(
+    base: list[dict], variante: list[dict], c: str
+) -> tuple[list[str], list[str]]:
+    """(guadagnati, persi) passando dalla base alla variante, come numeri di riga."""
+    prima = {r["riga"]: r[f"{c}_trovato"] == "sì" for r in base}
+    dopo = {r["riga"]: r[f"{c}_trovato"] == "sì" for r in variante}
+    if set(prima) != set(dopo):
+        raise ErroreMisura("le due misure non hanno gli stessi fatti")
+    ordine = sorted(prima, key=int)
+    return (
+        [r for r in ordine if dopo[r] and not prima[r]],
+        [r for r in ordine if prima[r] and not dopo[r]],
+    )
+
+
+def pezzi_affiancati(
+    misure: list[tuple[str, list[dict]]], condizioni: tuple[str, ...] = ("A", "B")
+) -> list[str]:
+    """Per le risposte in più pezzi: posizione di ogni pezzo, nei primi 10 e profonda."""
+
+    def cella(r: dict, c: str, i: int) -> str:
+        primi = r[f"{c}_posizioni_pezzi"].split(" || ")[i]
+        profonda = r[f"{c}_posizioni_profonde"].split(" || ")[i]
+        return f"{primi} ({'>' + str(PROFONDITA) if profonda == '-' else profonda})"
+
+    titoli = [f"{n} {c}" for n, _ in misure for c in condizioni]
+    linee = [f"{'riga':<6}{'pezzo':<7}" + "".join(f"{t:>12}" for t in titoli)]
+    per_riga = [{r["riga"]: r for r in righe} for _, righe in misure]
+    for numero in sorted(per_riga[0], key=int):
+        prima = per_riga[0][numero]
+        for i in range(int(prima["pezzi"])):
+            if int(prima["pezzi"]) < 2:
+                break
+            celle = [
+                cella(righe[numero], c, i) for righe in per_riga for c in condizioni
+            ]
+            linee.append(f"{numero:<6}{i + 1:<7}" + "".join(f"{x:>12}" for x in celle))
+    return linee
+
+
+def leggi_misura(percorso: Path) -> list[dict]:
+    with percorso.open(encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def rapporto_confronto(base: list[dict], variante: list[dict], nome: str) -> list[str]:
+    colonne = [
+        ("v0 A", base, "A"),
+        ("v0 B intera", base, "Bi"),
+        ("v0 B ripulita", base, "B"),
+        (f"{nome} A", variante, "A"),
+        (f"{nome} B ripulita", variante, "B"),
+    ]
+    linee = [f"Confronto v0 e {nome}, metà di taratura", ""]
+    linee += tabella_affiancata(colonne)
+    for c in ("A", "B"):
+        guadagnati, persi = cambi_di_esito(base, variante, c)
+        linee += [
+            "",
+            (
+                f"Condizione {c}, da v0 a {nome}: guadagnati {len(guadagnati)} "
+                f"({', '.join(guadagnati) or '-'}); persi {len(persi)} "
+                f"({', '.join(persi) or '-'})"
+            ),
+        ]
+    linee += [
+        "",
+        "Risposte in più pezzi: posizione del frammento giusto per pezzo, nei",
+        f"primi 10 ('-' se assente) e tra parentesi con ampiezza {PROFONDITA}:",
+        *pezzi_affiancati([("v0", base), (nome, variante)]),
+    ]
+    return linee
+
+
+def esegui_misura(
+    foglio: Path, divisione: Path, lato: str, variante: str, cartella: Path
+) -> int:
     import time
 
     from scripts.ingestione.carica_avvisi import (
@@ -871,6 +1101,7 @@ def esegui_misura(foglio: Path, divisione: Path, lato: str, cartella: Path) -> i
     from src.config import CHROMA_DIR, PROCESSED_DIR
 
     senza_rete()
+    limite = VARIANTI[variante]
     firma = verifica_impronta(divisione)
     fatti = fatti_della_meta(leggi_foglio(foglio), righe_della_meta(divisione, lato))
     file_per_bando: dict[str, list[dict]] = defaultdict(list)
@@ -878,30 +1109,37 @@ def esegui_misura(foglio: Path, divisione: Path, lato: str, cartella: Path) -> i
         file_per_bando[r["id_bandi"]].append(r)
 
     tempi = {}
-    inizio = time.perf_counter()
     prima = impronte_cartella(CHROMA_DIR)
-    copia = cartella / "chroma"
-    if copia.exists():
-        shutil.rmtree(copia)
-    cartella.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(CHROMA_DIR, copia)
-    tempi["copia di Chroma"] = time.perf_counter() - inizio
-
     with senza_connessioni():
+        inizio = time.perf_counter()
+        ricalcolo = prepara_copia(cartella, limite, CHROMA_DIR)
+        tempi["copia di Chroma" + (" e vettori ricalcolati" if limite else "")] = (
+            time.perf_counter() - inizio
+        )
+        dopo = impronte_cartella(CHROMA_DIR)
+        if dopo != prima:
+            raise ErroreMisura("le impronte del Chroma vero sono cambiate")
+
         from src.chains.rag import recupera
         from src.recupero_documenti import avvolgi, documenti_nominati
         from src.retrieval import normalizza_domanda
 
         inizio = time.perf_counter()
-        recupero = apri_recupero(copia)
+        recupero = apri_recupero(cartella / "chroma", limite)
         app = avvolgi(recupero)
         profondo = avvolgi(Profondo(recupero))
         tempi["apertura del recupero (modello e BM25)"] = time.perf_counter() - inizio
 
+        tokenizer = recupero.store.embeddings._client.tokenizer
+        titolo_del_bando = {}
         frammenti_per_fonte: dict[str, list[Frammento]] = defaultdict(list)
         for d in recupero.documenti:
             fonte, fr = frammento_di(d)
+            if limite:
+                fr.car_visti = car_visti(tokenizer, fr.testo, limite)
             frammenti_per_fonte[fonte].append(fr)
+            if d.metadata.get("id_bando"):
+                titolo_del_bando[d.metadata["id_bando"]] = d.metadata["titolo"]
         for lista in frammenti_per_fonte.values():
             lista.sort(key=lambda fr: fr.chunk_num)
 
@@ -910,50 +1148,93 @@ def esegui_misura(foglio: Path, divisione: Path, lato: str, cartella: Path) -> i
         for fatto in fatti:
             giusti, gemelli = documenti_del_fatto(fatto, file_per_bando)
             domanda = normalizza_domanda(str(fatto["domanda"]))
+            ripulita = domanda_ripulita(domanda, titolo_del_bando[fatto["id_bando"]])
             risultati_a = recupera(app, fatto["domanda"], k=K)
-            primi_a = [frammento_di(d) for d, _, _ in risultati_a]
-            profondi_a = [
-                frammento_di(d)
-                for d, _, _ in recupera(profondo, fatto["domanda"], k=PROFONDITA)
-            ]
-            primi_b = [
-                frammento_di(d)
-                for d, _, _ in recupero.cerca_nel_bando(domanda, fatto["id_bando"], K)
-            ]
-            profondi_b = [
-                frammento_di(d)
-                for d, _, _ in recupero.cerca_nel_bando(
-                    domanda, fatto["id_bando"], PROFONDITA, ampiezza=PROFONDITA
+            elenchi = {
+                "A": (
+                    risultati_a,
+                    recupera(profondo, fatto["domanda"], k=PROFONDITA),
+                ),
+            }
+            for c, testo in (("Bi", domanda), ("B", ripulita)):
+                elenchi[c] = (
+                    recupero.cerca_nel_bando(testo, fatto["id_bando"], K),
+                    recupero.cerca_nel_bando(
+                        testo, fatto["id_bando"], PROFONDITA, ampiezza=PROFONDITA
+                    ),
                 )
-            ]
-            argomenti = (giusti, gemelli, frammenti_per_fonte)
-            esito_a = valuta(fatto, primi_a, profondi_a, *argomenti)
-            esito_b = valuta(fatto, primi_b, profondi_b, *argomenti)
+            esiti = {
+                c: valuta(
+                    fatto,
+                    [frammento_di(d) for d, _, _ in primi],
+                    [frammento_di(d) for d, _, _ in profondi],
+                    giusti,
+                    gemelli,
+                    frammenti_per_fonte,
+                )
+                for c, (primi, profondi) in elenchi.items()
+            }
             nominati = set(documenti_nominati(domanda, app.titoli))
             di_sempre = sum(not d.metadata.get("sha256") for d, _, _ in risultati_a)
             righe.append(
-                riga_misura(fatto, giusti, esito_a, esito_b, nominati, di_sempre)
+                riga_misura(
+                    fatto,
+                    giusti,
+                    gemelli,
+                    esiti,
+                    nominati,
+                    di_sempre,
+                    ripulita if ripulita != domanda else "",
+                )
             )
-        tempi[f"ricerche ({len(fatti)} fatti, 4 per fatto)"] = (
+        tempi[f"ricerche ({len(fatti)} fatti, 6 per fatto)"] = (
             time.perf_counter() - inizio
         )
         del recupero, app, profondo
 
     dopo = impronte_cartella(CHROMA_DIR)
     if dopo != prima:
-        raise ErroreMisura(
-            "le impronte del Chroma vero sono cambiate durante la misura"
-        )
+        raise ErroreMisura("le impronte del Chroma vero sono cambiate")
 
     intestazione = [
-        f"Passo 19d, misura di partenza (v0), metà: {lato}",
+        f"Passo 19d, misura {variante}, metà: {lato}",
         f"Divisione: {divisione.name} (sha256 {firma})",
         (
+            f"Limite di token del modello di embedding: {limite or LIMITE_MODELLO}"
+            + (
+                f"; vettori ricalcolati per {ricalcolo['frammenti']} frammenti "
+                f"(controllo: {ricalcolo['corti']} frammenti entro "
+                f"{LIMITE_MODELLO} token, coseno minimo con il vettore di prima "
+                f"{ricalcolo['coseno_minimo_corti']:.6f}; {ricalcolo['lunghi']} "
+                f"oltre, coseno medio {ricalcolo['coseno_medio_lunghi']:.4f})"
+                if limite
+                else ""
+            )
+        ),
+        (
             f"k={K}; A: recupera(avvolgi(RecuperoIbrido)), ampiezza {AMPIEZZA_APP}; "
-            f"B: RecuperoMisura.cerca_nel_bando, ampiezza {AMPIEZZA_APP}; "
+            f"Bi e B: RecuperoMisura.cerca_nel_bando, ampiezza {AMPIEZZA_APP}; "
             f"posizioni oltre i primi {K} con ampiezza {PROFONDITA}"
         ),
-        f"Chroma vero: {len(prima)} file, impronte uguali prima e dopo; copia in {copia}",
+        (
+            "B: la definizione è cambiata dopo la prima misura di taratura "
+            "(20/11/2026). Bi è la definizione della prima misura (domanda "
+            "intera); B usa la domanda ripulita con ripulisci_domanda e le "
+            "parole del titolo del bando del fatto."
+        ),
+        (
+            "Parte vista per le cause: "
+            + (
+                f"ricalcolata con {limite} token"
+                if limite
+                else f"car_visti dei metadati ({LIMITE_MODELLO} token)"
+            )
+            + f"; i gruppi 'visti' sono quelli della divisione ({LIMITE_MODELLO} token)"
+        ),
+        (
+            f"Chroma vero: {len(prima)} file, impronte uguali prima e dopo; "
+            f"copia in {cartella / 'chroma'}"
+        ),
         (
             "Variabili senza rete: "
             + ", ".join(f"{n}={v}" for n, v in SENZA_RETE.items())
@@ -961,13 +1242,29 @@ def esegui_misura(foglio: Path, divisione: Path, lato: str, cartella: Path) -> i
         ),
         "Tempi: " + "; ".join(f"{n} {s:.1f} s" for n, s in tempi.items()),
     ]
-    testo = "\n".join(rapporto_misura(righe, intestazione)) + "\n"
     with (cartella / f"misura_{lato}.csv").open("w", encoding="utf-8", newline="") as f:
         scrittore = csv.DictWriter(f, fieldnames=COLONNE_MISURA, lineterminator="\n")
         scrittore.writeheader()
         scrittore.writerows(righe)
-    (cartella / f"rapporto_{lato}.txt").write_text(testo, encoding="utf-8")
+    testo = "\n".join(
+        rapporto_misura(leggi_misura(cartella / f"misura_{lato}.csv"), intestazione)
+    )
+    (cartella / f"rapporto_{lato}.txt").write_text(testo + "\n", encoding="utf-8")
     print(testo)
+
+    base = CARTELLA_19D / "v0" / f"misura_{lato}.csv"
+    if variante != "v0" and base.exists():
+        confronto = "\n".join(
+            rapporto_confronto(
+                leggi_misura(base),
+                leggi_misura(cartella / f"misura_{lato}.csv"),
+                variante,
+            )
+        )
+        (cartella / f"confronto_{lato}.txt").write_text(
+            confronto + "\n", encoding="utf-8"
+        )
+        print("\n" + confronto)
     return 0
 
 
@@ -987,7 +1284,10 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--csv-controllo", type=Path, default=CONTROLLO_CSV)
     parser.add_argument("--uscita", type=Path, default=DIVISIONE)
     parser.add_argument("--divisione", type=Path, default=DIVISIONE)
-    parser.add_argument("--cartella", type=Path, default=V0)
+    parser.add_argument("--variante", choices=sorted(VARIANTI), default="v0")
+    parser.add_argument(
+        "--cartella", type=Path, help="predefinita: dati-grezzi/prova/19d/<variante>"
+    )
     return parser.parse_args(argv)
 
 
@@ -1039,8 +1339,9 @@ def main(argv: list[str] | None = None) -> int:
                 argomenti.foglio, argomenti.csv_controllo, argomenti.uscita
             )
         lato = CONTROLLO if argomenti.controllo else TARATURA
+        cartella = argomenti.cartella or CARTELLA_19D / argomenti.variante
         return esegui_misura(
-            argomenti.foglio, argomenti.divisione, lato, argomenti.cartella
+            argomenti.foglio, argomenti.divisione, lato, argomenti.variante, cartella
         )
     except (ErroreDivisione, ErroreMisura) as errore:
         print(f"Errore: {errore}", file=sys.stderr)

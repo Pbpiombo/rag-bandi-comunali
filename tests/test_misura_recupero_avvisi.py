@@ -428,3 +428,91 @@ def test_cause_per_pezzo_in_una_risposta_in_piu_pezzi():
     primi = [("giusto.pdf", fr(0, "Il contributo è di 40.000 euro."))]
     esito = valuta(f, primi, primi, per_fonte=per_fonte)
     assert esito["cause"] == [f"pezzo 2: {mr.ASSENTE_FRAMMENTI}"]
+
+
+def test_posizioni_profonde_per_pezzo():
+    f = fatto(2, "alfa", "Il contributo è di 40.000 euro [...] entro il 30 giugno")
+    primi = [("giusto.pdf", fr(0, "Il contributo è di 40.000 euro."))]
+    profondi = [
+        *primi,
+        ("altro.pdf", fr(1, "x")),
+        ("giusto.pdf", fr(5, "entro il 30 giugno")),
+    ]
+    esito = valuta(f, primi, profondi)
+    assert esito["posizioni_pezzi"] == [1, None]
+    assert esito["posizioni_profonde"] == [1, 3]
+
+
+# --- tempo 3: restrizioni, domanda ripulita, parte vista, confronto ---
+
+
+def test_classe_della_restrizione():
+    giusti, gemelli = {"a.pdf", "a-proroga.pdf"}, {"b.pdf"}
+    assert mr.classe_restrizione(set(), giusti, gemelli) == ""
+    assert mr.classe_restrizione({"a.pdf"}, giusti, gemelli) == mr.RISTRETTA_GIUSTO
+    assert (
+        mr.classe_restrizione({"a.pdf", "b.pdf"}, giusti, gemelli)
+        == mr.RISTRETTA_GEMELLO
+    )
+    assert (
+        mr.classe_restrizione({"a.pdf", "c.pdf"}, giusti, gemelli) == mr.RISTRETTA_ALTRO
+    )
+    assert mr.classe_restrizione({"b.pdf"}, giusti, gemelli) == mr.RISTRETTA_SBAGLIATO
+
+
+def test_domanda_ripulita_come_l_app():
+    titolo = "Bando parcheggi 2026"
+    # il tratto che nomina il bando si toglie; la virgola orfana resta, come nell'app
+    assert (
+        mr.domanda_ripulita("Col bando parcheggi, chi paga gli interessi?", titolo)
+        == "Col , chi paga gli interessi?"
+    )
+    # senza un tratto che nomina il bando la domanda resta intera
+    domanda = "Quali parcheggi si possono finanziare?"
+    assert mr.domanda_ripulita(domanda, titolo) == domanda
+
+
+class TokenizerFinto:
+    """Un token per parola, più [CLS] e [SEP]; offset sul testo vero."""
+
+    def __call__(self, testo, return_offsets_mapping=False):
+        import re
+
+        parole = [(m.start(), m.end()) for m in re.finditer(r"\S+", testo)]
+        return {
+            "input_ids": [0] * (len(parole) + 2),
+            "offset_mapping": [(0, 0), *parole, (0, 0)],
+        }
+
+
+def test_car_visti_con_il_limite():
+    testo = "uno due tre quattro cinque"
+    assert mr.car_visti(TokenizerFinto(), testo, 10) == len(testo)
+    # limite 4: [CLS], due parole, [SEP]
+    assert mr.car_visti(TokenizerFinto(), testo, 4) == len("uno due")
+
+
+def test_cambi_di_esito_tra_varianti():
+    base = [
+        {"riga": "2", "A_trovato": "sì"},
+        {"riga": "3", "A_trovato": "no"},
+        {"riga": "10", "A_trovato": "no"},
+    ]
+    variante = [
+        {"riga": "2", "A_trovato": "no"},
+        {"riga": "3", "A_trovato": "sì"},
+        {"riga": "10", "A_trovato": "sì"},
+    ]
+    assert mr.cambi_di_esito(base, variante, "A") == (["3", "10"], ["2"])
+    with pytest.raises(mr.ErroreMisura):
+        mr.cambi_di_esito(base, variante[:2], "A")
+
+
+def test_copia_senza_limite_non_tocca_la_sorgente(tmp_path):
+    sorgente = tmp_path / "chroma_vero"
+    sorgente.mkdir()
+    (sorgente / "chroma.sqlite3").write_bytes(b"dati")
+    prima = mr.impronte_cartella(sorgente)
+    assert mr.prepara_copia(tmp_path / "v0", None, sorgente) == {}
+    assert mr.impronte_cartella(tmp_path / "v0" / "chroma") == prima
+    assert mr.impronte_cartella(sorgente) == prima
