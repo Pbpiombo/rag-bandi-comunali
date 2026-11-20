@@ -22,7 +22,8 @@ la tabella. La colonna decisione resta vuota.
 di oggi. Quello che e' gia' nella cartella non si richiede di nuovo.
 --senza-robots HOST: permette di procedere per un host il cui robots.txt
 non si legge; la scelta va nel registro delle richieste. Ripetibile.
---bando ID: solo questo bando di PRIMA_PROVA. Ripetibile.
+--bando ID: solo questo bando di PRIMA_PROVA o di BANDI_AGGIUNTI.
+Ripetibile. I BANDI_AGGIUNTI si leggono solo se nominati con --bando.
 --senza-rete: solo per --file; nessuna richiesta: si usano i file gia'
 nella cartella e gli altri restano "non tentato (senza rete)". Serve a
 ricomporre elenco.csv dopo una modifica delle regole.
@@ -80,6 +81,13 @@ PRIMA_PROVA = (
     "incentivi-8659",
     "sostegno-a-progetti-di-promozione-ed-educazione-music-e81761",
 )
+
+# Bandi aggiunti dopo la prima prova, uno per volta: si scelgono solo con
+# --bando, e senza --bando la prova resta quella dei 12. Il fondo
+# rievocazioni (compito 19c-4, 20/11/2026) ha la pagina già letta il
+# 19/11/2026 (dati-grezzi/manuali/2026-11-19/), da copiare nella cartella
+# del giorno prima di --pagine.
+BANDI_AGGIUNTI = ("fondo-rievocazione-storica-2027",)
 
 FUSO = ZoneInfo("Europe/Rome")
 
@@ -561,6 +569,11 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def ids_della_prova(scelti: list[str]) -> tuple[str, ...]:
+    """I 12 della prima prova, più i BANDI_AGGIUNTI nominati con --bando."""
+    return PRIMA_PROVA + tuple(i for i in BANDI_AGGIUNTI if i in scelti)
+
+
 def scegli_bandi(
     bandi: list[tuple[str, str]], scelti: list[str]
 ) -> list[tuple[str, str]]:
@@ -589,7 +602,10 @@ def main(
             return 1
         lettore.senza_rete = True
     try:
-        bandi = scegli_bandi(bandi or bandi_della_prova(), argomenti.bando)
+        bandi = scegli_bandi(
+            bandi or bandi_della_prova(ids=ids_della_prova(argomenti.bando)),
+            argomenti.bando,
+        )
         print(f"Cartella: {cartella}")
         if argomenti.robots:
             return 0 if fase_robots(lettore, bandi) else 1

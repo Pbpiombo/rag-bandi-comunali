@@ -13,7 +13,12 @@ e carica nell'archivio locale dei documenti (Chroma) solo i file con uso
 Per ogni file:
 1. il file si cerca in dati-grezzi/avvisi/<scaricato_il>/ e la sua
    impronta deve essere quella del registro;
-2. pulizia del compito 19c-1 (src/ingestion/avvisi.py): righe ripetute,
+2. premesse: se il testo ha una riga con la sola parola DECRETA
+   (maiuscola, sola sulla riga, ammessi spazi tra le lettere), il testo
+   che la precede e la riga stessa non si caricano; vale la prima
+   occorrenza (decisione del 20/11/2026, decreto del fondo rievocazioni:
+   le premesse citano dotazioni e annualità di altri anni);
+2b. pulizia del compito 19c-1 (src/ingestion/avvisi.py): righe ripetute,
    contatti di persone, parole spezzate a fine riga;
 3. divisione di sempre (src/ingestion/testo.spezza: 1500 caratteri, 250
    di sovrapposizione), con la ricucitura "prudente" dei numeri;
@@ -240,6 +245,40 @@ def misura_token(tokenizer, testo: str) -> tuple[int, int]:
 # --- un file ---
 
 
+# --- premesse ---
+
+RIGA_DECRETA = re.compile(
+    r"^[ \t]*D[ \t]*E[ \t]*C[ \t]*R[ \t]*E[ \t]*T[ \t]*A[ \t]*$", re.M
+)
+
+
+@dataclass(frozen=True)
+class Premesse:
+    """Dove finiscono le premesse tolte: la pagina della riga DECRETA (da 1)
+    e i caratteri tolti, riga compresa."""
+
+    pagina: int
+    caratteri: int
+
+
+def togli_premesse(pagine: list[str]) -> tuple[list[str], Premesse | None]:
+    """Le pagine senza il testo che precede la prima riga DECRETA, né la riga.
+
+    Le pagine prima restano, vuote, così i numeri di pagina non cambiano.
+    Senza la riga, le pagine tornano uguali (in una lista nuova).
+    """
+    tolti = 0
+    for indice, testo in enumerate(pagine):
+        m = RIGA_DECRETA.search(testo)
+        if m is None:
+            tolti += len(testo)
+            continue
+        fine = m.end() + (1 if testo[m.end() : m.end() + 1] == "\n" else 0)
+        tenute = [""] * indice + [testo[fine:], *pagine[indice + 1 :]]
+        return tenute, Premesse(indice + 1, tolti + fine)
+    return list(pagine), None
+
+
 @dataclass
 class EsitoFile:
     """I frammenti di un file e quello che il rapporto ne dice."""
@@ -255,6 +294,7 @@ class EsitoFile:
     numeri_mancanti: list[tuple[int, int, str]] = field(default_factory=list)
     # (frammento, pagina, numero, testo del PDF)
     ricuciti_barra: list[tuple[int, int, str, str]] = field(default_factory=list)
+    premesse: Premesse | None = None
 
 
 def pagine_del_pdf(percorso: Path) -> list[str]:
@@ -285,7 +325,8 @@ def frammenti_del_file(
     if not pagine_grezze:
         raise ErroreCaricamento(f"{riga['nome_file']}: nessuna pagina")
     scheda = bando(conn, riga["id_bandi"])
-    pulizia = pulisci_avviso(pagine_grezze, scheda["titolo"])
+    senza_premesse, premesse = togli_premesse(pagine_grezze)
+    pulizia = pulisci_avviso(senza_premesse, scheda["titolo"])
     pagine = [
         Document(page_content=testo, metadata={"page": numero})
         for numero, testo in enumerate(pulizia.pagine, start=1)
@@ -321,14 +362,20 @@ def frammenti_del_file(
         )
         frammenti.append(pezzo)
 
+    # le pagine prima della riga DECRETA sono saltate come premesse
+    inizio = premesse.pagina if premesse else 1
+    saltate = [(n, "premesse") for n in range(1, inizio)] + [
+        (n, motivo) for n, motivo in pagine_saltate(pulizia.pagine) if n >= inizio
+    ]
     return EsitoFile(
         riga=riga,
         frammenti=frammenti,
         pagine_lette=len(pagine_grezze),
-        saltate=pagine_saltate(pulizia.pagine),
+        saltate=saltate,
         contatti=pulizia.contatti,
         righe_tolte=len(pulizia.righe_tolte),
         parole_ricucite=pulizia.parole_ricucite,
+        premesse=premesse,
         numeri_mancanti=mancanti,
         ricuciti_barra=barra,
     )
@@ -408,9 +455,16 @@ def rapporto_file(esito: EsitoFile) -> list[str]:
         f"{esito.parole_ricucite}; numeri non trovati {len(esito.numeri_mancanti)}; "
         f"ricuciti alla barra {len(esito.ricuciti_barra)}"
     )
+    premesse = (
+        f"   premesse tolte fino alla riga DECRETA di pagina {esito.premesse.pagina}: "
+        f"{esito.premesse.caratteri} caratteri"
+        if esito.premesse
+        else "   premesse: nessuna riga DECRETA"
+    )
     return [
         f"## {esito.riga['nome_file']}  ({esito.riga['id_bandi']})",
         f"   pagine lette {esito.pagine_lette}; saltate: {saltate}",
+        premesse,
         frammenti,
         pulizia,
     ]
@@ -460,7 +514,26 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
         help="toglie gli avvisi dei bandi scaduti da più di --giorni giorni",
     )
     parser.add_argument("--giorni", type=int, default=365)
+    parser.add_argument(
+        "--solo",
+        action="append",
+        default=[],
+        metavar="SHA256_O_NOME_FILE",
+        help="solo questo file del registro (sha256 o nome_file); ripetibile",
+    )
     return parser.parse_args(argv)
+
+
+def scegli_righe(righe: list[dict], solo: list[str]) -> list[dict]:
+    """Le righe del registro indicate con --solo; tutte se nessuna."""
+    if not solo:
+        return righe
+    estranei = [
+        s for s in solo if not any(s in (r["sha256"], r["nome_file"]) for r in righe)
+    ]
+    if estranei:
+        raise ErroreCaricamento("file non nel registro: " + ", ".join(estranei))
+    return [r for r in righe if r["sha256"] in solo or r["nome_file"] in solo]
 
 
 def apri_tokenizer():
@@ -478,7 +551,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Divisione: {CHUNK_SIZE} caratteri, {CHUNK_OVERLAP} di sovrapposizione")
     conn = connetti()
     try:
-        righe = leggi_registro(PROCESSED_DIR / NOME_FILE)
+        righe = scegli_righe(leggi_registro(PROCESSED_DIR / NOME_FILE), argomenti.solo)
         tokenizer = apri_tokenizer()
         esiti = []
         for riga in righe:

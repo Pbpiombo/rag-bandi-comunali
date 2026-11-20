@@ -1,10 +1,12 @@
 """Registro dei PDF degli avvisi scaricati (passo 19, compito 19c-2).
 
 Uso:
-    python -u -m scripts.ingestione.registra_avvisi --data 2026-11-19
+    python -u -m scripts.ingestione.registra_avvisi --data 2026-11-19 [--data 2026-11-20]
     python -u -m scripts.ingestione.registra_avvisi --data 2026-11-19 --controlla
 
-Legge elenco.csv e richieste.csv di dati-grezzi/avvisi/<data>/ e scrive
+Legge elenco.csv e richieste.csv di dati-grezzi/avvisi/<data>/, per ogni
+--data (ripetibile: il registro è uno solo, fatto da tutte le cartelle
+indicate; una cartella non indicata non entra), e scrive
 data/processed/documenti_bandi.csv: una riga per impronta (sha256) di
 file scaricato. Nessuna richiesta di rete: si leggono solo i file su
 disco. --controlla confronta con il file esistente senza scrivere.
@@ -65,7 +67,9 @@ from scripts.ingestione.elenco_pdf_bandi import (
     AVVISO_IN_PIU_PARTI,
     cartella_di,
     cartella_file,
+    file_pagina,
     nome_del_file,
+    testo_html,
 )
 from src.config import PROCESSED_DIR
 from src.estrazione import pdf_bando as pb
@@ -102,6 +106,25 @@ A_MANO = "a mano"
 NOTA_ECCEZIONE = "vietato dal robots.txt"
 
 
+NEL_FILE = "testo del file"
+NEL_LINK = "testo del link sulla pagina del bando"
+
+
+@dataclass(frozen=True)
+class Prova:
+    """Un pezzo dell'atto e dove il programma lo verifica.
+
+    cosa: che cosa prova ("data", "numero di repertorio"); testo: il testo
+    da trovare (spazi e maiuscole a parte); dove: NEL_FILE (una pagina
+    qualsiasi del PDF, e si registra quale) o NEL_LINK (il testo del link
+    al file nella pagina salvata del bando).
+    """
+
+    cosa: str
+    testo: str
+    dove: str
+
+
 @dataclass(frozen=True)
 class Decisione:
     """Una decisione a mano su un file, riconosciuto dall'impronta."""
@@ -116,11 +139,34 @@ class Decisione:
     # controlla che ogni pezzo compaia nella pagina (spazi e maiuscole a
     # parte) e scrive atto_origine "prima pagina del file".
     atto_prima_pagina: tuple[str, ...] = ()
+    # L'atto scritto per esteso, quando non si legge in una forma sola né
+    # nel nome né nella prima pagina: ogni suo pezzo ha una prova, che lo
+    # script verifica alla sua fonte; atto_origine dice per ogni pezzo dove
+    # è stato trovato.
+    atto: str = ""
+    prove: tuple[Prova, ...] = ()
 
 
 # Decisioni a mano (verifica del 19/11/2026 in docs/coda.md, passo 19,
 # "Verifica a mano dei PDF"; decisioni del 20/11/2026 sul compito 19c-2).
 DECISIONI_A_MANO = {
+    # Fondo rievocazione storica 2027 (compito 19c-4, decisione del 20/11/2026):
+    # la data è solo nella firma a pagina 6, il numero di repertorio solo nel
+    # testo del link sulla pagina del bando.
+    "e1bd3209330a6c3e928e3bf9c8bf7377fd5eefba13d580e5987c3c34a187749d": Decisione(
+        "bando-dm-20-03-2025-n--75_accesso-modalita-e-criteri-attribu-32d5ca6d.pdf",
+        pb.AVVISO,
+        FRAMMENTI,
+        "decreto ministeriale di criteri generali (accesso, modalità e criteri di "
+        "attribuzione e di erogazione delle risorse del Fondo), valido per più "
+        "annualità; è l'unico atto del bando",
+        "2026-11-20",
+        atto="D.M. 20 marzo 2025, rep. n. 75",
+        prove=(
+            Prova("data", "20 marzo 2025", NEL_FILE),
+            Prova("numero di repertorio", "rep. n. 75", NEL_LINK),
+        ),
+    ),
     "aa0d0bd1b0192161369309f812926f41f9d9d632dab6a829038d17b9bc746bb1": Decisione(
         "testo-coordinato-bando-sra-aca-16b-8ac2656c.pdf",
         pb.CONSOLIDATO,
@@ -219,6 +265,7 @@ DA_NOME_DECRETO = "nome del file: decreto"
 DA_NOME_PROTOCOLLO = "nome del file: protocollo"
 DA_NOME_TITOLO = "nome del file: titolo, senza numero d'atto"
 DA_PRIMA_PAGINA = "prima pagina del file"
+A_MANO_ORIGINE = "a mano"
 
 # La parte di un avviso in più parti, dalla prima pagina ("Azione B1")
 PARTE = re.compile(r"\bAzione\s+(B\d+)\b")
@@ -277,6 +324,58 @@ def atto_dalla_prima_pagina(
     return ", ".join(decisione.atto_prima_pagina), DA_PRIMA_PAGINA
 
 
+def testo_del_link(f: "FileScaricato") -> str:
+    """Il testo del link al file nella pagina salvata del bando."""
+    id_bando = f.riga["id_bando"]
+    pagine = [
+        file_pagina(f.cartella, id_bando),
+        file_pagina(f.cartella, id_bando, True),
+    ]
+    for pagina in (p for p in pagine if p.is_file()):
+        for collegamento in pb.link_ai_documenti(
+            testo_html(pagina), f.riga["url_pagina"]
+        ):
+            if collegamento.url == f.riga["url_file"]:
+                return collegamento.testo
+    raise ErroreRegistro(
+        f"{f.percorso.name}: nessun link al file nella pagina salvata di {id_bando}"
+    )
+
+
+def atto_a_mano(f: "FileScaricato", decisione: Decisione) -> tuple[str, str]:
+    """L'atto della decisione, dopo aver verificato ogni prova alla sua fonte.
+
+    atto_origine: "a mano; data nel testo del file a pagina 6; numero di
+    repertorio nel testo del link sulla pagina del bando, assente nel testo
+    del file".
+    """
+    if not decisione.prove:
+        raise ErroreRegistro(f"{f.percorso.name}: atto a mano senza prove")
+    pagine = [_per_confronto(p) for p in pagine_pdf(f.percorso)]
+    parti = [A_MANO_ORIGINE]
+    for prova in decisione.prove:
+        cercato = _per_confronto(prova.testo)
+        nel_file = [str(n) for n, p in enumerate(pagine, start=1) if cercato in p]
+        if prova.dove == NEL_FILE:
+            if not nel_file:
+                raise ErroreRegistro(
+                    f"{f.percorso.name}: '{prova.testo}' non è nel testo del file"
+                )
+            parti.append(
+                f"{prova.cosa} nel testo del file a pagina {', '.join(nel_file)}"
+            )
+        elif prova.dove == NEL_LINK:
+            if cercato not in _per_confronto(testo_del_link(f)):
+                raise ErroreRegistro(
+                    f"{f.percorso.name}: '{prova.testo}' non è nel testo del link"
+                )
+            parte = f"{prova.cosa} nel {NEL_LINK}"
+            parti.append(parte + ("" if nel_file else ", assente nel testo del file"))
+        else:
+            raise ErroreRegistro(f"{f.percorso.name}: prova di tipo sconosciuto")
+    return decisione.atto, "; ".join(parti)
+
+
 def leggi_csv(percorso: Path) -> list[dict]:
     if not percorso.is_file():
         raise ErroreRegistro(f"file non trovato: {percorso}")
@@ -308,6 +407,8 @@ class FileScaricato:
     percorso: Path
     nome_originale: str
     richiesta: dict
+    data: str = ""  # la data della cartella da cui viene
+    cartella: Path | None = None  # la cartella da cui viene
 
 
 def file_dell_elenco(cartella: Path) -> list[FileScaricato]:
@@ -344,7 +445,9 @@ def file_dell_elenco(cartella: Path) -> list[FileScaricato]:
             raise ErroreRegistro(
                 f"{dove}: {pagine} pagine, {riga['pagine']} nell'elenco"
             )
-        trovati.append(FileScaricato(riga, percorso, originale, richiesta))
+        trovati.append(
+            FileScaricato(riga, percorso, originale, richiesta, cartella=cartella)
+        )
     return trovati
 
 
@@ -390,7 +493,29 @@ def decisione_dello_script(f: FileScaricato, data: str) -> tuple[dict, str]:
 
 def costruisci(cartella: Path, data: str) -> list[dict]:
     """Le righe del registro, ordinate, dai file dell'elenco di una cartella."""
-    scaricati = file_dell_elenco(cartella)
+    return costruisci_da([(cartella, data)])
+
+
+def costruisci_da(cartelle: list[tuple[Path, str]]) -> list[dict]:
+    """Le righe del registro, ordinate, dai file dell'elenco di più cartelle.
+
+    Ogni file porta la data della sua cartella. Lo stesso file per lo
+    stesso bando in due cartelle ferma lo script: sarebbe due volte nella
+    stessa riga.
+    """
+    scaricati: list[FileScaricato] = []
+    visti: dict[tuple[str, str], str] = {}
+    for cartella, data in cartelle:
+        for f in file_dell_elenco(cartella):
+            f.data = data
+            chiave = (f.riga["sha256"], f.riga["id_bando"])
+            if chiave in visti:
+                raise ErroreRegistro(
+                    f"{f.riga['id_bando']}: lo stesso file ({chiave[0][:12]}) nelle "
+                    f"cartelle {visti[chiave]} e {data}"
+                )
+            visti[chiave] = data
+            scaricati.append(f)
     per_impronta: dict[str, list[FileScaricato]] = {}
     for f in scaricati:
         per_impronta.setdefault(f.riga["sha256"], []).append(f)
@@ -420,7 +545,7 @@ def costruisci(cartella: Path, data: str) -> list[dict]:
             }
             parte, deciso_da = "", A_MANO
         else:
-            scelte = [decisione_dello_script(f, data) for f in copie]
+            scelte = [decisione_dello_script(f, f.data) for f in copie]
             scelta, parte = scelte[0]
             if any(s != scelte[0] for s in scelte):
                 raise ErroreRegistro(f"{impronta[:12]}: regole diverse per i bandi")
@@ -433,6 +558,8 @@ def costruisci(cartella: Path, data: str) -> list[dict]:
 
         if decisione and decisione.atto_prima_pagina:
             atti = [atto_dalla_prima_pagina(f, decisione) for f in copie]
+        elif decisione and decisione.atto:
+            atti = [atto_a_mano(f, decisione) for f in copie]
         else:
             atti = [atto_dal_nome(f.nome_originale) for f in copie]
         origini = {origine for _, origine in atti}
@@ -491,7 +618,10 @@ def totali(righe: list[dict]) -> tuple[int, int]:
 def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
-        "--data", required=True, help="la cartella dati-grezzi/avvisi/<AAAA-MM-GG>"
+        "--data",
+        required=True,
+        action="append",
+        help="la cartella dati-grezzi/avvisi/<AAAA-MM-GG>; ripetibile",
     )
     parser.add_argument(
         "--controlla",
@@ -503,14 +633,23 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(
     argv: list[str] | None = None,
-    cartella_avvisi: Path | None = None,
+    cartella_avvisi: Path | list[Path] | None = None,
     cartella_processed: Path | None = None,
 ) -> int:
+    """cartella_avvisi (per i test): una cartella per ogni --data, nello stesso ordine."""
     argomenti = leggi_argomenti(argv)
-    cartella = cartella_avvisi or cartella_di(argomenti.data)
+    if cartella_avvisi is None:
+        cartelle = [cartella_di(d) for d in argomenti.data]
+    elif isinstance(cartella_avvisi, Path):
+        cartelle = [cartella_avvisi]
+    else:
+        cartelle = list(cartella_avvisi)
+    if len(cartelle) != len(argomenti.data):
+        print("Errore: una cartella per ogni --data", file=sys.stderr)
+        return 1
     destinazione = (cartella_processed or PROCESSED_DIR) / NOME_FILE
     try:
-        righe = costruisci(cartella, argomenti.data)
+        righe = costruisci_da(list(zip(cartelle, argomenti.data, strict=True)))
     except ErroreRegistro as errore:
         print(f"Errore: {errore}", file=sys.stderr)
         return 1
