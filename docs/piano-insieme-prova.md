@@ -393,3 +393,60 @@ consulente pilota e fonti").
 - forma attesa: elenco.
 - Diagnosi del caso in `coda.md`, "Riscontro del consulente pilota e
   fonti (19/11/2026)".
+
+## Foglio dei fatti (passo 19d)
+
+Serve a misurare il recupero sugli avvisi dei bandi (`coda.md`, "Passo
+19d"). Sta fuori dal repository, in
+`dati-grezzi/fatti_pdf_modello_2026-11-20.xlsx`, e non si corregge a
+mano: se un fatto è sbagliato, lo si segna e si fa un foglio nuovo, con
+la data nel nome.
+
+**Come è fatto.** Tre fogli. "leggimi" ha le regole di compilazione.
+"bandi" ha una riga per bando della prima prova del passo 19, con la
+scadenza in archivio, la pagina, il PDF dell'avviso, le pagine e se il
+testo si seleziona. "fatti" ha le colonne `id_bando`, `titolo`,
+`tipo_fatto`, `registro`, `domanda`, `frase`, `pagina_fisica`,
+`in_tabella`, `frase_solo_in_questo_bando`, `anche_sulla_pagina_web` e
+`note`. 91 righe, 81 con la frase, su 11 bandi.
+- Due registri di domanda (`registro`): "semplice", come la farebbe una
+  persona allo sportello (40 righe), e "caso", una situazione concreta
+  (41 righe).
+- Risposte in più punti: la frase è divisa in pezzi con " [...] " (14
+  frasi); il tipo di fatto lo dice con "(più punti)".
+- Righe di tabella (`in_tabella` "sì", 17 righe): le celle sono separate
+  da " | ".
+- `pagina_fisica` è la pagina del file PDF, anche più di una ("3 e 9").
+- Frasi di controllo sui gemelli: `frase_solo_in_questo_bando` dice se
+  la frase sta solo in quel bando (27 "sì", 9 "no", 45 vuote). Per i
+  documenti gemelli (Cultura e Sport Missione Comune, i due bandi PMI, i
+  quattro allegati degli apistici) vale il valore calcolato dal
+  controllo, non quello scritto.
+- Negli apistici la nota comincia con l'azione e l'allegato ("Azione B1
+  (Allegato A1)").
+
+**Chi lo compila.** Un modello, con le regole scritte nel foglio
+"leggimi": la frase copiata dal PDF senza cambiare una parola, da 8 a 30
+parole; la pagina del lettore, non quella stampata; nessun dato
+personale; nessuna parafrasi; nessun fatto da un PDF scansionato.
+
+**Come si verifica.** `scripts/diagnostica/controlla_fatti.py`, senza
+rete e senza modello, sul testo delle pagine estratto come nel
+caricamento e su una copia temporanea di Chroma. Per ogni pezzo, e per
+ogni cella delle righe di tabella:
+- presenza a tre livelli: alla lettera; normalizzata (spazi, virgolette
+  tipografiche, parole spezzate a fine riga); senza spazi;
+- pagina dichiarata, altre pagine, altri bandi, assenza con il tratto
+  più simile;
+- per gli apistici, l'allegato della nota;
+- gemelli;
+- frammenti che contengono il pezzo, con inizio e fine sul testo vero
+  del frammento confrontati con `car_visti`;
+- domande con un numero della frase, contatti in domanda e note.
+
+Esiti del 20/11/2026: 81 fatti, 97 pezzi; 81 trovati nella pagina
+dichiarata (13 alla lettera, 54 normalizzati, 14 solo senza spazi), 0
+assenti; 97 pezzi interi in un frammento, 42 nella parte vista dal
+modello di embedding; una riga sola con un problema, la 23, quasi
+gemella. Uscita in `dati-grezzi/prova/fatti_controllo_2026-11-20.csv`,
+una riga per fatto.

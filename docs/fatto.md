@@ -398,3 +398,75 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
   locali" a "soggetti pubblici", origine `manuale`, prova la frase dei
   beneficiari della pagina. Testo di ricerca rigenerato (113 bandi,
   `--controlla`: aggiornato). Archivio: 113 bandi da 7 fonti.
+
+## Fatti il 20 novembre 2026
+
+- **Passo 19, compito 19c: PDF degli avvisi nel Chroma locale** (chiuso
+  il 20/11/2026, senza modello). Quattro parti:
+  - **19c-1, pulizia del testo** (`src/ingestion/avvisi.py`; opzione
+    `ricucitura` di `pulisci` e `spezza` in `src/ingestion/testo.py`).
+    Ricucitura "prudente" dei numeri: si uniscono solo gli anni spezzati
+    e i numeri seguiti da /anno, perché con la ricucitura di sempre le
+    celle vicine di una tabella si fondevano ("B1 40.000,00" diventava
+    "B140.000,00"). Senza l'opzione `pulisci` resta quella di sempre: 0
+    pagine diverse su 1010. Righe ripetute in più di metà delle pagine,
+    con le soglie di `pdf_bando`. Contatti di persone: email nominative,
+    telefoni sulla riga di una persona, nomi dopo le formule del
+    responsabile del procedimento; restano PEC, caselle d'ufficio, numeri
+    verdi e codici d'impresa. Nei 16 file 7 sostituzioni: 5 nomi e 2
+    caselle d'ufficio che la regola non riconosce, tolte lo stesso.
+    Parole spezzate a fine riga ricucite solo tra lettere minuscole; negli
+    indirizzi web il trattino resta. Test in `tests/test_avvisi_pulizia.py`
+    e `tests/test_avvisi_indirizzi.py`.
+  - **19c-2, registro dei documenti** (`scripts/ingestione/registra_avvisi.py`,
+    `data/processed/documenti_bandi.csv`, tra i `CSV_FUORI_DATABASE`). Una
+    riga per impronta del file; più `id_bando` nella stessa cella, separati
+    da "|". 25 righe: 17 con uso "frammenti" (332 pagine) e 8 solo nel
+    registro (allegati, l'elenco dei codici ATECO comune ai due bandi PMI,
+    la presentazione di incentivi-8659). Si genera con `--data 2026-11-19
+    --data 2026-11-20`; aggiungendo una cartella le righe già presenti
+    restano identiche byte per byte. Decisioni a mano nello script, ognuna
+    con motivo e data. L'atto viene dal nome del file oppure è verificato
+    pezzo per pezzo alla sua fonte: il titolo della prima pagina (testo
+    coordinato delle risorse genetiche); la data nel testo del file, a
+    qualunque pagina, e il numero di repertorio nel testo del link sulla
+    pagina del bando (decreto delle rievocazioni). Mai da
+    `bandi.riferimento_atto`. Test in `tests/test_registra_avvisi.py`,
+    `tests/test_registra_avvisi_atti.py` e
+    `tests/test_registro_piu_cartelle.py`.
+  - **19c-3, caricamento** (`scripts/ingestione/carica_avvisi.py`). Solo
+    Chroma, nessun import di Postgres; rete spenta per le librerie
+    (`HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE`, `ANONYMIZED_TELEMETRY`).
+    Id `sha256[:16]::i`: prima di scrivere un file si tolgono i suoi
+    frammenti, e il rilancio non crea doppioni. Metadati da `bandi` e dal
+    registro, nessuna scadenza né stato; l'intestazione del frammento non
+    entra nel testo. Misure per il 19d nei metadati: `token`, `car_visti`,
+    `tabella_probabile`. Controllo dei numeri: ogni numero di un frammento
+    deve stare nel testo grezzo della stessa pagina; 0 non trovati, 4
+    "ricuciti alla barra" (spazi attorno a "/" nel PDF del testo
+    coordinato) elencati a parte. Regola delle premesse: il testo prima
+    della prima riga DECRETA non si carica. Opzioni `--prova`, `--solo`,
+    `--togli-scaduti` con `--giorni` (predefinito 365); senza l'opzione
+    non si toglie nulla. Test in `tests/test_carica_avvisi.py` e
+    `tests/test_premesse.py`.
+  - **19c-4, decreto del fondo rievocazioni** (D.M. 20 marzo 2025, rep. n.
+    75). 2 richieste di rete, con l'intestazione del progetto: il
+    robots.txt, che consente il file, e il PDF. Pagina del bando copiata
+    da quella salvata il 19/11; tutto in `dati-grezzi/avvisi/2026-11-20/`.
+    6 pagine con testo; premesse tolte fino alla riga DECRETA di pagina 2
+    (3.491 caratteri); 15 frammenti. Il bando si sceglie con
+    `BANDI_AGGIUNTI` di `elenco_pdf_bandi`, solo con `--bando`.
+  - Stato: 17 file, 871 frammenti degli avvisi nel Chroma locale, 1187 in
+    tutto con i 316 dei documenti di sempre, la cui impronta (id e testo)
+    è rimasta la stessa. Copie di sicurezza in
+    `dati-grezzi/backup/chroma-2026-11-20-prima-avvisi/` e
+    `dati-grezzi/backup/chroma-2026-11-20-prima-decreto/`. Postgres non
+    toccato.
+- **Controllo meccanico del foglio dei fatti** (20/11/2026,
+  `scripts/diagnostica/controlla_fatti.py`, test in
+  `tests/test_controlla_fatti.py`). 81 fatti su 11 bandi, 97 pezzi: 81
+  trovati nella pagina dichiarata (13 alla lettera, 54 normalizzati, 14
+  solo togliendo gli spazi), 0 in altra pagina, 0 in altro bando, 0
+  assenti. Esito in `dati-grezzi/prova/fatti_controllo_2026-11-20.csv`.
+  Il foglio è descritto in `docs/piano-insieme-prova.md`, "Foglio dei
+  fatti".

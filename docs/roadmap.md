@@ -2,7 +2,7 @@
 
 I documenti scritti prima del 18/11/2026 citano sezioni di questa roadmap che oggi stanno in docs/coda.md con il loro numero originale (Difetti del 14/11, Dopo la demo, Prossimi passi, In coda, priorità del consulente pilota, indicazioni del revisore tecnico) e in docs/fatto.md.
 
-Stato al 18 novembre 2026. Da aggiornare alla fine di ogni passo.
+Stato al 20 novembre 2026. Da aggiornare alla fine di ogni passo.
 
 Qui stanno solo stato, principi, ordine dei passi e decisioni prese. Il
 lavoro chiuso è in `docs/fatto.md`; le voci in attesa, con il loro numero
@@ -10,6 +10,9 @@ originale, in `docs/coda.md`.
 
 ## Stato
 
+- **Gli avvisi dei bandi non vanno su Postgres finché il passo 19d non
+  passa.** Dal 20/11/2026 stanno solo nel Chroma locale (passo 19c,
+  `docs/fatto.md`): l'app online non li vede.
 - Demo mandata al consulente pilota il 16/11/2026, riscontro ricevuto il
   18/11/2026. Revisione del revisore tecnico ricevuta il 18/11/2026.
   Revisione esterna del piano ricevuta il 18/11/2026.
@@ -72,7 +75,7 @@ tecnico (18/11/2026)".
 
 I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
 1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
-A, attese con polarità); 19 (19a e 19b fatti, prossimo 19c); 20 (prima
+A, attese con polarità); 19 (19a, 19b e 19c fatti, prossimo 19d); 20 (prima
 della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
 baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
 Il passo 21 si fa prima di dare il link della demo a chiunque oltre al
@@ -137,7 +140,10 @@ Passi nuovi della sezione A:
     bando aperto entra nell'archivio dei documenti, legato al bando con
     `id_bando`. Prerequisito del passo 9, non una correzione delle
     risposte. Dettaglio in `coda.md`, "PDF dei bandi" (passo 19).
-    19a e 19b fatti il 19/11/2026 (`docs/fatto.md`); prossimo: 19c.
+    19a e 19b fatti il 19/11/2026, 19c il 20/11/2026 (`docs/fatto.md`):
+    17 file, 871 frammenti nel Chroma locale. Prossimo: 19d, misura del
+    recupero sugli avvisi (`coda.md`, "Passo 19d"). Gli avvisi vanno su
+    Postgres solo dopo che il 19d è passato.
 
 ### B. Correzioni del flusso, con il modello
 
@@ -274,6 +280,9 @@ Ordine previsto: PDF, valutazione, fascicolo.
   che cambiano le risposte: la regola delle misure vieta di aggiungere
   documenti durante un ciclo, e i passi 17, 19, 2b, 4 e 3 non chiamano
   il modello (19/11/2026).
+- **Gli avvisi dei bandi restano nel Chroma locale finché il passo 19d
+  non passa**: su Postgres, cioè nell'app online, entrano solo dopo
+  (20/11/2026).
 - **I link del catalogo Incentivi Italia alla banca dati del BURT non
   entrano tra i bandi**: vanno in `scansioni` come da verificare, anche
   per incentivi-5013 e incentivi-3373. Dettaglio in `coda.md`, "Pulizia

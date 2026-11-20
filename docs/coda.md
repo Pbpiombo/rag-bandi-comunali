@@ -407,33 +407,46 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
    - Il modello di embedding ha `max_seq_length` 128: la parte densa
      della ricerca vede circa il primo terzo di un frammento di 1500
      caratteri. Da misurare al compito 19d prima di cambiare la
-     divisione in frammenti o il modello.
+     divisione in frammenti o il modello. (20/11/2026: misura zero più
+     sotto, "Passo 19d".)
    - **Stesso file per più bandi**: "Codici Ateco ammissibili" (PMI 50
      mila, decreto 9505 All. 4) e "Codici attività ammissibili" (PMI EU
      blending, decreto 9506 All. 4) hanno lo stesso sha256. Il registro
      del 19c va tenuto per impronta del file, con più `id_bando` per un
      file, non una copia per bando; Chroma accetta un solo valore per
      metadato, quindi il legame bando-frammento passa dal registro.
+     (19c, 20/11/2026: fatto così, `id_bandi` con "|"; un file con uso
+     "frammenti" per più bandi ferma il caricamento. La versione di Chroma
+     in uso, 1.5.9, accetta metadati a lista: provato in memoria il
+     20/11/2026, non usato.)
    - **Allegati di soli codici**: gli elenchi di codici ATECO o NACE (236
      pagine) non si dividono in frammenti di testo come un avviso: si
      caricano come dato strutturato o si escludono dall'archivio dei
-     documenti. Da decidere al 19c.
+     documenti. Da decidere al 19c. (Deciso il 20/11/2026: classe
+     `elenco_codici`, uso `solo_registro`.)
    - **Falso positivo tra gli allegati richiamati**: "Allegato 5 Obblighi
      di pubblicità" (PMI 50 mila e PMI EU blending) è stato scaricato come
      allegato richiamato per beneficiari o ATECO, ma non lo è: la ricerca
      di "beneficiari" vicino a "Allegato N" è troppo larga. Da restringere
-     prima del prossimo giro.
+     prima del prossimo giro. (20/11/2026: i due file sono nel registro
+     con uso `solo_registro`, decisione a mano; la ricerca resta da
+     restringere.)
    - **Scadenze spesso assenti dai PDF**: l'avviso consolidato dei punti
      digitale (decreto 25205) non contiene la scadenza, che sta nella
      pagina e in `bandi.csv` (26/11/2026). Conferma la decisione del
      19/11/2026: per scadenza e stato vale l'archivio, mai il PDF. Il
      `riferimento_atto` dei punti digitale non cita il decreto 25205 da
      cui viene il testo consolidato: da aggiornare prima di usarlo
-     nell'intestazione dei frammenti.
+     nell'intestazione dei frammenti. (19c, 20/11/2026: l'atto dei
+     frammenti viene dal registro, "Decreto n. 25205 del 16/11/2026,
+     Allegato A", non da `bandi.riferimento_atto`; la correzione
+     dell'archivio resta al passo 2b.)
    - **Bandi senza avviso riconosciuto**: fondo strade (il PDF del MIT ha
      3 pagine e 2 sezioni su 5) e incentivi-8659 (tra i link della pagina
      MIMIT ci sono solo guide e presentazioni). Restano senza avviso
-     finché non si decide a mano.
+     finché non si decide a mano. (Deciso a mano il 20/11/2026 nel
+     registro: fondo strade "avviso" con uso "frammenti"; incentivi-8659
+     "presentazione" con uso `solo_registro`.)
    - **Soglie provvisorie**: 3 sezioni per i link avviso o consolidato, 4
      per le altre classi e mai con testo "da rivedere", tarate il
      19/11/2026 su 12 bandi. Vanno riviste con più bandi.
@@ -444,6 +457,90 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
      incentivi-8659: il file è una presentazione del ministero, non
      l'avviso, da etichettare come tale. In 4 bandi su 12 la scadenza
      non è scritta come data nel PDF.
+
+   **Passo 19d: misura del recupero sugli avvisi (20/11/2026).** Si fa
+   sul Chroma locale; gli avvisi vanno su Postgres solo se il 19d passa.
+   1. Misura zero, presa prima di ogni modifica (controllo del foglio dei
+      fatti, `scripts/diagnostica/controlla_fatti.py`, 20/11/2026): 42
+      pezzi su 97 stanno nella parte che il modello di embedding vede
+      (limite di 128 token, [CLS] e [SEP] compresi; `car_visti` nei
+      metadati di ogni frammento). 754 frammenti su 871 superano i 128
+      token. Peggiori: risorse genetiche 1 su 7, Punti Digitale e fondo
+      strade 2 su 7. Tutti i 97 pezzi stanno interi in un frammento.
+   2. Tre ricerche di sola similarità del 20/11/2026, fatte prima del
+      caricamento del decreto delle rievocazioni: zero su tre con il
+      frammento giusto tra i primi cinque. Per la cultura ("mutuo
+      massimo per un Comune sotto i 5000 abitanti per la cultura") esce
+      l'avviso Sport, con le fasce, prima di quello Cultura, di cui esce
+      solo la prima pagina; per l'azione B1 degli apistici l'allegato A1
+      non compare (escono A3, A4, A5 e il testo coordinato delle risorse
+      genetiche); per i Punti Digitale escono cinque frammenti del 25205,
+      nessuno quello dei criteri (p. 14).
+   3. Varianti da provare, sugli stessi fatti: limite a 512 token;
+      frammenti più corti; intestazione (titolo, parte, atto) dentro il
+      testo su cui si calcola il vettore, oggi è solo nei metadati;
+      filtro per `id_bando`; ricerca per parole accanto a quella per
+      significato. La regola di chiusura si fissa prima di guardare i
+      numeri.
+   4. Come si misura: sul frammento atteso del CSV di controllo
+      (`dati-grezzi/prova/fatti_controllo_2026-11-20.csv`) e sul bando
+      giusto, non sulla presenza della frase; con `RecuperoIbrido`, non
+      con la sola similarità; fatti divisi a caso in due metà, taratura e
+      controllo, con seme fisso e per bando, divisione decisa prima.
+   5. Documenti gemelli: Cultura e Sport Missione Comune, i due bandi PMI,
+      i quattro allegati degli apistici. Nel foglio dei fatti 4 frasi di
+      controllo sono identiche tra bandi (righe 21 e 24 tra Cultura e
+      Sport, 56 e 64 tra i due PMI) e 4 tra allegati (righe 68, 70, 72 e
+      74 degli apistici); la riga 23 è quasi gemella (un pezzo identico
+      nell'avviso Sport, l'altro diverso per una cifra). Per le colonne
+      sui gemelli vale il valore calcolato dal controllo
+      (`solo_calcolato`), non quello scritto nel foglio, che in 45 righe
+      era vuoto.
+   6. Date nei frammenti che contraddicono l'archivio: nell'avviso (p. 9)
+      e nella proroga (p. 1) di Cultura e di Sport Missione Comune c'è il
+      termine di prima della proroga, 30/09/2026, accanto al 05/12/2026
+      che è in archivio; nel decreto delle rievocazioni c'è "30 maggio
+      2025" per l'annualità 2025 (Art. 2), mentre la scadenza in archivio
+      è il 31/01/2027. Caso fisso del 19d: la risposta deve dare la data
+      dell'archivio.
+   7. Se cambia il limite dei token o la dimensione dei frammenti, i
+      vettori si ricalcolano tutti, Chroma e Postgres, prima della nuova
+      baseline.
+
+   **Prima della nuova baseline: i 5 documenti di sempre (20/11/2026).**
+   I 5 documenti di produzione vanno ricaricati con la pulizia prudente:
+   28 frammenti su 316 hanno numeri fusi dalla ricucitura di sempre
+   (Censis 21 su 75, requisito associativo 4 su 21, Decreto 9550 2 su 76,
+   SNAI C3 1 su 27, Decreto 13287 0 su 117; misura su una copia di Chroma,
+   senza correggere niente). Tra le fusioni del 9550 ce n'è una giusta,
+   "200.00 0,00" che diventa "200.000,00", che la regola prudente non
+   farebbe. `ingest_tutti` su Postgres aggiunge senza togliere i
+   frammenti già presenti: rilanciato così, li raddoppierebbe.
+
+   **Limiti noti del caricamento (19c, 20/11/2026).**
+   - pypdf mette spazi dentro alcune parole: 14 frasi su 81 del foglio
+     dei fatti si trovano solo togliendo gli spazi. Da verificare
+     l'effetto sul verificatore dell'app, che confronta i dati con il
+     testo del frammento.
+   - Trattino negli indirizzi web, nei 16 file del 19/11: 22 indirizzi
+     spezzati su un trattino a fine riga, 19 giusti e 3 sbagliati nel
+     22706, dove il trattino era sillabazione ("docs.ita-lia",
+     "sft.svi-luppo", "fir-ma"); 1 indirizzo non corretto nel 13512 (p.
+     16, già spezzato da spazi nel PDF: resta "carta-aiutiitalia").
+     Strada possibile: leggere l'indirizzo dalle annotazioni di
+     collegamento del PDF.
+   - `tabella_probabile` non è affidabile: è un indizio, non una regola
+     (segna la Tab. 1 del bando PMI 50 mila, non la tabella di una riga
+     degli apistici a p. 2).
+   - "DECRETA:" con i due punti non fa scattare la regola delle premesse.
+   - `livello` vuoto: l'etichetta del frammento mostra "?".
+   - I link ai moduli restano fuori dal 19c: il registro ha una riga per
+     file scaricato.
+   - Il controllo dei numeri è una regola di ogni caricamento futuro: il
+     rapporto di `--prova` si guarda prima di scrivere.
+   - I metadati dei PDF (autore e simili) non entrano mai in registro,
+     frammenti o file delle richieste (verificato il 20/11/2026 sul
+     decreto delle rievocazioni).
 - (era la voce 7 dei Prossimi passi, → principio "per chi", → passo 18) **Privati nell'app**: selettore pubblico/privato e tipo di privato a
    macrogruppi. Insieme, l'abbinamento strutturato tra interventi e tipi
    di beneficiario: oggi la riserva sta solo nel testo della descrizione
@@ -573,6 +670,12 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
   Dettaglio del passo 8 della roadmap, spostato il 18/11/2026: Nella
   prova, alcune domande con San Marcello Piteglio come ente (7.410
   abitanti; Abetone Cutigliano 1.834).
+  Esempio per il passo 8 (20/11/2026): nella risposta al caso fisso F01
+  del 19/11/2026, dopo l'inserimento del fondo rievocazioni, è il
+  modello a confrontare la popolazione con la soglia di Cultura Missione
+  Comune (1.834 abitanti, piccoli Comuni fino a 5.000) e a concludere "e
+  rientra quindi in questa fascia" (`dati-grezzi/caso_F01_risposte_2026-11-19.md`).
+  È il confronto che il passo 8 porta nel codice.
 - Dopo la demo. Campo strutturato per gli importi per fascia di ente (es.
   mutuo massimo di 2, 4 o 6 milioni secondo tipo e dimensione dell'ente,
   Sport e Cultura Missione Comune): oggi la frase della pagina sta nel
@@ -947,6 +1050,38 @@ Rimaste dopo il passo 2a (18/11/2026):
   sulla pagina del bando e da decidere come rappresentare un bando con
   più scadenze.
 
+Dal passo 19c (20/11/2026), confrontando gli avvisi caricati con
+l'archivio e con le pagine salvate il 19/11:
+
+- (→ passo 2b) **Fondo strade** (fondo-strade-piccoli-comuni-2026): in
+  archivio c'è la frase della pagina (riservato a chi non ha mai avuto il
+  finanziamento, salvo i Comuni con un finanziamento parziale "inferiore
+  al 50%" che non abbiano avviato le procedure di affidamento dei
+  lavori). Mancano le annualità dell'esclusione, 2023, 2024 e 2025 con
+  gli scorrimenti, che stanno nell'avviso. Pagina e avviso divergono:
+  "inferiore al 50%" e la condizione sull'affidamento sulla pagina,
+  "minore o pari al 50%" nell'avviso, che sull'affidamento non dice
+  nulla.
+- (→ passo 2b) **Punti Digitale**
+  (contributi-a-enti-locali-e-ets-per-punti-digitale-fac-8db4be): l'avviso
+  dà un tasso forfettario del 20% dei costi diretti per il personale; la
+  pagina cita una scheda del preventivo con un tasso "fino al 40%", che
+  è il massimo del regolamento UE 2021/1060, art. 56, citato anche
+  nell'avviso.
+- (→ passo 2b) **Cultura Missione Comune**: 5 milioni di euro di
+  contributi in conto interessi, giusto in archivio. Un comunicato parla
+  di un importo di mutui più alto: è un caso che può confondere la
+  risposta. L'importo del comunicato non è tra i file salvati e qui non
+  si riporta.
+- (→ passo 2b) **Fondo rievocazioni** (fondo-rievocazione-storica-2027):
+  nel decreto il fine statutario (tutela e trasmissione della memoria
+  storica) riguarda gli enti di rievocazione storica, cioè associazioni
+  di promozione sociale, onlus e fondazioni, non gli enti locali e i
+  soggetti pubblici; punteggio minimo 61 su 100.
+- Restano le voci già note qui sopra: scadenza dell'azione B4 degli
+  apistici, `riferimento_atto` dei Punti Digitale (decreto 25205),
+  `altra_impresa`.
+
 ## Testo di ricerca (passo 17)
 
 Dettaglio del passo 17, spostato da `docs/roadmap.md` il 18/11/2026.
@@ -1112,6 +1247,10 @@ prova.
 - Regola: uno strumento a pagamento o fornito su contratto ad altri enti
   non si usa né come fonte né come indice. Si usano solo documenti che un
   ente pubblica per tutti.
+- (20/11/2026) Candidate da verificare: i dipartimenti della Presidenza
+  del Consiglio hanno una pagina "Finanziamenti, avvisi e bandi";
+  "Amministrazione trasparente > Sovvenzioni" degli enti come indice
+  possibile. robots.txt da leggere prima, come per ogni sito.
 
 **Una notizia è una pista, non un dato.** Estende la regola "segnalano, i
 dati si prendono dalla pagina ufficiale". Il comunicato del 17/11

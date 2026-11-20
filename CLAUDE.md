@@ -19,6 +19,9 @@ nella fonte dichiarata. L'utente sceglie l'ente da un menu nell'app.
   - bandi verso la tabella `bandi` (`src/estrazione/`, `scopri_bandi`,
     `estrai_bando`, `estrai_nuovi`), con `scansioni` come registro delle
     pagine già esaminate.
+- Dati grezzi (PDF scaricati, pagine salvate, registri delle richieste,
+  prove, copie di sicurezza) in `dati-grezzi/`, accanto alla cartella del
+  progetto, non dentro: sono fuori dal repository.
 
 Lingua: codice, commenti, docstring e README in **italiano**, come il resto
 del progetto. Rispondi sempre in italiano, anche dopo un /clear.
@@ -32,6 +35,12 @@ ruff format <file modificati>                     # formattazione
 python -m scripts.tutorial.step4_crea_db          # crea e popola SQLite dai CSV
 streamlit run app/app.py                          # interfaccia
 ```
+
+Il registro dei PDF degli avvisi (`data/processed/documenti_bandi.csv`) si
+genera da tutte le cartelle degli scarichi insieme:
+`python -m scripts.ingestione.registra_avvisi --data 2026-11-19 --data 2026-11-20`
+(con `--controlla` confronta senza scrivere). Una cartella in più si aggiunge
+come un altro `--data`.
 
 Per ricreare il database dopo una modifica allo schema:
 `Remove-Item data\db\comune.sqlite`, poi `step4_crea_db`. Prima, verifica che
@@ -120,6 +129,8 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
 - Committare `.env` o qualunque credenziale.
 - Fare commit o push se non richiesto esplicitamente.
 - Usare `--unsafe-fixes` di ruff.
+- Caricare gli avvisi dei bandi su Postgres (l'app online) prima che il passo
+  19d sia passato: fino ad allora stanno solo nel Chroma locale.
 - Modificare i CSV in `data/processed/` a mano senza dirlo: sono dati
   verificati.
 - Leggere domande, rapporti o giudizi di un lotto dell'insieme di prova non
