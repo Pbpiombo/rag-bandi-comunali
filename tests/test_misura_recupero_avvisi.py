@@ -651,3 +651,137 @@ def test_copia_ridivisa_con_gli_stessi_id_dei_frammenti_tolti(tmp_path, monkeypa
     )
     assert "Corto 0." in dati["documents"]
     assert info["ricostruzione"] == (2, 2, True)
+
+
+# --- terzo giro ---
+
+
+def test_con_ampiezza_passa_l_ampiezza_alla_ricerca():
+    chiamate = []
+
+    class Base:
+        def titoli(self):
+            return {"a.pdf": "Titolo"}
+
+        def cerca(self, domanda, k=8, ampiezza=20, fonte=None):
+            chiamate.append((domanda, k, ampiezza, fonte))
+            return []
+
+    recupero = mr.ConAmpiezza(Base(), 50)
+    recupero.cerca("domanda?", k=15, fonte="a.pdf")
+    mr.Profondo(Base()).cerca("altra?", k=10)
+    assert chiamate == [
+        ("domanda?", 15, 50, "a.pdf"),
+        ("altra?", 10, mr.PROFONDITA, None),
+    ]
+    assert recupero.titoli() == {"a.pdf": "Titolo"}
+
+
+def test_testo_lessicale_con_il_prefisso_solo_per_i_file_dati():
+    prefissi = {"a4.pdf": "Azione B4: Razionalizzazione della transumanza"}
+    assert mr.testo_lessicale("Testo.", {"fonte": "a4.pdf"}, prefissi) == (
+        "Azione B4: Razionalizzazione della transumanza\nTesto."
+    )
+    assert mr.testo_lessicale("Testo.", {"fonte": "a5.pdf"}, prefissi) == "Testo."
+    assert mr.testo_lessicale("Testo.", {"fonte": "a4.pdf"}, None) == "Testo."
+
+
+def test_distanza_dai_primi_e_fatto_completo_con_i_vicini():
+    per_fonte = {
+        "giusto.pdf": [
+            fr(0, "apertura"),
+            fr(1, "Il contributo è di 40.000 euro"),
+            fr(2, "voce a"),
+            fr(3, "voce b"),
+        ],
+        "altro.pdf": [fr(0, "x"), fr(1, "voce c")],
+    }
+    primi = [("giusto.pdf", per_fonte["giusto.pdf"][1]), ("altro.pdf", fr(0, "x"))]
+    distanze = [
+        mr.distanza_dai_primi([t], primi, GIUSTI, per_fonte)
+        for t in ("Il contributo è di 40.000 euro", "voce a", "voce b", "voce c")
+    ]
+    # voce c sta accanto a un frammento tra i primi, ma di un documento non giusto
+    assert distanze == [0, 1, 2, None]
+    assert mr.completo_con_vicini([0, 1], 1)
+    assert not mr.completo_con_vicini([0, 2], 1)
+    assert mr.completo_con_vicini([0, 2], 2)
+    assert not mr.completo_con_vicini([0, None], 2)
+
+
+def test_parole_in_comune_senza_parole_funzionali_e_con_la_radice():
+    domanda = "Qual è la durata massima del nostro progetto finanziato col'Azione B4?"
+    pezzo = "I progetti hanno una durata di 12 mesi; azione B4."
+    nella_domanda, comuni = mr.parole_in_comune(domanda, pezzo)
+    assert nella_domanda == [
+        "durata",
+        "massima",
+        "progetto",
+        "finanziato",
+        "azione",
+        "b4",
+    ]
+    # "progetto" e "progetti" hanno le stesse prime 5 lettere
+    assert comuni == ["durata", "progetto", "azione", "b4"]
+
+
+def test_nome_dell_azione_dalla_riga_del_titolo():
+    pagine = [
+        (
+            "Delibera n. 649\nIntervento B Azione B4: Razionalizzazione della "
+            "transumanza\nDisposizioni"
+        ),
+        "Azione B4 - altro testo",
+    ]
+    assert mr.nome_dell_azione(pagine, "B4") == (
+        1,
+        "Intervento B Azione B4: Razionalizzazione della transumanza",
+        "Azione B4: Razionalizzazione della transumanza",
+    )
+    assert mr.nome_dell_azione(pagine, "B5") is None
+
+
+def test_copia_con_la_parte_cambia_solo_i_vettori_dei_file_dati(tmp_path, monkeypatch):
+    import chromadb
+    from chromadb.config import Settings
+
+    import src.vectorstore
+    from src.config import COLLECTION_NAME
+
+    sorgente = tmp_path / "v0" / "chroma"
+    cliente = chromadb.PersistentClient(
+        path=str(sorgente), settings=Settings(anonymized_telemetry=False)
+    )
+    cliente.create_collection(COLLECTION_NAME).add(
+        ids=["a4::0", "a4::1", "a5::0"],
+        documents=["Testo uno.", "Testo due.", "Testo tre."],
+        metadatas=[{"fonte": "a4.pdf"}, {"fonte": "a4.pdf"}, {"fonte": "a5.pdf"}],
+        embeddings=[[0.0, 0.0, 1.0]] * 3,
+    )
+    del cliente
+    prima = mr.impronte_cartella(sorgente)
+    monkeypatch.setattr(src.vectorstore, "crea_embeddings", EmbeddingsFinti)
+
+    info = mr.prepara_copia_parte(
+        tmp_path / "v0+parte", sorgente, {"a4.pdf": "Azione B4: X"}, None
+    )
+
+    assert info == {"frammenti": 2, "per_fonte": {"a4.pdf": 2}, "totale": 3}
+    assert mr.impronte_cartella(sorgente) == prima
+    dati = (
+        chromadb.PersistentClient(
+            path=str(tmp_path / "v0+parte" / "chroma"),
+            settings=Settings(anonymized_telemetry=False),
+        )
+        .get_collection(COLLECTION_NAME)
+        .get(include=["documents", "embeddings"])
+    )
+    per_id = dict(zip(dati["ids"], dati["embeddings"], strict=True))
+    assert list(per_id["a5::0"]) == [0.0, 0.0, 1.0]
+    assert list(per_id["a4::0"]) != [0.0, 0.0, 1.0]
+    assert sorted(dati["documents"]) == ["Testo due.", "Testo tre.", "Testo uno."]
+
+
+def test_griglia_solo_sulle_basi_v0_e_v1(tmp_path):
+    with pytest.raises(mr.ErroreMisura, match="base 'v2'"):
+        mr.esegui_griglia(tmp_path / "f.xlsx", tmp_path / "d.csv", mr.TARATURA, "v2")

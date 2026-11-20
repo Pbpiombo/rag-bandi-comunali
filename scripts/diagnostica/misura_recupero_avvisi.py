@@ -72,6 +72,7 @@ import csv
 import hashlib
 import io
 import random
+import re
 import sys
 from collections import Counter, defaultdict
 from contextlib import contextmanager
@@ -739,11 +740,16 @@ def frammento_di(documento) -> tuple[str, Frammento]:
     )
 
 
-def apri_recupero(copia: Path, limite: int | None = None):
+def apri_recupero(
+    copia: Path, limite: int | None = None, prefissi: dict[str, str] | None = None
+):
     """RecuperoMisura sulla copia di Chroma: RecuperoIbrido più la ricerca per bando.
 
     Con `limite`, il modello di embedding delle domande usa quel limite di
     token (lo stesso con cui sono stati calcolati i vettori della copia).
+    Con `prefissi` (testo per nome del file), la ricerca per parole indicizza
+    il prefisso davanti al testo dei frammenti di quei file; il testo dei
+    frammenti restituiti resta quello della copia.
     """
     from langchain_chroma import Chroma
 
@@ -766,7 +772,12 @@ def apri_recupero(copia: Path, limite: int | None = None):
                     dati["documents"], dati["metadatas"], strict=True
                 )
             ]
-            self.bm25 = BM25Okapi([tokenizza(d.page_content) for d in self.documenti])
+            self.bm25 = BM25Okapi(
+                [
+                    tokenizza(testo_lessicale(d.page_content, d.metadata, prefissi))
+                    for d in self.documenti
+                ]
+            )
 
         def cerca_nel_bando(
             self, domanda: str, id_bando: str, k: int, ampiezza: int = AMPIEZZA_APP
@@ -811,17 +822,35 @@ def apri_recupero(copia: Path, limite: int | None = None):
     return RecuperoMisura(store)
 
 
-class Profondo:
-    """Il recupero con ampiezza PROFONDITA, da avvolgere come quello dell'app."""
+def testo_lessicale(testo: str, meta: dict, prefissi: dict[str, str] | None) -> str:
+    """Il testo con il prefisso del suo file davanti, se c'è.
 
-    def __init__(self, base) -> None:
+    Serve alla ricerca per parole (apri_recupero) e al vettore
+    (prepara_copia_parte); il testo del frammento resta quello della copia.
+    """
+    prefisso = (prefissi or {}).get(meta.get("fonte") or "")
+    return f"{prefisso}\n{testo}" if prefisso else testo
+
+
+class ConAmpiezza:
+    """Il recupero con un'ampiezza data, da avvolgere come quello dell'app."""
+
+    def __init__(self, base, ampiezza: int) -> None:
         self.base = base
+        self.ampiezza = ampiezza
 
     def titoli(self) -> dict[str, str]:
         return self.base.titoli()
 
     def cerca(self, domanda: str, k: int = 8, fonte: str | None = None) -> list:
-        return self.base.cerca(domanda, k=k, ampiezza=PROFONDITA, fonte=fonte)
+        return self.base.cerca(domanda, k=k, ampiezza=self.ampiezza, fonte=fonte)
+
+
+class Profondo(ConAmpiezza):
+    """Il recupero con ampiezza PROFONDITA."""
+
+    def __init__(self, base) -> None:
+        super().__init__(base, PROFONDITA)
 
 
 # --- restrizioni, domanda ripulita, parte vista ---
@@ -1596,6 +1625,643 @@ def esegui_misura(
     return 0
 
 
+# --- terzo giro: ampiezza e k, vicini, parole in comune, nome dell'azione ---
+
+# Combinazioni (ampiezza, k) misurate sulle copie di v0 e v1, senza copie
+# nuove; la prima è quella dell'app e del secondo giro.
+COMBINAZIONI = [
+    (AMPIEZZA_APP, K),
+    (PROFONDITA, K),
+    (AMPIEZZA_APP, 15),
+    (PROFONDITA, 15),
+]
+BASI_GRIGLIA = ("v0", "v1")
+CONDIZIONI_GRIGLIA = ("A", "B")
+DISTANZA_VICINI = 2
+
+# Parole che non contano nel confronto tra domanda e pezzo: articoli,
+# preposizioni, congiunzioni, parole interrogative, ausiliari e modali,
+# pronomi atoni, possessivi e dimostrativi, dopo _normale (minuscole e
+# senza accenti). Le lettere sole si scartano a parte; le cifre restano.
+PAROLE_FUNZIONALI = frozenset(
+    "il lo la gli le un uno una del dello della dei degli delle dell "
+    "al allo alla ai agli alle all dal dallo dalla dai dagli dalle dall "
+    "nel nello nella nei negli nelle nell sul sullo sulla sui sugli sulle sull "
+    "col coi di da in con su per tra fra ed che cui come se ma anche oppure non "
+    "quale quali qual quanto quanta quanti quante cosa chi dove quando perche "
+    "sono essere era ha hanno puo possono deve devono viene vengono sia siano "
+    "abbiamo possiamo dobbiamo siamo ho posso devo "
+    "si ci ne mi ti vi "
+    "nostro nostra nostri nostre mio mia suo sua suoi loro "
+    "questo questa questi queste quello quella quelli quelle piu".split()
+)
+
+# Riga del titolo degli allegati degli apistici: "Intervento B Azione B4: ..."
+SCHEMA_AZIONE = re.compile(r"^Intervento B Azione (B\d+): *(.+?) *$", re.MULTILINE)
+RIGHE_APISTICI = range(67, 75)
+
+
+def nome_colonna(ampiezza: int, k: int, c: str) -> str:
+    return f"a{ampiezza}_k{k}_{c}"
+
+
+def frammenti_della_copia(recupero, limite: int | None):
+    """(frammenti per fonte, ordinati per chunk_num; titolo per id_bando)."""
+    tokenizer = recupero.store.embeddings._client.tokenizer
+    titolo_del_bando = {}
+    frammenti_per_fonte: dict[str, list[Frammento]] = defaultdict(list)
+    for d in recupero.documenti:
+        fonte, fr = frammento_di(d)
+        if limite:
+            fr.car_visti = car_visti(tokenizer, fr.testo, limite)
+        frammenti_per_fonte[fonte].append(fr)
+        if d.metadata.get("id_bando"):
+            titolo_del_bando[d.metadata["id_bando"]] = d.metadata["titolo"]
+    for lista in frammenti_per_fonte.values():
+        lista.sort(key=lambda fr: fr.chunk_num)
+    return frammenti_per_fonte, titolo_del_bando
+
+
+def distanza_dai_primi(
+    pezzo: list[str],
+    primi: list[tuple[str, Frammento]],
+    giusti: set[str],
+    frammenti_per_fonte: dict[str, list[Frammento]],
+    massima: int = DISTANZA_VICINI,
+) -> int | None:
+    """0 se il pezzo sta in un frammento giusto tra i primi; altrimenti la
+    distanza più piccola (fino a `massima`, in chunk_num dello stesso file)
+    tra un frammento giusto tra i primi e un frammento che contiene il pezzo.
+    """
+    if prima_posizione(pezzo, primi, giusti) is not None:
+        return 0
+    migliore = None
+    for fonte, fr in primi:
+        if fonte not in giusti:
+            continue
+        for altro in frammenti_per_fonte.get(fonte, []):
+            d = abs(altro.chunk_num - fr.chunk_num)
+            if 1 <= d <= massima and (migliore is None or d < migliore):
+                if contiene(pezzo, altro):
+                    migliore = d
+    return migliore
+
+
+def completo_con_vicini(distanze: list[int | None], distanza: int) -> bool:
+    """Il fatto è intero se ogni pezzo sta tra i primi o in un vicino entro `distanza`."""
+    return all(d is not None and d <= distanza for d in distanze)
+
+
+def parole_significative(testo: str) -> list[str]:
+    """Le parole del testo senza quelle funzionali, una volta sola, in ordine."""
+    from src.database.interrogazioni_bandi import _normale
+
+    return list(
+        dict.fromkeys(
+            p
+            for p in re.findall(r"[a-z0-9]+", _normale(testo))
+            if p not in PAROLE_FUNZIONALI and not (len(p) == 1 and p.isalpha())
+        )
+    )
+
+
+def parole_in_comune(domanda: str, pezzo: str) -> tuple[list[str], list[str]]:
+    """(parole significative della domanda, quelle che hanno una simile nel pezzo).
+
+    "Simile" è _simili di src/database/interrogazioni_bandi.py: uguali, o
+    con le stesse prime 5 lettere se la più corta ne ha almeno 5; è la
+    riduzione alla radice che il progetto ha già.
+    """
+    from src.database.interrogazioni_bandi import _simili
+
+    nella_domanda = parole_significative(domanda)
+    nel_pezzo = parole_significative(pezzo)
+    comuni = [p for p in nella_domanda if any(_simili(p, q) for q in nel_pezzo)]
+    return nella_domanda, comuni
+
+
+def testo_dei_pezzi(fatto: dict) -> str:
+    return " ".join(" ".join(celle) for celle in unita_del_fatto(fatto))
+
+
+def nome_dell_azione(pagine: list[str], codice: str) -> tuple[int, str, str] | None:
+    """(pagina da 1, riga esatta, parte proposta) del titolo dell'azione `codice`."""
+    for numero, testo in enumerate(pagine, start=1):
+        for m in SCHEMA_AZIONE.finditer(testo):
+            if m[1] == codice:
+                return numero, m[0], f"Azione {m[1]}: {m[2]}"
+    return None
+
+
+def mediana(valori: list[float]) -> float | None:
+    import statistics
+
+    return statistics.median(valori) if valori else None
+
+
+def _media(valori: list[float]) -> str:
+    return f"{sum(valori) / len(valori):.1f}" if valori else "-"
+
+
+def esiti_combinazione(
+    fatto, primi, profondi, giusti, gemelli, frammenti_per_fonte
+) -> dict:
+    """Esito di un fatto per una combinazione, con bando e caratteri dei primi."""
+    esito = valuta(
+        fatto,
+        [frammento_di(d) for d, _, _ in primi],
+        [frammento_di(d) for d, _, _ in profondi],
+        giusti,
+        gemelli,
+        frammenti_per_fonte,
+    )
+    return {
+        "trovato": "sì" if esito["trovato"] else "no",
+        "posizioni": _posizioni(esito["posizioni_pezzi"]),
+        "primo_giusto": esito["primo_giusto"] or "",
+        "del_bando": sum(
+            d.metadata.get("id_bando") == fatto["id_bando"] for d, _, _ in primi
+        ),
+        "frammenti": len(primi),
+        "caratteri": sum(len(d.page_content) for d, _, _ in primi),
+    }
+
+
+def apri_misura(foglio: Path, divisione: Path, lato: str):
+    """(firma della divisione, fatti della metà, file per bando)."""
+    from scripts.ingestione.carica_avvisi import leggi_registro
+    from scripts.ingestione.registra_avvisi import NOME_FILE
+    from src.config import PROCESSED_DIR
+
+    firma = verifica_impronta(divisione)
+    fatti = fatti_della_meta(leggi_foglio(foglio), righe_della_meta(divisione, lato))
+    file_per_bando: dict[str, list[dict]] = defaultdict(list)
+    for r in leggi_registro(PROCESSED_DIR / NOME_FILE):
+        file_per_bando[r["id_bandi"]].append(r)
+    return firma, fatti, file_per_bando
+
+
+def esegui_griglia(foglio: Path, divisione: Path, lato: str, base: str) -> int:
+    """Ampiezza e k sulla copia di una base, più vicini e parole in comune."""
+    import time
+
+    from scripts.ingestione.carica_avvisi import senza_rete
+    from src.config import CHROMA_DIR
+
+    if base not in BASI_GRIGLIA:
+        raise ErroreMisura(f"base {base!r}: la griglia si misura su {BASI_GRIGLIA}")
+    senza_rete()
+    cartella = CARTELLA_19D / base
+    copia = cartella / "chroma"
+    if not copia.is_dir():
+        raise ErroreMisura(f"manca la copia {copia}")
+    misura_base = {r["riga"]: r for r in leggi_misura(cartella / f"misura_{lato}.csv")}
+    limite = VARIANTI[base].limite
+    firma, fatti, file_per_bando = apri_misura(foglio, divisione, lato)
+
+    prima = impronte_cartella(CHROMA_DIR)
+    prima_copia = impronte_cartella(copia)
+    inizio = time.perf_counter()
+    with senza_connessioni():
+        from src.chains.rag import recupera
+        from src.recupero_documenti import avvolgi
+        from src.retrieval import normalizza_domanda
+
+        recupero = apri_recupero(copia, limite)
+        app = {a: avvolgi(ConAmpiezza(recupero, a)) for a in (AMPIEZZA_APP, PROFONDITA)}
+        frammenti_per_fonte, titolo_del_bando = frammenti_della_copia(recupero, limite)
+
+        righe = []
+        for fatto in fatti:
+            giusti, gemelli = documenti_del_fatto(fatto, file_per_bando)
+            domanda = normalizza_domanda(str(fatto["domanda"]))
+            ripulita = domanda_ripulita(domanda, titolo_del_bando[fatto["id_bando"]])
+            id_bando = fatto["id_bando"]
+            profondi = {
+                "A": recupera(app[PROFONDITA], fatto["domanda"], k=PROFONDITA),
+                "B": recupero.cerca_nel_bando(
+                    ripulita, id_bando, PROFONDITA, ampiezza=PROFONDITA
+                ),
+            }
+            unita = unita_del_fatto(fatto)
+            riga = {
+                "riga": str(fatto["riga"]),
+                "id_bando": id_bando,
+                "pezzi": len(unita),
+            }
+            for ampiezza, k in COMBINAZIONI:
+                for c in CONDIZIONI_GRIGLIA:
+                    primi = (
+                        recupera(app[ampiezza], fatto["domanda"], k=k)
+                        if c == "A"
+                        else recupero.cerca_nel_bando(
+                            ripulita, id_bando, k, ampiezza=ampiezza
+                        )
+                    )
+                    esito = esiti_combinazione(
+                        fatto, primi, profondi[c], giusti, gemelli, frammenti_per_fonte
+                    )
+                    n = nome_colonna(ampiezza, k, c)
+                    riga.update({f"{n}_{chiave}": v for chiave, v in esito.items()})
+                    if (ampiezza, k) == COMBINAZIONI[0]:
+                        elenco = [frammento_di(d) for d, _, _ in primi]
+                        distanze = [
+                            distanza_dai_primi(p, elenco, giusti, frammenti_per_fonte)
+                            for p in unita
+                        ]
+                        riga[f"{c}_vicini"] = _posizioni(distanze)
+            nella_domanda, comuni = parole_in_comune(ripulita, testo_dei_pezzi(fatto))
+            riga.update(
+                parole_domanda=" ".join(nella_domanda),
+                parole_comuni=" ".join(comuni),
+                n_parole_domanda=len(nella_domanda),
+                n_parole_comuni=len(comuni),
+            )
+            righe.append(riga)
+        del recupero, app
+    tempo = time.perf_counter() - inizio
+
+    if impronte_cartella(CHROMA_DIR) != prima:
+        raise ErroreMisura("le impronte del Chroma vero sono cambiate")
+    dopo_copia = impronte_cartella(copia)
+    cambiati = sorted(
+        n
+        for n in set(prima_copia) | set(dopo_copia)
+        if prima_copia.get(n) != dopo_copia.get(n)
+    )
+
+    # La combinazione dell'app deve ridare la misura del secondo giro
+    diverse = [
+        (
+            r["riga"],
+            c,
+            r[f"{nome_colonna(*COMBINAZIONI[0], c)}_posizioni"],
+            misura_base[r["riga"]][f"{c}_posizioni_pezzi"],
+        )
+        for r in righe
+        for c in CONDIZIONI_GRIGLIA
+        if r[f"{nome_colonna(*COMBINAZIONI[0], c)}_trovato"]
+        != misura_base[r["riga"]][f"{c}_trovato"]
+        or r[f"{nome_colonna(*COMBINAZIONI[0], c)}_posizioni"]
+        != misura_base[r["riga"]][f"{c}_posizioni_pezzi"]
+    ]
+    if diverse:
+        raise ErroreMisura(
+            f"la combinazione dell'app non ridà la misura di {base}: {diverse}"
+        )
+
+    colonne = list(righe[0])
+    with (cartella / f"griglia_{lato}.csv").open(
+        "w", encoding="utf-8", newline=""
+    ) as f:
+        scrittore = csv.DictWriter(f, fieldnames=colonne, lineterminator="\n")
+        scrittore.writeheader()
+        scrittore.writerows(righe)
+    intestazione = [
+        f"Passo 19d, terzo giro, base {base}, metà: {lato}",
+        f"Divisione: {divisione.name} (sha256 {firma})",
+        NOTA_REGOLA,
+        (
+            f"Copia riusata: {copia}; impronte "
+            + (
+                f"cambiate all'apertura in sola lettura: {', '.join(cambiati)}"
+                if cambiati
+                else "uguali prima e dopo"
+            )
+        ),
+        f"Chroma vero: {len(prima)} file, impronte uguali prima e dopo",
+        f"Controllo: con ampiezza {AMPIEZZA_APP} e k={K} trovati e posizioni uguali a misura_{lato}.csv",
+        f"Tempo: {tempo:.1f} s",
+    ]
+    testo = "\n".join(rapporto_griglia(righe, intestazione))
+    (cartella / f"griglia_{lato}.txt").write_text(testo + "\n", encoding="utf-8")
+    print(testo)
+    return 0
+
+
+def rapporto_griglia(righe: list[dict], intestazione: list[str]) -> list[str]:
+    linee = [*intestazione, ""]
+    uno = [r for r in righe if int(r["pezzi"]) == 1]
+    piu = [r for r in righe if int(r["pezzi"]) > 1]
+
+    def conta(sue, n):
+        return f"{sum(r[f'{n}_trovato'] == 'sì' for r in sue)}/{len(sue)}"
+
+    titoli = [
+        "trovati A",
+        "trovati B",
+        "un pezzo A",
+        "un pezzo B",
+        "più pezzi A",
+        "più pezzi B",
+    ]
+    linee.append(f"{'ampiezza, k':<14}" + "".join(f"{t:>13}" for t in titoli))
+    for ampiezza, k in COMBINAZIONI:
+        a, b = nome_colonna(ampiezza, k, "A"), nome_colonna(ampiezza, k, "B")
+        valori = [
+            conta(righe, a),
+            conta(righe, b),
+            conta(uno, a),
+            conta(uno, b),
+            conta(piu, a),
+            conta(piu, b),
+        ]
+        linee.append(f"{f'{ampiezza}, {k}':<14}" + "".join(f"{v:>13}" for v in valori))
+
+    linee += ["", f"Guadagnati e persi rispetto ad ampiezza {AMPIEZZA_APP}, k={K}:"]
+    for ampiezza, k in COMBINAZIONI[1:]:
+        for c in CONDIZIONI_GRIGLIA:
+            base = nome_colonna(*COMBINAZIONI[0], c)
+            n = nome_colonna(ampiezza, k, c)
+            guadagnati = [
+                r["riga"]
+                for r in righe
+                if r[f"{n}_trovato"] == "sì" and r[f"{base}_trovato"] != "sì"
+            ]
+            persi = [
+                r["riga"]
+                for r in righe
+                if r[f"{base}_trovato"] == "sì" and r[f"{n}_trovato"] != "sì"
+            ]
+            linee.append(
+                f"  ampiezza {ampiezza}, k={k}, {c}: guadagnati {len(guadagnati)} "
+                f"({', '.join(guadagnati) or '-'}); persi {len(persi)} ({', '.join(persi) or '-'})"
+            )
+
+    linee += [
+        "",
+        "Frammenti del bando giusto e caratteri passati al modello (media per fatto):",
+    ]
+    for ampiezza, k in COMBINAZIONI:
+        for c in CONDIZIONI_GRIGLIA:
+            n = nome_colonna(ampiezza, k, c)
+            linee.append(
+                f"  ampiezza {ampiezza}, k={k}, {c}: frammenti {_media([int(r[f'{n}_frammenti']) for r in righe])}, "
+                f"del bando {_media([int(r[f'{n}_del_bando']) for r in righe])}, "
+                f"caratteri {_media([int(r[f'{n}_caratteri']) for r in righe])}"
+            )
+    for ampiezza in (AMPIEZZA_APP, PROFONDITA):
+        for c in CONDIZIONI_GRIGLIA:
+            dieci = [int(r[f"{nome_colonna(ampiezza, K, c)}_caratteri"]) for r in righe]
+            quindici = [
+                int(r[f"{nome_colonna(ampiezza, 15, c)}_caratteri"]) for r in righe
+            ]
+            extra = [q - d for q, d in zip(quindici, dieci, strict=True)]
+            linee.append(
+                f"  caratteri in più da k={K} a k=15, ampiezza {ampiezza}, {c}: media "
+                f"{_media(extra)}, minimo {min(extra)}, massimo {max(extra)}"
+            )
+
+    linee += [
+        "",
+        f"Vicini (ampiezza {AMPIEZZA_APP}, k={K}), risposte in più pezzi: per pezzo 0 se",
+        "tra i primi, 1 o 2 se in un vicino a quella distanza di un frammento giusto",
+        "tra i primi, '-' se oltre:",
+    ]
+    for c in CONDIZIONI_GRIGLIA:
+        for d in (1, DISTANZA_VICINI):
+            interi = [
+                r["riga"]
+                for r in piu
+                if r[f"{nome_colonna(*COMBINAZIONI[0], c)}_trovato"] != "sì"
+                and completo_con_vicini(_distanze(r[f"{c}_vicini"]), d)
+            ]
+            linee.append(
+                f"  {c}, vicini a ±{d}: fatti in più pezzi resi interi {len(interi)} "
+                f"({', '.join(interi) or '-'})"
+            )
+        for r in piu:
+            linee.append(
+                f"    riga {r['riga']}: trovato {r[f'{nome_colonna(*COMBINAZIONI[0], c)}_trovato']}, "
+                f"pezzi {r[f'{c}_vicini']}"
+            )
+    for c in CONDIZIONI_GRIGLIA:
+        for d in (1, DISTANZA_VICINI):
+            interi = [
+                r["riga"]
+                for r in uno
+                if r[f"{nome_colonna(*COMBINAZIONI[0], c)}_trovato"] != "sì"
+                and completo_con_vicini(_distanze(r[f"{c}_vicini"]), d)
+            ]
+            linee.append(
+                f"  stesso conteggio, risposte in un pezzo, {c}, ±{d}: {len(interi)} "
+                f"({', '.join(interi) or '-'})"
+            )
+
+    b = nome_colonna(*COMBINAZIONI[0], "B")
+    trovati = [r for r in righe if r[f"{b}_trovato"] == "sì"]
+    mancati = [r for r in righe if r[f"{b}_trovato"] != "sì"]
+    linee += [
+        "",
+        "Parole significative della domanda ripulita in comune con il pezzo (B):",
+        (
+            f"  trovati: {len(trovati)}, mediana "
+            f"{mediana([int(r['n_parole_comuni']) for r in trovati])} in comune su "
+            f"{mediana([int(r['n_parole_domanda']) for r in trovati])} della domanda"
+        ),
+        (
+            f"  non trovati: {len(mancati)}, mediana "
+            f"{mediana([int(r['n_parole_comuni']) for r in mancati])} in comune su "
+            f"{mediana([int(r['n_parole_domanda']) for r in mancati])} della domanda"
+        ),
+    ]
+    for r in mancati:
+        linee.append(
+            f"    riga {r['riga']}: {r['n_parole_comuni']} su {r['n_parole_domanda']} "
+            f"(in comune: {r['parole_comuni'] or '-'}; della domanda: {r['parole_domanda']})"
+        )
+    return linee
+
+
+def _distanze(testo: str) -> list[int | None]:
+    return [None if x == "-" else int(x) for x in testo.split(" || ")]
+
+
+def prepara_copia_parte(
+    cartella: Path, sorgente: Path, parti: dict[str, str], limite: int | None
+) -> dict:
+    """Copia di una copia di Chroma con la parte davanti al testo del vettore.
+
+    Solo per i frammenti dei file in `parti`; testo e metadati restano
+    quelli della sorgente. I vettori si calcolano con il limite della base.
+    """
+    import shutil
+
+    import chromadb
+    from chromadb.config import Settings
+
+    from src.config import COLLECTION_NAME
+    from src.vectorstore import crea_embeddings
+
+    copia = cartella / "chroma"
+    if copia.exists():
+        shutil.rmtree(copia)
+    cartella.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(sorgente, copia)
+    embeddings = crea_embeddings()
+    embeddings._client.max_seq_length = limite or LIMITE_MODELLO
+    cliente = chromadb.PersistentClient(
+        path=str(copia), settings=Settings(anonymized_telemetry=False)
+    )
+    collezione = cliente.get_collection(COLLECTION_NAME)
+    dati = collezione.get(
+        where={"fonte": {"$in": sorted(parti)}}, include=["documents", "metadatas"]
+    )
+    per_fonte = Counter(m["fonte"] for m in dati["metadatas"])
+    if set(per_fonte) != set(parti):
+        raise ErroreMisura(
+            f"file senza frammenti nella copia: {sorted(set(parti) - set(per_fonte))}"
+        )
+    vettori = embeddings.embed_documents(
+        [
+            testo_lessicale(t, m, parti)
+            for t, m in zip(dati["documents"], dati["metadatas"], strict=True)
+        ]
+    )
+    collezione.update(ids=dati["ids"], embeddings=vettori)
+    dopo = collezione.get(ids=dati["ids"], include=["documents"])
+    if dict(zip(dopo["ids"], dopo["documents"], strict=True)) != dict(
+        zip(dati["ids"], dati["documents"], strict=True)
+    ):
+        raise ErroreMisura("il testo dei frammenti è cambiato nella copia")
+    totale = collezione.count()
+    del cliente
+    return {
+        "frammenti": len(dati["ids"]),
+        "per_fonte": dict(per_fonte),
+        "totale": totale,
+    }
+
+
+def esegui_apistici(foglio: Path, divisione: Path, lato: str) -> int:
+    """Nome dell'azione dai quattro allegati, poi la misura delle righe 67-74."""
+    import time
+
+    from scripts.ingestione import carica_avvisi as ca
+    from scripts.ingestione.registra_avvisi import NOME_FILE
+    from src.config import CHROMA_DIR, PROCESSED_DIR
+
+    ca.senza_rete()
+    linee = [
+        f"Passo 19d, terzo giro, nome dell'azione degli apistici, metà: {lato}",
+        NOTA_REGOLA,
+        "",
+    ]
+    parti: dict[str, str] = {}
+    for r in ca.leggi_registro(PROCESSED_DIR / NOME_FILE):
+        if not r["parte"].startswith("Azione "):
+            continue
+        codice = r["parte"].split()[1]
+        trovato = nome_dell_azione(ca.pagine_del_pdf(ca.percorso_del_file(r)), codice)
+        if trovato is None:
+            raise ErroreMisura(
+                f"{r['nome_file']}: nessuna riga 'Intervento B Azione {codice}: ...'"
+            )
+        pagina, riga_esatta, proposta = trovato
+        parti[r["nome_file"]] = proposta
+        linee += [
+            f"{r['nome_file']} ({r['atto']}, parte nel registro {r['parte']!r}):",
+            f"  pagina {pagina}, testo esatto: {riga_esatta!r}",
+            f"  parte proposta: {proposta!r}, fonte: pagina {pagina} del file, titolo dell'allegato",
+        ]
+    if len(parti) != 4:
+        raise ErroreMisura(
+            f"allegati degli apistici nel registro: {len(parti)}, attesi 4"
+        )
+
+    firma, fatti, file_per_bando = apri_misura(foglio, divisione, lato)
+    fatti = [f for f in fatti if f["riga"] in RIGHE_APISTICI]
+    linee += [
+        "",
+        f"Righe {RIGHE_APISTICI.start}-{RIGHE_APISTICI.stop - 1} della metà {lato}: "
+        + ", ".join(str(f["riga"]) for f in fatti),
+        f"Divisione: {divisione.name} (sha256 {firma})",
+    ]
+
+    prima = impronte_cartella(CHROMA_DIR)
+    with senza_connessioni():
+        from src.chains.rag import recupera
+        from src.recupero_documenti import avvolgi
+        from src.retrieval import normalizza_domanda
+
+        for base in BASI_GRIGLIA:
+            inizio = time.perf_counter()
+            sorgente = CARTELLA_19D / base / "chroma"
+            prima_sorgente = impronte_cartella(sorgente)
+            cartella = CARTELLA_19D / f"{base}+parte"
+            limite = VARIANTI[base].limite
+            info = prepara_copia_parte(cartella, sorgente, parti, limite)
+            if impronte_cartella(sorgente) != prima_sorgente:
+                raise ErroreMisura(f"le impronte di {sorgente} sono cambiate")
+            recupero = apri_recupero(cartella / "chroma", limite, prefissi=parti)
+            app = avvolgi(recupero)
+            profondo = avvolgi(Profondo(recupero))
+            frammenti_per_fonte, titolo_del_bando = frammenti_della_copia(
+                recupero, limite
+            )
+            misura_base = {
+                r["riga"]: r
+                for r in leggi_misura(CARTELLA_19D / base / f"misura_{lato}.csv")
+            }
+            linee += [
+                "",
+                (
+                    f"Base {base}, copia {cartella / 'chroma'}: vettori "
+                    f"ricalcolati per {info['frammenti']} frammenti "
+                    f"({', '.join(f'{k} {v}' for k, v in sorted(info['per_fonte'].items()))}) "
+                    f"su {info['totale']}; parte nel vettore e nella ricerca per "
+                    "parole, testo pulito"
+                ),
+                f"{'riga':<6}{'':<4}{base + ' primi 10 (50)':>26}{base + '+parte primi 10 (50)':>30}",
+            ]
+            for fatto in fatti:
+                giusti, gemelli = documenti_del_fatto(fatto, file_per_bando)
+                domanda = normalizza_domanda(str(fatto["domanda"]))
+                ripulita = domanda_ripulita(
+                    domanda, titolo_del_bando[fatto["id_bando"]]
+                )
+                elenchi = {
+                    "A": (
+                        recupera(app, fatto["domanda"], k=K),
+                        recupera(profondo, fatto["domanda"], k=PROFONDITA),
+                    ),
+                    "B": (
+                        recupero.cerca_nel_bando(ripulita, fatto["id_bando"], K),
+                        recupero.cerca_nel_bando(
+                            ripulita, fatto["id_bando"], PROFONDITA, ampiezza=PROFONDITA
+                        ),
+                    ),
+                }
+                for c, (primi, profondi) in elenchi.items():
+                    esito = valuta(
+                        fatto,
+                        [frammento_di(d) for d, _, _ in primi],
+                        [frammento_di(d) for d, _, _ in profondi],
+                        giusti,
+                        gemelli,
+                        frammenti_per_fonte,
+                    )
+                    vecchia = misura_base[str(fatto["riga"])]
+                    prima_c = f"{vecchia[f'{c}_trovato']} {vecchia[f'{c}_posizioni_pezzi']} ({vecchia[f'{c}_posizioni_profonde']})"
+                    dopo_c = (
+                        f"{'sì' if esito['trovato'] else 'no'} {_posizioni(esito['posizioni_pezzi'])} "
+                        f"({_posizioni(esito['posizioni_profonde'])})"
+                    )
+                    linee.append(
+                        f"{fatto['riga']:<6}{c:<4}{prima_c:>26}{dopo_c:>30}"
+                        + ("  pezzo dal gemello" if esito["pezzo_dal_gemello"] else "")
+                    )
+            del recupero, app, profondo
+            linee.append(f"Tempo: {time.perf_counter() - inizio:.1f} s")
+    if impronte_cartella(CHROMA_DIR) != prima:
+        raise ErroreMisura("le impronte del Chroma vero sono cambiate")
+    linee.append(f"Chroma vero: {len(prima)} file, impronte uguali prima e dopo")
+    testo = "\n".join(linee)
+    (CARTELLA_19D / f"apistici_{lato}.txt").write_text(testo + "\n", encoding="utf-8")
+    print(testo)
+    return 0
+
+
 # --- uso ---
 
 
@@ -1605,6 +2271,16 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--misura", action="store_true", help="tempo 2: misura")
     parser.add_argument(
         "--riepilogo", action="store_true", help="una riga per configurazione misurata"
+    )
+    parser.add_argument(
+        "--griglia",
+        action="store_true",
+        help="terzo giro: ampiezza e k sulla copia di --variante (v0 o v1)",
+    )
+    parser.add_argument(
+        "--apistici",
+        action="store_true",
+        help="terzo giro: nome dell'azione dagli allegati e misura delle righe 67-74",
     )
     parser.add_argument(
         "--controllo",
@@ -1661,9 +2337,18 @@ def esegui_divisione(foglio: Path, controllo: Path, uscita: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argomenti = leggi_argomenti(argv)
-    if argomenti.dividi + argomenti.misura + argomenti.riepilogo != 1:
+    comandi = (
+        argomenti.dividi,
+        argomenti.misura,
+        argomenti.riepilogo,
+        argomenti.griglia,
+        argomenti.apistici,
+    )
+    if sum(comandi) != 1:
         print(
-            "Serve un comando solo: --dividi, --misura o --riepilogo.", file=sys.stderr
+            "Serve un comando solo: --dividi, --misura, --riepilogo, --griglia o "
+            "--apistici.",
+            file=sys.stderr,
         )
         return 2
     try:
@@ -1674,6 +2359,12 @@ def main(argv: list[str] | None = None) -> int:
         lato = CONTROLLO if argomenti.controllo else TARATURA
         if argomenti.riepilogo:
             return esegui_riepilogo(lato)
+        if argomenti.griglia:
+            return esegui_griglia(
+                argomenti.foglio, argomenti.divisione, lato, argomenti.variante
+            )
+        if argomenti.apistici:
+            return esegui_apistici(argomenti.foglio, argomenti.divisione, lato)
         cartella = argomenti.cartella or CARTELLA_19D / argomenti.variante
         return esegui_misura(
             argomenti.foglio, argomenti.divisione, lato, argomenti.variante, cartella
