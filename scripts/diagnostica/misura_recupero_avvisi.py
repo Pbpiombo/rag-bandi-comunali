@@ -2660,6 +2660,19 @@ def apri_recupero_esatto(nome: str):
     return apri_recupero(Path(), store=store)
 
 
+def apri_tutto_esatto(nome: str):
+    """(recupero, app, profondo, frammenti per fonte, titolo per bando) di un modello."""
+    from src.recupero_documenti import avvolgi
+
+    recupero = apri_recupero_esatto(nome)
+    app = avvolgi(recupero)
+    profondo = avvolgi(Profondo(recupero))
+    frammenti_per_fonte, titolo_del_bando = frammenti_della_copia(
+        recupero, MODELLI[nome].limite
+    )
+    return recupero, app, profondo, frammenti_per_fonte, titolo_del_bando
+
+
 def esegui_esatta(foglio: Path, divisione: Path, lato: str, nome: str) -> int:
     """Misura esatta con k=10 e k=15, condizioni A e B (B ripulita)."""
     import json
@@ -2675,74 +2688,22 @@ def esegui_esatta(foglio: Path, divisione: Path, lato: str, nome: str) -> int:
     prima = impronte_cartella(CHROMA_DIR)
     tempi = {}
     with senza_connessioni():
-        from src.chains.rag import recupera
-        from src.recupero_documenti import avvolgi, documenti_nominati
-        from src.retrieval import normalizza_domanda
-
         inizio = time.perf_counter()
-        recupero = apri_recupero_esatto(nome)
-        app = avvolgi(recupero)
-        profondo = avvolgi(Profondo(recupero))
-        frammenti_per_fonte, titolo_del_bando = frammenti_della_copia(
-            recupero, modello.limite
+        recupero, app, profondo, frammenti_per_fonte, titolo_del_bando = (
+            apri_tutto_esatto(nome)
         )
         tempi["apertura"] = time.perf_counter() - inizio
 
         inizio = time.perf_counter()
-        righe = {k: [] for k in K_ESATTI}
-        elenchi_scritti = {}
-        for fatto in fatti:
-            giusti, gemelli = documenti_del_fatto(fatto, file_per_bando)
-            domanda = normalizza_domanda(str(fatto["domanda"]))
-            ripulita = domanda_ripulita(domanda, titolo_del_bando[fatto["id_bando"]])
-            profondi = {
-                "A": recupera(profondo, fatto["domanda"], k=PROFONDITA),
-                "B": recupero.cerca_nel_bando(
-                    ripulita, fatto["id_bando"], PROFONDITA, ampiezza=PROFONDITA
-                ),
-            }
-            nominati = set(documenti_nominati(domanda, app.titoli))
-            for k in K_ESATTI:
-                primi = {
-                    "A": recupera(app, fatto["domanda"], k=k),
-                    "B": recupero.cerca_nel_bando(ripulita, fatto["id_bando"], k),
-                }
-                esiti = {
-                    c: valuta(
-                        fatto,
-                        [frammento_di(d) for d, _, _ in primi[c]],
-                        [frammento_di(d) for d, _, _ in profondi[c]],
-                        giusti,
-                        gemelli,
-                        frammenti_per_fonte,
-                    )
-                    for c in CONDIZIONI_GRIGLIA
-                }
-                di_sempre = sum(not d.metadata.get("sha256") for d, _, _ in primi["A"])
-                riga = riga_misura(
-                    fatto,
-                    giusti,
-                    gemelli,
-                    esiti,
-                    nominati,
-                    di_sempre,
-                    ripulita if ripulita != domanda else "",
-                )
-                _, spezzati_, assenti = stato_dei_pezzi(
-                    fatto, giusti, frammenti_per_fonte
-                )
-                riga.update(pezzi_spezzati=spezzati_, pezzi_assenti=assenti)
-                righe[k].append(riga)
-                for c in CONDIZIONI_GRIGLIA:
-                    elenchi_scritti[f"{fatto['riga']} {c} k={k}"] = [
-                        [d.metadata.get("fonte"), d.metadata.get("chunk_num"), repr(p)]
-                        for d, p, _ in primi[c]
-                    ]
-            for c in CONDIZIONI_GRIGLIA:
-                elenchi_scritti[f"{fatto['riga']} {c} profondi"] = [
-                    [d.metadata.get("fonte"), d.metadata.get("chunk_num"), repr(p)]
-                    for d, p, _ in profondi[c]
-                ]
+        righe, elenchi_scritti = ricerche_esatte(
+            recupero,
+            app,
+            profondo,
+            fatti,
+            file_per_bando,
+            frammenti_per_fonte,
+            titolo_del_bando,
+        )
         tempi["ricerche"] = time.perf_counter() - inizio
         del recupero, app, profondo
     if impronte_cartella(CHROMA_DIR) != prima:
@@ -2751,25 +2712,13 @@ def esegui_esatta(foglio: Path, divisione: Path, lato: str, nome: str) -> int:
     testo_elenchi = json.dumps(elenchi_scritti, ensure_ascii=False, indent=0).encode()
     (cartella / f"elenchi_esatti_{lato}.json").write_bytes(testo_elenchi)
     for k in K_ESATTI:
-        with (cartella / f"esatta_k{k}_{lato}.csv").open(
-            "w", encoding="utf-8", newline=""
-        ) as f:
-            scrittore = csv.DictWriter(
-                f, fieldnames=COLONNE_MISURA, lineterminator="\n", restval=""
-            )
-            scrittore.writeheader()
-            scrittore.writerows(righe[k])
+        scrivi_misura(cartella / f"esatta_k{k}_{lato}.csv", righe[k])
 
     intestazione = [
         f"Passo 19d, quarto giro, misura esatta {nome}, metà: {lato}",
         f"Divisione: {divisione.name} (sha256 {firma})",
         NOTA_REGOLA,
-        (
-            f"Modello {modello.nome}, limite {modello.limite or LIMITE_MODELLO} token, "
-            f"prefisso della domanda {modello.domanda!r}, dei frammenti "
-            f"{modello.passaggio!r}; ricerca densa esatta (prodotto scalare su "
-            "tutti i frammenti, pari merito per id)"
-        ),
+        descrizione_modello(modello),
         f"Elenchi recuperati: elenchi_esatti_{lato}.json, sha256 {impronta(testo_elenchi)}",
         f"Chroma vero: {len(prima)} file, impronte uguali prima e dopo",
         "Tempi: " + "; ".join(f"{n} {s:.1f} s" for n, s in tempi.items()),
@@ -2780,6 +2729,93 @@ def esegui_esatta(foglio: Path, divisione: Path, lato: str, nome: str) -> int:
     (cartella / f"esatta_{lato}.txt").write_text(testo + "\n", encoding="utf-8")
     print(testo)
     return 0
+
+
+def descrizione_modello(modello: Modello) -> str:
+    return (
+        f"Modello {modello.nome}, limite {modello.limite or LIMITE_MODELLO} token, "
+        f"prefisso della domanda {modello.domanda!r}, dei frammenti "
+        f"{modello.passaggio!r}; ricerca densa esatta (prodotto scalare su "
+        "tutti i frammenti, pari merito per id)"
+    )
+
+
+def scrivi_misura(percorso: Path, righe: list[dict]) -> None:
+    with percorso.open("w", encoding="utf-8", newline="") as f:
+        scrittore = csv.DictWriter(
+            f, fieldnames=COLONNE_MISURA, lineterminator="\n", restval=""
+        )
+        scrittore.writeheader()
+        scrittore.writerows(righe)
+
+
+def ricerche_esatte(
+    recupero,
+    app,
+    profondo,
+    fatti,
+    file_per_bando,
+    frammenti_per_fonte,
+    titolo_del_bando,
+) -> tuple[dict[int, list[dict]], dict[str, list]]:
+    """Per ogni fatto e ogni k di K_ESATTI, le righe della misura (A e B) e gli elenchi."""
+    from src.chains.rag import recupera
+    from src.recupero_documenti import documenti_nominati
+    from src.retrieval import normalizza_domanda
+
+    righe = {k: [] for k in K_ESATTI}
+    elenchi_scritti = {}
+    for fatto in fatti:
+        giusti, gemelli = documenti_del_fatto(fatto, file_per_bando)
+        domanda = normalizza_domanda(str(fatto["domanda"]))
+        ripulita = domanda_ripulita(domanda, titolo_del_bando[fatto["id_bando"]])
+        profondi = {
+            "A": recupera(profondo, fatto["domanda"], k=PROFONDITA),
+            "B": recupero.cerca_nel_bando(
+                ripulita, fatto["id_bando"], PROFONDITA, ampiezza=PROFONDITA
+            ),
+        }
+        nominati = set(documenti_nominati(domanda, app.titoli))
+        for k in K_ESATTI:
+            primi = {
+                "A": recupera(app, fatto["domanda"], k=k),
+                "B": recupero.cerca_nel_bando(ripulita, fatto["id_bando"], k),
+            }
+            esiti = {
+                c: valuta(
+                    fatto,
+                    [frammento_di(d) for d, _, _ in primi[c]],
+                    [frammento_di(d) for d, _, _ in profondi[c]],
+                    giusti,
+                    gemelli,
+                    frammenti_per_fonte,
+                )
+                for c in CONDIZIONI_GRIGLIA
+            }
+            di_sempre = sum(not d.metadata.get("sha256") for d, _, _ in primi["A"])
+            riga = riga_misura(
+                fatto,
+                giusti,
+                gemelli,
+                esiti,
+                nominati,
+                di_sempre,
+                ripulita if ripulita != domanda else "",
+            )
+            _, spezzati_, assenti = stato_dei_pezzi(fatto, giusti, frammenti_per_fonte)
+            riga.update(pezzi_spezzati=spezzati_, pezzi_assenti=assenti)
+            righe[k].append(riga)
+            for c in CONDIZIONI_GRIGLIA:
+                elenchi_scritti[f"{fatto['riga']} {c} k={k}"] = [
+                    [d.metadata.get("fonte"), d.metadata.get("chunk_num"), repr(p)]
+                    for d, p, _ in primi[c]
+                ]
+        for c in CONDIZIONI_GRIGLIA:
+            elenchi_scritti[f"{fatto['riga']} {c} profondi"] = [
+                [d.metadata.get("fonte"), d.metadata.get("chunk_num"), repr(p)]
+                for d, p, _ in profondi[c]
+            ]
+    return righe, elenchi_scritti
 
 
 def leggi_esatta(nome: str, k: int, lato: str) -> list[dict] | None:
@@ -2860,6 +2896,391 @@ def rapporto_esatto(
             ]
             linee.append(f"  riga {numero}: " + "; ".join(celle))
     return linee
+
+
+# --- quinto giro: taratura intera (primo e secondo foglio) ---
+
+# I numeri di riga dei due fogli si sovrappongono: nella misura sui due
+# fogli le righe del secondo si spostano di SCOSTAMENTO_2 (riga 18 del
+# secondo foglio -> 1018). Le righe del primo restano quelle di sempre.
+SCOSTAMENTO_2 = 1000
+SUFFISSO_INTERA = "97"
+MODELLI_INTERA = ("v0", "e5-small", "e5-base")
+# Differenze di al più tanti fatti sono "entro il rumore" (docs/coda.md,
+# "Passo 19d", punto 2: con 40 fatti, 1-3 fatti)
+RUMORE = 3
+
+# Cause dei non trovati, per fatto: la prima che si applica, in quest'ordine
+CAUSA_SPEZZATO = "pezzo spezzato tra frammenti"
+CAUSA_ASSENTE = "pezzo in nessun frammento del documento giusto"
+CAUSA_FUORI_VISTA = "pezzo fuori dalla parte vista"
+CAUSA_GEMELLO = "gemello al posto del giusto"
+# Posizione del pezzo messo peggio nella ricerca con ampiezza PROFONDITA,
+# che non coincide con la posizione nei primi k (ampiezza dell'app)
+CAUSA_OLTRE_15 = "giusto entro il 15° posto con ampiezza 50"
+CAUSA_OLTRE_30 = "giusto dal 16° al 30° posto con ampiezza 50"
+CAUSA_OLTRE_50 = "giusto dal 31° al 50° posto con ampiezza 50"
+CAUSA_OLTRE = "giusto oltre i primi 50"
+FASCE = (CAUSA_OLTRE_15, CAUSA_OLTRE_30, CAUSA_OLTRE_50, CAUSA_OLTRE)
+SENZA_POSIZIONE = "senza posizione"
+ORDINE_CAUSE = (
+    CAUSA_SPEZZATO,
+    CAUSA_ASSENTE,
+    CAUSA_FUORI_VISTA,
+    CAUSA_GEMELLO,
+    CAUSA_OLTRE_15,
+    CAUSA_OLTRE_30,
+    CAUSA_OLTRE_50,
+    CAUSA_OLTRE,
+)
+
+
+def unisci_fogli(fatti_per_foglio: list[tuple[list[dict], int]]) -> list[dict]:
+    """I fatti di più fogli in un elenco solo, con la riga spostata e il foglio.
+
+    Ogni voce è (fatti, scostamento); il foglio è la posizione nell'elenco,
+    da 1. Due fatti con la stessa riga dopo lo spostamento fermano.
+    """
+    uniti = []
+    for numero, (fatti, scostamento) in enumerate(fatti_per_foglio, 1):
+        uniti += [
+            {**f, "riga": f["riga"] + scostamento, "foglio": numero} for f in fatti
+        ]
+    doppie = [r for r, n in Counter(f["riga"] for f in uniti).items() if n > 1]
+    if doppie:
+        raise ErroreMisura(f"righe uguali tra i fogli: {sorted(doppie)}")
+    return uniti
+
+
+def foglio_della_riga(riga) -> int:
+    return 2 if int(riga) >= SCOSTAMENTO_2 else 1
+
+
+def nome_della_riga(riga) -> str:
+    """'18' per il primo foglio, '2:18' per il secondo."""
+    numero = int(riga)
+    return f"2:{numero - SCOSTAMENTO_2}" if numero >= SCOSTAMENTO_2 else str(numero)
+
+
+def file_intera(nome: str, k: int, lato: str) -> Path:
+    return CARTELLA_19D / nome / f"esatta_k{k}_{lato}_{SUFFISSO_INTERA}.csv"
+
+
+def esegui_esatta_intera(lato: str, nome: str) -> int:
+    """Misura esatta sui due fogli insieme, k=10 e k=15, condizioni A e B."""
+    import json
+    import time
+
+    from scripts.ingestione.carica_avvisi import senza_rete
+    from src.config import CHROMA_DIR
+
+    senza_rete()
+    cartella = CARTELLA_19D / nome
+    firma_1, fatti_1, file_per_bando = apri_misura(FOGLIO, DIVISIONE, lato)
+    firma_2, fatti_2, _ = apri_misura(FOGLIO_2, DIVISIONE_2, lato)
+    fatti = unisci_fogli([(fatti_1, 0), (fatti_2, SCOSTAMENTO_2)])
+    prima = impronte_cartella(CHROMA_DIR)
+    tempi = {}
+    with senza_connessioni():
+        inizio = time.perf_counter()
+        recupero, app, profondo, frammenti_per_fonte, titolo_del_bando = (
+            apri_tutto_esatto(nome)
+        )
+        tempi["apertura"] = time.perf_counter() - inizio
+        inizio = time.perf_counter()
+        righe, elenchi_scritti = ricerche_esatte(
+            recupero,
+            app,
+            profondo,
+            fatti,
+            file_per_bando,
+            frammenti_per_fonte,
+            titolo_del_bando,
+        )
+        tempi["ricerche"] = time.perf_counter() - inizio
+        del recupero, app, profondo
+    if impronte_cartella(CHROMA_DIR) != prima:
+        raise ErroreMisura("le impronte del Chroma vero sono cambiate")
+
+    testo_elenchi = json.dumps(elenchi_scritti, ensure_ascii=False, indent=0).encode()
+    nome_elenchi = f"elenchi_esatti_{lato}_{SUFFISSO_INTERA}.json"
+    (cartella / nome_elenchi).write_bytes(testo_elenchi)
+    for k in K_ESATTI:
+        scrivi_misura(file_intera(nome, k, lato), righe[k])
+    linee = [
+        (
+            f"Passo 19d, misura esatta {nome} sui due fogli, metà: {lato} "
+            f"({len(fatti_1)} + {len(fatti_2)} fatti)"
+        ),
+        (
+            f"Divisioni: {DIVISIONE.name} (sha256 {firma_1}), "
+            f"{DIVISIONE_2.name} (sha256 {firma_2})"
+        ),
+        f"Righe del secondo foglio spostate di {SCOSTAMENTO_2} nei CSV",
+        NOTA_REGOLA,
+        descrizione_modello(MODELLI[nome]),
+        f"Elenchi recuperati: {nome_elenchi}, sha256 {impronta(testo_elenchi)}",
+        f"Chroma vero: {len(prima)} file, impronte uguali prima e dopo",
+        "Tempi: " + "; ".join(f"{n} {s:.1f} s" for n, s in tempi.items()),
+        "",
+    ]
+    scritte = {k: leggi_misura(file_intera(nome, k, lato)) for k in K_ESATTI}
+    linee += tabella_affiancata(
+        [(f"k={k} {c}", scritte[k], c) for k in K_ESATTI for c in CONDIZIONI_GRIGLIA]
+    )
+    testo = "\n".join(linee)
+    (cartella / f"esatta_{lato}_{SUFFISSO_INTERA}.txt").write_text(
+        testo + "\n", encoding="utf-8"
+    )
+    print(testo)
+    return 0
+
+
+def causa_del_fatto(cause: str) -> str:
+    """La causa principale di un fatto non trovato, dalla colonna <c>_cause.
+
+    Per le posizioni conta il pezzo messo peggio.
+    """
+    if SPEZZATO in cause:
+        return CAUSA_SPEZZATO
+    if ASSENTE_FRAMMENTI in cause:
+        return CAUSA_ASSENTE
+    if FUORI_VISTA in cause:
+        return CAUSA_FUORI_VISTA
+    if GEMELLO in cause:
+        return CAUSA_GEMELLO
+    return fascia_di_posizione(cause)
+
+
+def fascia_di_posizione(cause: str) -> str:
+    """La fascia della posizione profonda del pezzo messo peggio."""
+    if f"oltre i primi {PROFONDITA}" in cause:
+        return CAUSA_OLTRE
+    posizioni = [int(p) for p in re.findall(r"in posizione (\d+)", cause)]
+    if not posizioni:
+        raise ErroreMisura(f"causa non riconosciuta: {cause!r}")
+    peggiore = max(posizioni)
+    if peggiore <= 15:
+        return CAUSA_OLTRE_15
+    if peggiore <= 30:
+        return CAUSA_OLTRE_30
+    return CAUSA_OLTRE_50
+
+
+def differenza(prima: int, dopo: int) -> str:
+    """'+n' o '-n', con "entro il rumore" se lo scarto è al più RUMORE fatti."""
+    scarto = dopo - prima
+    segno = f"{scarto:+d}" if scarto else "0"
+    return segno + (" (entro il rumore)" if abs(scarto) <= RUMORE else "")
+
+
+def _trovati(righe: list[dict], c: str, scelta=lambda r: True) -> tuple[int, int]:
+    sue = [r for r in righe if scelta(r)]
+    return sum(r[f"{c}_trovato"] == "sì" for r in sue), len(sue)
+
+
+def _primi_entro(righe: list[dict], c: str, posto: int) -> int:
+    return sum(
+        bool(r[f"{c}_primo_giusto"]) and int(r[f"{c}_primo_giusto"]) <= posto
+        for r in righe
+    )
+
+
+GRUPPI_INTERA = [
+    ("tutti", lambda r: True),
+    ("primo foglio", lambda r: foglio_della_riga(r["riga"]) == 1),
+    ("secondo foglio", lambda r: foglio_della_riga(r["riga"]) == 2),
+    ("un pezzo", lambda r: int(r["pezzi"]) == 1),
+    ("più pezzi", lambda r: int(r["pezzi"]) > 1),
+    ("tabella sì", lambda r: r["in_tabella"] == "sì"),
+    ("tabella no", lambda r: r["in_tabella"] != "sì"),
+    ("registro semplice", lambda r: r["registro"] == "semplice"),
+    ("registro caso", lambda r: r["registro"] == "caso"),
+    ("frasi gemelle", lambda r: r["gemello"] == "sì"),
+]
+
+
+def gemelli_presi(righe: list[dict], c: str) -> tuple[list[str], list[str]]:
+    """(frasi gemelle prese dal gemello, altri fatti presi dal gemello), come righe."""
+    presi = [r for r in righe if r[f"{c}_pezzo_dal_gemello"] == "sì"]
+    return (
+        [nome_della_riga(r["riga"]) for r in presi if r["gemello"] == "sì"],
+        [nome_della_riga(r["riga"]) for r in presi if r["gemello"] != "sì"],
+    )
+
+
+def righe_diverse_dal_primo(vecchie: list[dict], nuove: list[dict]) -> list[str]:
+    """Le righe del primo foglio la cui misura sui due fogli differisce da quella sui 40."""
+    del_primo = {r["riga"]: r for r in nuove if foglio_della_riga(r["riga"]) == 1}
+    if set(del_primo) != {r["riga"] for r in vecchie}:
+        raise ErroreMisura("le righe del primo foglio non sono le stesse")
+    return [r["riga"] for r in vecchie if del_primo[r["riga"]] != r]
+
+
+def rapporto_intero(misure: dict[tuple[str, int], list[dict]], lato: str) -> list[str]:
+    """Il riepilogo delle misure sui due fogli; misure per (modello, k)."""
+    configurazioni = list(misure)
+    etichette = [f"{n} k={k}" for n, k in configurazioni]
+    larga = 24
+    linee = [
+        f"Passo 19d, riepilogo della misura esatta sui due fogli, metà: {lato}",
+        NOTA_REGOLA,
+        (
+            "Righe del secondo foglio scritte come 2:<riga>. Differenze di al più "
+            f"{RUMORE} fatti: entro il rumore (docs/coda.md, Passo 19d, punto 2)."
+        ),
+        "",
+        "1. Fatti trovati, A / B, su n fatti",
+        f"{'':<{larga}}{'n':>4}" + "".join(f"{e:>18}" for e in etichette),
+    ]
+    prime = next(iter(misure.values()))
+    for gruppo, scelta in GRUPPI_INTERA:
+        celle = [
+            f"{_trovati(righe, 'A', scelta)[0]} / {_trovati(righe, 'B', scelta)[0]}"
+            for righe in misure.values()
+        ]
+        n = _trovati(prime, "A", scelta)[1]
+        linee.append(f"{gruppo:<{larga}}{n:>4}" + "".join(f"{x:>18}" for x in celle))
+
+    linee += ["", "2. Posizione del primo frammento giusto, A / B (fatti, cumulati)"]
+    linee.append(f"{'':<{larga}}" + "".join(f"{e:>18}" for e in etichette))
+    for posto in (1, 3, 5, 10, 15):
+        celle = []
+        for (_, k), righe in misure.items():
+            if posto > k:
+                celle.append("-")
+            else:
+                celle.append(
+                    f"{_primi_entro(righe, 'A', posto)} / {_primi_entro(righe, 'B', posto)}"
+                )
+        nome = "al 1° posto" if posto == 1 else f"tra i primi {posto}"
+        linee.append(f"{nome:<{larga}}" + "".join(f"{x:>18}" for x in celle))
+
+    linee += ["", "3. Pezzi presi dal bando (o allegato) sbagliato prima del giusto"]
+    for etichetta, righe in zip(etichette, misure.values(), strict=True):
+        for c in CONDIZIONI_GRIGLIA:
+            gemelle, altri = gemelli_presi(righe, c)
+            senza = [
+                nome_della_riga(r["riga"])
+                for r in righe
+                if r[f"{c}_gemello_senza_giusto"] == "sì"
+            ]
+            linee.append(
+                f"  {etichetta:<14} {c}: frasi gemelle {len(gemelle)} "
+                f"({', '.join(gemelle) or '-'}); altri fatti {len(altri)} "
+                f"({', '.join(altri) or '-'}); gemello tra i primi k senza il "
+                f"giusto {len(senza)} ({', '.join(senza) or '-'})"
+            )
+
+    linee += ["", "4. Differenze dalla base v0 con lo stesso k (fatti trovati)"]
+    for (n, k), righe in misure.items():
+        if n == "v0" or ("v0", k) not in misure:
+            continue
+        base = misure[("v0", k)]
+        for c in CONDIZIONI_GRIGLIA:
+            guadagnati, persi = cambi_di_esito(base, righe, c)
+            linee.append(
+                f"  {n} k={k} {c}: {_trovati(righe, c)[0]} contro "
+                f"{_trovati(base, c)[0]}, "
+                f"{differenza(_trovati(base, c)[0], _trovati(righe, c)[0])}; "
+                f"ora trovati {', '.join(map(nome_della_riga, guadagnati)) or '-'}; "
+                f"ora non trovati {', '.join(map(nome_della_riga, persi)) or '-'}"
+            )
+    for n in dict.fromkeys(n for n, _ in configurazioni):
+        if (n, K) in misure and (n, 15) in misure:
+            for c in CONDIZIONI_GRIGLIA:
+                guadagnati, persi = cambi_di_esito(misure[(n, K)], misure[(n, 15)], c)
+                prima_ = _trovati(misure[(n, K)], c)[0]
+                dopo = _trovati(misure[(n, 15)], c)[0]
+                linee.append(
+                    f"  {n} da k={K} a k=15 {c}: {differenza(prima_, dopo)}; "
+                    f"ora trovati {len(guadagnati)}, ora non trovati {len(persi)} "
+                    f"({', '.join(map(nome_della_riga, persi)) or '-'})"
+                )
+
+    bandi = sorted({r["id_bando"] for righe in misure.values() for r in righe})
+    largo = max(len(b) for b in bandi) + 1
+    linee += ["", "5. Risultati per bando, trovati A / B su n fatti"]
+    linee.append(f"{'':<{largo}}{'n':>4}" + "".join(f"{e:>18}" for e in etichette))
+    for bando in bandi:
+        celle = []
+        for righe in misure.values():
+            a, n = _trovati(righe, "A", lambda r, b=bando: r["id_bando"] == b)
+            b_, _ = _trovati(righe, "B", lambda r, b=bando: r["id_bando"] == b)
+            celle.append(f"{a} / {b_}")
+        linee.append(f"{bando:<{largo}}{n:>4}" + "".join(f"{x:>18}" for x in celle))
+
+    if ("v0", K) in misure:
+        mancati = [r for r in misure[("v0", K)] if r["B_trovato"] != "sì"]
+        per_causa = defaultdict(list)
+        for r in mancati:
+            per_causa[causa_del_fatto(r["B_cause"])].append(r)
+        linee += [
+            "",
+            (
+                f"6. Non trovati in v0, condizione B, k={K}: {len(mancati)}, divisi "
+                "per causa (la prima che si applica: spezzato, assente, fuori dalla "
+                "parte vista, gemello al posto del giusto, posizione del pezzo "
+                "messo peggio)"
+            ),
+        ]
+        for causa in ORDINE_CAUSE:
+            sue = per_causa.get(causa, [])
+            if not sue:
+                continue
+            fasce = Counter(
+                fascia_di_posizione(r["B_cause"])
+                if re.search(r"in posizione \d|oltre i primi", r["B_cause"])
+                else SENZA_POSIZIONE
+                for r in sue
+            )
+            dettaglio = (
+                " ("
+                + "; ".join(
+                    f"{f} {fasce[f]}" for f in (*FASCE, SENZA_POSIZIONE) if fasce[f]
+                )
+                + ")"
+                if causa not in FASCE
+                else ""
+            )
+            linee.append(f"  {causa}: {len(sue)}{dettaglio}")
+            linee += [
+                f"    {nome_della_riga(r['riga'])} ({r['id_bando']}, {r['registro']}, "
+                f"pezzi {r['pezzi']}, tabella {r['in_tabella'] or 'no'}): "
+                f"{r['B_cause']}"
+                for r in sue
+            ]
+    return linee
+
+
+def esegui_riepilogo_intero(lato: str) -> int:
+    """riepilogo_<lato>_97.txt dalle misure sui due fogli, più il confronto con i 40."""
+    misure = {
+        (n, k): leggi_misura(file_intera(n, k, lato))
+        for n in MODELLI_INTERA
+        for k in K_ESATTI
+        if file_intera(n, k, lato).exists()
+    }
+    if not misure:
+        raise ErroreMisura("nessuna misura sui due fogli da riassumere")
+    linee = rapporto_intero(misure, lato)
+    linee += ["", "7. Righe del primo foglio uguali alla misura esatta sui 40"]
+    for (n, k), righe in misure.items():
+        vecchie = leggi_esatta(n, k, lato)
+        if vecchie is None:
+            linee.append(f"  {n} k={k}: misura sui 40 assente")
+            continue
+        diverse = righe_diverse_dal_primo(vecchie, righe)
+        linee.append(
+            f"  {n} k={k}: {len(vecchie) - len(diverse)} su {len(vecchie)} identiche"
+            + (f"; diverse: {', '.join(diverse)}" if diverse else "")
+        )
+    testo = "\n".join(linee)
+    (CARTELLA_19D / f"riepilogo_{lato}_{SUFFISSO_INTERA}.txt").write_text(
+        testo + "\n", encoding="utf-8"
+    )
+    print(testo)
+    return 0
 
 
 def memoria_del_processo() -> int:
@@ -3021,6 +3442,16 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--peso", action="store_true", help="quarto giro: memoria e tempi del modello"
     )
+    parser.add_argument(
+        "--esatta-intera",
+        action="store_true",
+        help="misura esatta sui due fogli dei fatti insieme, per --modello",
+    )
+    parser.add_argument(
+        "--riepilogo-intero",
+        action="store_true",
+        help="riepilogo delle misure esatte sui due fogli",
+    )
     parser.add_argument("--modello", choices=sorted(MODELLI), default="v0")
     parser.add_argument(
         "--controllo",
@@ -3087,12 +3518,15 @@ def main(argv: list[str] | None = None) -> int:
         argomenti.prepara_vettori,
         argomenti.esatta,
         argomenti.peso,
+        argomenti.esatta_intera,
+        argomenti.riepilogo_intero,
     )
     if sum(comandi) != 1:
         print(
             "Serve un comando solo: --dividi, --dividi-secondo, --misura, "
             "--riepilogo, --griglia, "
-            "--apistici, --prepara-vettori, --esatta o --peso.",
+            "--apistici, --prepara-vettori, --esatta, --peso, --esatta-intera "
+            "o --riepilogo-intero.",
             file=sys.stderr,
         )
         return 2
@@ -3120,6 +3554,10 @@ def main(argv: list[str] | None = None) -> int:
             )
         if argomenti.peso:
             return esegui_peso(argomenti.modello)
+        if argomenti.esatta_intera:
+            return esegui_esatta_intera(lato, argomenti.modello)
+        if argomenti.riepilogo_intero:
+            return esegui_riepilogo_intero(lato)
         cartella = argomenti.cartella or CARTELLA_19D / argomenti.variante
         return esegui_misura(
             argomenti.foglio, argomenti.divisione, lato, argomenti.variante, cartella

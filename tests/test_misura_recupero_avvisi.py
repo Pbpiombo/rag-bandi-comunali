@@ -957,3 +957,158 @@ def test_metà_del_primo_solo_le_righe_chieste_e_impronta(tmp_path):
     percorso.write_bytes(dati + b"5,controllo\n")
     with pytest.raises(mr.ErroreDivisione, match="impronta"):
         mr.metà_del_primo(percorso, {3})
+
+
+# --- taratura intera: i due fogli insieme ---
+
+
+def test_unisci_fogli_sposta_le_righe_del_secondo_e_ferma_sulle_doppie():
+    primo = [fatto(18, "alfa", "Frase del primo.")]
+    secondo = [fatto(18, "alfa", "Frase del secondo."), fatto(5, "beta", "Altra.")]
+    uniti = mr.unisci_fogli([(primo, 0), (secondo, mr.SCOSTAMENTO_2)])
+    assert [(f["riga"], f["foglio"]) for f in uniti] == [(18, 1), (1018, 2), (1005, 2)]
+    assert primo[0]["riga"] == 18 and secondo[0]["riga"] == 18  # ingressi intatti
+    with pytest.raises(mr.ErroreMisura, match="righe uguali"):
+        mr.unisci_fogli([(primo, 0), (secondo, 0)])
+
+
+def test_nome_e_foglio_della_riga():
+    assert mr.nome_della_riga("18") == "18"
+    assert mr.nome_della_riga(1018) == "2:18"
+    assert mr.foglio_della_riga("74") == 1
+    assert mr.foglio_della_riga("1074") == 2
+
+
+def test_causa_del_fatto_la_prima_che_si_applica():
+    profonda = f"(ampiezza {mr.PROFONDITA})"
+    assert (
+        mr.causa_del_fatto(f"frammento giusto in posizione 12 {profonda}")
+        == mr.CAUSA_OLTRE_15
+    )
+    # risposta in più pezzi: conta il pezzo messo peggio
+    assert (
+        mr.causa_del_fatto(
+            f"pezzo 1: frammento giusto in posizione 12 {profonda} / "
+            f"pezzo 2: frammento giusto in posizione 31 {profonda}"
+        )
+        == mr.CAUSA_OLTRE_50
+    )
+    assert (
+        mr.causa_del_fatto(f"frammento giusto in posizione 16 {profonda}")
+        == mr.CAUSA_OLTRE_30
+    )
+    assert (
+        mr.causa_del_fatto(f"frammento giusto oltre i primi {mr.PROFONDITA}")
+        == mr.CAUSA_OLTRE
+    )
+    assert (
+        mr.causa_del_fatto(f"frammento giusto in posizione 14 {profonda}; {mr.GEMELLO}")
+        == mr.CAUSA_GEMELLO
+    )
+    assert (
+        mr.causa_del_fatto(
+            f"{mr.FUORI_VISTA}; frammento giusto in posizione 20 {profonda}; "
+            f"{mr.GEMELLO}"
+        )
+        == mr.CAUSA_FUORI_VISTA
+    )
+    assert mr.causa_del_fatto(mr.SPEZZATO) == mr.CAUSA_SPEZZATO
+    assert mr.causa_del_fatto(mr.ASSENTE_FRAMMENTI) == mr.CAUSA_ASSENTE
+    with pytest.raises(mr.ErroreMisura, match="non riconosciuta"):
+        mr.causa_del_fatto("altro")
+
+
+def test_differenza_entro_il_rumore():
+    assert mr.differenza(26, 29) == "+3 (entro il rumore)"
+    assert mr.differenza(26, 26) == "0 (entro il rumore)"
+    assert mr.differenza(30, 26) == "-4"
+    assert mr.differenza(26, 32) == "+6"
+
+
+def riga_finta(riga, id_bando, trovato_b, **altro):
+    """Una riga di misura come la scrive scrivi_misura, con valori di comodo."""
+    r = dict.fromkeys(mr.COLONNE_MISURA, "")
+    r.update(
+        riga=str(riga),
+        id_bando=id_bando,
+        registro="semplice",
+        in_tabella="no",
+        pezzi="1",
+        gemello="no",
+    )
+    for c in mr.CONDIZIONI_MISURA:
+        r.update(
+            {
+                f"{c}_trovato": "no",
+                f"{c}_gemello_senza_giusto": "no",
+                f"{c}_pezzo_dal_gemello": "no",
+            }
+        )
+    r["B_trovato"] = "sì" if trovato_b else "no"
+    r.update(altro)
+    return r
+
+
+def test_rapporto_intero_per_bando_gemelli_e_cause():
+    profonda = f"(ampiezza {mr.PROFONDITA})"
+    v0 = [
+        riga_finta(2, "alfa", True, B_primo_giusto="1", A_trovato="sì"),
+        riga_finta(
+            3,
+            "alfa",
+            False,
+            B_cause=f"frammento giusto in posizione 12 {profonda}",
+            gemello="sì",
+            B_pezzo_dal_gemello="sì",
+        ),
+        riga_finta(1002, "beta", False, B_cause=mr.SPEZZATO, pezzi="2"),
+        riga_finta(
+            1003,
+            "beta",
+            False,
+            B_cause=f"{mr.FUORI_VISTA}; frammento giusto in posizione 20 {profonda}",
+        ),
+    ]
+    e5 = [
+        riga_finta(2, "alfa", True, B_primo_giusto="4"),
+        riga_finta(3, "alfa", True, B_primo_giusto="2", gemello="sì"),
+        riga_finta(1002, "beta", True, B_primo_giusto="9", pezzi="2"),
+        riga_finta(1003, "beta", False),
+    ]
+    linee = mr.rapporto_intero({("v0", 10): v0, ("e5-small", 10): e5}, "taratura")
+    testo = "\n".join(linee)
+    tutti = next(x for x in linee if x.startswith("tutti"))
+    assert tutti.split()[1:] == ["4", "1", "/", "1", "0", "/", "3"]
+    secondo = next(x for x in linee if x.startswith("secondo foglio"))
+    assert secondo.split()[2:] == ["2", "0", "/", "0", "0", "/", "1"]
+    assert "v0 k=10        B: frasi gemelle 1 (3)" in testo
+    assert (
+        "e5-small k=10 B: 3 contro 1, +2 (entro il rumore); ora trovati 3, 2:2" in testo
+    )
+    alfa = next(x for x in linee if x.startswith("alfa"))
+    assert alfa.split() == ["alfa", "2", "1", "/", "1", "0", "/", "2"]
+    assert "Non trovati in v0, condizione B, k=10: 3" in testo
+    assert f"  {mr.CAUSA_FUORI_VISTA}: 1 ({mr.CAUSA_OLTRE_30} 1)" in linee
+    i = linee.index(f"  {mr.CAUSA_SPEZZATO}: 1 ({mr.SENZA_POSIZIONE} 1)")
+    assert linee[i + 1].startswith("    2:2 (beta, semplice, pezzi 2")
+    assert f"  {mr.CAUSA_OLTRE_15}: 1" in linee
+
+
+def test_righe_diverse_dal_primo_foglio():
+    vecchie = [riga_finta(2, "alfa", True), riga_finta(3, "alfa", False)]
+    nuove = [
+        riga_finta(2, "alfa", True),
+        riga_finta(3, "alfa", True),
+        riga_finta(1002, "beta", False),
+    ]
+    assert mr.righe_diverse_dal_primo(vecchie, nuove) == ["3"]
+    with pytest.raises(mr.ErroreMisura, match="non sono le stesse"):
+        mr.righe_diverse_dal_primo(vecchie, nuove[:1])
+
+
+def test_opzioni_della_taratura_intera():
+    argomenti = mr.leggi_argomenti(["--esatta-intera", "--modello", "e5-base"])
+    assert argomenti.esatta_intera and argomenti.modello == "e5-base"
+    assert argomenti.controllo is False
+    assert mr.leggi_argomenti(["--riepilogo-intero"]).riepilogo_intero
+    assert mr.main(["--esatta-intera", "--riepilogo-intero"]) == 2
