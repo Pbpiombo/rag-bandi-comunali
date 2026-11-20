@@ -371,7 +371,9 @@ TABELLE_DA_CSV = {
 # interrogazione del repertorio li legge. testo_ricerca: il testo per
 # l'ordinamento dei bandi (passo 17 della roadmap), che non va al modello
 # che scrive e non si cita (src/ordinamento/testo_ricerca.py).
-CSV_FUORI_DATABASE = ("testo_ricerca",)
+# documenti_bandi: il registro dei PDF degli avvisi scaricati, una riga per
+# impronta del file (passo 19, scripts/ingestione/registra_avvisi.py).
+CSV_FUORI_DATABASE = ("testo_ricerca", "documenti_bandi")
 
 
 class ErroreArchivio(Exception):
