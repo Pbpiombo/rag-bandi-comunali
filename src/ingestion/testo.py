@@ -93,11 +93,16 @@ def spezza(
     intestazione: str | None = None,
     salta_pagine: list[int] | None = None,
     ricucitura: str = "completa",
+    dimensione: int = CHUNK_SIZE,
+    sovrapposizione: int = CHUNK_OVERLAP,
 ) -> list[Document]:
     """Divide le pagine in chunk, saltando quelle indicate.
 
     `ricucitura` passa a `pulisci`: "completa" per i documenti di sempre,
-    "prudente" per gli avvisi dei bandi.
+    "prudente" per gli avvisi dei bandi. `dimensione` e `sovrapposizione`
+    (in caratteri) servono alle prove del passo 19d
+    (scripts/diagnostica/misura_recupero_avvisi.py); il caricamento usa i
+    valori predefiniti di src/config.py.
     """
     # import all'interno della funzione, così il pacchetto si carica solo quando spezza viene chiamata.
     from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -127,8 +132,8 @@ def spezza(
     print(f"  Pagine tenute: {len(tenute)}")
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
+        chunk_size=dimensione,
+        chunk_overlap=sovrapposizione,
         separators=[
             r"\n\d{1,2}\.\d{1,2}\s",
             r"\n\d{1,2}\.\s",

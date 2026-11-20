@@ -3,7 +3,7 @@
 import pytest
 from langchain_core.documents import Document
 
-from src.config import CHUNK_SIZE, SOGLIA_CHUNK
+from src.config import CHUNK_OVERLAP, CHUNK_SIZE, SOGLIA_CHUNK
 from src.ingestion.testo import pulisci, spezza
 
 CASI_PULIZIA = [
@@ -103,3 +103,21 @@ def test_chunk_conservano_i_metadati():
     ]
     chunk = spezza(pagine)
     assert all(c.metadata == {"page": 1, "fonte": "avviso_mercati"} for c in chunk)
+
+
+def test_dimensione_predefinita_quella_di_sempre():
+    """Senza parametri la divisione è quella del caricamento (passo 19d, v3)."""
+    pagine = [Document(page_content=TESTO_LUNGO, metadata={"page": 1})]
+    predefinita = [c.page_content for c in spezza(pagine)]
+    esplicita = [
+        c.page_content
+        for c in spezza(pagine, dimensione=CHUNK_SIZE, sovrapposizione=CHUNK_OVERLAP)
+    ]
+    assert predefinita == esplicita
+
+
+def test_frammenti_piu_corti_con_la_dimensione():
+    pagine = [Document(page_content=TESTO_LUNGO, metadata={"page": 1})]
+    corti = spezza(pagine, dimensione=600, sovrapposizione=200)
+    assert len(corti) > len(spezza(pagine))
+    assert all(len(c.page_content) <= 600 for c in corti)

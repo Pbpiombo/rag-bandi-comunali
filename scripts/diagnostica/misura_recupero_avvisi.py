@@ -75,6 +75,7 @@ import random
 import sys
 from collections import Counter, defaultdict
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 from scripts.diagnostica.controlla_fatti import (
@@ -398,11 +399,56 @@ AMPIEZZA_APP = 20  # quella di RecuperoIbrido.cerca, usata dall'app
 PROFONDITA = 50  # per la posizione del frammento giusto oltre i primi K
 CARTELLA_19D = DATI_GREZZI_DIR / "prova" / "19d"
 
-# Varianti: nome -> limite di token del modello di embedding (None: quello
-# del modello, 128). v1 ricalcola i vettori di tutti i frammenti, avvisi e
-# documenti di sempre; frammenti, testo e metadati restano quelli di v0.
-VARIANTI: dict[str, int | None] = {"v0": None, "v1": 512}
+
+@dataclass(frozen=True)
+class Variante:
+    """Una configurazione del recupero da misurare.
+
+    limite: token del modello di embedding (None: quello del modello, 128);
+    intestazione: titolo · parte · atto davanti al testo su cui si calcola
+    il vettore dei frammenti degli avvisi (il testo del frammento resta
+    pulito, e la ricerca per parole non la vede);
+    frammenti: (dimensione, sovrapposizione) in caratteri per la divisione
+    degli avvisi (None: quella del caricamento, src/config.py).
+    I documenti di sempre restano con i loro frammenti e senza intestazione;
+    i loro vettori si ricalcolano con il limite della variante.
+    """
+
+    limite: int | None = None
+    intestazione: bool = False
+    frammenti: tuple[int, int] | None = None
+
+    def descrizione(self) -> str:
+        parti = [f"limite {self.limite or LIMITE_MODELLO} token"]
+        parti.append(
+            "intestazione nel vettore" if self.intestazione else "senza intestazione"
+        )
+        parti.append(
+            f"frammenti degli avvisi da {self.frammenti[0]} caratteri con "
+            f"{self.frammenti[1]} di sovrapposizione"
+            if self.frammenti
+            else "frammenti del caricamento"
+        )
+        return "; ".join(parti)
+
+
 LIMITE_MODELLO = 128
+CORTI = (600, 200)
+VARIANTI: dict[str, Variante] = {
+    "v0": Variante(),
+    "v1": Variante(limite=512),
+    "v2": Variante(intestazione=True),
+    "v3": Variante(frammenti=CORTI),
+    "v1+v2": Variante(limite=512, intestazione=True),
+    "v1+v2+v3": Variante(limite=512, intestazione=True, frammenti=CORTI),
+}
+
+NOTA_REGOLA = (
+    "Regola corretta il 20/11/2026, prima di aprire il controllo: tutte le "
+    "varianti e le combinazioni si scelgono sulla taratura; il controllo si "
+    "apre una volta sola, sulla scelta finale. Il ramo 'tra 75 e 85% si "
+    "prova una combinazione e si rimisura' è annullato."
+)
 
 # Condizioni della misura.
 # A: il percorso dell'app.
@@ -462,6 +508,8 @@ COLONNE_MISURA = [
     "ristretta_A",
     "classe_ristretta_A",
     "di_sempre_A",
+    "pezzi_spezzati",
+    "pezzi_assenti",
     *(f"{c}_{n}" for c in CONDIZIONI_MISURA for n in _PER_CONDIZIONE),
 ]
 
@@ -809,55 +857,223 @@ def car_visti(tokenizer, testo: str, limite: int) -> int:
 # --- copie di Chroma ---
 
 
-def prepara_copia(cartella: Path, limite: int | None, sorgente: Path) -> dict:
-    """Copia di Chroma nella cartella; con `limite`, vettori ricalcolati.
+def intestazione_di(meta: dict) -> str:
+    """Titolo · parte · atto di un frammento degli avvisi, senza le voci vuote."""
+    voci = (meta.get("titolo"), meta.get("parte"), meta.get("riferimento_atto"))
+    return " · ".join(str(v).strip() for v in voci if v and str(v).strip())
 
-    Si ricalcolano i vettori di tutti i frammenti (avvisi e documenti di
-    sempre) dal testo salvato, con lo stesso modello e il limite dato;
-    ids, testo e metadati restano. Il controllo: i frammenti che stanno
-    nel limite del modello devono avere lo stesso vettore di prima.
+
+def testo_per_vettore(testo: str, meta: dict, intestazione: bool) -> str:
+    """Il testo su cui si calcola il vettore: con l'intestazione solo per gli avvisi."""
+    if intestazione and meta.get("sha256"):
+        return f"{intestazione_di(meta)}\n{testo}"
+    return testo
+
+
+def _senza_vuoti(meta: dict) -> dict:
+    return {k: v for k, v in meta.items() if v is not None}
+
+
+def impronta_frammenti(ids: list[str], testi: list[str], metadati: list[dict]) -> str:
+    """sha256 di ids, testi e metadati, indipendente dall'ordine."""
+    import json
+
+    voci = sorted(
+        [i, testo, sorted(_senza_vuoti(meta).items())]
+        for i, testo, meta in zip(ids, testi, metadati, strict=True)
+    )
+    return impronta(json.dumps(voci, ensure_ascii=False).encode("utf-8"))
+
+
+@contextmanager
+def dimensione_dei_frammenti(modulo, frammenti: tuple[int, int] | None):
+    """Durante il blocco, `modulo.spezza` divide con la dimensione data."""
+    if frammenti is None:
+        yield
+        return
+    import functools
+
+    originale = modulo.spezza
+    modulo.spezza = functools.partial(
+        originale, dimensione=frammenti[0], sovrapposizione=frammenti[1]
+    )
+    try:
+        yield
+    finally:
+        modulo.spezza = originale
+
+
+def frammenti_avvisi(frammenti: tuple[int, int] | None) -> list:
+    """I frammenti degli avvisi come li fa il caricamento, con la divisione data.
+
+    Si usa scripts.ingestione.carica_avvisi.frammenti_del_file su tutte le
+    righe del registro con uso "frammenti"; nulla si scrive.
+    """
+    from scripts.ingestione import carica_avvisi as ca
+    from scripts.ingestione.registra_avvisi import NOME_FILE
+    from src.config import PROCESSED_DIR
+    from src.database.schema import connetti
+
+    conn = connetti()
+    try:
+        tokenizer = ca.apri_tokenizer()
+        uscita = []
+        with dimensione_dei_frammenti(ca, frammenti):
+            for riga in ca.leggi_registro(PROCESSED_DIR / NOME_FILE):
+                pagine = ca.pagine_del_pdf(ca.percorso_del_file(riga))
+                uscita += ca.frammenti_del_file(riga, pagine, conn, tokenizer).frammenti
+    finally:
+        conn.close()
+    return uscita
+
+
+def prepara_copia(cartella: Path, variante: Variante | None, sorgente: Path) -> dict:
+    """Copia di Chroma nella cartella, trasformata secondo la variante.
+
+    v0 (o None): copia e basta. Altrimenti si ricalcolano i vettori di tutti
+    i frammenti con il limite della variante (e l'intestazione per gli
+    avvisi); con `frammenti`, gli avvisi si ridividono: prima si controlla
+    che la divisione del caricamento ridia esattamente i frammenti della
+    copia (numero e impronta), poi si tolgono e si mettono i nuovi.
+    Controllo dei vettori: i frammenti con lo stesso testo, senza
+    intestazione ed entro il limite di prima devono avere lo stesso vettore.
     """
     import shutil
 
+    variante = variante or Variante()
     copia = cartella / "chroma"
     if copia.exists():
         shutil.rmtree(copia)
     cartella.mkdir(parents=True, exist_ok=True)
     shutil.copytree(sorgente, copia)
-    if not limite:
+    if variante == Variante():
         return {}
 
     import chromadb
     import numpy as np
     from chromadb.config import Settings
 
+    from scripts.ingestione.carica_avvisi import identificatori
     from src.config import COLLECTION_NAME
     from src.vectorstore import crea_embeddings
 
     embeddings = crea_embeddings()
+    limite = variante.limite or LIMITE_MODELLO
     embeddings._client.max_seq_length = limite
     tokenizer = embeddings._client.tokenizer
     cliente = chromadb.PersistentClient(
         path=str(copia), settings=Settings(anonymized_telemetry=False)
     )
     collezione = cliente.get_collection(COLLECTION_NAME)
-    dati = collezione.get(include=["documents", "embeddings"])
-    nuovi = embeddings.embed_documents(dati["documents"])
-    for i in range(0, len(dati["ids"]), 500):
-        collezione.update(ids=dati["ids"][i : i + 500], embeddings=nuovi[i : i + 500])
-    vecchi = np.asarray(dati["embeddings"])
-    coseni = np.sum(vecchi * np.asarray(nuovi), axis=1)
-    corti = np.array(
-        [len(tokenizer(d)["input_ids"]) <= LIMITE_MODELLO for d in dati["documents"]]
-    )
-    del cliente
-    return {
-        "frammenti": len(dati["ids"]),
-        "corti": int(corti.sum()),
-        "coseno_minimo_corti": float(coseni[corti].min()) if corti.any() else None,
-        "lunghi": int((~corti).sum()),
-        "coseno_medio_lunghi": float(coseni[~corti].mean()) if (~corti).any() else None,
+    dati = collezione.get(include=["documents", "metadatas", "embeddings"])
+    vecchi = {
+        i: (testo, vettore)
+        for i, testo, vettore in zip(
+            dati["ids"], dati["documents"], dati["embeddings"], strict=True
+        )
     }
+    info: dict = {}
+    ids, testi, metadati = dati["ids"], dati["documents"], dati["metadatas"]
+    if variante.frammenti:
+        avvisi = [k for k, m in enumerate(metadati) if m.get("sha256")]
+        predefiniti = frammenti_avvisi(None)
+        attesa = impronta_frammenti(
+            [ids[k] for k in avvisi],
+            [testi[k] for k in avvisi],
+            [metadati[k] for k in avvisi],
+        )
+        rifatta = impronta_frammenti(
+            identificatori(predefiniti),
+            [d.page_content for d in predefiniti],
+            [d.metadata for d in predefiniti],
+        )
+        info["ricostruzione"] = (len(predefiniti), len(avvisi), rifatta == attesa)
+        if len(predefiniti) != len(avvisi) or rifatta != attesa:
+            raise ErroreMisura(
+                f"la divisione del caricamento non ridà i frammenti della copia: "
+                f"{len(predefiniti)} contro {len(avvisi)}, impronte "
+                f"{rifatta[:12]} e {attesa[:12]}"
+            )
+        info["impronta_avvisi"] = attesa
+        nuovi = frammenti_avvisi(variante.frammenti)
+        tolti = {ids[k] for k in avvisi}
+        collezione.delete(ids=sorted(tolti))
+        # i nuovi frammenti possono avere gli stessi id di quelli tolti
+        # (sha256[:16]::n): non sono più nella collezione e vanno aggiunti
+        vecchi = {i: v for i, v in vecchi.items() if i not in tolti}
+        tenuti = [k for k in range(len(ids)) if k not in set(avvisi)]
+        ids = [ids[k] for k in tenuti] + identificatori(nuovi)
+        testi = [testi[k] for k in tenuti] + [d.page_content for d in nuovi]
+        metadati = [metadati[k] for k in tenuti] + [
+            _senza_vuoti(d.metadata) for d in nuovi
+        ]
+        info["avvisi"] = len(nuovi)
+    vettori = embeddings.embed_documents(
+        [
+            testo_per_vettore(testo, meta, variante.intestazione)
+            for testo, meta in zip(testi, metadati, strict=True)
+        ]
+    )
+    for a in range(0, len(ids), 500):
+        b = a + 500
+        presenti = [k for k in range(a, min(b, len(ids))) if ids[k] in vecchi]
+        assenti = [k for k in range(a, min(b, len(ids))) if ids[k] not in vecchi]
+        if presenti:
+            collezione.update(
+                ids=[ids[k] for k in presenti],
+                embeddings=[vettori[k] for k in presenti],
+            )
+        if assenti:
+            collezione.add(
+                ids=[ids[k] for k in assenti],
+                embeddings=[vettori[k] for k in assenti],
+                documents=[testi[k] for k in assenti],
+                metadatas=[metadati[k] for k in assenti],
+            )
+    confrontabili = [
+        k
+        for k, i in enumerate(ids)
+        if i in vecchi
+        and vecchi[i][0] == testi[k]
+        and testo_per_vettore(testi[k], metadati[k], variante.intestazione) == testi[k]
+        and len(tokenizer(testi[k])["input_ids"]) <= LIMITE_MODELLO
+    ]
+    coseni = [
+        float(np.dot(np.asarray(vecchi[ids[k]][1]), np.asarray(vettori[k])))
+        for k in confrontabili
+    ]
+    nella_copia = collezione.get(include=[])["ids"]
+    if sorted(nella_copia) != sorted(ids):
+        raise ErroreMisura(
+            f"la copia ha {len(nella_copia)} frammenti, attesi {len(ids)}"
+        )
+    del cliente
+    info.update(
+        frammenti=len(ids),
+        confrontabili=len(confrontabili),
+        coseno_minimo=min(coseni) if coseni else None,
+    )
+    return info
+
+
+def stato_dei_pezzi(
+    fatto: dict, giusti: set[str], frammenti_per_fonte: dict[str, list[Frammento]]
+) -> tuple[int, int, int]:
+    """(interi, spezzati, assenti): i pezzi del fatto nei frammenti dei documenti giusti."""
+    interi = spezzati_ = assenti = 0
+    for pezzo in unita_del_fatto(fatto):
+        frammenti = [
+            fr for f in sorted(giusti) for fr in frammenti_per_fonte.get(f, [])
+        ]
+        if any(contiene(pezzo, fr) for fr in frammenti):
+            interi += 1
+        elif any(
+            spezzato(pezzo, frammenti_per_fonte.get(f, [])) for f in sorted(giusti)
+        ):
+            spezzati_ += 1
+        else:
+            assenti += 1
+    return interi, spezzati_, assenti
 
 
 # --- numeri ---
@@ -1058,33 +1274,118 @@ def leggi_misura(percorso: Path) -> list[dict]:
         return list(csv.DictReader(f))
 
 
-def rapporto_confronto(base: list[dict], variante: list[dict], nome: str) -> list[str]:
+def rapporto_confronto(misure: list[tuple[str, list[dict]]]) -> list[str]:
+    """Confronto di più misure; la prima è la base (v0), l'ultima la variante."""
+    base_nome, base = misure[0]
+    nome, variante = misure[-1]
     colonne = [
-        ("v0 A", base, "A"),
-        ("v0 B intera", base, "Bi"),
-        ("v0 B ripulita", base, "B"),
-        (f"{nome} A", variante, "A"),
-        (f"{nome} B ripulita", variante, "B"),
+        (f"{n} {etichetta}", righe, c)
+        for n, righe in misure
+        for etichetta, c in (("A", "A"), ("B", "B"))
     ]
-    linee = [f"Confronto v0 e {nome}, metà di taratura", ""]
+    linee = [
+        f"Confronto {', '.join(n for n, _ in misure)}, metà di taratura",
+        NOTA_REGOLA,
+        "",
+    ]
     linee += tabella_affiancata(colonne)
     for c in ("A", "B"):
         guadagnati, persi = cambi_di_esito(base, variante, c)
         linee += [
             "",
             (
-                f"Condizione {c}, da v0 a {nome}: guadagnati {len(guadagnati)} "
-                f"({', '.join(guadagnati) or '-'}); persi {len(persi)} "
-                f"({', '.join(persi) or '-'})"
+                f"Condizione {c}, da {base_nome} a {nome}: guadagnati "
+                f"{len(guadagnati)} ({', '.join(guadagnati) or '-'}); persi "
+                f"{len(persi)} ({', '.join(persi) or '-'})"
             ),
         ]
     linee += [
         "",
         "Risposte in più pezzi: posizione del frammento giusto per pezzo, nei",
         f"primi 10 ('-' se assente) e tra parentesi con ampiezza {PROFONDITA}:",
-        *pezzi_affiancati([("v0", base), (nome, variante)]),
+        *pezzi_affiancati(misure),
     ]
     return linee
+
+
+RIGHE_SEGUITE = (21, 23, 24, 72, 74)
+
+
+def esegui_riepilogo(lato: str) -> int:
+    """Una riga per configurazione misurata, più le frasi gemelle seguite."""
+    misure = [
+        (nome, leggi_misura(CARTELLA_19D / nome / f"misura_{lato}.csv"))
+        for nome in VARIANTI
+        if (CARTELLA_19D / nome / f"misura_{lato}.csv").exists()
+    ]
+    if not misure:
+        raise ErroreMisura("nessuna misura da riassumere")
+
+    def conta(righe, c, scelta=lambda r: True):
+        sue = [r for r in righe if scelta(r)]
+        return f"{sum(r[f'{c}_trovato'] == 'sì' for r in sue)}/{len(sue)}"
+
+    def primi5(righe, c):
+        return str(
+            sum(
+                bool(r[f"{c}_primo_giusto"]) and int(r[f"{c}_primo_giusto"]) <= 5
+                for r in righe
+            )
+        )
+
+    titoli = [
+        "trovati A",
+        "trovati B",
+        "un pezzo A",
+        "un pezzo B",
+        "più pezzi A",
+        "più pezzi B",
+        "primo<=5 A",
+        "primo<=5 B",
+    ]
+    linee = [f"Riepilogo del passo 19d, metà: {lato}", NOTA_REGOLA, ""]
+    linee.append(f"{'':<10}" + "".join(f"{x:>13}" for x in titoli))
+    for nome, righe in misure:
+
+        def uno(r):
+            return int(r["pezzi"]) == 1
+
+        def piu(r):
+            return int(r["pezzi"]) > 1
+
+        valori = [
+            conta(righe, "A"),
+            conta(righe, "B"),
+            conta(righe, "A", uno),
+            conta(righe, "B", uno),
+            conta(righe, "A", piu),
+            conta(righe, "B", piu),
+            primi5(righe, "A"),
+            primi5(righe, "B"),
+        ]
+        linee.append(f"{nome:<10}" + "".join(f"{x:>13}" for x in valori))
+    linee += [
+        "",
+        "Frasi gemelle seguite: posizione del frammento giusto per pezzo, nei",
+        f"primi 10 e tra parentesi con ampiezza {PROFONDITA}",
+    ]
+    for nome, righe in misure:
+        per_riga = {int(r["riga"]): r for r in righe}
+        celle = []
+        for numero in RIGHE_SEGUITE:
+            if numero not in per_riga:
+                continue
+            r = per_riga[numero]
+            for c in ("A", "B"):
+                celle.append(
+                    f"{numero}{c} {r[f'{c}_posizioni_pezzi']} "
+                    f"({r[f'{c}_posizioni_profonde']})"
+                )
+        linee.append(f"  {nome:<9} " + "; ".join(celle))
+    testo = "\n".join(linee)
+    (CARTELLA_19D / f"riepilogo_{lato}.txt").write_text(testo + "\n", encoding="utf-8")
+    print(testo)
+    return 0
 
 
 def esegui_misura(
@@ -1101,7 +1402,8 @@ def esegui_misura(
     from src.config import CHROMA_DIR, PROCESSED_DIR
 
     senza_rete()
-    limite = VARIANTI[variante]
+    configurazione = VARIANTI[variante]
+    limite = configurazione.limite
     firma = verifica_impronta(divisione)
     fatti = fatti_della_meta(leggi_foglio(foglio), righe_della_meta(divisione, lato))
     file_per_bando: dict[str, list[dict]] = defaultdict(list)
@@ -1112,8 +1414,8 @@ def esegui_misura(
     prima = impronte_cartella(CHROMA_DIR)
     with senza_connessioni():
         inizio = time.perf_counter()
-        ricalcolo = prepara_copia(cartella, limite, CHROMA_DIR)
-        tempi["copia di Chroma" + (" e vettori ricalcolati" if limite else "")] = (
+        ricalcolo = prepara_copia(cartella, configurazione, CHROMA_DIR)
+        tempi["copia di Chroma" + (" e vettori ricalcolati" if ricalcolo else "")] = (
             time.perf_counter() - inizio
         )
         dopo = impronte_cartella(CHROMA_DIR)
@@ -1175,6 +1477,7 @@ def esegui_misura(
                 for c, (primi, profondi) in elenchi.items()
             }
             nominati = set(documenti_nominati(domanda, app.titoli))
+            _, spezzati_, assenti = stato_dei_pezzi(fatto, giusti, frammenti_per_fonte)
             di_sempre = sum(not d.metadata.get("sha256") for d, _, _ in risultati_a)
             righe.append(
                 riga_misura(
@@ -1187,6 +1490,7 @@ def esegui_misura(
                     ripulita if ripulita != domanda else "",
                 )
             )
+            righe[-1].update(pezzi_spezzati=spezzati_, pezzi_assenti=assenti)
         tempi[f"ricerche ({len(fatti)} fatti, 6 per fatto)"] = (
             time.perf_counter() - inizio
         )
@@ -1199,17 +1503,35 @@ def esegui_misura(
     intestazione = [
         f"Passo 19d, misura {variante}, metà: {lato}",
         f"Divisione: {divisione.name} (sha256 {firma})",
+        NOTA_REGOLA,
+        f"Configurazione: {configurazione.descrizione()}",
         (
-            f"Limite di token del modello di embedding: {limite or LIMITE_MODELLO}"
-            + (
-                f"; vettori ricalcolati per {ricalcolo['frammenti']} frammenti "
-                f"(controllo: {ricalcolo['corti']} frammenti entro "
-                f"{LIMITE_MODELLO} token, coseno minimo con il vettore di prima "
-                f"{ricalcolo['coseno_minimo_corti']:.6f}; {ricalcolo['lunghi']} "
-                f"oltre, coseno medio {ricalcolo['coseno_medio_lunghi']:.4f})"
-                if limite
-                else ""
+            (
+                f"Vettori ricalcolati per {ricalcolo['frammenti']} frammenti"
+                + (
+                    f", di cui {ricalcolo['avvisi']} degli avvisi ridivisi"
+                    if "avvisi" in ricalcolo
+                    else ""
+                )
+                + (
+                    "; controllo della divisione: il caricamento ridà "
+                    f"{ricalcolo['ricostruzione'][0]} frammenti contro "
+                    f"{ricalcolo['ricostruzione'][1]} della copia, impronta "
+                    f"{ricalcolo['impronta_avvisi'][:16]} uguale"
+                    if "ricostruzione" in ricalcolo
+                    else ""
+                )
+                + (
+                    f"; controllo dei vettori: {ricalcolo['confrontabili']} "
+                    "frammenti con lo stesso testo, senza intestazione ed entro "
+                    f"{LIMITE_MODELLO} token, coseno minimo con il vettore di "
+                    f"prima {ricalcolo['coseno_minimo']:.6f}"
+                    if ricalcolo.get("coseno_minimo") is not None
+                    else ""
+                )
             )
+            if ricalcolo
+            else "Copia senza modifiche"
         ),
         (
             f"k={K}; A: recupera(avvolgi(RecuperoIbrido)), ampiezza {AMPIEZZA_APP}; "
@@ -1242,6 +1564,13 @@ def esegui_misura(
         ),
         "Tempi: " + "; ".join(f"{n} {s:.1f} s" for n, s in tempi.items()),
     ]
+    spezzati_tot = sum(int(r["pezzi_spezzati"]) for r in righe)
+    assenti_tot = sum(int(r["pezzi_assenti"]) for r in righe)
+    pezzi_tot = sum(int(r["pezzi"]) for r in righe)
+    intestazione.append(
+        f"Pezzi di {lato} nei frammenti dei documenti giusti: {pezzi_tot}, di cui "
+        f"spezzati tra due frammenti {spezzati_tot}, in nessun frammento {assenti_tot}"
+    )
     with (cartella / f"misura_{lato}.csv").open("w", encoding="utf-8", newline="") as f:
         scrittore = csv.DictWriter(f, fieldnames=COLONNE_MISURA, lineterminator="\n")
         scrittore.writeheader()
@@ -1254,13 +1583,12 @@ def esegui_misura(
 
     base = CARTELLA_19D / "v0" / f"misura_{lato}.csv"
     if variante != "v0" and base.exists():
-        confronto = "\n".join(
-            rapporto_confronto(
-                leggi_misura(base),
-                leggi_misura(cartella / f"misura_{lato}.csv"),
-                variante,
-            )
-        )
+        misure = [("v0", leggi_misura(base))]
+        v1 = CARTELLA_19D / "v1" / f"misura_{lato}.csv"
+        if variante != "v1" and v1.exists():
+            misure.append(("v1", leggi_misura(v1)))
+        misure.append((variante, leggi_misura(cartella / f"misura_{lato}.csv")))
+        confronto = "\n".join(rapporto_confronto(misure))
         (cartella / f"confronto_{lato}.txt").write_text(
             confronto + "\n", encoding="utf-8"
         )
@@ -1275,6 +1603,9 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dividi", action="store_true", help="tempo 1: divisione")
     parser.add_argument("--misura", action="store_true", help="tempo 2: misura")
+    parser.add_argument(
+        "--riepilogo", action="store_true", help="una riga per configurazione misurata"
+    )
     parser.add_argument(
         "--controllo",
         action="store_true",
@@ -1330,8 +1661,10 @@ def esegui_divisione(foglio: Path, controllo: Path, uscita: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argomenti = leggi_argomenti(argv)
-    if argomenti.dividi == argomenti.misura:
-        print("Serve un comando solo: --dividi o --misura.", file=sys.stderr)
+    if argomenti.dividi + argomenti.misura + argomenti.riepilogo != 1:
+        print(
+            "Serve un comando solo: --dividi, --misura o --riepilogo.", file=sys.stderr
+        )
         return 2
     try:
         if argomenti.dividi:
@@ -1339,6 +1672,8 @@ def main(argv: list[str] | None = None) -> int:
                 argomenti.foglio, argomenti.csv_controllo, argomenti.uscita
             )
         lato = CONTROLLO if argomenti.controllo else TARATURA
+        if argomenti.riepilogo:
+            return esegui_riepilogo(lato)
         cartella = argomenti.cartella or CARTELLA_19D / argomenti.variante
         return esegui_misura(
             argomenti.foglio, argomenti.divisione, lato, argomenti.variante, cartella

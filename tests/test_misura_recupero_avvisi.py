@@ -516,3 +516,138 @@ def test_copia_senza_limite_non_tocca_la_sorgente(tmp_path):
     assert mr.prepara_copia(tmp_path / "v0", None, sorgente) == {}
     assert mr.impronte_cartella(tmp_path / "v0" / "chroma") == prima
     assert mr.impronte_cartella(sorgente) == prima
+
+
+# --- tempo 3, secondo giro: intestazione, divisione, pezzi spezzati ---
+
+
+def test_intestazione_solo_per_gli_avvisi_e_senza_voci_vuote():
+    avviso = {
+        "sha256": "a" * 64,
+        "titolo": "Bando parcheggi 2026",
+        "parte": "",
+        "riferimento_atto": "Decreto n. 1 del 2026, Allegato A",
+    }
+    assert mr.intestazione_di(avviso) == (
+        "Bando parcheggi 2026 · Decreto n. 1 del 2026, Allegato A"
+    )
+    assert mr.testo_per_vettore("Art. 1", avviso, True) == (
+        "Bando parcheggi 2026 · Decreto n. 1 del 2026, Allegato A\nArt. 1"
+    )
+    assert mr.testo_per_vettore("Art. 1", avviso, False) == "Art. 1"
+    di_sempre = {"titolo": "Studio Censis"}
+    assert mr.testo_per_vettore("Testo", di_sempre, True) == "Testo"
+
+
+def test_impronta_dei_frammenti_non_dipende_dall_ordine():
+    ids, testi = ["x::0", "x::1"], ["uno", "due"]
+    metadati = [{"page": 1, "vuoto": None}, {"page": 2}]
+    a = mr.impronta_frammenti(ids, testi, metadati)
+    b = mr.impronta_frammenti(ids[::-1], testi[::-1], metadati[::-1])
+    assert a == b
+    # le voci vuote non contano, come in Chroma
+    assert a == mr.impronta_frammenti(ids, testi, [{"page": 1}, {"page": 2}])
+    assert a != mr.impronta_frammenti(ids, ["uno", "tre"], metadati)
+
+
+def test_dimensione_dei_frammenti_cambia_e_ripristina():
+    import types
+
+    chiamate = []
+
+    def spezza(pagine, dimensione=1500, sovrapposizione=250, **altri):
+        chiamate.append((dimensione, sovrapposizione))
+
+    modulo = types.SimpleNamespace(spezza=spezza)
+    with mr.dimensione_dei_frammenti(modulo, (600, 200)):
+        modulo.spezza([], ricucitura="prudente")
+    modulo.spezza([])
+    with mr.dimensione_dei_frammenti(modulo, None):
+        modulo.spezza([])
+    assert chiamate == [(600, 200), (1500, 250), (1500, 250)]
+    assert modulo.spezza is spezza
+
+
+def test_stato_dei_pezzi_interi_spezzati_assenti():
+    f = fatto(
+        2,
+        "alfa",
+        "Il contributo è di 40.000 euro [...] La spesa minima è di 3.000 euro"
+        " [...] Pezzo che non esiste",
+    )
+    per_fonte = {
+        "giusto.pdf": [
+            fr(0, "Art. 2. Il contributo è di 40.000 euro. La spesa minima"),
+            fr(1, "spesa minima è di 3.000 euro per domanda."),
+        ],
+        "altro.pdf": [fr(0, "Pezzo che non esiste")],
+    }
+    assert mr.stato_dei_pezzi(f, GIUSTI, per_fonte) == (1, 1, 1)
+
+
+class EmbeddingsFinti:
+    """Vettori di tre numeri dalla lunghezza del testo; nessun modello."""
+
+    def __init__(self):
+        import types
+
+        self._client = types.SimpleNamespace(
+            max_seq_length=128, tokenizer=lambda t: {"input_ids": [0, 1, 2]}
+        )
+
+    def embed_documents(self, testi):
+        return [[1.0, 0.0, 0.0] if len(t) % 2 else [0.0, 1.0, 0.0] for t in testi]
+
+
+def test_copia_ridivisa_con_gli_stessi_id_dei_frammenti_tolti(tmp_path, monkeypatch):
+    import chromadb
+    from chromadb.config import Settings
+    from langchain_core.documents import Document
+
+    import src.vectorstore
+    from src.config import COLLECTION_NAME
+
+    sorgente = tmp_path / "chroma_vero"
+    cliente = chromadb.PersistentClient(
+        path=str(sorgente), settings=Settings(anonymized_telemetry=False)
+    )
+    collezione = cliente.create_collection(COLLECTION_NAME)
+    sha = "a" * 64
+    vecchi = [
+        Document(
+            page_content=f"Avviso, frammento {n}.",
+            metadata={"sha256": sha, "chunk_num": n},
+        )
+        for n in range(2)
+    ]
+    collezione.add(
+        ids=[f"{sha[:16]}::{n}" for n in range(2)] + ["sempre::0"],
+        documents=[d.page_content for d in vecchi] + ["Documento di sempre."],
+        metadatas=[d.metadata for d in vecchi]
+        + [{"fonte": "censis.pdf", "chunk_num": 0}],
+        embeddings=[[1.0, 0.0, 0.0]] * 3,
+    )
+    del cliente
+    nuovi = [
+        Document(page_content=f"Corto {n}.", metadata={"sha256": sha, "chunk_num": n})
+        for n in range(3)
+    ]
+    monkeypatch.setattr(
+        mr, "frammenti_avvisi", lambda frammenti: vecchi if frammenti is None else nuovi
+    )
+    monkeypatch.setattr(src.vectorstore, "crea_embeddings", EmbeddingsFinti)
+
+    info = mr.prepara_copia(
+        tmp_path / "v3", mr.Variante(frammenti=(600, 200)), sorgente
+    )
+
+    copia = chromadb.PersistentClient(
+        path=str(tmp_path / "v3" / "chroma"),
+        settings=Settings(anonymized_telemetry=False),
+    ).get_collection(COLLECTION_NAME)
+    dati = copia.get()
+    assert sorted(dati["ids"]) == sorted(
+        [f"{sha[:16]}::{n}" for n in range(3)] + ["sempre::0"]
+    )
+    assert "Corto 0." in dati["documents"]
+    assert info["ricostruzione"] == (2, 2, True)
