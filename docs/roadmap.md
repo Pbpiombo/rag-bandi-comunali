@@ -12,7 +12,8 @@ originale, in `docs/coda.md`.
 
 - **Gli avvisi dei bandi non vanno su Postgres finché il passo 19d non
   passa.** Dal 20/11/2026 stanno solo nel Chroma locale (passo 19c,
-  `docs/fatto.md`): l'app online non li vede.
+  `docs/fatto.md`): l'app online non li vede. Il 19d è in corso; il
+  caricamento su Postgres è il passo 19e.
 - Demo mandata al consulente pilota il 16/11/2026, riscontro ricevuto il
   18/11/2026. Revisione del revisore tecnico ricevuta il 18/11/2026.
   Revisione esterna del piano ricevuta il 18/11/2026.
@@ -75,7 +76,7 @@ tecnico (18/11/2026)".
 
 I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
 1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
-A, attese con polarità); 19 (19a, 19b e 19c fatti, prossimo 19d); 20 (prima
+A, attese con polarità); 19 (19a, 19b e 19c fatti, 19d in corso, poi 19e); 20 (prima
 della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
 baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
 Il passo 21 si fa prima di dare il link della demo a chiunque oltre al
@@ -144,6 +145,15 @@ Passi nuovi della sezione A:
     17 file, 871 frammenti nel Chroma locale. Prossimo: 19d, misura del
     recupero sugli avvisi (`coda.md`, "Passo 19d"). Gli avvisi vanno su
     Postgres solo dopo che il 19d è passato.
+    19d in corso dal 20/11/2026: non è più una verifica, è il lavoro che
+    ridisegna la ricerca nei documenti. Fatti 195, divisi in 97 di
+    taratura e 98 di controllo; il controllo si apre una volta sola,
+    sulla scelta finale. Regola di chiusura, risultati e strade in
+    `coda.md`, "Passo 19d".
+    19e, nuovo (20/11/2026): avvisi su Postgres insieme al filtro per
+    `id_bando` nell'app, e rimisura del recupero su Postgres con gli
+    stessi fatti, perché lì ricerca per parole e indice dei vettori sono
+    diversi da Chroma.
 
 ### B. Correzioni del flusso, con il modello
 

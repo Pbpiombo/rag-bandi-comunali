@@ -423,7 +423,7 @@ testo si seleziona. "fatti" ha le colonne `id_bando`, `titolo`,
   quattro allegati degli apistici) vale il valore calcolato dal
   controllo, non quello scritto.
 - Negli apistici la nota comincia con l'azione e l'allegato ("Azione B1
-  (Allegato A1)").
+  (Allegato A1)"; nel secondo foglio "Azione B1, Allegato A1, par. …").
 
 **Chi lo compila.** Un modello, con le regole scritte nel foglio
 "leggimi": la frase copiata dal PDF senza cambiare una parola, da 8 a 30
@@ -450,3 +450,54 @@ assenti; 97 pezzi interi in un frammento, 42 nella parte vista dal
 modello di embedding; una riga sola con un problema, la 23, quasi
 gemella. Uscita in `dati-grezzi/prova/fatti_controllo_2026-11-20.csv`,
 una riga per fatto.
+
+**Secondo foglio (20/11/2026).** `dati-grezzi/fatti_pdf_modello_2_2026-11-20.xlsx`,
+stesse colonne e stesse regole del primo, compilato da un modello e non
+corretto a mano: 114 fatti sugli stessi 11 bandi, 140 pezzi, 34 domande
+"semplice" e 80 "caso", 23 righe di tabella, 24 risposte in più pezzi.
+Serve a portare i fatti a 195, perché con 40 fatti per metà differenze di
+1-3 fatti restano nel rumore (`coda.md`, "Passo 19d", punto 2). Esiti
+del controllo: 114 trovati nella pagina dichiarata (12 alla lettera, 90
+normalizzati, 12 solo senza spazi), 0 assenti, 0 in altro bando; 140
+pezzi interi in un frammento, 59 nella parte vista. Con `--confronta` si
+controllano le frasi uguali o quasi a quelle del primo foglio: 4 righe,
+tutte frasi gemelle. Uscita in
+`dati-grezzi/prova/fatti_controllo_2_2026-11-20.csv`.
+
+### Divisione in taratura e controllo
+
+I fatti si dividono in due metà prima di ogni misura, e la divisione
+non cambia più: la taratura serve a scegliere, il controllo a
+confermare la scelta finale. Metodo
+(`scripts/diagnostica/misura_recupero_avvisi.py`, `--dividi` e
+`--dividi-secondo`):
+- per bando, a caso, con il seme scritto nel codice; si prende la prima
+  proposta, su al più 5.000, che rispetta tutte le regole, e se non ce
+  n'è nessuna lo script si ferma e dice quale regola non si soddisfa,
+  senza allentarne nessuna;
+- in ogni bando e nei totali le due metà differiscono al più di un
+  fatto, e così le frasi gemelle;
+- frasi identiche (livello senza spazi) nella stessa metà; anche le
+  frasi quasi uguali, tra fogli diversi e dentro lo stesso foglio;
+- differenze massime: righe di tabella 1, risposte in più pezzi 1,
+  domande "semplice" 3, domande "caso" 3, fatti con tutti i pezzi nella
+  parte vista 2;
+- un foglio nuovo non tocca la divisione dei fogli precedenti: le sue
+  righe simili a una riga già divisa vanno nella metà di quella, letta
+  solo per quelle righe dopo il controllo dell'impronta;
+- un fatto non trovato dal controllo meccanico resta fuori, elencato;
+- il file della divisione ha la sua impronta in un `.sha256` accanto,
+  e ogni misura la verifica prima di leggere.
+
+| foglio | seme | file | sha256 | taratura | controllo |
+|---|---|---|---|---|---|
+| primo | `1920261120` | `fatti_divisione_2026-11-20.csv` | `c7180d2d…1952` | 40 | 41 |
+| secondo | `220261120` | `fatti_divisione_2_2026-11-20.csv` | `4c70a94d…b173` | 57 | 57 |
+| insieme | | | | 97 | 98 |
+
+Impronte intere e conteggi per tipo in `docs/fatto.md` (20/11/2026).
+
+**La metà di controllo non si legge senza un via esplicito** di chi
+mantiene il progetto: né domande, né frasi, né esiti, e nessuna misura
+la apre senza l'opzione `--controllo`. Si apre una volta sola, sulla
+scelta finale del passo (`coda.md`, "Passo 19d", punto 1).

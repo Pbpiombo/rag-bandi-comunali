@@ -419,6 +419,9 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
      "frammenti" per più bandi ferma il caricamento. La versione di Chroma
      in uso, 1.5.9, accetta metadati a lista: provato in memoria il
      20/11/2026, non usato.)
+   - **I PDF restano fuori da Supabase** (20/11/2026): l'app usa solo i
+     frammenti; il registro (`data/processed/documenti_bandi.csv`) ha
+     per ogni file l'indirizzo da cui è stato scaricato e l'impronta.
    - **Allegati di soli codici**: gli elenchi di codici ATECO o NACE (236
      pagine) non si dividono in frammenti di testo come un avviso: si
      caricano come dato strutturato o si escludono dall'archivio dei
@@ -460,6 +463,218 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
 
    **Passo 19d: misura del recupero sugli avvisi (20/11/2026).** Si fa
    sul Chroma locale; gli avvisi vanno su Postgres solo se il 19d passa.
+   Stato al 20/11/2026 sera: non è più una verifica, è il lavoro che
+   ridisegna la ricerca nei documenti. Tutte le misure sono sulla
+   taratura dei primi 40 fatti; il controllo non è mai stato letto.
+   Script e divisione in `docs/fatto.md` (20/11/2026); rapporti e copie
+   di Chroma in `dati-grezzi/prova/19d/`.
+   1. **Regola di chiusura, com'è ora.** Sulla metà di controllo, nella
+      condizione B (filtro sul bando, domanda ripulita), la scelta finale
+      passa se trova almeno l'85% dei fatti, se non è più di 10 punti
+      sotto la taratura, e se nessuna frase di controllo dei gemelli è
+      presa dal bando sbagliato. La condizione A si misura e si riporta
+      senza soglia; lì i gemelli si contano, non sono un veto. Varianti e
+      combinazioni si scelgono tutte sulla taratura, in B e a parità in
+      A; il controllo si apre una volta sola, sulla scelta finale, con un
+      via esplicito. Il ramo "sotto il 75% dopo tutte le varianti ci si
+      ferma e si ripensa il modo di spezzare i documenti" non è stato
+      toccato. Correzioni, tutte prima di aprire il controllo:
+      - soglia di passaggio dell'85% fissata nella fase di
+        pianificazione, prima della consegna del passo e prima di ogni
+        misura: la prima proposta era 75%, alzata da chi mantiene il
+        progetto perché troppo bassa per informazioni tecniche;
+      - ramo tra 75 e 85%: la ricerca per parole che doveva aggiungere
+        c'era già (`RecuperoIbrido` unisce BM25 e ricerca per significato
+        con RRF), quindi prima della divisione è diventato "la variante
+        migliore combinata con la seconda"; annullato prima del secondo
+        giro di varianti;
+      - B ridefinita dopo la prima misura di taratura (21 su 40 con la
+        domanda intera): filtro sul bando più `ripulisci_domanda` con le
+        parole del titolo del bando del fatto. Dove non c'è un tratto che
+        nomina il bando la domanda resta intera, e la punteggiatura
+        rimasta orfana resta, come nell'app. La definizione vecchia resta
+        nei rapporti come Bi;
+      - dal quarto giro vale la misura esatta (punto 6).
+   2. **Come si leggono i numeri.** Con 40 fatti un fatto vale 2,5 punti,
+      e la ricerca di Chroma oscillava di un fatto da un processo
+      all'altro: differenze di 1-3 fatti sono "entro il rumore", non
+      guadagni né perdite. Contano solo gli scarti grandi. Per questo il
+      foglio è stato portato a 195 fatti (81 del primo foglio e 114 del
+      secondo), 97 di taratura e 98 di controllo: sul controllo l'85% sono
+      84 fatti.
+   3. **Risultati sulla taratura dei primi 40 fatti.** Trovati su 40;
+      ampiezza 20 dove non è scritto altro; "≤5 B" è il numero di fatti
+      con il primo frammento giusto tra i primi 5, in B.
+
+      | configurazione | ricerca | k | A | Bi | B | ≤5 B |
+      |---|---|---|---|---|---|---|
+      | v0: 128 token, frammenti del caricamento | Chroma | 10 | 16 | 21 | 26 | 17 |
+      | v1: 512 token | Chroma | 10 | 19 | 26 | 28 | 22 |
+      | v2: intestazione nel vettore | Chroma | 10 | 21 | 22 | 27 | 18 |
+      | v3: frammenti da 600 caratteri, 200 di sovrapposizione | Chroma | 10 | 10 | 14 | 16 | 16 |
+      | v1+v2 | Chroma | 10 | 16 | 20 | 25 | 19 |
+      | v1+v2+v3 | Chroma | 10 | 14 | 14 | 18 | 14 |
+      | v0, ampiezza 50 | Chroma | 10 | 14 | – | 22 | – |
+      | v0 | Chroma | 15 | 23 | – | 32 | – |
+      | v0, ampiezza 50 | Chroma | 15 | 20 | – | 26 | – |
+      | v1, ampiezza 50 | Chroma | 10 | 17 | – | 27 | – |
+      | v1 | Chroma | 15 | 24 | – | 32 | – |
+      | v1, ampiezza 50 | Chroma | 15 | 21 | – | 31 | – |
+      | v0 | esatta | 10 | 16 | – | 26 | 17 |
+      | v0 | esatta | 15 | 23 | – | 32 | 17 |
+      | e5-small, 512 token | esatta | 10 | 18 | – | 24 | 22 |
+      | e5-small, 512 token | esatta | 15 | 22 | – | 31 | 22 |
+      | e5-base, 512 token | esatta | 10 | 20 | – | 28 | 24 |
+      | e5-base, 512 token | esatta | 15 | 25 | – | 34 | 24 |
+
+      Primo frammento giusto al 1° posto, in B: v0 7, v1 10, e5-small 12,
+      e5-base 15. Nessuna frase gemella presa dal bando sbagliato, salvo
+      con e5-base sulla riga 74 (punto 4). Il nome dell'azione degli
+      apistici è misurato solo sulle sue righe (punto 5).
+   4. **Stato delle strade.**
+      - Frammenti più corti (v3, v1+v2+v3): **scartata**, scarto grande
+        (B da 26 a 16, A da 16 a 10; per esempio la riga 63 in B scende
+        dal 1° al 25° posto).
+      - Ampiezza 50: **non adottata** (B 22 contro 26 su v0, 27 contro 28
+        su v1).
+      - Limite a 512 token (v1), intestazione nel vettore (v2) e la loro
+        somma: **non dimostrate**, né in meglio né in peggio (B 28, 27 e
+        25 contro 26). La base resta v0, la più semplice.
+      - Vicini (frammenti a ±1 o ±2 nello stesso file): **accantonata**.
+        Con ±1 nessuna risposta in più pezzi diventa intera; con ±2 una o
+        due (la 23; la 29 in v0 B, la 89 in v1 B).
+      - Nome dell'azione degli apistici: **adottato**, da scrivere nel
+        registro in un compito a parte (punto 5).
+      - k=15: **candidato**, scarto grande senza fatti persi (misura
+        esatta su v0: B da 26 a 32, A da 16 a 23). Costo: circa il 50% di
+        testo in più al modello, in media 5.566 caratteri per domanda in B
+        e 5.698 in A.
+      - Modelli e5 (e5-small ed e5-base, 512 token, prefissi "query: " e
+        "passage: "): **non dimostrati** nei fatti trovati (B 24 e 28
+        contro 26 con k=10; 31 e 34 contro 32 con k=15). Scarto grande
+        invece sulla posizione del primo frammento giusto in B: tra i
+        primi 5 in 17 fatti con v0, 22 con e5-small, 24 con e5-base; al
+        1° posto in 7, 12 e 15. Con e5-base scatta la regola dei gemelli
+        sulla riga 74 (azione B5): con k=10 il gemello è tra i primi 10 e
+        il giusto no, con k=15 il pezzo è preso prima dal gemello, in A e
+        in B; misura fatta senza il nome dell'azione. Nessuna decisione
+        presa.
+      - Peso in memoria (Windows, memoria del processo dopo il caricamento
+        del solo modello; su Linux i valori assoluti cambiano): v0 1240
+        MB, di cui 750 per il modello, 23,5 ms per domanda, 458 MB su
+        disco; e5-small 1269 MB (+779), 24,7 ms, 470 MB; e5-base 1881 MB
+        (+1391), 59,7 ms, 1082 MB. e5-small pesa quanto il modello di
+        oggi; e5-base costa circa 640 MB in più, contro circa 690 MB di
+        Streamlit Community Cloud, e porterebbe la colonna di Postgres da
+        `vector(384)` a 768 dimensioni. Il recupero locale (modello,
+        Chroma e BM25, su una copia) occupa 1304 MB. La memoria dell'app
+        non si è misurata: avviarla apre Postgres o riscrive
+        `chroma.sqlite3` del Chroma vero.
+      - Parole in comune tra domanda ripulita e pezzo (v1, B; parole
+        significative, prime 5 lettere come `_simili`): mediana 2 su 6
+        nei 28 fatti trovati, 1 su 8 nei 12 non trovati; quattro non
+        trovati non ne hanno nessuna (18, 29, 51, 58). Quasi tutto il
+        lavoro lo fa la ricerca per significato: è il motivo della prova
+        dei modelli e5.
+      - Non provate: domande generate o contesto per frammento al
+        caricamento, scheda per bando, riordinatore locale, glossario
+        (punto 8); spazi spuri di pypdf sistemati al caricamento (riga
+        51; 14 frasi su 81 del primo foglio trovate solo senza spazi).
+        Esclusa dal vincolo del punto 8: scomporre la domanda in più
+        ricerche, che costa una chiamata al modello a ogni domanda.
+        Sconsigliata nel secondo giro, non decisa: l'intestazione nella
+        ricerca per parole, uguale per tutti i candidati in B; ha senso
+        solo per la parte degli apistici, che cambia da un allegato
+        all'altro.
+   5. **Nome dell'azione degli apistici** (decreto n. 14025 del
+      18/06/2026). Fonte: il titolo a pagina 1 di ogni allegato, per
+      esempio "Intervento B Azione B1: Lotta a parassiti e malattie".
+      Valori per la colonna `parte` del registro, decisi e non ancora
+      scritti:
+      - Allegato A1: "Azione B1: Lotta a parassiti e malattie";
+      - Allegato A3: "Azione B3: Ripopolamento patrimonio apistico";
+      - Allegato A4: "Azione B4: Razionalizzazione della transumanza";
+      - Allegato A5: "Azione B5: Acquisto di attrezzature e sistemi di
+        gestione".
+      Prova sulle copie `v0+parte` e `v1+parte` (parte nel vettore e nella
+      ricerca per parole, testo del frammento pulito), righe di taratura
+      67, 71, 72 e 74: la 71 in B su v0 entra nei primi 10 (9° posto); la
+      74 in B sale (dal 32° al 16° su v0, dal 39° al 12° su v1) senza
+      entrare nei primi 10; la 72 resta oltre il 50°. Nessun pezzo preso
+      dal gemello.
+   6. **Scoperte sul sistema.**
+      - `avvolgi` restringe la ricerca per 19 domande di taratura su 40:
+        17 al documento giusto, 2 al giusto più il gemello (righe 55 e 63:
+        decreti 13512 e 9506, i due bandi PMI, perché le parole della
+        domanda stanno in entrambi i titoli). Le altre 21 non sono
+        riconosciute: 9 senza parola del documento ("bando", "avviso"), 8
+        con una sola parola del titolo (ne servono 2), 4 degli apistici
+        senza nessuna ("chi alleva api" contro "aziende apistiche").
+      - Chroma non è ripetibile: l'indice HNSW su disco del Chroma vero ha
+        1015 vettori su 1187, e a ogni apertura Chroma riapplica in
+        memoria le 819 operazioni rimaste in coda; su quattro passate
+        della stessa misura una ha dato un fatto diverso (riga 31 in A,
+        v1). Vale anche per l'app. Aprire una copia, anche in sola
+        lettura, cambia `chroma.sqlite3`. La misura esatta (prodotto
+        scalare su tutti i frammenti) è identica da un processo all'altro
+        e su v0 dà gli stessi esiti e le stesse posizioni dell'indice di
+        Chroma (0 fatti cambiano esito, con k=10 e con k=15).
+      - In produzione, letto dal codice senza connettersi: la ricerca per
+        significato è `embedding <=> … ORDER BY distanza LIMIT`
+        (`src/pgstore.py`) e il README crea un indice HNSW, quindi è
+        approssimata se l'indice è stato creato come scritto. Con
+        l'indice, il filtro per documento (`metadata->>'fonte'`) si
+        applica dopo la lettura dell'indice e può restituire meno
+        frammenti di quelli chiesti. La ricerca per parole è il full-text
+        italiano di Postgres (`to_tsquery`, `ts_rank_cd`), non BM25. Le
+        misure su Chroma non valgono come misure della produzione.
+   7. **Conseguenza per il passo 19e** (nuovo, 20/11/2026: caricamento
+      degli avvisi su Postgres). Comprende il filtro per `id_bando`
+      nell'app: se una variante passa in B, gli avvisi vanno su Postgres
+      solo insieme a quel filtro (decisione del 20/11/2026); oggi l'app
+      non filtra per bando, e il filtro di Postgres è per file. Il
+      recupero va rimisurato su Postgres con gli stessi fatti e la stessa
+      divisione.
+   8. **Strade da provare, nell'ordine:**
+      1. rimisura sui 97 fatti di taratura;
+      2. nome dell'azione degli apistici nel registro;
+      3. contesto per frammento scritto dal modello al caricamento
+         (Contextual Retrieval) o domande generate per frammento;
+      4. scheda per bando;
+      5. riordinatore locale dei primi 30-50, o k=15;
+      6. glossario;
+      7. addestrare il modello di embedding piccolo sui testi dei bandi,
+         in locale, con le coppie domanda e frammento generate al
+         caricamento: le stesse della strada 3, una spesa sola per due
+         usi. Condizioni:
+         - viene dopo aver provato quelle coppie come aiuto alla ricerca;
+         - si addestra su una parte dei bandi e si misura su bandi interi
+           tenuti fuori, altrimenti il modello impara i documenti a
+           memoria e la misura è falsata;
+         - i documenti gemelli si gestiscono con il registro: una frase
+           identica in un altro allegato non è un esempio sbagliato;
+         - va deciso dove pubblicare e mantenere il modello addestrato,
+           che non può stare nel repository.
+      Vincolo: nessun costo fisso a ogni domanda dell'utente; le chiamate
+      al modello sono ammesse solo al caricamento. Più strade insieme: nel
+      trovare i risultati si uniscono, il dato lo decide il verificatore
+      sul testo; un punteggio di affidabilità solo quando sarà tarabile.
+      Limiti già visti: con k fisso le strade si dividono gli stessi
+      posti; per sapere quale contribuisce se ne toglie una alla volta;
+      il verificatore controlla che un dato citato sia giusto, non che un
+      elenco sia completo.
+   9. **Avvertenze.** Le domande dei due fogli le ha scritte un modello:
+      per le tecniche in cui un modello scrive testo di ricerca (domande
+      generate, contesto per frammento) la misura può gonfiarsi per
+      somiglianza, e serve un riscontro su una trentina di domande
+      scritte a mano. Per costruzione sono favoriti anche la scheda per
+      bando, le cui otto voci sono le categorie del foglio, e un glossario
+      scritto dopo aver visto i fatti di taratura. Limite della misura:
+      per la riga 58 lo stesso termine sta anche al par. 5.2.2, quindi una
+      risposta giusta può esistere anche se il fatto risulta mancato.
+
+   **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
+   punti 3 e 4 sono superati dai punti 1-3 qui sopra):
    1. Misura zero, presa prima di ogni modifica (controllo del foglio dei
       fatti, `scripts/diagnostica/controlla_fatti.py`, 20/11/2026): 42
       pezzi su 97 stanno nella parte che il modello di embedding vede
@@ -552,6 +767,12 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
    segnalazione manuale di un bando. Parte pubblica limitata a 3 domande per
    sessione, con un tetto giornaliero complessivo e un invito a scrivere per
    l'accesso.
+   Limiti dei piani gratuiti, dalle pagine ufficiali lette il 20/11/2026
+   da chi mantiene il progetto: Supabase mette in pausa il progetto dopo
+   una settimana di inattività; Streamlit Community Cloud mette l'app in
+   pausa dopo 12 ore senza visite e dà da 690 MB a 2,7 GB di memoria. Da
+   tenere presenti prima di dare il link (passo 21) e nella scelta del
+   modello di embedding (più sopra, "Passo 19d", punto 4).
 - (nuova, 19/11/2026, → passo 20) **Tasto di segnalazione sulla risposta**, prima di
    pubblicare il link della demo, insieme al limite per sessione e al
    tetto giornaliero della voce precedente:
@@ -838,6 +1059,15 @@ Metodo in `docs/piano-insieme-prova.md`.
   ha mandato solo ai documenti (A01 e L05 del lotto 1 ci sono finite solo
   per il router fallito): la parte documentale dell'app e la regola E
   (`docs/piano-correzioni-lotto1.md`) sono misurate su una domanda sola.
+  Aggiornamento del 20/11/2026, insieme di prova grande: almeno 200
+  domande, non prima della nuova baseline. Fonti: le domande vere
+  raccolte con il tasto di segnalazione (passo 20); domande scritte da
+  più modelli diversi sugli stessi fatti, con una colonna per l'autore;
+  una parte scritta da persone. Il costo vero sono le etichette, non le
+  domande. Motivo: nel 19d le domande dei fogli dei fatti le ha scritte
+  un modello, e le tecniche in cui un modello scrive testo di ricerca
+  vanno misurate anche su domande d'altra origine ("Passo 19d", punto
+  9).
 - **Modello giudice**: solo dopo averlo tarato su un numero sufficiente di
   giudizi a mano. La stessa taratura vale per il validatore
   dell'architettura della risposta in due passi (prima voce dei

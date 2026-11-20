@@ -470,3 +470,82 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
   assenti. Esito in `dati-grezzi/prova/fatti_controllo_2026-11-20.csv`.
   Il foglio è descritto in `docs/piano-insieme-prova.md`, "Foglio dei
   fatti".
+  Secondo foglio (`dati-grezzi/fatti_pdf_modello_2_2026-11-20.xlsx`, non
+  modificato): 114 fatti su 11 bandi, 140 pezzi; 114 trovati nella pagina
+  dichiarata (12 alla lettera, 90 normalizzati, 12 solo senza spazi), 0
+  in altra pagina, 0 in altro allegato, 0 in altro bando, 0 assenti, 0
+  gemelli diversi dal dichiarato; 140 pezzi interi in un frammento, 59
+  nella parte vista a 128 token; 23 righe di tabella, tutte con le celle
+  in un solo frammento. La lettura della nota degli apistici accetta ora
+  anche la forma "Azione B1, Allegato A1, par. …". Nuova opzione
+  `--confronta` (coincidenze con un altro foglio, al livello senza
+  spazi): 4 righe del secondo foglio somigliano a una del primo, tutte
+  frasi gemelle e nessuna copia (18 con la 18, pezzo identico; 90 con la
+  70, 93 e 98 con la 67, somiglianza tra 0,97 e 0,99). Esito in
+  `dati-grezzi/prova/fatti_controllo_2_2026-11-20.csv`.
+- **Passo 19d, divisione dei fatti in taratura e controllo** (20/11/2026,
+  prima di ogni misura; `scripts/diagnostica/misura_recupero_avvisi.py`,
+  `--dividi` e `--dividi-secondo`, test in
+  `tests/test_misura_recupero_avvisi.py`). Divisione per bando, a caso
+  con seme scritto nel codice; si prende la prima proposta, su al più
+  5.000, che rispetta tutte le regole:
+  - in ogni bando e nei totali le metà differiscono al più di un fatto,
+    e così le frasi gemelle;
+  - le frasi identiche (livello senza spazi) stanno nella stessa metà;
+    il gruppo 21-23-24 (Cultura e Sport) è fissato a mano;
+  - differenze massime tra le metà: righe di tabella 1, risposte in più
+    pezzi 1, domande "semplice" 3, domande "caso" 3, fatti con tutti i
+    pezzi nella parte vista (`pezzi_visti`) 2.
+  Primo foglio: seme `1920261120`, tentativo 1229; 40 fatti in taratura
+  e 41 in controllo; `dati-grezzi/prova/fatti_divisione_2026-11-20.csv`,
+  sha256 `c7180d2d953d652ab0c80aab13a0ade97f0fa8b5a691fbb96bd1171cd64c1952`.
+  Una prima divisione senza le differenze massime (sha256 `2441f9b8…`)
+  è stata cancellata e rifatta prima di ogni misura, perché le metà non
+  erano equilibrate per registro, tabelle e risposte in più pezzi.
+  Secondo foglio: seme `220261120` (`SEME_2`), tentativo 2748; 57 e 57;
+  `dati-grezzi/prova/fatti_divisione_2_2026-11-20.csv`, sha256
+  `4c70a94d6be4de54d24f3a3414dfcadd4d6ef280ca0e106d4e2f485b1475b173`. La
+  divisione del primo foglio resta fissa: le righe del secondo che
+  somigliano a una del primo vanno nella sua metà (18, 93 e 98 in
+  taratura, 90 in controllo), letta solo per quelle righe dopo il
+  controllo dell'impronta. Le tre coppie quasi uguali interne al secondo
+  foglio (62 e 77, 93 e 98, 99 e 103) stanno nella stessa metà, per
+  analogia con la regola delle frasi identiche. Nessun fatto escluso.
+  Totale dei due fogli: 195 fatti, 97 in taratura e 98 in controllo
+  (semplice 37 e 37, caso 60 e 61, tabella 20 e 20, più pezzi 19 e 19,
+  tutti i pezzi nella parte vista 36 e 34, frasi gemelle 19 e 19).
+  Rilanciati, i due comandi non riscrivono i file e dicono se la
+  divisione rifatta coincide.
+- **Passo 19d, script di misura del recupero sugli avvisi** (20/11/2026,
+  stesso script, senza modello di linguaggio e senza Postgres). Legge la
+  divisione, ne controlla l'impronta e misura solo la taratura: i fatti
+  di controllo non si leggono senza `--controllo`, mai usato finora.
+  - Condizione A: il percorso dell'app,
+    `recupera(avvolgi(RecuperoIbrido), domanda, k)`. Condizione B
+    (`RecuperoMisura`): ricerca per significato e per parole sui soli
+    frammenti del bando del fatto, con la domanda ripulita da
+    `ripulisci_domanda` con le parole del titolo del bando; Bi è la
+    definizione della prima misura, con la domanda intera.
+  - Un fatto è trovato se ogni pezzo sta, al livello senza spazi, in un
+    frammento del bando giusto tra i primi k (per gli apistici,
+    dell'allegato giusto). Per ogni fatto non trovato il rapporto dà la
+    causa: pezzo fuori dalla parte vista, pezzo spezzato tra frammenti,
+    frammento giusto oltre i primi k con la posizione fino a 50, gemello
+    al posto del giusto.
+  - Varianti in copie di Chroma sotto `dati-grezzi/prova/19d/`, mai nel
+    Chroma vero, di cui si confrontano le impronte prima e dopo ogni
+    misura: `--variante` (limite di token, intestazione nel vettore,
+    frammenti più corti), `--griglia` (ampiezza e k), `--apistici` (nome
+    dell'azione), `--riepilogo`.
+  - Misura esatta e ripetibile (`--prepara-vettori`, `--esatta`):
+    vettori e metadati letti dalla copia, prodotto scalare su tutti i
+    frammenti, pari merito ordinati per id; tre processi su v0 danno gli
+    stessi elenchi posizione per posizione. `--modello` per gli altri
+    modelli di embedding, `--peso` per memoria e tempi.
+  - Rete vietata durante le misure; l'unica eccezione autorizzata è
+    stata il download dei due modelli e5 da huggingface.co.
+  - `src/ingestion/testo.py`: parametri facoltativi `dimensione` e
+    `sovrapposizione` di `spezza`, con i valori di sempre come
+    predefiniti; il caricamento ridà gli stessi 871 frammenti con la
+    stessa impronta.
+  - Risultati e stato delle strade in `docs/coda.md`, "Passo 19d".

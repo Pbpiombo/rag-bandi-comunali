@@ -136,6 +136,9 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
 - Leggere domande, rapporti o giudizi di un lotto dell'insieme di prova non
   ancora registrato a freddo, e aprire il lotto 4 senza un'istruzione
   esplicita (`docs/piano-insieme-prova.md`, "Metodo dei lotti").
+- Leggere la metà di controllo dei fatti (domande, frasi, esiti) o
+  misurarla senza un via esplicito (`docs/piano-insieme-prova.md`,
+  "Divisione in taratura e controllo").
 - Rigenerare le schede di etichettatura senza un'istruzione esplicita: i
   giudizi a mano stanno solo nella copia di lavoro, fuori dal repository.
 - Mettere nei file nomi di persone, email o dati personali: il repository
