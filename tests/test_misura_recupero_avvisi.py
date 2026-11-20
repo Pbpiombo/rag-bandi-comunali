@@ -1112,3 +1112,163 @@ def test_opzioni_della_taratura_intera():
     assert argomenti.controllo is False
     assert mr.leggi_argomenti(["--riepilogo-intero"]).riepilogo_intero
     assert mr.main(["--esatta-intera", "--riepilogo-intero"]) == 2
+
+
+# --- notte del 20/11/2026 ---
+
+
+def test_probabilita_segni_esatta_a_due_code():
+    assert mr.probabilita_segni(0, 0) == 1.0
+    assert mr.probabilita_segni(5, 0) == pytest.approx(2 / 32)
+    assert mr.probabilita_segni(0, 6) == pytest.approx(2 / 64)
+    # n = 11, coda 1 + 11 + 55 + 165 = 232
+    assert mr.probabilita_segni(3, 8) == pytest.approx(2 * 232 / 2048)
+    assert mr.probabilita_segni(4, 4) == 1.0
+
+
+def test_riga_segni_con_guadagnati_persi_e_rumore():
+    base = [riga_finta(2, "alfa", False), riga_finta(1003, "alfa", True)]
+    variante = [riga_finta(2, "alfa", True), riga_finta(1003, "alfa", False)]
+    riga = mr.riga_segni("v0", base, "v1", variante, "B")
+    assert "guadagnati 1 (2); persi 1 (2:3); p = 1,000; entro il rumore" in riga
+    tanti = [riga_finta(r, "alfa", True) for r in range(2, 9)]
+    pochi = [riga_finta(r, "alfa", False) for r in range(2, 9)]
+    riga = mr.riga_segni("v0", pochi, "v1", tanti, "B")
+    assert riga.endswith("p = 0,016")
+
+
+def test_peso_della_ricerca_per_significato_nella_fusione():
+    import math
+
+    r = 1 / math.sqrt(2)
+    store = mr.StoreEsatto(
+        ["a", "b", "c"],
+        ["tre", "uno", "quattro"],
+        [{"fonte": "x.pdf", "chunk_num": i, "id_bando": "alfa"} for i in range(3)],
+        [[1.0, 0.0], [r, r], [0.0, 1.0]],
+        EmbeddingsDomanda([1.0, 0.0]),
+    )
+    recupero = mr.apri_recupero(None, store=store)
+
+    def testi(**kw):
+        return [
+            d.page_content
+            for d, _, _ in recupero.cerca_nel_bando("quattro", "alfa", 3, **kw)
+        ]
+
+    # per significato: tre, uno, quattro; per parole: solo quattro
+    assert testi() == ["quattro", "tre", "uno"]
+    assert testi(peso=0.5) == testi()
+    assert [p for _, p, _ in recupero.cerca_nel_bando("quattro", "alfa", 3)] == [
+        p for _, p, _ in recupero.cerca_nel_bando("quattro", "alfa", 3, peso=0.5)
+    ]
+    assert testi(peso=1.0) == ["tre", "uno", "quattro"]
+
+
+def test_modelli_v1_v2_e_testi_dei_vettori():
+    assert mr.MODELLI["v1"] == mr.Modello(mr.MINILM, 512, cartella="notte/v1")
+    assert mr.MODELLI["v2"].intestazione and mr.MODELLI["v2"].limite is None
+    assert mr.MODELLI["v1+v2"].intestazione and mr.MODELLI["v1+v2"].limite == 512
+    assert mr.cartella_modello("v0") == mr.CARTELLA_19D / "v0"
+    assert mr.cartella_modello("v1+v2") == mr.CARTELLA_19D / "notte" / "v1+v2"
+    metadati = [
+        {"sha256": "x", "titolo": "Bando", "parte": "", "riferimento_atto": "D"},
+        {},
+    ]
+    assert mr.testi_dei_vettori(mr.MODELLI["v2"], ["uno", "due"], metadati) == [
+        "Bando · D\nuno",
+        "due",
+    ]
+    assert mr.testi_dei_vettori(mr.MODELLI["v1"], ["uno", "due"], metadati) == [
+        "uno",
+        "due",
+    ]
+    assert mr.testi_dei_vettori(mr.MODELLI["e5-small"], ["uno"], [{}]) == [
+        "passage: uno"
+    ]
+
+
+def test_costi_del_contesto_per_frammento():
+    per_file = [
+        {"documento": 1000, "frammenti": 3, "token_frammenti": 600},
+        {"documento": 200, "frammenti": 1, "token_frammenti": 150},
+    ]
+    assert mr.costi_contesto(per_file) == {
+        "scrittura in cache": 1200,
+        "lettura dalla cache": 3200,
+        "lettura dalla cache, senza la prima chiamata di ogni file": 2000,
+        "ingresso non in cache": 600 + 150 + 60 * 4,
+        "uscita": 400,
+    }
+
+
+def test_testo_pulito_salta_le_pagine_corte_e_unisce_le_altre():
+    lunga = "Art. 1 Oggetto del bando e finalità dell'intervento regionale previsto."
+    altra = "Art. 2 Soggetti beneficiari: Comuni e Unioni di Comuni della Toscana."
+    testo = mr.testo_pulito([lunga, "corta", altra], None)
+    assert testo == f"{lunga}\n\n{altra}"
+
+
+def test_vicini_e_pagina_intera():
+    def frp(numero, pagina, testo):
+        return mr.Frammento(numero, pagina, testo, len(testo))
+
+    per_fonte = {
+        "giusto.pdf": [
+            frp(0, 1, "Il contributo è di 40.000 euro"),
+            frp(1, 1, "testo qualunque"),
+            frp(2, 2, "altro testo"),
+            frp(3, 2, "entro il 30 giugno"),
+        ]
+    }
+    f = fatto(2, "alfa", "Il contributo è di 40.000 euro [...] entro il 30 giugno")
+    primi = [("giusto.pdf", per_fonte["giusto.pdf"][0])]
+    assert not mr.trovato_in(f, primi, GIUSTI)
+    for distanza, atteso in ((1, False), (2, False), (3, True)):
+        elenco = mr.allargati(primi, per_fonte, distanza=distanza)
+        assert mr.trovato_in(f, elenco, GIUSTI) is atteso
+    assert len(mr.allargati(primi, per_fonte, distanza=1)) == 2
+    pagina = mr.allargati(
+        [("giusto.pdf", per_fonte["giusto.pdf"][2])], per_fonte, pagina=True
+    )
+    assert sorted(fr.chunk_num for _, fr in pagina) == [2, 3]
+    assert mr.distanza_tra_pezzi(f, GIUSTI, per_fonte) == (3, 1)
+    assert mr.distanza_tra_pezzi(f, {"altro.pdf"}, per_fonte) is None
+
+
+def test_riordina_per_voto_e_a_parita_per_ordine():
+    assert mr.riordina([0.1, 0.9, 0.9, 0.5], 4) == [1, 2, 3, 0]
+    assert mr.riordina([[0.9, 0.1], [0.2, 0.8]], 2) == [1, 0]
+    with pytest.raises(mr.ErroreMisura):
+        mr.riordina([0.1], 2)
+
+
+def test_cambi_tra_esiti_delle_curve_e_per_allegato():
+    base = [{"riga": "2", "trovato": True}, {"riga": "1005", "trovato": False}]
+    altri = [{"riga": "2", "trovato": False}, {"riga": "1005", "trovato": True}]
+    assert mr.cambi_tra_esiti(base, altri) == (["2:5"], ["2"])
+    righe = [
+        riga_finta(2, "api", True, documenti_giusti="a1.pdf"),
+        riga_finta(3, "api", False, documenti_giusti="a1.pdf"),
+        riga_finta(4, "api", True, documenti_giusti="a3.pdf"),
+        riga_finta(5, "api", True, documenti_giusti="a1.pdf | a3.pdf"),
+    ]
+    assert mr.per_allegato(righe, "B") == {"a1.pdf": (1, 2), "a3.pdf": (1, 1)}
+
+
+def test_opzioni_della_notte():
+    assert mr.leggi_argomenti(["--notte", "2"]).notte == 2
+    argomenti = mr.leggi_argomenti(
+        ["--notte", "4", "--riordinatore", "mmarco", "--modello", "e5-small"]
+    )
+    assert (argomenti.riordinatore, argomenti.modello) == ("mmarco", "e5-small")
+    assert mr.leggi_argomenti(["--scarica-riordinatore", "osiria"]).controllo is False
+    assert mr.main(["--notte", "1", "--riepilogo-intero"]) == 2
+    with pytest.raises(SystemExit):
+        mr.leggi_argomenti(["--notte", "5"])
+
+
+def test_codice_del_modello_senza_gli_script_di_addestramento():
+    file = ["config.json", "train_script.py", "modeling_x.py", "onnx/esporta.py"]
+    assert mr.codice_del_modello(file) == ["modeling_x.py"]
+    assert mr.codice_del_modello(["config.json", "train_script.py"]) == []

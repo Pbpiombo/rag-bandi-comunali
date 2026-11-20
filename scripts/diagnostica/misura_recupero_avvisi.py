@@ -573,6 +573,7 @@ def esegui_divisione_2() -> int:
 
 K = 10
 AMPIEZZA_APP = 20  # quella di RecuperoIbrido.cerca, usata dall'app
+PESO_DENSA = 0.5  # peso della ricerca per significato nella fusione di oggi
 PROFONDITA = 50  # per la posizione del frammento giusto oltre i primi K
 CARTELLA_19D = DATI_GREZZI_DIR / "prova" / "19d"
 
@@ -960,9 +961,19 @@ def apri_recupero(
             )
 
         def cerca_nel_bando(
-            self, domanda: str, id_bando: str, k: int, ampiezza: int = AMPIEZZA_APP
+            self,
+            domanda: str,
+            id_bando: str,
+            k: int,
+            ampiezza: int = AMPIEZZA_APP,
+            peso: float = PESO_DENSA,
         ) -> list:
-            """Come cerca, solo tra i frammenti del bando; BM25 pesato su tutto l'indice."""
+            """Come cerca, solo tra i frammenti del bando; BM25 pesato su tutto l'indice.
+
+            `peso` è il peso della ricerca per significato nella fusione RRF
+            (quella per parole ha 1 - peso); con 0,5 i punteggi sono quelli
+            di RecuperoIbrido.
+            """
             densa = self.store.similarity_search(
                 domanda, k=ampiezza, filter={"id_bando": id_bando}
             )
@@ -977,13 +988,14 @@ def apri_recupero(
             ]
             lessicale = [self.documenti[i] for i in migliori if punteggi[i] > 0]
             punti: dict = {}
+            pesi = {"densa": 2 * peso, "lessicale": 2 * (1 - peso)}
             for nome, elenco in (("densa", densa), ("lessicale", lessicale)):
                 for pos, documento in enumerate(elenco, start=1):
                     voce = punti.setdefault(
                         chiave_di(documento),
                         {"doc": documento, "punteggio": 0.0, "origini": []},
                     )
-                    voce["punteggio"] += 1 / (COSTANTE_RRF + pos)
+                    voce["punteggio"] += pesi[nome] / (COSTANTE_RRF + pos)
                     voce["origini"].append(f"{nome} #{pos}")
             ordinati = sorted(
                 punti.values(), key=lambda v: v["punteggio"], reverse=True
@@ -2463,17 +2475,28 @@ class Modello:
     """Un modello di embedding da misurare con la ricerca esatta.
 
     limite: token (None: quello del modello); domanda e passaggio: i
-    prefissi che il modello vuole davanti a domanda e frammenti.
+    prefissi che il modello vuole davanti a domanda e frammenti;
+    intestazione: titolo · parte · atto davanti al testo del vettore degli
+    avvisi, come la variante v2 (testo_per_vettore); cartella: dove stanno
+    vettori e misure, sotto CARTELLA_19D (vuota: il nome del modello).
     """
 
     nome: str
     limite: int | None = None
     domanda: str = ""
     passaggio: str = ""
+    intestazione: bool = False
+    cartella: str = ""
 
 
+MINILM = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 MODELLI: dict[str, Modello] = {
-    "v0": Modello("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"),
+    "v0": Modello(MINILM),
+    # le varianti v1, v2 e v1+v2 (VARIANTI) con la ricerca esatta, sui
+    # frammenti di v0; misure della notte del 20/11/2026
+    "v1": Modello(MINILM, 512, cartella="notte/v1"),
+    "v2": Modello(MINILM, intestazione=True, cartella="notte/v2"),
+    "v1+v2": Modello(MINILM, 512, intestazione=True, cartella="notte/v1+v2"),
     "e5-small": Modello("intfloat/multilingual-e5-small", 512, "query: ", "passage: "),
     "e5-base": Modello("intfloat/multilingual-e5-base", 512, "query: ", "passage: "),
 }
@@ -2615,6 +2638,21 @@ def testi_con_prefisso(testi: list[str], prefisso: str) -> list[str]:
     return [prefisso + t for t in testi]
 
 
+def cartella_modello(nome: str) -> Path:
+    return CARTELLA_19D / (MODELLI[nome].cartella or nome)
+
+
+def testi_dei_vettori(modello: Modello, testi: list[str], metadati: list[dict]):
+    """I testi su cui il modello calcola i vettori: intestazione, poi prefisso."""
+    return testi_con_prefisso(
+        [
+            testo_per_vettore(t, m, modello.intestazione)
+            for t, m in zip(testi, metadati, strict=True)
+        ],
+        modello.passaggio,
+    )
+
+
 def esegui_prepara_vettori(nome: str) -> int:
     """v0: vettori letti dalla copia di v0; gli altri: ricalcolati con il modello."""
     import time
@@ -2625,7 +2663,7 @@ def esegui_prepara_vettori(nome: str) -> int:
 
     senza_rete()
     modello = MODELLI[nome]
-    cartella = CARTELLA_19D / nome
+    cartella = cartella_modello(nome)
     inizio = time.perf_counter()
     with senza_connessioni():
         if nome == "v0":
@@ -2635,7 +2673,7 @@ def esegui_prepara_vettori(nome: str) -> int:
             ids, testi, metadati, _ = leggi_vettori(CARTELLA_19D / "v0")
             embeddings = crea_embeddings_di(modello)
             matrice = embeddings.embed_documents(
-                testi_con_prefisso(testi, modello.passaggio)
+                testi_dei_vettori(modello, testi, metadati)
             )
         scarto = controlla_normalizzati(np.asarray(matrice))
         firma = salva_vettori(cartella, ids, testi, metadati, matrice)
@@ -2654,7 +2692,7 @@ def esegui_prepara_vettori(nome: str) -> int:
 def apri_recupero_esatto(nome: str):
     """RecuperoMisura sui vettori della cartella del modello, con ricerca esatta."""
     modello = MODELLI[nome]
-    ids, testi, metadati, matrice = leggi_vettori(CARTELLA_19D / nome)
+    ids, testi, metadati, matrice = leggi_vettori(cartella_modello(nome))
     embeddings = crea_embeddings_di(modello)
     store = StoreEsatto(ids, testi, metadati, matrice, embeddings, modello.domanda)
     return apri_recupero(Path(), store=store)
@@ -2683,7 +2721,7 @@ def esegui_esatta(foglio: Path, divisione: Path, lato: str, nome: str) -> int:
 
     senza_rete()
     modello = MODELLI[nome]
-    cartella = CARTELLA_19D / nome
+    cartella = cartella_modello(nome)
     firma, fatti, file_per_bando = apri_misura(foglio, divisione, lato)
     prima = impronte_cartella(CHROMA_DIR)
     tempi = {}
@@ -2735,8 +2773,10 @@ def descrizione_modello(modello: Modello) -> str:
     return (
         f"Modello {modello.nome}, limite {modello.limite or LIMITE_MODELLO} token, "
         f"prefisso della domanda {modello.domanda!r}, dei frammenti "
-        f"{modello.passaggio!r}; ricerca densa esatta (prodotto scalare su "
-        "tutti i frammenti, pari merito per id)"
+        f"{modello.passaggio!r}"
+        + ("; intestazione nel vettore" if modello.intestazione else "")
+        + "; ricerca densa esatta (prodotto scalare su tutti i frammenti, pari "
+        "merito per id)"
     )
 
 
@@ -2819,7 +2859,7 @@ def ricerche_esatte(
 
 
 def leggi_esatta(nome: str, k: int, lato: str) -> list[dict] | None:
-    percorso = CARTELLA_19D / nome / f"esatta_k{k}_{lato}.csv"
+    percorso = cartella_modello(nome) / f"esatta_k{k}_{lato}.csv"
     return leggi_misura(percorso) if percorso.exists() else None
 
 
@@ -2963,7 +3003,7 @@ def nome_della_riga(riga) -> str:
 
 
 def file_intera(nome: str, k: int, lato: str) -> Path:
-    return CARTELLA_19D / nome / f"esatta_k{k}_{lato}_{SUFFISSO_INTERA}.csv"
+    return cartella_modello(nome) / f"esatta_k{k}_{lato}_{SUFFISSO_INTERA}.csv"
 
 
 def esegui_esatta_intera(lato: str, nome: str) -> int:
@@ -2975,7 +3015,7 @@ def esegui_esatta_intera(lato: str, nome: str) -> int:
     from src.config import CHROMA_DIR
 
     senza_rete()
-    cartella = CARTELLA_19D / nome
+    cartella = cartella_modello(nome)
     firma_1, fatti_1, file_per_bando = apri_misura(FOGLIO, DIVISIONE, lato)
     firma_2, fatti_2, _ = apri_misura(FOGLIO_2, DIVISIONE_2, lato)
     fatti = unisci_fogli([(fatti_1, 0), (fatti_2, SCOSTAMENTO_2)])
@@ -3117,17 +3157,26 @@ def righe_diverse_dal_primo(vecchie: list[dict], nuove: list[dict]) -> list[str]
     return [r["riga"] for r in vecchie if del_primo[r["riga"]] != r]
 
 
-def rapporto_intero(misure: dict[tuple[str, int], list[dict]], lato: str) -> list[str]:
-    """Il riepilogo delle misure sui due fogli; misure per (modello, k)."""
+def rapporto_intero(
+    misure: dict[tuple[str, int], list[dict]], lato: str, confronti: bool = True
+) -> list[str]:
+    """Il riepilogo delle misure sui due fogli; misure per (modello, k).
+
+    Con confronti=False la sezione 4 (scarti con la soglia di RUMORE) non
+    c'è: i confronti li scrive chi chiama, con il test dei segni.
+    """
     configurazioni = list(misure)
     etichette = [f"{n} k={k}" for n, k in configurazioni]
     larga = 24
     linee = [
         f"Passo 19d, riepilogo della misura esatta sui due fogli, metà: {lato}",
         NOTA_REGOLA,
-        (
-            "Righe del secondo foglio scritte come 2:<riga>. Differenze di al più "
-            f"{RUMORE} fatti: entro il rumore (docs/coda.md, Passo 19d, punto 2)."
+        "Righe del secondo foglio scritte come 2:<riga>."
+        + (
+            f" Differenze di al più {RUMORE} fatti: entro il rumore (docs/coda.md, "
+            "Passo 19d, punto 2)."
+            if confronti
+            else ""
         ),
         "",
         "1. Fatti trovati, A / B, su n fatti",
@@ -3172,31 +3221,36 @@ def rapporto_intero(misure: dict[tuple[str, int], list[dict]], lato: str) -> lis
                 f"giusto {len(senza)} ({', '.join(senza) or '-'})"
             )
 
-    linee += ["", "4. Differenze dalla base v0 con lo stesso k (fatti trovati)"]
-    for (n, k), righe in misure.items():
-        if n == "v0" or ("v0", k) not in misure:
-            continue
-        base = misure[("v0", k)]
-        for c in CONDIZIONI_GRIGLIA:
-            guadagnati, persi = cambi_di_esito(base, righe, c)
-            linee.append(
-                f"  {n} k={k} {c}: {_trovati(righe, c)[0]} contro "
-                f"{_trovati(base, c)[0]}, "
-                f"{differenza(_trovati(base, c)[0], _trovati(righe, c)[0])}; "
-                f"ora trovati {', '.join(map(nome_della_riga, guadagnati)) or '-'}; "
-                f"ora non trovati {', '.join(map(nome_della_riga, persi)) or '-'}"
-            )
-    for n in dict.fromkeys(n for n, _ in configurazioni):
-        if (n, K) in misure and (n, 15) in misure:
+    if confronti:
+        linee += ["", "4. Differenze dalla base v0 con lo stesso k (fatti trovati)"]
+        for (n, k), righe in misure.items():
+            if n == "v0" or ("v0", k) not in misure:
+                continue
+            base = misure[("v0", k)]
             for c in CONDIZIONI_GRIGLIA:
-                guadagnati, persi = cambi_di_esito(misure[(n, K)], misure[(n, 15)], c)
-                prima_ = _trovati(misure[(n, K)], c)[0]
-                dopo = _trovati(misure[(n, 15)], c)[0]
+                guadagnati, persi = cambi_di_esito(base, righe, c)
                 linee.append(
-                    f"  {n} da k={K} a k=15 {c}: {differenza(prima_, dopo)}; "
-                    f"ora trovati {len(guadagnati)}, ora non trovati {len(persi)} "
-                    f"({', '.join(map(nome_della_riga, persi)) or '-'})"
+                    f"  {n} k={k} {c}: {_trovati(righe, c)[0]} contro "
+                    f"{_trovati(base, c)[0]}, "
+                    f"{differenza(_trovati(base, c)[0], _trovati(righe, c)[0])}; "
+                    f"ora trovati {', '.join(map(nome_della_riga, guadagnati)) or '-'}; "
+                    f"ora non trovati {', '.join(map(nome_della_riga, persi)) or '-'}"
                 )
+        for n in dict.fromkeys(n for n, _ in configurazioni):
+            if (n, K) in misure and (n, 15) in misure:
+                for c in CONDIZIONI_GRIGLIA:
+                    guadagnati, persi = cambi_di_esito(
+                        misure[(n, K)], misure[(n, 15)], c
+                    )
+                    prima_ = _trovati(misure[(n, K)], c)[0]
+                    dopo = _trovati(misure[(n, 15)], c)[0]
+                    linee.append(
+                        f"  {n} da k={K} a k=15 {c}: {differenza(prima_, dopo)}; "
+                        f"ora trovati {len(guadagnati)}, ora non trovati {len(persi)} "
+                        f"({', '.join(map(nome_della_riga, persi)) or '-'})"
+                    )
+    else:
+        linee += ["", "4. Confronti: più sotto, con il test esatto dei segni"]
 
     bandi = sorted({r["id_bando"] for righe in misure.values() for r in righe})
     largo = max(len(b) for b in bandi) + 1
@@ -3404,6 +3458,1053 @@ def esegui_peso(nome: str) -> int:
     return 0
 
 
+# --- notte del 20/11/2026: sola taratura intera, misura esatta ---
+#
+# Parte 1: v1, v2 e v1+v2 con la ricerca esatta (--prepara-vettori e
+# --esatta-intera con --modello), confronti con il test dei segni.
+# Parte 2: curve su k e sul peso della fusione, token dei documenti, costi
+# del contesto per frammento, risultati per bando e per allegato.
+# Parte 3: risposte in più pezzi, vicini e pagina intera.
+# Parte 4: riordinatore su 30 candidati.
+# Uscite in NOTTE.
+
+NOTTE = CARTELLA_19D / "notte"
+SOGLIA_CASO = 0.05
+MODELLI_NOTTE = ("v0", "v1", "v2", "v1+v2", "e5-small", "e5-base")
+MODELLI_CURVE = ("v0", "e5-small")
+K_CURVA = (5, 8, 10, 12, 15, 20, 25, 30)
+PESI_CURVA = (0.5, 0.6, 0.7, 0.8, 0.9)
+VICINI_NOTTE = (1, 2, 3, 5)
+ISTRUZIONE_CONTESTO = 60  # token di istruzione per frammento (parte 2d)
+USCITA_CONTESTO = 100  # token in uscita per frammento (parte 2d)
+CANDIDATI = 30
+RIORDINATORI = {
+    "osiria": "osiria/minilm-l12-h384-italian-cross-encoder",
+    "mmarco": "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
+}
+# I file che si scaricano di un riordinatore: niente codice, niente varianti
+# onnx o openvino
+FILE_RIORDINATORE = (
+    "config.json",
+    "model.safetensors",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "special_tokens_map.json",
+    "sentencepiece.bpe.model",
+    "vocab.txt",
+    "modules.json",
+    "sentence_bert_config.json",
+    "config_sentence_transformers.json",
+    "README.md",
+)
+NOTA_SEGNI = (
+    "p: test esatto dei segni a due code sulle coppie discordanti (fatti "
+    "trovati da una sola delle due configurazioni); 'entro il rumore' se "
+    "p > 0,05."
+)
+
+
+def probabilita_segni(guadagnati: int, persi: int) -> float:
+    """Test esatto dei segni, a due code, sulle coppie discordanti."""
+    import math
+
+    n = guadagnati + persi
+    if n == 0:
+        return 1.0
+    coda = sum(math.comb(n, i) for i in range(min(guadagnati, persi) + 1))
+    return min(1.0, 2 * coda / 2**n)
+
+
+def _virgola(x: float, cifre: int = 3) -> str:
+    return f"{x:.{cifre}f}".replace(".", ",")
+
+
+def _segni(guadagnati: list[str], persi: list[str]) -> str:
+    p = probabilita_segni(len(guadagnati), len(persi))
+    return (
+        f"guadagnati {len(guadagnati)} ({', '.join(guadagnati) or '-'}); persi "
+        f"{len(persi)} ({', '.join(persi) or '-'}); p = {_virgola(p)}"
+        + ("; entro il rumore" if p > SOGLIA_CASO else "")
+    )
+
+
+def riga_segni(
+    nome_base: str, base: list[dict], nome: str, variante: list[dict], c: str
+) -> str:
+    """Guadagnati, persi e probabilità che lo scarto sia casuale."""
+    guadagnati, persi = cambi_di_esito(base, variante, c)
+    return (
+        f"  {nome} contro {nome_base}, {c}: {_trovati(variante, c)[0]} contro "
+        f"{_trovati(base, c)[0]}; "
+        + _segni(
+            [nome_della_riga(r) for r in guadagnati],
+            [nome_della_riga(r) for r in persi],
+        )
+    )
+
+
+def coppie_della_parte_1() -> list[tuple[tuple[str, int], tuple[str, int]]]:
+    coppie = []
+    for k in K_ESATTI:
+        coppie += [(("v0", k), (n, k)) for n in MODELLI_NOTTE[1:]]
+        coppie += [
+            (("v1", k), ("v1+v2", k)),
+            (("v2", k), ("v1+v2", k)),
+            (("e5-small", k), ("e5-base", k)),
+        ]
+    coppie += [((n, K), (n, 15)) for n in MODELLI_NOTTE]
+    return coppie
+
+
+def scrivi_notte(nome_file: str, linee: list[str]) -> None:
+    NOTTE.mkdir(parents=True, exist_ok=True)
+    testo = "\n".join(linee)
+    (NOTTE / nome_file).write_text(testo + "\n", encoding="utf-8")
+    print(testo)
+
+
+def misure_intere(nomi, lato: str) -> dict[tuple[str, int], list[dict]]:
+    return {
+        (n, k): leggi_misura(file_intera(n, k, lato))
+        for n in nomi
+        for k in K_ESATTI
+        if file_intera(n, k, lato).exists()
+    }
+
+
+def esegui_notte_1(lato: str) -> int:
+    misure = misure_intere(MODELLI_NOTTE, lato)
+    mancanti = [
+        f"{n} k={k}" for n in MODELLI_NOTTE for k in K_ESATTI if (n, k) not in misure
+    ]
+    if mancanti:
+        raise ErroreMisura(f"misure sui due fogli mancanti: {', '.join(mancanti)}")
+    linee = [
+        "Notte del 20/11/2026, parte 1: le configurazioni sui 97 fatti di taratura",
+        *(f"{n}: {descrizione_modello(MODELLI[n])}" for n in MODELLI_NOTTE),
+        (
+            "v2 e v1+v2: intestazione (titolo · parte · atto) davanti al testo del "
+            "vettore dei soli avvisi; la ricerca per parole non la vede (come le "
+            "copie di Chroma della variante)."
+        ),
+        "",
+        *rapporto_intero(misure, lato, confronti=False),
+        "",
+        "8. Confronti",
+        NOTA_SEGNI,
+    ]
+    for a, b in coppie_della_parte_1():
+        for c in CONDIZIONI_GRIGLIA:
+            linee.append(
+                riga_segni(
+                    f"{a[0]} k={a[1]}", misure[a], f"{b[0]} k={b[1]}", misure[b], c
+                )
+            )
+    scrivi_notte(f"parte1_configurazioni_{lato}.txt", linee)
+    return 0
+
+
+# --- parte 2 ---
+
+
+def fatti_intera(lato: str):
+    """(firme, fatti dei due fogli, file per bando)."""
+    firma_1, fatti_1, file_per_bando = apri_misura(FOGLIO, DIVISIONE, lato)
+    firma_2, fatti_2, _ = apri_misura(FOGLIO_2, DIVISIONE_2, lato)
+    fatti = unisci_fogli([(fatti_1, 0), (fatti_2, SCOSTAMENTO_2)])
+    return (firma_1, firma_2), fatti, file_per_bando
+
+
+def _media_virgola(valori: list[float]) -> str:
+    return _virgola(sum(valori) / len(valori), 1) if valori else "-"
+
+
+def curve_di_un_modello(nome: str, fatti, file_per_bando) -> dict:
+    """Esiti in B per ogni k di K_CURVA e ogni peso di PESI_CURVA (con k=K)."""
+    from src.retrieval import normalizza_domanda
+
+    recupero, _, _, frammenti_per_fonte, titoli = apri_tutto_esatto(nome)
+    esiti = {("k", k): [] for k in K_CURVA} | {("peso", w): [] for w in PESI_CURVA}
+    for fatto in fatti:
+        giusti, gemelli = documenti_del_fatto(fatto, file_per_bando)
+        domanda = normalizza_domanda(str(fatto["domanda"]))
+        ripulita = domanda_ripulita(domanda, titoli[fatto["id_bando"]])
+        profondi = [
+            frammento_di(d)
+            for d, _, _ in recupero.cerca_nel_bando(
+                ripulita, fatto["id_bando"], PROFONDITA, ampiezza=PROFONDITA
+            )
+        ]
+        # l'ordine non dipende da k: i primi k sono un taglio dei primi 30
+        tutti = recupero.cerca_nel_bando(ripulita, fatto["id_bando"], max(K_CURVA))
+        elenchi = {("k", k): tutti[:k] for k in K_CURVA}
+        for w in PESI_CURVA:
+            elenchi[("peso", w)] = recupero.cerca_nel_bando(
+                ripulita, fatto["id_bando"], K, peso=w
+            )
+        for chiave, primi in elenchi.items():
+            esito = valuta(
+                fatto,
+                [frammento_di(d) for d, _, _ in primi],
+                profondi,
+                giusti,
+                gemelli,
+                frammenti_per_fonte,
+            )
+            esiti[chiave].append(
+                {
+                    "riga": str(fatto["riga"]),
+                    "trovato": esito["trovato"],
+                    "dal_gemello": esito["pezzo_dal_gemello"],
+                    "frammenti": len(primi),
+                    "caratteri": sum(len(d.page_content) for d, _, _ in primi),
+                }
+            )
+    return esiti
+
+
+def controlla_curve(esiti: dict, misura: list[dict]) -> None:
+    """Con k=K e con il peso di oggi gli esiti sono quelli della misura esatta."""
+    attesi = {r["riga"]: r["B_trovato"] == "sì" for r in misura}
+    for chiave in (("k", K), ("peso", PESO_DENSA)):
+        trovati = {e["riga"]: e["trovato"] for e in esiti[chiave]}
+        if trovati != attesi:
+            raise ErroreMisura(f"{chiave}: esiti diversi dalla misura esatta")
+
+
+def cambi_tra_esiti(base: list[dict], altri: list[dict]) -> tuple[list[str], list[str]]:
+    """(guadagnati, persi) tra due elenchi di esiti delle curve, nello stesso ordine."""
+    guadagnati = [
+        nome_della_riga(e["riga"])
+        for e, b in zip(altri, base, strict=True)
+        if e["trovato"] and not b["trovato"]
+    ]
+    persi = [
+        nome_della_riga(e["riga"])
+        for e, b in zip(altri, base, strict=True)
+        if b["trovato"] and not e["trovato"]
+    ]
+    return guadagnati, persi
+
+
+def testo_pulito(pagine_grezze: list[str], titolo: str | None) -> str:
+    """Il testo del file come lo vede spezza: premesse, pulizia, pagine tenute."""
+    from scripts.ingestione.carica_avvisi import togli_premesse
+    from src.config import SOGLIA_PAGINA_MINIMA
+    from src.ingestion.avvisi import pulisci_avviso
+    from src.ingestion.testo import e_indice, pulisci
+
+    senza_premesse, _ = togli_premesse(pagine_grezze)
+    tenute = []
+    for testo in pulisci_avviso(senza_premesse, titolo).pagine:
+        if e_indice(testo):
+            continue
+        pulito = pulisci(testo, None, "prudente")
+        if len(pulito) >= SOGLIA_PAGINA_MINIMA:
+            tenute.append(pulito)
+    return "\n\n".join(tenute)
+
+
+def costi_contesto(per_file: list[dict]) -> dict[str, int]:
+    """Totali del contesto per frammento; per file: documento, frammenti, token_frammenti.
+
+    Scrittura in cache: ogni documento una volta. Lettura: il documento per
+    ogni frammento; senza la prima chiamata di ogni file, che scrive, un
+    documento in meno per file. Ingresso non in cache: il frammento più
+    ISTRUZIONE_CONTESTO. Uscita: USCITA_CONTESTO per frammento.
+    """
+    return {
+        "scrittura in cache": sum(f["documento"] for f in per_file),
+        "lettura dalla cache": sum(f["documento"] * f["frammenti"] for f in per_file),
+        "lettura dalla cache, senza la prima chiamata di ogni file": sum(
+            f["documento"] * (f["frammenti"] - 1) for f in per_file
+        ),
+        "ingresso non in cache": sum(
+            f["token_frammenti"] + ISTRUZIONE_CONTESTO * f["frammenti"]
+            for f in per_file
+        ),
+        "uscita": sum(USCITA_CONTESTO * f["frammenti"] for f in per_file),
+    }
+
+
+def conta_token(tokenizer, testo: str) -> int:
+    return len(tokenizer(testo, add_special_tokens=False)["input_ids"])
+
+
+def token_dei_file() -> list[dict]:
+    """Per ogni file con frammenti: caratteri e token del testo pulito e dei frammenti."""
+    from scripts.ingestione import carica_avvisi as ca
+    from scripts.ingestione.registra_avvisi import NOME_FILE
+    from src.config import PROCESSED_DIR
+
+    _, testi, metadati, _ = leggi_vettori(CARTELLA_19D / "v0")
+    frammenti: dict[str, list[str]] = defaultdict(list)
+    titolo_di: dict[str, str] = {}
+    for testo, meta in zip(testi, metadati, strict=True):
+        if meta.get("sha256"):
+            frammenti[meta["fonte"]].append(testo)
+            titolo_di[meta["fonte"]] = meta.get("titolo")
+    tokenizer = ca.apri_tokenizer()
+    uscita = []
+    for riga in ca.leggi_registro(PROCESSED_DIR / NOME_FILE):
+        fonte = riga["nome_file"]
+        documento = testo_pulito(
+            ca.pagine_del_pdf(ca.percorso_del_file(riga)), titolo_di.get(fonte)
+        )
+        suoi = frammenti.get(fonte, [])
+        uscita.append(
+            {
+                "fonte": fonte,
+                "id_bando": riga["id_bandi"],
+                "caratteri": len(documento),
+                "documento": conta_token(tokenizer, documento),
+                "frammenti": len(suoi),
+                "token_frammenti": sum(conta_token(tokenizer, t) for t in suoi),
+                "frammenti_nel_testo": sum(t.strip() in documento for t in suoi),
+            }
+        )
+    return uscita
+
+
+def per_allegato(righe: list[dict], c: str) -> dict[str, tuple[int, int]]:
+    """Trovati per documento giusto, solo dove il documento giusto è uno."""
+    gruppi: dict[str, list[dict]] = defaultdict(list)
+    for r in righe:
+        if " | " not in r["documenti_giusti"]:
+            gruppi[r["documenti_giusti"]].append(r)
+    return {d: _trovati(sue, c) for d, sue in sorted(gruppi.items())}
+
+
+APISTICI = "sostegno-agli-investimenti-strutturali-aziende-apisti-401650"
+
+
+def linee_parte_2(curve: dict, file: list[dict], sei: dict) -> list[str]:
+    from src.config import EMBEDDING_MODEL
+
+    linee = [
+        "",
+        (
+            "a. Quanti frammenti, condizione B (fusione con ampiezza 20 per lista, "
+            "quella dell'app: al più 40 candidati)"
+        ),
+        (
+            "   trovati; frammenti restituiti e caratteri del testo dei frammenti "
+            "passati al modello, media per fatto (massimo)"
+        ),
+    ]
+    for n, sue in curve.items():
+        linee.append(f"  {n}")
+        for k in K_CURVA:
+            es = sue[("k", k)]
+            linee.append(
+                f"    k={k:<3} trovati {sum(e['trovato'] for e in es):>3}/{len(es)}; "
+                f"frammenti {_media_virgola([e['frammenti'] for e in es])}; "
+                f"caratteri {_media_virgola([e['caratteri'] for e in es])} "
+                f"({max(e['caratteri'] for e in es)}); "
+                f"pezzi presi dal gemello {sum(e['dal_gemello'] for e in es)}"
+            )
+    linee += [
+        "",
+        (
+            f"b. Peso della ricerca per significato nella fusione RRF, B, k={K} "
+            "(quella per parole ha 1 - peso; 0,5 è oggi); confronto con 0,5"
+        ),
+    ]
+    for n, sue in curve.items():
+        base = sue[("peso", PESO_DENSA)]
+        linee.append(f"  {n}")
+        for w in PESI_CURVA:
+            es = sue[("peso", w)]
+            linee.append(
+                f"    peso {_virgola(w, 1)}: trovati {sum(e['trovato'] for e in es)}"
+                f"/{len(es)}; "
+                + _segni(*cambi_tra_esiti(base, es))
+                + f"; pezzi presi dal gemello {sum(e['dal_gemello'] for e in es)}"
+            )
+
+    linee += [
+        "",
+        (
+            "c. Token del testo pulito di ogni file. Conteggio: il tokenizzatore di "
+            f"{EMBEDDING_MODEL} (sentencepiece di XLM-RoBERTa), senza i token "
+            "speciali. Non è il tokenizzatore del modello di linguaggio, che non si "
+            "può usare senza chiamarlo: è il più vicino che c'è in locale, e il "
+            "valore vero può differire. Accanto, i caratteri."
+        ),
+        (
+            "   Testo pulito: premesse tolte, pulisci_avviso, pulisci prudente, "
+            "pagine d'indice e troppo corte saltate, pagine unite con una riga "
+            "vuota (come spezza prima della divisione). 'nel testo': frammenti che "
+            "compaiono tali e quali nel testo pulito."
+        ),
+        f"  {'file':<66}{'caratteri':>10}{'token':>8}{'nel testo':>12}",
+    ]
+    for f in sorted(file, key=lambda f: f["fonte"]):
+        linee.append(
+            f"  {f['fonte']:<66}{f['caratteri']:>10}{f['documento']:>8}"
+            f"{f['frammenti_nel_testo']:>7}/{f['frammenti']}"
+        )
+    linee.append(
+        f"  {'totale (' + str(len(file)) + ' file)':<66}"
+        f"{sum(f['caratteri'] for f in file):>10}{sum(f['documento'] for f in file):>8}"
+    )
+    per_bando: dict[str, list[dict]] = defaultdict(list)
+    for f in file:
+        per_bando[f["id_bando"]].append(f)
+    linee += ["", "   Per bando, i suoi file insieme:"]
+    linee.append(f"  {'bando':<66}{'file':>5}{'caratteri':>10}{'token':>8}")
+    for bando, suoi in sorted(per_bando.items()):
+        linee.append(
+            f"  {bando:<66}{len(suoi):>5}{sum(f['caratteri'] for f in suoi):>10}"
+            f"{sum(f['documento'] for f in suoi):>8}"
+        )
+
+    linee += [
+        "",
+        (
+            "d. Contesto per frammento (stesso conteggio dei token). Per file: token "
+            "del documento, frammenti, token dei frammenti."
+        ),
+        f"  {'file':<66}{'documento':>10}{'frammenti':>10}{'token fr.':>10}",
+    ]
+    for f in sorted(file, key=lambda f: f["fonte"]):
+        linee.append(
+            f"  {f['fonte']:<66}{f['documento']:>10}{f['frammenti']:>10}"
+            f"{f['token_frammenti']:>10}"
+        )
+    linee.append(
+        f"  {'totale':<66}{sum(f['documento'] for f in file):>10}"
+        f"{sum(f['frammenti'] for f in file):>10}"
+        f"{sum(f['token_frammenti'] for f in file):>10}"
+    )
+    linee.append(
+        f"   Totali in token (istruzione {ISTRUZIONE_CONTESTO} e uscita "
+        f"{USCITA_CONTESTO} per frammento):"
+    )
+    linee += [f"    {voce}: {valore}" for voce, valore in costi_contesto(file).items()]
+
+    etichette = [f"{n} k={k}" for n, k in sei]
+    bandi = sorted({r["id_bando"] for righe in sei.values() for r in righe})
+    largo = max(len(b) for b in bandi) + 1
+    linee += [
+        "",
+        "e. Fatti trovati in B per bando, nelle sei configurazioni già misurate",
+        f"  {'':<{largo}}{'n':>4}" + "".join(f"{e:>15}" for e in etichette),
+    ]
+    for bando in bandi:
+        celle = [
+            _trovati(righe, "B", lambda r, b=bando: r["id_bando"] == b)
+            for righe in sei.values()
+        ]
+        linee.append(
+            f"  {bando:<{largo}}{celle[0][1]:>4}"
+            + "".join(f"{x[0]:>15}" for x in celle)
+        )
+    linee += ["", "   Apistici, per allegato (il documento giusto del fatto):"]
+    allegati = {
+        chiave: per_allegato([r for r in righe if r["id_bando"] == APISTICI], "B")
+        for chiave, righe in sei.items()
+    }
+    for nome_file in next(iter(allegati.values())):
+        celle = [allegati[chiave][nome_file] for chiave in sei]
+        linee.append(
+            f"  {nome_file:<{largo}}{celle[0][1]:>4}"
+            + "".join(f"{x[0]:>15}" for x in celle)
+        )
+    return linee
+
+
+def esegui_notte_2(lato: str) -> int:
+    import time
+
+    from scripts.ingestione.carica_avvisi import senza_rete
+    from src.config import CHROMA_DIR
+
+    senza_rete()
+    inizio = time.perf_counter()
+    (firma_1, firma_2), fatti, file_per_bando = fatti_intera(lato)
+    prima = impronte_cartella(CHROMA_DIR)
+    with senza_connessioni():
+        curve = {
+            n: curve_di_un_modello(n, fatti, file_per_bando) for n in MODELLI_CURVE
+        }
+        file = token_dei_file()
+    if impronte_cartella(CHROMA_DIR) != prima:
+        raise ErroreMisura("le impronte del Chroma vero sono cambiate")
+    for n in MODELLI_CURVE:
+        controlla_curve(curve[n], leggi_misura(file_intera(n, K, lato)))
+    linee = [
+        (
+            f"Notte del 20/11/2026, parte 2: curve e conteggi, metà: {lato} "
+            f"({len(fatti)} fatti)"
+        ),
+        (
+            f"Divisioni: sha256 {firma_1}, {firma_2}; Chroma vero: {len(prima)} file, "
+            "impronte uguali prima e dopo"
+        ),
+        (
+            "Controllo: con k=10 e con il peso 0,5 gli esiti coincidono con la misura "
+            "esatta sui 97 (esatta_k10_taratura_97.csv)."
+        ),
+        NOTA_SEGNI,
+        *linee_parte_2(curve, file, misure_intere(MODELLI_INTERA, lato)),
+        "",
+        f"Tempo: {time.perf_counter() - inizio:.0f} s",
+    ]
+    scrivi_notte(f"parte2_curve_{lato}.txt", linee)
+    return 0
+
+
+# --- parte 3 ---
+
+
+def frammenti_dei_vettori() -> tuple[dict[str, list[Frammento]], dict]:
+    """(frammenti per fonte ordinati per chunk_num, indice per (fonte, chunk_num))."""
+    _, testi, metadati, _ = leggi_vettori(CARTELLA_19D / "v0")
+    per_fonte: dict[str, list[Frammento]] = defaultdict(list)
+    indice = {}
+    for testo, meta in zip(testi, metadati, strict=True):
+        fonte = meta.get("fonte") or ""
+        fr = Frammento(
+            meta.get("chunk_num", -1),
+            meta.get("page", 0),
+            testo,
+            meta.get("car_visti", len(testo)),
+        )
+        if (fonte, fr.chunk_num) in indice:
+            raise ErroreMisura(f"chunk_num ripetuto: {fonte} {fr.chunk_num}")
+        indice[(fonte, fr.chunk_num)] = fr
+        per_fonte[fonte].append(fr)
+    for lista in per_fonte.values():
+        lista.sort(key=lambda fr: fr.chunk_num)
+    return per_fonte, indice
+
+
+def allargati(
+    primi: list[tuple[str, Frammento]],
+    frammenti_per_fonte: dict[str, list[Frammento]],
+    distanza: int | None = None,
+    pagina: bool = False,
+) -> list[tuple[str, Frammento]]:
+    """I primi più i vicini entro `distanza` nello stesso file, o la loro pagina intera."""
+    scelti = {(f, fr.chunk_num): (f, fr) for f, fr in primi}
+    for fonte, fr in primi:
+        for altro in frammenti_per_fonte.get(fonte, []):
+            vicino = (
+                distanza is not None and abs(altro.chunk_num - fr.chunk_num) <= distanza
+            )
+            if vicino or (pagina and altro.pagina == fr.pagina):
+                scelti.setdefault((fonte, altro.chunk_num), (fonte, altro))
+    return list(scelti.values())
+
+
+def trovato_in(
+    fatto: dict, elenco: list[tuple[str, Frammento]], giusti: set[str]
+) -> bool:
+    return all(
+        prima_posizione(p, elenco, giusti) is not None for p in unita_del_fatto(fatto)
+    )
+
+
+def distanza_tra_pezzi(
+    fatto: dict, giusti: set[str], frammenti_per_fonte: dict[str, list[Frammento]]
+) -> tuple[int, int] | None:
+    """(frammenti, pagine) tra i pezzi più lontani; None se stanno in file diversi.
+
+    Per ogni coppia di pezzi conta la coppia di frammenti più vicina dello
+    stesso file che li contiene; per il fatto, la coppia di pezzi più lontana.
+    """
+    luoghi = [
+        [
+            (f, fr.chunk_num, fr.pagina)
+            for f in sorted(giusti)
+            for fr in frammenti_per_fonte.get(f, [])
+            if contiene(p, fr)
+        ]
+        for p in unita_del_fatto(fatto)
+    ]
+    in_frammenti = in_pagine = 0
+    for i in range(len(luoghi)):
+        for j in range(i + 1, len(luoghi)):
+            coppie = [
+                (abs(a[1] - b[1]), abs(a[2] - b[2]))
+                for a in luoghi[i]
+                for b in luoghi[j]
+                if a[0] == b[0]
+            ]
+            if not coppie:
+                return None
+            in_frammenti = max(in_frammenti, min(c[0] for c in coppie))
+            in_pagine = max(in_pagine, min(c[1] for c in coppie))
+    return in_frammenti, in_pagine
+
+
+def esegui_notte_3(lato: str) -> int:
+    import json
+
+    (firma_1, firma_2), fatti, file_per_bando = fatti_intera(lato)
+    frammenti_per_fonte, indice = frammenti_dei_vettori()
+    piu = {f["riga"] for f in fatti if len(unita_del_fatto(f)) > 1}
+    linee = [
+        (
+            f"Notte del 20/11/2026, parte 3: risposte in più pezzi, condizione B, "
+            f"k={K}, metà: {lato}"
+        ),
+        (
+            f"Divisioni: sha256 {firma_1}, {firma_2}. Fatti in più pezzi: {len(piu)} "
+            f"su {len(fatti)}. Nessuna ricerca nuova: elenchi dei primi {K} da "
+            "elenchi_esatti_taratura_97.json, frammenti da v0/frammenti.json; per "
+            "ogni fatto l'esito sugli elenchi coincide con quello del CSV."
+        ),
+        (
+            "Distanza tra i pezzi: per la coppia di pezzi più lontana, la coppia più "
+            "vicina di frammenti dello stesso file che li contiene (0: stesso "
+            "frammento), in frammenti (chunk_num) e in pagine."
+        ),
+    ]
+    for nome in MODELLI_CURVE:
+        elenchi = json.loads(
+            (
+                cartella_modello(nome) / f"elenchi_esatti_{lato}_{SUFFISSO_INTERA}.json"
+            ).read_text(encoding="utf-8")
+        )
+        per_riga = {r["riga"]: r for r in leggi_misura(file_intera(nome, K, lato))}
+        modi = {f"vicini a distanza {d}": {"distanza": d} for d in VICINI_NOTTE}
+        modi["pagina intera"] = {"pagina": True}
+        conti = {
+            m: {"più pezzi": [], "tutti": [], "frammenti": [], "caratteri": []}
+            for m in modi
+        }
+        linee += [
+            "",
+            f"=== {nome} ===",
+            (
+                f"  {'riga':<7}{'pezzi':>6}  {'posizioni (ampiezza 50)':<26}"
+                f"{'frammenti':>10}{'pagine':>8}  trovato"
+            ),
+        ]
+        for fatto in fatti:
+            giusti, _ = documenti_del_fatto(fatto, file_per_bando)
+            primi = [
+                (f, indice[(f, c)]) for f, c, _ in elenchi[f"{fatto['riga']} B k={K}"]
+            ]
+            riga = per_riga[str(fatto["riga"])]
+            if trovato_in(fatto, primi, giusti) != (riga["B_trovato"] == "sì"):
+                raise ErroreMisura(f"riga {fatto['riga']}: esito diverso dal CSV")
+            for modo, argomenti in modi.items():
+                elenco = allargati(primi, frammenti_per_fonte, **argomenti)
+                if trovato_in(fatto, elenco, giusti) and riga["B_trovato"] != "sì":
+                    conti[modo]["tutti"].append(nome_della_riga(fatto["riga"]))
+                    if fatto["riga"] in piu:
+                        conti[modo]["più pezzi"].append(nome_della_riga(fatto["riga"]))
+                conti[modo]["frammenti"].append(len(elenco))
+                conti[modo]["caratteri"].append(sum(len(fr.testo) for _, fr in elenco))
+            if fatto["riga"] not in piu:
+                continue
+            distanza = distanza_tra_pezzi(fatto, giusti, frammenti_per_fonte)
+            linee.append(
+                f"  {nome_della_riga(fatto['riga']):<7}{riga['pezzi']:>6}  "
+                f"{riga['B_posizioni_profonde']:<26}"
+                + (
+                    f"{distanza[0]:>10}{distanza[1]:>8}"
+                    if distanza
+                    else f"{'file diversi':>18}"
+                )
+                + f"  {riga['B_trovato']}"
+            )
+        trovati_piu = sum(per_riga[str(r)]["B_trovato"] == "sì" for r in piu)
+        trovati = sum(r["B_trovato"] == "sì" for r in per_riga.values())
+        primi_car = [
+            sum(len(indice[(f, c)].testo) for f, c, _ in elenchi[f"{r} B k={K}"])
+            for r in per_riga
+        ]
+        linee += [
+            "",
+            (
+                f"  Senza vicini: trovati più pezzi {trovati_piu}/{len(piu)}, tutti "
+                f"{trovati}/{len(fatti)}; caratteri dei primi {K} "
+                f"{_media_virgola(primi_car)} in media per fatto."
+            ),
+            (
+                "  Fatti in più che diventerebbero trovati restituendo, per ogni "
+                f"frammento tra i primi {K}, anche (frammenti e caratteri restituiti: "
+                "media per fatto, su tutti i fatti):"
+            ),
+        ]
+        for modo, conto in conti.items():
+            linee.append(
+                f"    {modo}: più pezzi +{len(conto['più pezzi'])} "
+                f"({', '.join(conto['più pezzi']) or '-'}), tutti "
+                f"+{len(conto['tutti'])} ({', '.join(conto['tutti']) or '-'}); "
+                f"frammenti {_media_virgola(conto['frammenti'])}, caratteri "
+                f"{_media_virgola(conto['caratteri'])}"
+            )
+    scrivi_notte(f"parte3_piu_pezzi_{lato}.txt", linee)
+    return 0
+
+
+# --- parte 4 ---
+
+
+def cartella_hf(nome: str) -> Path:
+    from huggingface_hub.constants import HF_HUB_CACHE
+
+    return Path(HF_HUB_CACHE) / ("models--" + nome.replace("/", "--"))
+
+
+def codice_del_modello(file) -> list[str]:
+    """I file .py che il modello caricherebbe: quelli nella radice, tranne gli
+    script di addestramento, che nessuno esegue al caricamento."""
+    return [
+        f
+        for f in file
+        if f.endswith(".py") and "/" not in f and not f.startswith("train")
+    ]
+
+
+def esegui_scarica_riordinatore(chiave: str) -> int:
+    """Scarica un riordinatore una volta: la sola eccezione alla rete autorizzata.
+
+    Si ferma senza scaricare il modello se è riservato (gated), se contiene
+    codice che il modello caricherebbe (codice_del_modello), se config.json
+    chiede codice (auto_map) o se manca model.safetensors. Si scaricano solo
+    i file di FILE_RIORDINATORE; si carica con trust_remote_code=False. Con l'errore dei certificati usa l'archivio di
+    Windows (truststore); la verifica resta sempre attiva.
+    """
+    import json
+
+    from huggingface_hub import HfApi, hf_hub_download
+
+    nome = RIORDINATORI[chiave]
+    stato = {"truststore": False}
+
+    def con_certificati(funzione, *args, **kwargs):
+        try:
+            return funzione(*args, **kwargs)
+        except Exception as errore:  # noqa: BLE001
+            testo = f"{errore!r} {errore.__cause__!r} {errore.__context__!r}"
+            if stato["truststore"] or (
+                "CERTIFICATE_VERIFY_FAILED" not in testo and "local issuer" not in testo
+            ):
+                raise
+            import truststore
+            from huggingface_hub.utils import close_session
+
+            truststore.inject_into_ssl()
+            # la sessione già aperta ha il contesto di prima: se ne apre una nuova
+            close_session()
+            stato["truststore"] = True
+            print("certificati: uso l'archivio di Windows (truststore)")
+            return funzione(*args, **kwargs)
+
+    info = con_certificati(HfApi().model_info, nome, files_metadata=True)
+    file = {s.rfilename: s.size for s in info.siblings}
+    licenza = info.card_data.get("license") if info.card_data else None
+    print(f"{nome}: gated {info.gated!r}, licenza {licenza!r}, file {sorted(file)}")
+    if info.gated:
+        raise ErroreMisura(f"{nome}: accesso riservato, non si scarica")
+    codice = codice_del_modello(file)
+    if codice:
+        raise ErroreMisura(f"{nome}: codice del modello ({', '.join(codice)})")
+    if "model.safetensors" not in file:
+        raise ErroreMisura(f"{nome}: manca model.safetensors, non si scarica")
+    config = json.loads(
+        Path(con_certificati(hf_hub_download, nome, "config.json")).read_text(
+            encoding="utf-8"
+        )
+    )
+    if "auto_map" in config:
+        raise ErroreMisura(f"{nome}: config.json chiede codice del modello (auto_map)")
+    scelti = [f for f in FILE_RIORDINATORE if f in file]
+    for f in scelti:
+        con_certificati(hf_hub_download, nome, f)
+    # i file veri stanno in blobs; snapshots ha solo collegamenti
+    cartella = cartella_hf(nome)
+    occupato = sum(p.stat().st_size for p in (cartella / "blobs").iterdir())
+    fuori = sorted(set(file) - set(scelti))
+    print(
+        f"scaricati: {', '.join(scelti)}; non scaricati: {', '.join(fuori)}; "
+        f"{cartella / 'blobs'}: {occupato / 2**20:.1f} MB"
+    )
+    return 0
+
+
+def riordina(voti, n: int) -> list[int]:
+    """Gli indici dei candidati dal voto più alto; a parità, l'ordine di prima.
+
+    Con due classi per coppia vale l'ultima (quella positiva).
+    """
+    import numpy as np
+
+    voti = np.asarray(voti, dtype=np.float64)
+    if voti.ndim == 2:
+        voti = voti[:, -1]
+    if len(voti) != n:
+        raise ErroreMisura("voti e candidati in numero diverso")
+    return sorted(range(n), key=lambda i: (-voti[i], i))
+
+
+def file_riordino(chiave: str, nome: str, k: int, lato: str) -> Path:
+    return NOTTE / "riordino" / f"{chiave}_{nome}_k{k}_{lato}.csv"
+
+
+def esegui_riordino(lato: str, chiave: str, nome: str) -> int:
+    import json
+    import statistics
+    import time
+
+    from scripts.ingestione.carica_avvisi import senza_rete
+    from src.config import CHROMA_DIR
+
+    if nome not in MODELLI_CURVE:
+        raise ErroreMisura(f"riordino solo su {', '.join(MODELLI_CURVE)}")
+    senza_rete()
+    (firma_1, firma_2), fatti, file_per_bando = fatti_intera(lato)
+    prima = impronte_cartella(CHROMA_DIR)
+    with senza_connessioni():
+        from sentence_transformers import CrossEncoder
+
+        from src.chains.rag import recupera
+        from src.recupero_documenti import documenti_nominati
+        from src.retrieval import normalizza_domanda
+
+        recupero, app, _, frammenti_per_fonte, titoli = apri_tutto_esatto(nome)
+        memoria_prima = memoria_del_processo()
+        inizio = time.perf_counter()
+        riordinatore = CrossEncoder(
+            RIORDINATORI[chiave], trust_remote_code=False, local_files_only=True
+        )
+        caricamento = time.perf_counter() - inizio
+        memoria_dopo = memoria_del_processo()
+        massimo = riordinatore.max_seq_length
+        tokenizer = riordinatore.tokenizer
+        righe = {k: [] for k in K_ESATTI}
+        tra_i_candidati = dict.fromkeys(CONDIZIONI_GRIGLIA, 0)
+        tempi = {c: [] for c in CONDIZIONI_GRIGLIA}
+        lunghe = dict.fromkeys(CONDIZIONI_GRIGLIA, 0)
+        coppie = dict.fromkeys(CONDIZIONI_GRIGLIA, 0)
+        frammenti_lunghi = set()
+        esempio = None
+        for fatto in fatti:
+            giusti, gemelli = documenti_del_fatto(fatto, file_per_bando)
+            domanda = normalizza_domanda(str(fatto["domanda"]))
+            ripulita = domanda_ripulita(domanda, titoli[fatto["id_bando"]])
+            candidati = {
+                "A": [d for d, _, _ in recupera(app, fatto["domanda"], k=CANDIDATI)],
+                "B": [
+                    d
+                    for d, _, _ in recupero.cerca_nel_bando(
+                        ripulita, fatto["id_bando"], CANDIDATI
+                    )
+                ],
+            }
+            domande = {"A": domanda, "B": ripulita}
+            riordinati = {}
+            for c in CONDIZIONI_GRIGLIA:
+                docs = candidati[c]
+                testi = [(domande[c], d.page_content) for d in docs]
+                t = time.perf_counter()
+                voti = riordinatore.predict(testi, show_progress_bar=False)
+                tempi[c].append(time.perf_counter() - t)
+                for (q, testo), d in zip(testi, docs, strict=True):
+                    coppie[c] += 1
+                    lunghezza = len(tokenizer(q, testo)["input_ids"])
+                    if lunghezza <= massimo:
+                        continue
+                    lunghe[c] += 1
+                    frammenti_lunghi.add(
+                        (d.metadata.get("fonte"), d.metadata.get("chunk_num"))
+                    )
+                    if esempio is None:
+                        tronca = tokenizer(
+                            q, testo, truncation="longest_first", max_length=massimo
+                        )["input_ids"]
+                        domanda_ids = tokenizer(q)["input_ids"][:-1]
+                        esempio = [
+                            lunghezza,
+                            len(tronca),
+                            tronca[: len(domanda_ids)] == domanda_ids,
+                        ]
+                riordinati[c] = [docs[i] for i in riordina(voti, len(docs))]
+                if trovato_in(fatto, [frammento_di(d) for d in riordinati[c]], giusti):
+                    tra_i_candidati[c] += 1
+            nominati = set(documenti_nominati(domanda, app.titoli))
+            for k in K_ESATTI:
+                esiti = {
+                    c: valuta(
+                        fatto,
+                        [frammento_di(d) for d in riordinati[c][:k]],
+                        [frammento_di(d) for d in riordinati[c]],
+                        giusti,
+                        gemelli,
+                        frammenti_per_fonte,
+                    )
+                    for c in CONDIZIONI_GRIGLIA
+                }
+                di_sempre = sum(
+                    not d.metadata.get("sha256") for d in riordinati["A"][:k]
+                )
+                righe[k].append(
+                    riga_misura(
+                        fatto,
+                        giusti,
+                        gemelli,
+                        esiti,
+                        nominati,
+                        di_sempre,
+                        ripulita if ripulita != domanda else "",
+                    )
+                )
+        del recupero, app, riordinatore
+    if impronte_cartella(CHROMA_DIR) != prima:
+        raise ErroreMisura("le impronte del Chroma vero sono cambiate")
+    (NOTTE / "riordino").mkdir(parents=True, exist_ok=True)
+    for k in K_ESATTI:
+        scrivi_misura(file_riordino(chiave, nome, k, lato), righe[k])
+    dati = {
+        "modello": RIORDINATORI[chiave],
+        "base": nome,
+        "divisioni": [firma_1, firma_2],
+        "chroma_vero": f"{len(prima)} file, impronte uguali prima e dopo",
+        "memoria_in_più_MB": (memoria_dopo - memoria_prima) / 2**20,
+        "caricamento_s": caricamento,
+        "tempo_per_domanda_s": {
+            c: {"media": statistics.mean(v), "mediana": statistics.median(v)}
+            for c, v in tempi.items()
+        },
+        "lunghezza_massima": massimo,
+        "coppie": coppie,
+        "coppie_troncate": lunghe,
+        "frammenti_troncati": len(frammenti_lunghi),
+        "esempio_troncamento": esempio,
+        "trovati_tra_i_candidati": tra_i_candidati,
+    }
+    (NOTTE / "riordino" / f"{chiave}_{nome}_{lato}.json").write_text(
+        json.dumps(dati, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
+    return esegui_rapporto_riordino(lato)
+
+
+def linee_riordino(dati: dict, misure: dict[str, list[dict]]) -> list[str]:
+    """Il rapporto di un riordinatore su una base; misure per etichetta."""
+    linee = [f"  {'':<26}{'n':>4}" + "".join(f"{e:>20}" for e in misure)]
+    prime = next(iter(misure.values()))
+    for gruppo, scelta in GRUPPI_INTERA:
+        celle = [
+            f"{_trovati(r, 'A', scelta)[0]} / {_trovati(r, 'B', scelta)[0]}"
+            for r in misure.values()
+        ]
+        linee.append(
+            f"  {gruppo:<26}{_trovati(prime, 'A', scelta)[1]:>4}"
+            + "".join(f"{x:>20}" for x in celle)
+        )
+    for posto in (1, 5):
+        celle = [
+            f"{_primi_entro(r, 'A', posto)} / {_primi_entro(r, 'B', posto)}"
+            for r in misure.values()
+        ]
+        nome_posto = "primo giusto al 1° posto" if posto == 1 else "tra i primi 5"
+        linee.append(f"  {nome_posto:<30}" + "".join(f"{x:>20}" for x in celle))
+    for c in CONDIZIONI_GRIGLIA:
+        celle = []
+        for r in misure.values():
+            gemelle, altri = gemelli_presi(r, c)
+            celle.append(f"{len(gemelle)} + {len(altri)}")
+        linee.append(
+            f"  {'presi dal gemello, ' + c:<30}" + "".join(f"{x:>20}" for x in celle)
+        )
+    linee.append(
+        "  (celle: fatti trovati in A / in B; presi dal gemello: frasi gemelle + "
+        "altri fatti)"
+    )
+    for k in K_ESATTI:
+        for c in CONDIZIONI_GRIGLIA:
+            linee.append(
+                riga_segni(
+                    f"senza riordino k={k}",
+                    misure[f"senza riordino k={k}"],
+                    f"riordino k={k}",
+                    misure[f"riordino k={k}"],
+                    c,
+                )
+            )
+    for k in K_ESATTI:
+        for c in CONDIZIONI_GRIGLIA:
+            gemelle, altri = gemelli_presi(misure[f"riordino k={k}"], c)
+            linee.append(
+                f"  presi dal bando sbagliato, riordino k={k} {c}: frasi gemelle "
+                f"{', '.join(gemelle) or '-'}; altri fatti {', '.join(altri) or '-'}"
+            )
+    tempo = dati["tempo_per_domanda_s"]
+    linee += [
+        f"  trovati tra i {CANDIDATI} candidati (il massimo raggiungibile): "
+        + ", ".join(f"{c} {v}" for c, v in dati["trovati_tra_i_candidati"].items()),
+        (
+            f"  memoria in più dopo il caricamento: {dati['memoria_in_più_MB']:.0f} MB; "
+            f"caricamento {dati['caricamento_s']:.1f} s"
+        ),
+        f"  tempo per domanda con {CANDIDATI} candidati (media, mediana): "
+        + "; ".join(
+            f"{c} {v['media'] * 1000:.0f} ms, {v['mediana'] * 1000:.0f} ms"
+            for c, v in tempo.items()
+        ),
+        f"  lunghezza massima letta: {dati['lunghezza_massima']} token (domanda e "
+        "frammento insieme, token speciali compresi); coppie oltre: "
+        + ", ".join(
+            f"{c} {dati['coppie_troncate'][c]} su {dati['coppie'][c]}"
+            for c in CONDIZIONI_GRIGLIA
+        )
+        + f"; frammenti diversi oltre: {dati['frammenti_troncati']}",
+    ]
+    if dati["esempio_troncamento"]:
+        prima, dopo, intera = dati["esempio_troncamento"]
+        linee.append(
+            "  troncamento 'longest_first' (predefinito di sentence-transformers): "
+            "si tolgono token dalla fine della sequenza più lunga, il frammento; "
+            f"prova su una coppia: {prima} token -> {dopo}, domanda "
+            f"{'intera' if intera else 'troncata'}"
+        )
+    return linee
+
+
+def esegui_rapporto_riordino(lato: str) -> int:
+    import json
+
+    linee = [
+        f"Notte del 20/11/2026, parte 4: riordinatore, metà: {lato}",
+        (
+            f"Per ogni domanda {CANDIDATI} candidati dal recupero di oggi (A: recupera "
+            f"dell'app con k={CANDIDATI}; B: ricerca nel bando con la domanda "
+            f"ripulita, k={CANDIDATI}); il riordinatore dà un voto a ogni coppia "
+            "(A: domanda normalizzata; B: domanda ripulita) e frammento; si tengono "
+            "i primi 10 o 15. A parità di voto, l'ordine di prima."
+        ),
+        NOTA_SEGNI,
+    ]
+    for chiave in RIORDINATORI:
+        for nome in MODELLI_CURVE:
+            percorso = NOTTE / "riordino" / f"{chiave}_{nome}_{lato}.json"
+            if not percorso.exists():
+                continue
+            dati = json.loads(percorso.read_text(encoding="utf-8"))
+            misure = {}
+            for k in K_ESATTI:
+                misure[f"senza riordino k={k}"] = leggi_misura(
+                    file_intera(nome, k, lato)
+                )
+                misure[f"riordino k={k}"] = leggi_misura(
+                    file_riordino(chiave, nome, k, lato)
+                )
+            linee += [
+                "",
+                f"=== {dati['modello']} su {nome} ===",
+                f"  {dati['chroma_vero']}",
+            ]
+            linee += linee_riordino(dati, misure)
+    scrivi_notte(f"parte4_riordinatore_{lato}.txt", linee)
+    return 0
+
+
 # --- uso ---
 
 
@@ -3452,6 +4553,18 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="riepilogo delle misure esatte sui due fogli",
     )
+    parser.add_argument(
+        "--notte",
+        type=int,
+        choices=(1, 2, 3, 4),
+        help="misure della notte del 20/11/2026 (4: riordino con --riordinatore)",
+    )
+    parser.add_argument(
+        "--scarica-riordinatore",
+        choices=sorted(RIORDINATORI),
+        help="scarica un riordinatore da huggingface.co (unica rete autorizzata)",
+    )
+    parser.add_argument("--riordinatore", choices=sorted(RIORDINATORI))
     parser.add_argument("--modello", choices=sorted(MODELLI), default="v0")
     parser.add_argument(
         "--controllo",
@@ -3520,13 +4633,15 @@ def main(argv: list[str] | None = None) -> int:
         argomenti.peso,
         argomenti.esatta_intera,
         argomenti.riepilogo_intero,
+        argomenti.notte is not None,
+        argomenti.scarica_riordinatore is not None,
     )
     if sum(comandi) != 1:
         print(
             "Serve un comando solo: --dividi, --dividi-secondo, --misura, "
             "--riepilogo, --griglia, "
             "--apistici, --prepara-vettori, --esatta, --peso, --esatta-intera "
-            "o --riepilogo-intero.",
+            "--riepilogo-intero, --notte o --scarica-riordinatore.",
             file=sys.stderr,
         )
         return 2
@@ -3558,6 +4673,15 @@ def main(argv: list[str] | None = None) -> int:
             return esegui_esatta_intera(lato, argomenti.modello)
         if argomenti.riepilogo_intero:
             return esegui_riepilogo_intero(lato)
+        if argomenti.scarica_riordinatore:
+            return esegui_scarica_riordinatore(argomenti.scarica_riordinatore)
+        if argomenti.notte == 4:
+            if not argomenti.riordinatore:
+                return esegui_rapporto_riordino(lato)
+            return esegui_riordino(lato, argomenti.riordinatore, argomenti.modello)
+        if argomenti.notte:
+            parti = {1: esegui_notte_1, 2: esegui_notte_2, 3: esegui_notte_3}
+            return parti[argomenti.notte](lato)
         cartella = argomenti.cartella or CARTELLA_19D / argomenti.variante
         return esegui_misura(
             argomenti.foglio, argomenti.divisione, lato, argomenti.variante, cartella
