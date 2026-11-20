@@ -875,3 +875,85 @@ def test_esiti_diversi_tra_due_misure():
 
 def test_memoria_del_processo_positiva():
     assert mr.memoria_del_processo() > 0
+
+
+# --- secondo foglio: divisione con vincoli ---
+
+
+def test_proposta_senza_vincoli_come_prima():
+    import random
+
+    per_bando = {"alfa": [2, 3, 4, 5, 6], "beta": [7, 8, 9]}
+    assert mr.proposta(random.Random(7), per_bando) == mr.proposta(
+        random.Random(7), per_bando, {}
+    )
+
+
+def test_divisione_rispetta_i_vincoli(fatti):
+    vincoli = {2: mr.CONTROLLO, 16: mr.TARATURA, 17: mr.TARATURA}
+    meta, _, _ = mr.dividi(fatti, GEMELLI, fissi=FISSI, vincoli=vincoli)
+    assert all(meta[r] == m for r, m in vincoli.items())
+    per_bando = Counter((f["id_bando"], meta[f["riga"]]) for f in fatti)
+    for b in ("alfa", "beta", "gamma"):
+        assert abs(per_bando[(b, mr.TARATURA)] - per_bando[(b, mr.CONTROLLO)]) <= 1
+
+
+def test_vincoli_impossibili_si_dicono(fatti):
+    # quattro righe di gamma (8 fatti) in taratura e due gemelli già
+    # obbligati: le regole non si possono rispettare
+    vincoli = {r: mr.TARATURA for r in (16, 17, 18, 19, 20)}
+    with pytest.raises(mr.ErroreDivisione, match="nessuna divisione valida"):
+        mr.dividi(fatti, GEMELLI, fissi=FISSI, vincoli=vincoli)
+
+
+def test_vincoli_dal_primo_foglio():
+    primo = [
+        {
+            "riga": 5,
+            "frase": "Il contributo massimo è di 9.000,00 euro per beneficiario.",
+        },
+        {"riga": 6, "frase": "Testo diverso del primo foglio, senza relazione."},
+        {
+            "riga": 7,
+            "frase": "Il contributo massimo è di 9.000,00 euro per beneficiario.",
+        },
+    ]
+    nuovi = [
+        {
+            "riga": 2,
+            "frase": "Il contributo massimo è di 4.500,00 euro per beneficiario.",
+        },
+        {"riga": 3, "frase": "Una frase che nel primo foglio non c'è affatto."},
+    ]
+    vincoli, descrizioni = mr.vincoli_dal_primo(
+        nuovi, primo, {5: mr.TARATURA, 6: mr.CONTROLLO, 7: mr.TARATURA}
+    )
+    assert vincoli == {2: mr.TARATURA}
+    assert descrizioni[2].startswith("riga 5: simile")
+    with pytest.raises(mr.ErroreDivisione, match="metà diverse"):
+        mr.vincoli_dal_primo(nuovi, primo, {5: mr.TARATURA, 7: mr.CONTROLLO})
+
+
+def test_coppie_quasi_nello_stesso_foglio():
+    elenco = [
+        {
+            "riga": 2,
+            "frase": "Spese ammissibili per la sede [...] arredi e attrezzature",
+        },
+        {"riga": 3, "frase": "Altra frase del bando con un testo diverso"},
+        {"riga": 4, "frase": "Spese ammissibili per la sede [...] lavori edili"},
+    ]
+    assert mr.coppie_quasi(elenco) == ((2, 4),)
+
+
+def test_metà_del_primo_solo_le_righe_chieste_e_impronta(tmp_path):
+    percorso = tmp_path / "divisione.csv"
+    dati = b"riga,meta\n2,taratura\n3,controllo\n4,taratura\n"
+    percorso.write_bytes(dati)
+    (tmp_path / "divisione.csv.sha256").write_text(
+        f"{mr.impronta(dati)}  divisione.csv\n", encoding="utf-8"
+    )
+    assert mr.metà_del_primo(percorso, {3}) == {3: mr.CONTROLLO}
+    percorso.write_bytes(dati + b"5,controllo\n")
+    with pytest.raises(mr.ErroreDivisione, match="impronta"):
+        mr.metà_del_primo(percorso, {3})

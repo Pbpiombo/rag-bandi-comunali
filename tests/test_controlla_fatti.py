@@ -348,3 +348,55 @@ def test_riepilogo_e_tabella_per_bando(archivio):
     tabella = cf.per_bando(esiti)
     assert tabella[2].startswith("| bando-a | 2 | 1 | 0 | 0 | 1 |")
     assert len(cf.con_problemi(esiti)) == 1
+
+
+# --- secondo foglio ---
+
+
+def test_nota_degli_apistici_nelle_due_forme():
+    for nota in (
+        "Azione B3 (Allegato A3). Par. 2",
+        "Azione B3, Allegato A3, par. 3.3.",
+    ):
+        assert cf.NOTA_APISTICI.match(nota).groups() == ("B3", "A3")
+    assert cf.NOTA_APISTICI.match("Azione B3, par. 3.3") is None
+
+
+def test_apistici_con_la_nota_del_secondo_foglio(apistici):
+    e = controlla(
+        fatto(
+            "del 50% della spesa",
+            id_bando="api",
+            note="Azione B1, Allegato A1, par. 8.1, tabella.",
+            solo="no",
+        ),
+        apistici,
+    )
+    assert e["file_della_nota"] == "a1.pdf"
+    assert e["altri_allegati"] == "Azione B3"
+
+
+def test_coincidenze_con_un_altro_foglio():
+    primo = [
+        {"riga": 5, "frase": "Il contributo è di 40.000 euro"},
+        {"riga": 6, "frase": "Sono ammesse le spese tecniche [...] entro il 10%"},
+        {"riga": 7, "frase": "I Comuni con meno di 5.000 abitanti possono partecipare"},
+        {"riga": 8, "frase": "La domanda si presenta entro il 30 giugno 2026"},
+        {"riga": 9, "frase": "Testo che non c'entra"},
+    ]
+    nuovo = {
+        "frase": "Il contributo   è di 40.000 euro [...] entro il 10% "
+        "[...] Comuni con meno di 5.000 abitanti"
+    }
+    assert cf.coincidenze(nuovo, primo) == [
+        (5, "pezzo identico"),
+        (6, "pezzo identico"),
+        (7, "contenuta"),
+    ]
+    assert cf.coincidenze({"frase": "Il contributo è di 40.000 euro"}, primo) == [
+        (5, "frase identica")
+    ]
+    simile = cf.coincidenze(
+        {"frase": "La domanda si presenta entro il 30 giugno 2025"}, primo
+    )
+    assert simile[0][0] == 8 and simile[0][1].startswith("simile 0.9")

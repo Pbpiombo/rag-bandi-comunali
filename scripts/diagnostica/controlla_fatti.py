@@ -65,7 +65,13 @@ from src.ingestion.avvisi import TELEFONO, mascherato, ricuci_parole
 SEPARATORE_PEZZI = " [...] "
 SEPARATORE_CELLE = " | "
 CELLA_DEBOLE = 4  # caratteri senza spazi: sotto, la cella si trova per caso
-NOTA_APISTICI = re.compile(r"^\s*Azione\s+(B\d+)\s*\(Allegato\s+(A\d+)\)")
+# Nota degli apistici: "Azione B1 (Allegato A1)" nel primo foglio,
+# "Azione B1, Allegato A1, par. ..." nel secondo (fatti_pdf_modello_2)
+NOTA_APISTICI = re.compile(r"^\s*Azione\s+(B\d+)\s*[(,]\s*Allegato\s+(A\d+)\b")
+# Coincidenze con un altro foglio: "contenuta" solo se il tratto più corto
+# ha almeno tanti caratteri senza spazi; "simile" da questa somiglianza
+CONTENUTA_MINIMA = 20
+SIMILE_MINIMA = 0.9
 
 # Apostrofi e virgolette tipografici, ricondotti a quelli dritti (come
 # src.retrieval._TIPOGRAFICI, che non si importa per non caricare Chroma)
@@ -115,6 +121,7 @@ COLONNE = [
     "numeri_della_frase_nella_domanda",
     "contatti",
     "problemi",
+    "nell_altro_foglio",
 ]
 
 
@@ -580,6 +587,51 @@ def controlla_fatto(
     return esito
 
 
+# --- coincidenze con un altro foglio ---
+
+
+def pezzi_c(frase: str) -> list[str]:
+    """I pezzi della frase al livello senza spazi (le celle restano unite)."""
+    return [livello_c(p) for p in str(frase).split(SEPARATORE_PEZZI) if p.strip()]
+
+
+def coincidenze(fatto: dict, altri: list[dict]) -> list[tuple[int, str]]:
+    """(riga dell'altro foglio, tipo) per le frasi dell'altro foglio che coincidono.
+
+    Al livello senza spazi: "frase identica"; "pezzo identico" (un pezzo
+    uguale a un pezzo o alla frase dell'altra riga); "contenuta" (un pezzo
+    o la frase dentro l'altra frase o un suo pezzo, o il contrario, se il
+    più corto ha almeno CONTENUTA_MINIMA caratteri); "simile 0.xx"
+    (somiglianza tra le frasi almeno SIMILE_MINIMA). Per ogni riga
+    dell'altro foglio si dice il tipo più forte.
+    """
+    frase = livello_c(str(fatto["frase"]))
+    miei = [*pezzi_c(fatto["frase"]), frase]
+    uscita = []
+    for altro in altri:
+        sua = livello_c(str(altro["frase"]))
+        suoi = [*pezzi_c(altro["frase"]), sua]
+        if frase == sua:
+            uscita.append((altro["riga"], "frase identica"))
+        elif set(miei) & set(suoi):
+            uscita.append((altro["riga"], "pezzo identico"))
+        elif any(
+            min(len(a), len(b)) >= CONTENUTA_MINIMA and (a in b or b in a)
+            for a in miei
+            for b in suoi
+        ):
+            uscita.append((altro["riga"], "contenuta"))
+        else:
+            somiglianza = difflib.SequenceMatcher(None, frase, sua).ratio()
+            if somiglianza >= SIMILE_MINIMA:
+                uscita.append((altro["riga"], f"simile {somiglianza:.2f}"))
+    return uscita
+
+
+def formato_coincidenze(trovate: list[tuple[int, str]]) -> str:
+    return "; ".join(f"riga {r}: {tipo}" for r, tipo in trovate)
+
+
 # --- ingressi ---
 
 
@@ -737,6 +789,11 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--foglio", required=True, type=Path)
     parser.add_argument(
+        "--confronta",
+        type=Path,
+        help="un altro foglio dei fatti: coincidenze delle frasi (livello c)",
+    )
+    parser.add_argument(
         "--uscita",
         type=Path,
         default=DATI_GREZZI_DIR / "prova" / "fatti_controllo_2026-11-20.csv",
@@ -753,6 +810,10 @@ def main(argv: list[str] | None = None) -> int:
     file_ = file_del_registro()
     frammenti = frammenti_da_copia()
     esiti = [controlla_fatto(f, file_, frammenti) for f in fatti]
+    if argomenti.confronta:
+        altri = leggi_foglio(argomenti.confronta)
+        for fatto, esito in zip(fatti, esiti, strict=True):
+            esito["nell_altro_foglio"] = formato_coincidenze(coincidenze(fatto, altri))
     scrivi_csv(esiti, argomenti.uscita)
     print("\n".join(riepilogo(esiti)))
     print()
@@ -765,6 +826,10 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"Somiglianza mediana degli assenti: {statistics.median(somiglianze):.3f}"
         )
+    if argomenti.confronta:
+        uguali = [e for e in esiti if e["nell_altro_foglio"]]
+        print(f"\nCoincidenze con {argomenti.confronta.name}: {len(uguali)} righe")
+        print("\n".join(f"riga {e['riga']}: {e['nell_altro_foglio']}" for e in uguali))
     print(f"\nScritto: {argomenti.uscita}")
     return 0
 

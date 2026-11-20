@@ -118,6 +118,16 @@ FOGLIO = DATI_GREZZI_DIR / "fatti_pdf_modello_2026-11-20.xlsx"
 CONTROLLO_CSV = DATI_GREZZI_DIR / "prova" / "fatti_controllo_2026-11-20.csv"
 DIVISIONE = DATI_GREZZI_DIR / "prova" / "fatti_divisione_2026-11-20.csv"
 
+# Secondo foglio (114 fatti su 11 bandi): stesse regole, seme suo. Le righe
+# con una frase identica o quasi (controlla_fatti.coincidenze) a una del
+# primo foglio vanno nella metà di quella; le coppie quasi uguali dentro il
+# secondo foglio stanno nella stessa metà, come i gruppi fissi del primo
+# (decisione 6d). I fatti non trovati da controlla_fatti restano fuori.
+SEME_2 = 2_2026_1120
+FOGLIO_2 = DATI_GREZZI_DIR / "fatti_pdf_modello_2_2026-11-20.xlsx"
+CONTROLLO_CSV_2 = DATI_GREZZI_DIR / "prova" / "fatti_controllo_2_2026-11-20.csv"
+DIVISIONE_2 = DATI_GREZZI_DIR / "prova" / "fatti_divisione_2_2026-11-20.csv"
+
 COLONNE = [
     "riga",
     "id_bando",
@@ -129,6 +139,7 @@ COLONNE = [
     "gemello",
     "visti",
 ]
+COLONNE_2 = [*COLONNE, "come_nel_primo_foglio"]
 
 
 class ErroreDivisione(Exception):
@@ -247,6 +258,7 @@ def violazioni(
     gemelli: set[int],
     insiemi: dict[str, set[int]],
     condizioni: dict[str, int],
+    vincoli: dict[int, str] | None = None,
 ) -> list[str]:
     """Le regole 2-5 del modulo che una proposta riga -> metà non rispetta."""
     violate = []
@@ -272,17 +284,41 @@ def violazioni(
     for nome, massimo in condizioni.items():
         if _squilibrio(meta, insiemi[nome]) > massimo:
             violate.append(nome)
+    if vincoli and any(meta[r] != m for r, m in vincoli.items()):
+        violate.append("vincoli")
     return violate
 
 
-def proposta(rng: random.Random, per_bando: dict[str, list[int]]) -> dict[int, str]:
-    """Per ogni bando, in ordine di nome: righe mescolate, la prima metà in taratura."""
+def proposta(
+    rng: random.Random,
+    per_bando: dict[str, list[int]],
+    vincoli: dict[int, str] | None = None,
+) -> dict[int, str]:
+    """Per ogni bando, in ordine di nome: righe mescolate, la prima metà in taratura.
+
+    Le righe con un vincolo hanno la loro metà; le altre del bando si
+    mescolano e completano la taratura fino al numero estratto. Senza
+    vincoli in un bando, le chiamate al generatore sono quelle di sempre
+    (la divisione del primo foglio non cambia).
+    """
+    vincoli = vincoli or {}
     meta = {}
     for id_bando in sorted(per_bando):
         righe = sorted(per_bando[id_bando])
-        rng.shuffle(righe)
+        fisse = [r for r in righe if r in vincoli]
+        if not fisse:
+            rng.shuffle(righe)
+            quante = len(righe) // 2 + (rng.random() < 0.5 if len(righe) % 2 else 0)
+            for indice, r in enumerate(righe):
+                meta[r] = TARATURA if indice < quante else CONTROLLO
+            continue
+        libere = [r for r in righe if r not in vincoli]
+        rng.shuffle(libere)
         quante = len(righe) // 2 + (rng.random() < 0.5 if len(righe) % 2 else 0)
-        for indice, r in enumerate(righe):
+        quante -= sum(vincoli[r] == TARATURA for r in fisse)
+        for r in fisse:
+            meta[r] = vincoli[r]
+        for indice, r in enumerate(libere):
             meta[r] = TARATURA if indice < quante else CONTROLLO
     return meta
 
@@ -293,8 +329,13 @@ def dividi(
     seme: int = SEME,
     fissi: tuple[tuple[int, ...], ...] = GRUPPI_FISSI,
     condizioni: dict[str, int] | None = None,
+    vincoli: dict[int, str] | None = None,
 ) -> tuple[dict[int, str], dict[int, int], int]:
-    """(riga -> metà, riga -> gruppo, tentativi usati)."""
+    """(riga -> metà, riga -> gruppo, tentativi usati).
+
+    `vincoli`: riga -> metà obbligata (secondo foglio: la metà della frase
+    identica o quasi del primo).
+    """
     condizioni = CONDIZIONI if condizioni is None else condizioni
     bando_di = {f["riga"]: f["id_bando"] for f in fatti}
     gruppo_di = gruppi(fatti, fissi)
@@ -307,14 +348,18 @@ def dividi(
     violata: Counter = Counter()
     sola: Counter = Counter()
     for tentativo in range(1, TENTATIVI_MASSIMI + 1):
-        meta = proposta(rng, per_bando)
-        violate = violazioni(meta, bando_di, gruppo_di, gemelli, insiemi, condizioni)
+        meta = proposta(rng, per_bando, vincoli)
+        violate = violazioni(
+            meta, bando_di, gruppo_di, gemelli, insiemi, condizioni, vincoli
+        )
         if not violate:
             return meta, gruppo_di, tentativo
         violata.update(violate)
         if len(violate) == 1:
             sola.update(violate)
-    nomi = ["gruppi", "bandi", "gemelli", *condizioni]
+    nomi = ["gruppi", "bandi", "gemelli", *condizioni] + (
+        ["vincoli"] if vincoli else []
+    )
     dettaglio = "; ".join(
         f"{n}: violata in {violata[n]}, unica violata in {sola[n]}" for n in nomi
     )
@@ -348,9 +393,9 @@ def righe_divisione(
     ]
 
 
-def testo_csv(righe: list[dict]) -> bytes:
+def testo_csv(righe: list[dict], colonne: list[str] = COLONNE) -> bytes:
     uscita = io.StringIO(newline="")
-    scrittore = csv.DictWriter(uscita, fieldnames=COLONNE, lineterminator="\n")
+    scrittore = csv.DictWriter(uscita, fieldnames=colonne, lineterminator="\n")
     scrittore.writeheader()
     scrittore.writerows(righe)
     return uscita.getvalue().encode("utf-8")
@@ -386,6 +431,137 @@ def rapporto(righe: list[dict], seme: int, tentativi: int) -> list[str]:
             f"  frasi gemelle: {len(gemelle)}: " + "; ".join(gemelle),
         ]
     return linee
+
+
+# --- secondo foglio ---
+
+
+def coppie_quasi(fatti: list[dict]) -> tuple[tuple[int, ...], ...]:
+    """Le coppie di righe dello stesso foglio con frase identica o quasi."""
+    from scripts.diagnostica.controlla_fatti import coincidenze
+
+    coppie = []
+    for f in fatti:
+        dopo = [g for g in fatti if g["riga"] > f["riga"]]
+        coppie += [(f["riga"], r) for r, _ in coincidenze(f, dopo)]
+    return tuple(coppie)
+
+
+def vincoli_dal_primo(
+    fatti: list[dict], primo: list[dict], meta_primo: dict[int, str]
+) -> tuple[dict[int, str], dict[int, str]]:
+    """(riga -> metà, riga -> descrizione) per le righe con una frase identica o
+    quasi a una del primo foglio; ferma se le righe del primo stanno in metà
+    diverse."""
+    from scripts.diagnostica.controlla_fatti import coincidenze, formato_coincidenze
+
+    vincoli, descrizioni = {}, {}
+    for f in fatti:
+        trovate = coincidenze(f, primo)
+        if not trovate:
+            continue
+        lati = {meta_primo[r] for r, _ in trovate}
+        if len(lati) > 1:
+            raise ErroreDivisione(
+                f"riga {f['riga']}: coincide con righe del primo foglio in metà "
+                f"diverse ({formato_coincidenze(trovate)})"
+            )
+        vincoli[f["riga"]] = lati.pop()
+        descrizioni[f["riga"]] = formato_coincidenze(trovate)
+    return vincoli, descrizioni
+
+
+def metà_del_primo(divisione: Path, righe: set[int]) -> dict[int, str]:
+    """Dalla divisione del primo foglio (impronta verificata), solo la metà
+    delle righe date: nient'altro della divisione si legge."""
+    attesa = Path(f"{divisione}.sha256").read_text(encoding="utf-8").split()[0]
+    if impronta(divisione.read_bytes()) != attesa:
+        raise ErroreDivisione(
+            f"{divisione.name}: impronta diversa da quella del .sha256"
+        )
+    with divisione.open(encoding="utf-8", newline="") as f:
+        return {
+            int(r["riga"]): r["meta"]
+            for r in csv.DictReader(f)
+            if int(r["riga"]) in righe
+        }
+
+
+def totali_del_primo(divisione: Path) -> Counter:
+    """Quanti fatti per metà nella divisione del primo foglio."""
+    with divisione.open(encoding="utf-8", newline="") as f:
+        return Counter(r["meta"] for r in csv.DictReader(f))
+
+
+def esegui_divisione_2() -> int:
+    """La divisione del secondo foglio, con i vincoli dal primo."""
+    from scripts.diagnostica.controlla_fatti import TROVATA
+
+    fatti = leggi_foglio(FOGLIO_2)
+    with CONTROLLO_CSV_2.open(encoding="utf-8-sig", newline="") as f:
+        esiti = {int(r["riga"]): r["esito"] for r in csv.DictReader(f)}
+    fuori = sorted(r for r, e in esiti.items() if e != TROVATA)
+    fatti = [f for f in fatti if f["riga"] not in fuori]
+    dati_controllo = {
+        r: d for r, d in leggi_controllo(CONTROLLO_CSV_2).items() if r not in fuori
+    }
+    quasi = coppie_quasi(fatti)
+    controlla_ingressi(fatti, dati_controllo, quasi)
+    for f in fatti:
+        f["visti"] = dati_controllo[f["riga"]]["visti"]
+    gemelli = {r for r, d in dati_controllo.items() if d["gemello"]}
+
+    primo = leggi_foglio(FOGLIO)
+    from scripts.diagnostica.controlla_fatti import coincidenze
+
+    righe_primo = {r for f in fatti for r, _ in coincidenze(f, primo)}
+    vincoli, descrizioni = vincoli_dal_primo(
+        fatti, primo, metà_del_primo(DIVISIONE, righe_primo)
+    )
+    meta, gruppo_di, tentativi = dividi(
+        fatti, gemelli, seme=SEME_2, fissi=quasi, condizioni=CONDIZIONI, vincoli=vincoli
+    )
+    righe = righe_divisione(fatti, meta, gruppo_di, gemelli)
+    for r in righe:
+        r["come_nel_primo_foglio"] = descrizioni.get(r["riga"], "")
+    dati = testo_csv(righe, COLONNE_2)
+
+    print(f"Foglio: {FOGLIO_2.name} (sha256 {impronta(FOGLIO_2.read_bytes())})")
+    print(
+        f"Fuori dalla divisione (non trovati da controlla_fatti): {fuori or 'nessuno'}"
+    )
+    print(f"Coppie quasi uguali nel secondo foglio, nella stessa metà: {quasi}")
+    print("Vincoli dal primo foglio:")
+    for r, m in sorted(vincoli.items()):
+        print(f"  riga {r} -> {m} ({descrizioni[r]})")
+    print("\n".join(rapporto(righe, SEME_2, tentativi)))
+    primo_tot = totali_del_primo(DIVISIONE)
+    secondo_tot = Counter(r["meta"] for r in righe)
+    print(
+        f"\nTotali con il primo foglio: taratura {primo_tot[TARATURA]} + "
+        f"{secondo_tot[TARATURA]} = {primo_tot[TARATURA] + secondo_tot[TARATURA]}; "
+        f"controllo {primo_tot[CONTROLLO]} + {secondo_tot[CONTROLLO]} = "
+        f"{primo_tot[CONTROLLO] + secondo_tot[CONTROLLO]}"
+    )
+    print()
+    if DIVISIONE_2.exists():
+        uguale = DIVISIONE_2.read_bytes() == dati
+        print(
+            f"{DIVISIONE_2.name} esiste già e non si sovrascrive: "
+            + (
+                "la divisione rifatta coincide."
+                if uguale
+                else "la divisione rifatta È DIVERSA."
+            )
+        )
+        return 0 if uguale else 1
+    DIVISIONE_2.write_bytes(dati)
+    firma = impronta(dati)
+    Path(f"{DIVISIONE_2}.sha256").write_text(
+        f"{firma}  {DIVISIONE_2.name}\n", encoding="utf-8"
+    )
+    print(f"Scritto {DIVISIONE_2} (sha256 {firma})")
+    return 0
 
 
 # --- tempo 2: misura ---
@@ -2813,6 +2989,11 @@ def esegui_peso(nome: str) -> int:
 def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dividi", action="store_true", help="tempo 1: divisione")
+    parser.add_argument(
+        "--dividi-secondo",
+        action="store_true",
+        help="divisione del secondo foglio dei fatti (FOGLIO_2), con i vincoli dal primo",
+    )
     parser.add_argument("--misura", action="store_true", help="tempo 2: misura")
     parser.add_argument(
         "--riepilogo", action="store_true", help="una riga per configurazione misurata"
@@ -2898,6 +3079,7 @@ def main(argv: list[str] | None = None) -> int:
     argomenti = leggi_argomenti(argv)
     comandi = (
         argomenti.dividi,
+        argomenti.dividi_secondo,
         argomenti.misura,
         argomenti.riepilogo,
         argomenti.griglia,
@@ -2908,12 +3090,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     if sum(comandi) != 1:
         print(
-            "Serve un comando solo: --dividi, --misura, --riepilogo, --griglia, "
+            "Serve un comando solo: --dividi, --dividi-secondo, --misura, "
+            "--riepilogo, --griglia, "
             "--apistici, --prepara-vettori, --esatta o --peso.",
             file=sys.stderr,
         )
         return 2
     try:
+        if argomenti.dividi_secondo:
+            return esegui_divisione_2()
         if argomenti.dividi:
             return esegui_divisione(
                 argomenti.foglio, argomenti.csv_controllo, argomenti.uscita
