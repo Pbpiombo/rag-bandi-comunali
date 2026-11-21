@@ -463,11 +463,16 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
 
    **Passo 19d: misura del recupero sugli avvisi (20/11/2026).** Si fa
    sul Chroma locale; gli avvisi vanno su Postgres solo se il 19d passa.
-   Stato al 20/11/2026 sera: non è più una verifica, è il lavoro che
-   ridisegna la ricerca nei documenti. Tutte le misure sono sulla
-   taratura dei primi 40 fatti; il controllo non è mai stato letto.
+   Stato al 21/11/2026: in chiusura, con il perimetro del punto 10. Non è
+   più una verifica, è il lavoro che ridisegna la ricerca nei documenti.
+   Dalla notte del 20/11/2026 le misure sono sulla taratura intera, 97
+   fatti dei due fogli, con la misura esatta (punto 3); quelle sui primi
+   40 fatti restano, superate. Il controllo non è mai stato letto.
    Script e divisione in `docs/fatto.md` (20/11/2026); rapporti e copie
-   di Chroma in `dati-grezzi/prova/19d/`.
+   di Chroma in `dati-grezzi/prova/19d/`: `riepilogo_taratura_97.txt` e,
+   per la notte, la cartella `notte/` (`parte1_configurazioni_taratura.txt`,
+   `parte2_curve_taratura.txt`, `parte3_piu_pezzi_taratura.txt`,
+   `parte4_riordinatore_taratura.txt`).
    1. **Regola di chiusura, com'è ora.** Sulla metà di controllo, nella
       condizione B (filtro sul bando, domanda ripulita), la scelta finale
       passa se trova almeno l'85% dei fatti, se non è più di 10 punti
@@ -495,14 +500,100 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
         rimasta orfana resta, come nell'app. La definizione vecchia resta
         nei rapporti come Bi;
       - dal quarto giro vale la misura esatta (punto 6).
-   2. **Come si leggono i numeri.** Con 40 fatti un fatto vale 2,5 punti,
-      e la ricerca di Chroma oscillava di un fatto da un processo
-      all'altro: differenze di 1-3 fatti sono "entro il rumore", non
-      guadagni né perdite. Contano solo gli scarti grandi. Per questo il
-      foglio è stato portato a 195 fatti (81 del primo foglio e 114 del
-      secondo), 97 di taratura e 98 di controllo: sul controllo l'85% sono
-      84 fatti.
-   3. **Risultati sulla taratura dei primi 40 fatti.** Trovati su 40;
+   2. **Come si leggono i numeri.** Dal 20/11/2026 sera due
+      configurazioni si confrontano con il test esatto dei segni, a due
+      code, sulle coppie discordanti: i fatti trovati da una sola delle
+      due. "Entro il rumore" vuol dire p maggiore di 0,05. Si riportano
+      sempre i guadagnati e i persi, con le righe, non solo la
+      differenza dei totali: due configurazioni con lo stesso totale
+      possono trovare fatti diversi. La misura esatta è identica da un
+      processo all'altro (punto 6), quindi il rumore è quello del
+      campione di fatti, non della ricerca. Prima valeva una soglia fissa:
+      con 40 fatti un fatto vale 2,5 punti, e la ricerca di Chroma
+      oscillava di un fatto da un processo all'altro, quindi differenze di
+      1-3 fatti erano "entro il rumore"; la soglia è sostituita dal test.
+      Per questo il foglio è stato portato a 195 fatti (81 del primo
+      foglio e 114 del secondo), 97 di taratura e 98 di controllo: sul
+      controllo l'85% sono 84 fatti, sulla taratura 83 (82,45). Righe del
+      secondo foglio scritte come 2:N.
+   3. **Risultati sulla taratura.** Misura esatta, ampiezza 20 per
+      lista, fatti trovati su 97, A / B. "1° B" e "≤5 B": fatti con il
+      primo frammento giusto al 1° posto e tra i primi 5, in B (non
+      dipendono da k). Fonte: `notte/parte1_configurazioni_taratura.txt`
+      e `riepilogo_taratura_97.txt`.
+
+      | configurazione | k=10 | k=15 | 1° B | ≤5 B |
+      |---|---|---|---|---|
+      | v0: 128 token, frammenti del caricamento | 42 / 60 | 53 / 71 | 20 | 45 |
+      | v1: 512 token | 45 / 62 | 50 / 66 | 21 | 52 |
+      | v2: intestazione nel vettore | 47 / 54 | 54 / 61 | 18 | 44 |
+      | v1+v2 | 40 / 54 | 44 / 61 | 22 | 44 |
+      | e5-small, 512 token | 48 / 63 | 55 / 74 | 26 | 52 |
+      | e5-base, 512 token | 54 / 66 | 60 / 77 | 33 | 60 |
+
+      Confronti con p ≤ 0,05 (tutti gli altri sono entro il rumore; righe
+      di guadagnati e persi nel file della parte 1):
+      - e5-base contro v0, k=10, A: guadagnati 14, persi 2, p = 0,004; in
+        B guadagnati 10, persi 4, p = 0,180, entro il rumore;
+      - v2 contro v0, k=15, B: guadagnati 2, persi 12, p = 0,013;
+      - v1+v2 contro v0, k=15: A guadagnati 3, persi 12, p = 0,035; B
+        guadagnati 3, persi 13, p = 0,021;
+      - v1+v2 contro v1, k=10, B: guadagnati 2, persi 10, p = 0,039;
+      - k=15 contro k=10, sempre senza fatti persi: v0 +11 in A e in B (p
+        = 0,001); e5-small +7 in A (0,016) e +11 in B (0,001); e5-base +6
+        in A (0,031) e +11 in B (0,001); v2 +7 in A e in B (0,016); v1+v2
+        +7 in B (0,016), +4 in A (0,125, entro il rumore); v1 +5 in A
+        (0,062) e +4 in B (0,125), entro il rumore.
+
+      Curva dei frammenti (condizione B, fatti trovati su 97, e caratteri
+      del testo dei frammenti passati al modello, media per fatto; fonte
+      `notte/parte2_curve_taratura.txt`, punto a):
+
+      | k | 5 | 8 | 10 | 12 | 15 | 20 | 25 | 30 |
+      |---|---|---|---|---|---|---|---|---|
+      | v0 | 42 | 58 | 60 | 67 | 71 | 75 | 79 | 81 |
+      | caratteri v0 | 5.803 | 9.190 | 11.509 | 13.780 | 17.122 | 22.438 | 27.282 | 31.727 |
+      | e5-small | 49 | 60 | 63 | 67 | 74 | 78 | 81 | 82 |
+      | caratteri e5-small | 5.882 | 9.343 | 11.652 | 13.998 | 17.359 | 22.701 | 27.436 | 31.502 |
+
+      Con v0 i pezzi presi dal gemello compaiono da k=20 (1 a k=20 e 25,
+      2 a k=30); con e5-small sono 1 a ogni k.
+
+      Riordinatore (fonte `notte/parte4_riordinatore_taratura.txt`): 30
+      candidati dal recupero di oggi (A: `recupera` dell'app con k=30; B:
+      ricerca nel bando con la domanda ripulita), un voto per ogni coppia
+      domanda e frammento, si tengono i primi 10 o 15; a parità di voto,
+      l'ordine di prima. Fatti trovati, A / B:
+
+      | base | riordinatore | k=10 | k=15 | 1° B | ≤5 B |
+      |---|---|---|---|---|---|
+      | v0 | nessuno | 42 / 60 | 53 / 71 | 20 | 45 |
+      | v0 | osiria (italiano) | 58 / 72 | 62 / 78 | 50 | 69 |
+      | v0 | mmarco (multilingue) | 58 / 73 | 62 / 77 | 51 | 69 |
+      | e5-small | nessuno | 48 / 63 | 55 / 74 | 26 | 52 |
+      | e5-small | osiria | 58 / 76 | 63 / 80 | 50 | 71 |
+      | e5-small | mmarco | 59 / 75 | 63 / 79 | 51 | 73 |
+
+      Riordino contro nessun riordino, stessa base e stesso k:
+
+      | | k=10 A | k=10 B | k=15 A | k=15 B |
+      |---|---|---|---|---|
+      | osiria su v0 | +17 −1, p = 0,000 | +14 −2, p = 0,004 | +11 −2, p = 0,022 | +8 −1, p = 0,039 |
+      | mmarco su v0 | +17 −1, p = 0,000 | +14 −1, p = 0,001 | +11 −2, p = 0,022 | +8 −2, p = 0,109, entro il rumore |
+      | osiria su e5-small | +12 −2, p = 0,013 | +17 −4, p = 0,007 | +12 −4, p = 0,077, entro il rumore | +8 −2, p = 0,109, entro il rumore |
+      | mmarco su e5-small | +13 −2, p = 0,007 | +17 −5, p = 0,017 | +12 −4, p = 0,077, entro il rumore | +8 −3, p = 0,227, entro il rumore |
+
+      Calcolati il 21/11/2026 dai CSV di `notte/riordino/`, senza nuove
+      ricerche: osiria contro mmarco, stessa base e stesso k, al più 2
+      fatti discordanti, p = 1 in tutti gli otto confronti; e5-small
+      contro v0, entrambi riordinati, entro il rumore in tutti gli otto
+      (p da 0,289 a 1); riordino k=15 contro riordino k=10, nessun fatto
+      perso (i primi 15 contengono i primi 10), guadagni da 4 a 6, p =
+      0,031 solo per osiria su v0 in B (+6), negli altri sette tra 0,062
+      e 0,125, entro il rumore.
+
+      **Risultati sulla taratura dei primi 40 fatti, superati dalla misura
+      sui 97 qui sopra.** Trovati su 40;
       ampiezza 20 dove non è scritto altro; "≤5 B" è il numero di fatti
       con il primo frammento giusto tra i primi 5, in B.
 
@@ -531,7 +622,117 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
       e5-base 15. Nessuna frase gemella presa dal bando sbagliato, salvo
       con e5-base sulla riga 74 (punto 4). Il nome dell'azione degli
       apistici è misurato solo sulle sue righe (punto 5).
-   4. **Stato delle strade.**
+   4. **Stato delle strade dopo la notte del 20/11/2026** (97 fatti di
+      taratura, misura esatta; numeri al punto 3 e nei file di `notte/`).
+      - Riordinatore: **guadagno dimostrato con 10 frammenti**, su v0 e su
+        e5-small, in A e in B (p da 0,000 a 0,017). I due provati sono
+        `osiria/minilm-l12-h384-italian-cross-encoder` (italiano, licenza
+        MIT) e `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`
+        (multilingue, Apache-2.0): l'italiano fa quanto il multilingue
+        (al più 2 fatti discordanti, p = 1) con circa un quinto della
+        memoria, 148-155 MB in più dopo il caricamento contro 728-775
+        (su disco 129 MB contro 470). Costo: con 30 candidati, in media
+        da 3,9 a 5,4 secondi a domanda su questo computer (Windows, solo
+        processore): osiria 5,0-5,4 s in A e 4,3-4,6 in B, mmarco 4,4-4,5
+        in A e 3,9-4,0 in B. Da ridurre e da misurare su Streamlit
+        Community Cloud prima di adottarlo. Entrambi leggono al più 512
+        token, domanda e frammento insieme: con osiria 5 coppie su 2907
+        in A (v0) e 4 su 2901 (e5-small) li superano, sempre lo stesso
+        frammento, e si taglia la fine del frammento ("longest_first");
+        in B nessuna; con mmarco nessuna. Effetto anche sulla posizione:
+        primo frammento giusto al 1° posto in B da 20 a 50-51 su v0, da
+        26 a 50-51 su e5-small.
+      - Modello di embedding: **resta quello di oggi** (v0). e5-small non
+        lo batte in nessun confronto (p da 0,180 a 0,791); e5-base solo
+        con k=10 in A (+14 −2, p = 0,004), non in B (p = 0,180) né con
+        k=15 (p = 0,118 in A, 0,180 in B). Con il riordinatore la
+        differenza tra e5-small e v0 sparisce (p da 0,289 a 1); e5-base
+        con il riordinatore non è misurato. Peso in memoria più sotto,
+        invariato.
+      - Limite a 512 token (v1): **chiuso**, non adottato. Contro v0 entro
+        il rumore: k=10 B +8 −6 (p = 0,791), k=15 B +3 −8 (p = 0,227), A
+        p = 0,607 e 0,508.
+      - Intestazione fissa nel vettore (v2): **chiusa**, non adottata. k=10
+        B +5 −11 (p = 0,210); k=15 B +2 −12 (p = 0,013), peggiore in modo
+        dimostrato. La somma v1+v2 è peggiore di v0 con k=15 (A +3 −12, p
+        = 0,035; B +3 −13, p = 0,021) e di v1 con k=10 in B (+2 −10, p =
+        0,039).
+      - Pesi della fusione: **chiusi**, resta 0,5. Peso della ricerca per
+        significato in B con k=10: v0 60 a 0,5, 55 a 0,6, 0,7 e 0,8 (+3
+        −8, p = 0,227), 52 a 0,9 (+6 −14, p = 0,115); e5-small 63, 62,
+        62, 63, 64, sempre p = 1.
+      - 15 frammenti contro 10: senza riordinatore **guadagno dimostrato**,
+        senza fatti persi, su v0, e5-small ed e5-base (p da 0,001 a
+        0,031; numeri al punto 3). Con il riordinatore i primi 15
+        contengono i primi 10, quindi nessun fatto perso, ma il guadagno è
+        di 4-6 fatti: dimostrato solo per osiria su v0 in B (72 a 78, p =
+        0,031); negli altri sette confronti p da 0,062 a 0,125, entro il
+        rumore. Costo in testo: in B su v0 da 11.509 a 17.122 caratteri in
+        media per fatto, +49%.
+      - Frammenti vicini (per ogni frammento tra i primi 10 anche i vicini
+        nello stesso file; v0, B, k=10, 60 trovati senza vicini, 11.509
+        caratteri in media): a distanza 1 +13 fatti (3 in più pezzi) con
+        25.217 caratteri, 2,2 volte; a distanza 2 +19 (7) con 35.220, 3,1
+        volte; a distanza 3 +26 (9) con 43.647, 3,8 volte; a distanza 5
+        +31 (11) con 56.166, 4,9 volte; la pagina intera +11 (2) con
+        24.212, 2,1 volte. Su e5-small (63 senza vicini, 11.652 caratteri):
+        +19, +21, +22, +26 e +18, con 24.206, 33.660, 42.090, 54.278 e
+        22.940 caratteri. Per confronto, senza vicini, v0 con k=20 trova
+        75 (+15) con 22.438 caratteri e con k=30 81 (+21) con 31.727.
+        Fonte: `notte/parte3_piu_pezzi_taratura.txt`.
+      - Tetto: tra i 30 candidati da cui parte il riordinatore il
+        frammento giusto c'è in 65 fatti in A e 81 in B su v0, in 68 e 82
+        su e5-small. In B sono sotto gli 83 fatti dell'85% della
+        taratura: nessun riordino dei primi 30 può superarli. I migliori
+        con il riordinatore arrivano a 78-80 in B con k=15.
+      - Frasi gemelle prese dal bando sbagliato, prima del giusto (19 fatti
+        con frase gemella; in B è il veto della regola di chiusura):
+        - B: v0 nessuna con k=10 e k=15; v1 la 2:92, più un altro fatto
+          (2:103); v2 nessuna, un altro fatto (2:99); v1+v2 la 2:92;
+          e5-small la 2:92; e5-base la 74 e la 2:92, e con k=10 la 74 ha
+          il gemello tra i primi 10 senza il giusto. Con il riordinatore:
+          su v0 nessuna con k=10, la 2:106 con k=15, con entrambi i
+          riordinatori; su e5-small nessuna.
+        - A: v0 la 2:12 con k=10, la 2:12 e la 2:73 con k=15; v1 nessuna;
+          v2 nessuna, ma il gemello tra i primi k senza il giusto in 3
+          fatti con k=10 (2:105, 2:106, 2:107) e 2 con k=15; v1+v2 nessuna,
+          gemello senza giusto nella 74; e5-small la 2:92; e5-base la 74,
+          la 2:69 e la 2:92. Con il riordinatore: la 2:73 su v0, la 2:85 su
+          e5-small, con k=10 e k=15.
+      - Risposte in più pezzi (19 fatti su 97): trovati in B senza
+        riordinatore v0 6 con k=10 e 9 con k=15, e5-small 9 e 11, e5-base
+        8 e 12; con il riordinatore su v0 10 e 11, su e5-small 11-12 e 13.
+        Distanza tra i pezzi su v0: in 9 fatti stanno nello stesso
+        frammento (89, 2:18, 2:30, 2:47, 2:54, 2:67, 2:71, 2:82, 2:114), in
+        7 a 1-2 frammenti, in 3 a 5-7 frammenti (16, 30, 45; al più 3
+        pagine, la 45).
+      - Apistici (14 fatti di taratura), per allegato, trovati in B:
+
+        | configurazione | A1 (2) | A3 (3) | A4 (4) | A5 (5) | tutti |
+        |---|---|---|---|---|---|
+        | v0, k=10 | 2 | 1 | 1 | 0 | 4 |
+        | v0, k=15 | 2 | 1 | 2 | 0 | 5 |
+        | e5-small, k=10 | 0 | 1 | 1 | 2 | 4 |
+        | e5-small, k=15 | 0 | 2 | 2 | 2 | 6 |
+        | e5-base, k=10 | 1 | 1 | 1 | 1 | 4 |
+        | e5-base, k=15 | 2 | 2 | 2 | 2 | 8 |
+        | v0 riordinato (osiria e mmarco), k=10 | 2 | 2 | 2 | 2 | 8 |
+        | v0 riordinato (osiria e mmarco), k=15 | 2 | 2 | 2 | 3 | 9 |
+        | e5-small, osiria, k=10 e k=15 | 2 | 3 | 2 | 1 | 8 |
+        | e5-small, mmarco, k=10 | 2 | 3 | 1 | 1 | 7 |
+        | e5-small, mmarco, k=15 | 2 | 3 | 2 | 1 | 8 |
+
+        Le righe senza riordinatore vengono da
+        `notte/parte2_curve_taratura.txt` (punto e), quelle con il
+        riordinatore sono contate il 21/11/2026 dai CSV di
+        `notte/riordino/`. Tutte le misure sono senza il nome dell'azione
+        nel registro (punto 5).
+      - Frammenti più corti, ampiezza 50, vicini a ±1 e ±2, peso in
+        memoria, parole in comune: misure sui 40 fatti, nella lista qui
+        sotto; le prime due non sono state rimisurate sui 97.
+
+      **Stato delle strade al 20/11/2026 sera, sui primi 40 fatti**
+      (superato dalla lista qui sopra, salvo dove questa lo richiama):
       - Frammenti più corti (v3, v1+v2+v3): **scartata**, scarto grande
         (B da 26 a 16, A da 16 a 10; per esempio la riga 63 in B scende
         dal 1° al 25° posto).
@@ -635,7 +836,11 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
       non filtra per bando, e il filtro di Postgres è per file. Il
       recupero va rimisurato su Postgres con gli stessi fatti e la stessa
       divisione.
-   8. **Strade da provare, nell'ordine:**
+   8. **Strade da provare, nell'ordine** (superato dal perimetro del
+      punto 10, 20/11/2026 sera: la strada 1 è fatta, punto 3; la 2 resta;
+      la 3 è l'unica strada nuova, limitata al contesto per frammento; il
+      riordinatore e k=15 della 5 sono misurati, punto 4; le strade 4, 6
+      e 7 sono in "Parcheggio", in fondo a questo file):
       1. rimisura sui 97 fatti di taratura;
       2. nome dell'azione degli apistici nel registro;
       3. contesto per frammento scritto dal modello al caricamento
@@ -672,6 +877,94 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
       scritto dopo aver visto i fatti di taratura. Limite della misura:
       per la riga 58 lo stesso termine sta anche al par. 5.2.2, quindi una
       risposta giusta può esistere anche se il fatto risulta mancato.
+   10. **Perimetro di chiusura del 19d** (concordato il 20/11/2026 sera).
+       Quattro mosse, e non altre:
+       1. scelta della configurazione, sulla taratura;
+       2. nome dell'azione degli apistici nel registro (punto 5);
+       3. una sola strada nuova: il contesto per frammento (punto 11);
+       4. apertura del controllo, una volta, con il via esplicito; il
+          numero che esce si scrive anche se è sotto l'85%.
+       Se resta sotto la soglia, gli avvisi entrano in produzione solo con
+       il filtro per bando (punto 7, passo 19e), e i casi difficili restano
+       in coda. Le altre idee vanno in "Parcheggio", in fondo a questo
+       file.
+   11. **Conteggi per il documento intero e per il contesto per
+       frammento** (fonte `notte/parte2_curve_taratura.txt`, punti c e d).
+       Token contati con il tokenizzatore di
+       `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+       (sentencepiece di XLM-RoBERTa), senza i token speciali: è il più
+       vicino disponibile in locale senza chiamare il modello di
+       linguaggio, e i token del modello di linguaggio possono differire.
+       Testo pulito come prima della divisione in frammenti (premesse
+       tolte, `pulisci_avviso`, pulizia prudente, pagine d'indice e troppo
+       corte saltate); ogni frammento compare tale e quale nel testo
+       pulito del suo file.
+
+       | file | token del documento | frammenti | token dei frammenti |
+       |---|---|---|---|
+       | proroga Cultura Missione Comune (f6c3e017) | 464 | 2 | 514 |
+       | proroga Sport Missione Comune (f672a3f8) | 529 | 2 | 529 |
+       | avviso Cultura Missione Comune (130702f4) | 11.672 | 48 | 11.968 |
+       | avviso Sport Missione Comune (8041f3d1) | 11.217 | 45 | 11.462 |
+       | avviso prot. 26286 del 03/11/2026, fondo strade (74a82f09) | 983 | 5 | 1.068 |
+       | DM 20/03/2025 n. 75, rievocazioni (32d5ca6d) | 3.292 | 15 | 3.418 |
+       | decreto 13512, allegato 1 (6cbea075) | 32.969 | 126 | 36.063 |
+       | decreto 14025, allegato A1 (e268ff8c) | 8.665 | 39 | 9.119 |
+       | decreto 14025, allegato A3 (bd90bf80) | 8.877 | 40 | 9.384 |
+       | decreto 14025, allegato A4 (764c40fe) | 9.225 | 45 | 9.944 |
+       | decreto 14025, allegato A5 (955dbd58) | 9.087 | 41 | 9.589 |
+       | decreto 18191, allegato A (adcdddd6) | 4.436 | 17 | 4.614 |
+       | decreto 22706, allegato A (67198f2e) | 18.953 | 79 | 19.712 |
+       | decreto 24161, allegato A (e42abdab) | 5.166 | 24 | 5.324 |
+       | decreto 25205, allegato A (fc71cd53) | 15.441 | 61 | 17.107 |
+       | decreto 9506, allegato 1 (9de93696) | 32.038 | 125 | 34.972 |
+       | testo coordinato SRA ACA 16b (8ac2656c) | 37.352 | 157 | 39.979 |
+       | totale, 17 file (912.384 caratteri) | 210.366 | 871 | 224.766 |
+
+       Per bando, i suoi file insieme (per la strada del documento intero
+       quando il bando è noto, in "Parcheggio"):
+
+       | bando | file | token |
+       |---|---|---|
+       | bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-7057d9 | 1 | 32.969 |
+       | bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-8cd3ac | 1 | 32.038 |
+       | contributi-a-enti-locali-e-ets-per-punti-digitale-fac-8db4be | 1 | 15.441 |
+       | contributi-agli-enti-locali-per-lo-sviluppo-di-proget-01bfe9 | 1 | 18.953 |
+       | contributi-per-uso-e-gestione-sostenibile-delle-risor-9d883c | 1 | 37.352 |
+       | cultura-missione-comune-2026 | 2 | 12.136 |
+       | fondo-rievocazione-storica-2027 | 1 | 3.292 |
+       | fondo-strade-piccoli-comuni-2026 | 1 | 983 |
+       | parcheggi-2026 | 1 | 4.436 |
+       | sostegno-a-progetti-di-promozione-ed-educazione-music-e81761 | 1 | 5.166 |
+       | sostegno-agli-investimenti-strutturali-aziende-apisti-401650 | 4 | 35.854 |
+       | sport-missione-comune-2026 | 2 | 11.746 |
+
+       Per confronto, in B su v0 con k=10 il testo dei frammenti passati
+       al modello è in media di 11.509 caratteri per fatto (punto 3).
+
+       Contesto per frammento, una chiamata per frammento che rilegge il
+       suo documento dalla cache; ipotesi: 60 token di istruzione e 100
+       di uscita per frammento. Totali in token, per i 17 file:
+       - scrittura in cache (ogni documento una volta): 210.366;
+       - lettura dalla cache (ogni frammento rilegge il suo documento):
+         19.263.701; senza la prima chiamata di ogni file, 19.053.335;
+       - ingresso non in cache (frammento più istruzione): 277.026;
+       - uscita: 87.100.
+   12. **Controllo dei download dei riordinatori** (notte del 20/11/2026).
+       La regola era: non scaricare un modello che chiede un accesso,
+       l'accettazione di una licenza o l'esecuzione di codice del modello.
+       Nessuno dei due ha accesso riservato o licenza da accettare. Il
+       repository di mmarco contiene uno script di addestramento
+       (`train_script.py`), che il primo controllo automatico ha
+       rifiutato. È stato giudicato non codice che il modello chiede di
+       eseguire: la configurazione non ha `auto_map`, il modello si carica
+       con `trust_remote_code=False`, e lo script non si scarica. Il
+       controllo è stato ristretto agli script Python di primo livello
+       che non sono di addestramento (`codice_del_modello` nello script di
+       misura, con un test), e mmarco è stato scaricato senza onnx,
+       openvino, `pytorch_model.bin` e lo script. Decisione rivista e
+       accettata da chi mantiene il progetto il 21/11/2026. I modelli
+       stanno nella cache di Hugging Face, fuori dal repository.
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):
@@ -1557,3 +1850,42 @@ riga nasce solo dalla pagina ufficiale o dall'atto.
 4. Gli servono i bandi in arrivo, i ricorrenti, o entrambi?
 5. La domanda a cui l'app ha risposto con opportunità corrette ma
    generiche (riscontro del 18/11) era per un ente o per un privato?
+
+## Parcheggio
+
+Idee che non interrompono il lavoro in corso (nuova, 21/11/2026). Regola:
+un'idea nuova interrompe il compito aperto solo se attacca un difetto
+misurato, se costa di più farla dopo che adesso, e se si può misurare con
+quello che c'è già. Altrimenti va qui, con due righe, e si riprende a
+compito chiuso.
+
+- **Addestramento del modello di embedding** sui testi dei bandi (era la
+  strada 7 del punto 8 di "Passo 19d", con le sue condizioni). Attacca la
+  ricerca per significato, che fa quasi tutto il lavoro. Aspetta le coppie
+  domanda e frammento generate al caricamento e la decisione su dove
+  pubblicare e mantenere il modello addestrato.
+- **Scheda per bando** (era la strada 4). Attacca le domande sulle voci
+  ricorrenti di un bando. Aspetta la chiusura del 19d e domande non
+  scritte da un modello, perché le sue otto voci sono le categorie del
+  foglio dei fatti ("Passo 19d", punto 9).
+- **Glossario** (era la strada 6). Attacca le parole dell'utente diverse
+  da quelle del bando ("chi alleva api" contro "aziende apistiche",
+  "Passo 19d", punto 6). Aspetta fatti non ancora visti, perché scritto
+  dopo la taratura sarebbe favorito.
+- **Documento intero quando il bando è noto.** Attacca le risposte in più
+  pezzi e il tetto dei 30 candidati ("Passo 19d", punto 4). Aspetta una
+  decisione di chi mantiene il progetto, perché aumenta il testo di ogni
+  risposta: da 983 a 37.352 token per bando ("Passo 19d", punto 11).
+- **Insieme di prova grande** (voce di "Insieme di prova: dopo",
+  aggiornamento del 20/11/2026). Attacca il rumore di un campione di 97
+  fatti e le domande scritte da un solo modello. Aspetta la nuova
+  baseline.
+- **Revisione del metodo da parte di altri modelli.** Attacca gli errori
+  di metodo che chi misura non vede. Aspetta la chiusura del 19d; il
+  documento che ne esce segue la regola delle revisioni esterne
+  (intestazione e verifica a mano prima di salvarlo).
+- **Riordinatore più grande.** Attacca i fatti che i due riordinatori
+  provati non portano nei primi 10 o 15. Aspetta la misura dei tempi del
+  riordinatore piccolo su Streamlit Community Cloud (oggi 4-5 secondi a
+  domanda con 30 candidati); il guadagno resta limitato dal tetto dei 30
+  candidati, 81-82 fatti in B ("Passo 19d", punto 4).

@@ -2,7 +2,7 @@
 
 I documenti scritti prima del 18/11/2026 citano sezioni di questa roadmap che oggi stanno in docs/coda.md con il loro numero originale (Difetti del 14/11, Dopo la demo, Prossimi passi, In coda, priorità del consulente pilota, indicazioni del revisore tecnico) e in docs/fatto.md.
 
-Stato al 20 novembre 2026. Da aggiornare alla fine di ogni passo.
+Stato al 21 novembre 2026. Da aggiornare alla fine di ogni passo.
 
 Qui stanno solo stato, principi, ordine dei passi e decisioni prese. Il
 lavoro chiuso è in `docs/fatto.md`; le voci in attesa, con il loro numero
@@ -12,8 +12,9 @@ originale, in `docs/coda.md`.
 
 - **Gli avvisi dei bandi non vanno su Postgres finché il passo 19d non
   passa.** Dal 20/11/2026 stanno solo nel Chroma locale (passo 19c,
-  `docs/fatto.md`): l'app online non li vede. Il 19d è in corso; il
-  caricamento su Postgres è il passo 19e.
+  `docs/fatto.md`): l'app online non li vede. Il 19d è in chiusura dal
+  21/11/2026, con il perimetro concordato il 20/11 sera (`coda.md`,
+  "Passo 19d", punto 10); il caricamento su Postgres è il passo 19e.
 - Demo mandata al consulente pilota il 16/11/2026, riscontro ricevuto il
   18/11/2026. Revisione del revisore tecnico ricevuta il 18/11/2026.
   Revisione esterna del piano ricevuta il 18/11/2026.
@@ -76,7 +77,7 @@ tecnico (18/11/2026)".
 
 I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
 1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
-A, attese con polarità); 19 (19a, 19b e 19c fatti, 19d in corso, poi 19e); 20 (prima
+A, attese con polarità); 19 (19a, 19b e 19c fatti, 19d in chiusura, poi 19e); 20 (prima
 della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
 baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
 Il passo 21 si fa prima di dare il link della demo a chiunque oltre al
@@ -150,6 +151,15 @@ Passi nuovi della sezione A:
     taratura e 98 di controllo; il controllo si apre una volta sola,
     sulla scelta finale. Regola di chiusura, risultati e strade in
     `coda.md`, "Passo 19d".
+    19d in chiusura dal 21/11/2026. Misure della notte del 20/11 sui 97
+    fatti di taratura in `coda.md`, "Passo 19d", punti 3 e 4. Perimetro
+    concordato il 20/11 sera (punto 10), quattro mosse e non altre:
+    scelta della configurazione; nome dell'azione degli apistici nel
+    registro; una sola strada nuova, il contesto per frammento; apertura
+    del controllo, una volta, scrivendo il numero che esce anche se è
+    sotto l'85%. Se resta sotto la soglia, gli avvisi entrano in
+    produzione solo con il filtro per bando, e i casi difficili restano
+    in coda. Le altre idee in `coda.md`, "Parcheggio".
     19e, nuovo (20/11/2026): avvisi su Postgres insieme al filtro per
     `id_bando` nell'app, e rimisura del recupero su Postgres con gli
     stessi fatti, perché lì ricerca per parole e indice dei vettori sono
