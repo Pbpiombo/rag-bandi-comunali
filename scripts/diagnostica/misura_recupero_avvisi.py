@@ -925,8 +925,12 @@ def apri_recupero(
     limite: int | None = None,
     prefissi: dict[str, str] | None = None,
     store=None,
+    contesti: dict[tuple[str, int], str] | None = None,
 ):
     """RecuperoMisura sulla copia di Chroma: RecuperoIbrido più la ricerca per bando.
+
+    Con `contesti` (testo per (fonte, chunk_num)) la ricerca per parole
+    indicizza anche il contesto del frammento (testo_con_contesto).
 
     Con `limite`, il modello di embedding delle domande usa quel limite di
     token (lo stesso con cui sono stati calcolati i vettori della copia).
@@ -958,7 +962,13 @@ def apri_recupero(
             ]
             self.bm25 = BM25Okapi(
                 [
-                    tokenizza(testo_lessicale(d.page_content, d.metadata, prefissi))
+                    tokenizza(
+                        testo_con_contesto(
+                            testo_lessicale(d.page_content, d.metadata, prefissi),
+                            d.metadata,
+                            contesti,
+                        )
+                    )
                     for d in self.documenti
                 ]
             )
@@ -1026,6 +1036,19 @@ def testo_lessicale(testo: str, meta: dict, prefissi: dict[str, str] | None) -> 
     """
     prefisso = (prefissi or {}).get(meta.get("fonte") or "")
     return f"{prefisso}\n{testo}" if prefisso else testo
+
+
+def testo_con_contesto(
+    testo: str, meta: dict, contesti: dict[tuple[str, int], str] | None
+) -> str:
+    """Il testo con il contesto del suo frammento davanti, se c'è (passo 19d).
+
+    `contesti` è per (fonte, chunk_num); il testo del frammento restituito
+    dalla ricerca resta quello della copia.
+    """
+    chiave = (meta.get("fonte") or "", meta.get("chunk_num"))
+    contesto = (contesti or {}).get(chiave)
+    return f"{contesto}\n{testo}" if contesto else testo
 
 
 class ConAmpiezza:
@@ -2494,6 +2517,9 @@ class Modello:
     # vettore e della ricerca per parole, solo per i file che ne hanno una
     # con il nome (parti_del_registro); il testo del frammento resta pulito
     parte: bool = False
+    # contesto: le righe del contesto per frammento (RIGHE_CONTESTO) davanti
+    # al testo del vettore dei frammenti degli avvisi che ne hanno uno
+    contesto: str = ""
 
 
 MINILM = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
@@ -2743,6 +2769,17 @@ def esegui_prepara_vettori(nome: str) -> int:
         elif nome == "v0":
             copia = CARTELLA_19D / "v0" / "chroma"
             ids, testi, metadati, matrice = esporta_frammenti(copia)
+        elif modello.contesto:
+            ids, testi, metadati, _ = leggi_vettori(CARTELLA_19D / "v0")
+            contesti = contesti_per_frammento(modello.contesto)
+            embeddings = crea_embeddings_di(modello)
+            matrice = embeddings.embed_documents(
+                [
+                    testo_con_contesto(t, m, contesti)
+                    for t, m in zip(testi, metadati, strict=True)
+                ]
+            )
+            nota = f"; {len(contesti)} frammenti con il contesto davanti"
         else:
             ids, testi, metadati, _ = leggi_vettori(CARTELLA_19D / "v0")
             embeddings = crea_embeddings_di(modello)
@@ -2877,6 +2914,12 @@ def descrizione_modello(modello: Modello) -> str:
             "parole, solo per i file con il nome dell'azione; testo del frammento "
             "pulito"
             if modello.parte
+            else ""
+        )
+        + (
+            f"; contesto per frammento ({modello.contesto}) davanti al testo del "
+            "vettore degli avvisi; testo del frammento pulito"
+            if modello.contesto
             else ""
         )
         + "; ricerca densa esatta (prodotto scalare su tutti i frammenti, pari "
@@ -4887,6 +4930,926 @@ def esegui_parte_97(lato: str) -> int:
     return 0
 
 
+# --- contesto per frammento (21/11/2026, terza mossa del perimetro) ---
+#
+# Il contesto lo scrive scripts/diagnostica/genera_contesti.py; qui si
+# misura. Tutte le configurazioni hanno il riordinatore piccolo (osiria) sui
+# 30 candidati e la ricerca esatta; cambia dove entra il contesto:
+#   c-0   da nessuna parte (deve rifare "osiria su v0" della notte);
+#   c-R   solo nel testo che legge il riordinatore;
+#   c-L   solo nella ricerca per parole;
+#   c-LR  nella ricerca per parole e nel riordinatore;
+#   c-LVR anche nel vettore, con il limite a 512 token (vettori v1+contesto).
+# Righe del contesto (--righe): tutte, senza ARGOMENTO, senza SERVE A.
+# I contesti con una violazione dei controlli (genera_contesti.controlla_tutti)
+# non entrano: quel frammento resta senza contesto. Oltre il 5% di
+# violazioni la misura non parte (decisione del 21/11/2026: una sola
+# revisione delle istruzioni, nata dai controlli).
+#
+# Regola di adozione (decisa il 21/11/2026, prima di ogni misura): una
+# configurazione si adotta solo se guadagna in B sia con k=10 sia con k=15
+# contro c-0; "guadagna" vuol dire più guadagnati che persi con p ≤ 0,05.
+#
+# Domande a mano (--domande-a-mano): 30 fatti di taratura (DOMANDE_A_MANO),
+# misurati con la domanda scritta da chi mantiene il progetto al posto di
+# quella del foglio, nelle stesse configurazioni. Regola, decisa prima: il
+# guadagno netto (guadagnati meno persi contro c-0, in B) "resta" se con le
+# domande a mano è positivo e almeno metà di quello con le domande del
+# foglio sugli stessi 30 fatti; "si riduce" se è positivo ma sotto la metà;
+# "non resta" se è zero o negativo.
+
+CARTELLA_CONTESTO = CARTELLA_19D / "contesto"
+DOMANDE_A_MANO = CARTELLA_CONTESTO / "domande_a_mano.csv"
+COLONNE_MANO = ["riga", "foglio", "titolo", "frase", "domanda_a_mano"]
+SEME_MANO = 19_2026_1121
+NUMERO_MANO = 30
+ESCLUSO_MANO = "fondo-strade-piccoli-comuni-2026"
+NESSUNA = "nessuna"
+RIGHE_CONTESTO = {
+    "tutte": ("bando", "argomento", "serve_a"),
+    "senza-argomento": ("bando", "serve_a"),
+    "senza-serve-a": ("bando", "argomento"),
+}
+NOME_RIGA = {"bando": "BANDO", "argomento": "ARGOMENTO", "serve_a": "SERVE A"}
+
+
+@dataclass(frozen=True)
+class ConfigContesto:
+    lessicale: bool
+    vettore: bool
+    riordinatore: bool
+
+    def descrizione(self) -> str:
+        dove = [
+            n
+            for n, sì in (
+                ("ricerca per parole", self.lessicale),
+                ("vettore (limite 512 token)", self.vettore),
+                ("riordinatore", self.riordinatore),
+            )
+            if sì
+        ]
+        return "contesto in: " + (", ".join(dove) if dove else "nessuna parte")
+
+
+CONFIG_CONTESTO = {
+    "c-0": ConfigContesto(False, False, False),
+    "c-R": ConfigContesto(False, False, True),
+    "c-L": ConfigContesto(True, False, False),
+    "c-LR": ConfigContesto(True, False, True),
+    "c-LVR": ConfigContesto(True, True, True),
+}
+
+for _righe in RIGHE_CONTESTO:
+    MODELLI[f"v1+contesto-{_righe}"] = Modello(
+        MINILM, 512, cartella=f"contesto/vettori-{_righe}", contesto=_righe
+    )
+
+# Tipo del fatto (colonna tipo_fatto, senza "(più punti)") -> voce dell'elenco
+# chiuso di ARGOMENTO (genera_contesti.VOCI)
+VOCE_DEL_TIPO = {
+    "chi può partecipare": "chi può partecipare",
+    "importo o massimale": "importi e massimali",
+    "percentuale coperta o quota a carico": "percentuali di contributo",
+    "spesa ammessa o esclusa": "spese ammesse o escluse",
+    "punteggio o criterio di valutazione": "punteggi e criteri di valutazione",
+    "procedura": "procedura e scadenze di presentazione",
+    "vincoli dopo il contributo e revoca": "obblighi, vincoli e revoche",
+    "cumulo con altri contributi": "cumulo con altri aiuti",
+    "definizione": "altro",
+}
+
+
+def tipo_del_fatto(fatto: dict) -> str:
+    tipo = re.sub(r"\s*\(più punti\)\s*$", "", str(fatto.get("tipo_fatto") or ""))
+    return tipo.strip().lower()
+
+
+def contesti_da(
+    documenti, salvati: dict[str, dict], righe: str
+) -> tuple[dict[tuple[str, int], str], dict[str, list]]:
+    """(contesto per (fonte, chunk_num), violazioni per id) dai contesti salvati.
+
+    Ferma se manca un contesto o se le violazioni superano la quota; i
+    frammenti con una violazione restano senza contesto.
+    """
+    from scripts.diagnostica import genera_contesti as gc
+
+    frammenti = [(d, f) for d in documenti for f in d.frammenti]
+    mancanti = [f.id for _, f in frammenti if f.id not in salvati]
+    if mancanti:
+        raise ErroreMisura(
+            f"{len(mancanti)} frammenti senza contesto: la generazione non è finita"
+        )
+    violazioni, _ = gc.controlla_tutti(documenti, salvati)
+    quota = len(violazioni) / len(frammenti)
+    if quota > gc.QUOTA_VIOLAZIONI:
+        raise ErroreMisura(
+            f"contesti con violazioni {len(violazioni)} su {len(frammenti)} "
+            f"({quota:.1%}), oltre il {gc.QUOTA_VIOLAZIONI:.0%}: si rivedono le "
+            "istruzioni una volta, a partire dai controlli"
+        )
+    contesti = {}
+    for d, f in frammenti:
+        if f.id in violazioni:
+            continue
+        testo = gc.testo_di_ricerca(
+            salvati[f.id].get("righe") or {}, RIGHE_CONTESTO[righe]
+        )
+        if testo:
+            contesti[(d.fonte, f.chunk_num)] = testo
+    return contesti, violazioni
+
+
+def leggi_contesti_generati():
+    """(documenti, contesti salvati) di genera_contesti, con l'impronta di oggi."""
+    from scripts.diagnostica import genera_contesti as gc
+
+    try:
+        documenti = gc.leggi_documenti()
+        return documenti, gc.leggi_salvati(gc.FILE_CONTESTI, gc.impronta_istruzioni())
+    except gc.ArrestoGenerazione as errore:
+        raise ErroreMisura(str(errore)) from errore
+
+
+def contesti_per_frammento(righe: str) -> dict[tuple[str, int], str]:
+    documenti, salvati = leggi_contesti_generati()
+    return contesti_da(documenti, salvati, righe)[0]
+
+
+def nome_dei_vettori(config: ConfigContesto, righe: str) -> str:
+    return f"v1+contesto-{righe}" if config.vettore else "v0"
+
+
+def file_contesto(nome: str, righe: str, k: int, lato: str, mano: bool) -> Path:
+    coda = "_mano" if mano else ""
+    return CARTELLA_CONTESTO / "misure" / f"{nome}_{righe}_k{k}_{lato}{coda}.csv"
+
+
+def testo_per_riordino(documento, contesti: dict | None) -> str:
+    return testo_con_contesto(documento.page_content, documento.metadata, contesti)
+
+
+def misura_riordinata(
+    recupero,
+    app,
+    riordinatore,
+    fatti: list[dict],
+    file_per_bando: dict[str, list[dict]],
+    frammenti_per_fonte: dict[str, list[Frammento]],
+    titoli: dict[str, str],
+    contesti_riordino: dict | None,
+) -> tuple[dict[int, list[dict]], dict]:
+    """Come esegui_riordino: 30 candidati, voti del riordinatore, primi 10 e 15.
+
+    Con `contesti_riordino` il riordinatore legge contesto e frammento; la
+    valutazione è sempre sul testo pulito del frammento.
+    """
+    import statistics
+    import time
+
+    from src.chains.rag import recupera
+    from src.recupero_documenti import documenti_nominati
+    from src.retrieval import normalizza_domanda
+
+    massimo = riordinatore.max_seq_length
+    tokenizer = riordinatore.tokenizer
+    righe = {k: [] for k in K_ESATTI}
+    tra_i_candidati = dict.fromkeys(CONDIZIONI_GRIGLIA, 0)
+    tempi = {c: [] for c in CONDIZIONI_GRIGLIA}
+    lunghe = dict.fromkeys(CONDIZIONI_GRIGLIA, 0)
+    coppie = dict.fromkeys(CONDIZIONI_GRIGLIA, 0)
+    for fatto in fatti:
+        giusti, gemelli = documenti_del_fatto(fatto, file_per_bando)
+        domanda = normalizza_domanda(str(fatto["domanda"]))
+        ripulita = domanda_ripulita(domanda, titoli[fatto["id_bando"]])
+        candidati = {
+            "A": [d for d, _, _ in recupera(app, fatto["domanda"], k=CANDIDATI)],
+            "B": [
+                d
+                for d, _, _ in recupero.cerca_nel_bando(
+                    ripulita, fatto["id_bando"], CANDIDATI
+                )
+            ],
+        }
+        domande = {"A": domanda, "B": ripulita}
+        riordinati = {}
+        for c in CONDIZIONI_GRIGLIA:
+            docs = candidati[c]
+            if trovato_in(fatto, [frammento_di(d) for d in docs], giusti):
+                tra_i_candidati[c] += 1
+            testi = [
+                (domande[c], testo_per_riordino(d, contesti_riordino)) for d in docs
+            ]
+            inizio = time.perf_counter()
+            voti = riordinatore.predict(testi, show_progress_bar=False) if docs else []
+            tempi[c].append(time.perf_counter() - inizio)
+            for q, testo in testi:
+                coppie[c] += 1
+                lunghe[c] += len(tokenizer(q, testo)["input_ids"]) > massimo
+            riordinati[c] = [docs[i] for i in riordina(voti, len(docs))]
+        nominati = set(documenti_nominati(domanda, app.titoli))
+        for k in K_ESATTI:
+            esiti = {
+                c: valuta(
+                    fatto,
+                    [frammento_di(d) for d in riordinati[c][:k]],
+                    [frammento_di(d) for d in riordinati[c]],
+                    giusti,
+                    gemelli,
+                    frammenti_per_fonte,
+                )
+                for c in CONDIZIONI_GRIGLIA
+            }
+            di_sempre = sum(not d.metadata.get("sha256") for d in riordinati["A"][:k])
+            righe[k].append(
+                riga_misura(
+                    fatto,
+                    giusti,
+                    gemelli,
+                    esiti,
+                    nominati,
+                    di_sempre,
+                    ripulita if ripulita != domanda else "",
+                )
+            )
+    dati = {
+        "trovati_tra_i_candidati": tra_i_candidati,
+        "coppie": coppie,
+        "coppie_troncate": lunghe,
+        "lunghezza_massima": massimo,
+        "tempo_per_domanda_s": {
+            c: {"media": statistics.mean(v), "mediana": statistics.median(v)}
+            for c, v in tempi.items()
+            if v
+        },
+    }
+    return righe, dati
+
+
+def apri_contesto(nome_vettori: str, contesti_lessicali: dict | None):
+    """(recupero, app, frammenti per fonte, titoli) sui vettori dati, ricerca esatta."""
+    from src.recupero_documenti import avvolgi
+
+    modello = MODELLI[nome_vettori]
+    ids, testi, metadati, matrice = leggi_vettori(cartella_modello(nome_vettori))
+    store = StoreEsatto(
+        ids, testi, metadati, matrice, crea_embeddings_di(modello), modello.domanda
+    )
+    recupero = apri_recupero(Path(), store=store, contesti=contesti_lessicali)
+    frammenti_per_fonte, titoli = frammenti_della_copia(recupero, modello.limite)
+    return recupero, avvolgi(recupero), frammenti_per_fonte, titoli
+
+
+# --- domande a mano ---
+
+
+def riga_nel_foglio(riga) -> int:
+    numero = int(riga)
+    return numero - SCOSTAMENTO_2 if numero >= SCOSTAMENTO_2 else numero
+
+
+def scelta_a_mano(
+    fatti: list[dict], n: int = NUMERO_MANO, seme: int = SEME_MANO
+) -> list[dict]:
+    """n fatti a caso, ripartiti tra i bandi in proporzione, senza il fondo strade.
+
+    Quote per bando: parte intera di n * fatti del bando / fatti, poi un
+    fatto in più ai bandi con il resto più grande (a parità, per id_bando).
+    Dentro ogni bando, in ordine di id_bando, si estrae con random.Random(seme)
+    dai fatti in ordine di riga.
+    """
+    per_bando: dict[str, list[dict]] = defaultdict(list)
+    for f in fatti:
+        if f["id_bando"] != ESCLUSO_MANO:
+            per_bando[f["id_bando"]].append(f)
+    totale = sum(len(v) for v in per_bando.values())
+    if totale < n:
+        raise ErroreMisura(f"{totale} fatti, ne servono {n}")
+    esatte = {b: n * len(v) / totale for b, v in per_bando.items()}
+    quote = {b: int(q) for b, q in esatte.items()}
+    resti = sorted(per_bando, key=lambda b: (-(esatte[b] - quote[b]), b))
+    for b in resti[: n - sum(quote.values())]:
+        quote[b] += 1
+    generatore = random.Random(seme)
+    scelti = []
+    for b in sorted(per_bando):
+        ordine = sorted(per_bando[b], key=lambda f: int(f["riga"]))
+        scelti += generatore.sample(ordine, quote[b])
+    return sorted(scelti, key=lambda f: (int(f["foglio"]), riga_nel_foglio(f["riga"])))
+
+
+def righe_a_mano(scelti: list[dict]) -> list[dict]:
+    return [
+        {
+            "riga": riga_nel_foglio(f["riga"]),
+            "foglio": int(f["foglio"]),
+            "titolo": str(f.get("titolo") or "").strip(),
+            "frase": str(f["frase"]).strip(),
+            "domanda_a_mano": "",
+        }
+        for f in scelti
+    ]
+
+
+def leggi_domande_a_mano(percorso: Path) -> list[dict]:
+    """Le righe del file; separatore virgola o punto e virgola (Excel)."""
+    testo = percorso.read_text(encoding="utf-8-sig")
+    prima = testo.splitlines()[0] if testo else ""
+    separatore = ";" if prima.count(";") > prima.count(",") else ","
+    righe = list(csv.DictReader(io.StringIO(testo), delimiter=separatore))
+    if not righe or set(COLONNE_MANO) - set(righe[0]):
+        raise ErroreMisura(f"{percorso.name}: servono le colonne {COLONNE_MANO}")
+    return righe
+
+
+def esegui_prepara_a_mano() -> int:
+    """Scrive DOMANDE_A_MANO, o se c'è già dice se le righe sono quelle della scelta."""
+    _, fatti, _ = fatti_intera(TARATURA)
+    nuove = righe_a_mano(scelta_a_mano(fatti))
+    chiavi = [(r["foglio"], r["riga"]) for r in nuove]
+    per_bando = Counter(
+        f["id_bando"]
+        for f in fatti
+        if (int(f["foglio"]), riga_nel_foglio(f["riga"])) in set(chiavi)
+    )
+    if DOMANDE_A_MANO.exists():
+        vecchie = leggi_domande_a_mano(DOMANDE_A_MANO)
+        uguali = [(int(r["foglio"]), int(r["riga"])) for r in vecchie] == chiavi
+        print(
+            f"{DOMANDE_A_MANO} esiste già e non si sovrascrive: le righe "
+            + (
+                "coincidono con la scelta."
+                if uguali
+                else "NON coincidono con la scelta."
+            )
+        )
+        return 0 if uguali else 1
+    DOMANDE_A_MANO.parent.mkdir(parents=True, exist_ok=True)
+    with DOMANDE_A_MANO.open("w", encoding="utf-8-sig", newline="") as f:
+        scrittore = csv.DictWriter(f, fieldnames=COLONNE_MANO, lineterminator="\n")
+        scrittore.writeheader()
+        scrittore.writerows(nuove)
+    print(
+        f"Scritto {DOMANDE_A_MANO}: {len(nuove)} fatti di taratura (seme {SEME_MANO})"
+    )
+    for b, n in sorted(per_bando.items()):
+        print(f"  {b}: {n}")
+    return 0
+
+
+def con_domande_a_mano(
+    fatti: list[dict], percorso: Path = DOMANDE_A_MANO
+) -> list[dict]:
+    """I fatti del file, con la domanda scritta a mano al posto di quella del foglio."""
+    righe = leggi_domande_a_mano(percorso)
+    per_chiave = {(int(f["foglio"]), riga_nel_foglio(f["riga"])): f for f in fatti}
+    vuote = [r["riga"] for r in righe if not str(r["domanda_a_mano"] or "").strip()]
+    if vuote:
+        raise ErroreMisura(f"domande a mano vuote alle righe {', '.join(vuote)}")
+    uscita = []
+    for r in righe:
+        chiave = (int(r["foglio"]), int(r["riga"]))
+        if chiave not in per_chiave:
+            raise ErroreMisura(f"riga {chiave} non tra i fatti di taratura")
+        fatto = per_chiave[chiave]
+        if str(fatto["frase"]).strip() != r["frase"].strip():
+            raise ErroreMisura(f"riga {chiave}: la frase non è quella del foglio")
+        uscita.append({**fatto, "domanda": r["domanda_a_mano"].strip()})
+    return uscita
+
+
+# --- misura e rapporti ---
+
+
+def esegui_contesto(lato: str, nome: str, righe: str, mano: bool) -> int:
+    import json
+    import time
+
+    from scripts.ingestione.carica_avvisi import senza_rete
+    from src.config import CHROMA_DIR
+
+    if mano and lato != TARATURA:
+        raise ErroreMisura("le domande a mano sono fatti di taratura")
+    config = CONFIG_CONTESTO[nome]
+    if nome == "c-0":
+        righe = NESSUNA
+    senza_rete()
+    _, fatti, file_per_bando = fatti_intera(lato)
+    if mano:
+        fatti = con_domande_a_mano(fatti)
+    contesti = contesti_per_frammento(righe) if righe != NESSUNA else {}
+    nome_vettori = nome_dei_vettori(config, righe)
+    prima = impronte_cartella(CHROMA_DIR)
+    inizio = time.perf_counter()
+    with senza_connessioni():
+        from sentence_transformers import CrossEncoder
+
+        recupero, app, frammenti_per_fonte, titoli = apri_contesto(
+            nome_vettori, contesti if config.lessicale else None
+        )
+        riordinatore = CrossEncoder(
+            RIORDINATORI[RIORDINATORE_PICCOLO],
+            trust_remote_code=False,
+            local_files_only=True,
+        )
+        per_k, dati = misura_riordinata(
+            recupero,
+            app,
+            riordinatore,
+            fatti,
+            file_per_bando,
+            frammenti_per_fonte,
+            titoli,
+            contesti if config.riordinatore else None,
+        )
+        del recupero, app, riordinatore
+    if impronte_cartella(CHROMA_DIR) != prima:
+        raise ErroreMisura("le impronte del Chroma vero sono cambiate")
+    for k in K_ESATTI:
+        percorso = file_contesto(nome, righe, k, lato, mano)
+        percorso.parent.mkdir(parents=True, exist_ok=True)
+        scrivi_misura(percorso, per_k[k])
+    dati.update(
+        configurazione=nome,
+        descrizione=config.descrizione(),
+        righe=righe,
+        vettori=nome_vettori,
+        frammenti_con_contesto=len(contesti),
+        domande_a_mano=mano,
+        fatti=len(fatti),
+        chroma_vero=f"{len(prima)} file, impronte uguali prima e dopo",
+        tempo_s=time.perf_counter() - inizio,
+    )
+    json_ = file_contesto(nome, righe, K, lato, mano).with_suffix(".json")
+    json_.write_text(json.dumps(dati, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"{nome} ({config.descrizione()}), righe {righe}, vettori {nome_vettori}")
+    for k in K_ESATTI:
+        r = per_k[k]
+        print(f"  k={k}: A {_trovati(r, 'A')[0]}, B {_trovati(r, 'B')[0]} su {len(r)}")
+    print(
+        f"  tra i {CANDIDATI} candidati: {dati['trovati_tra_i_candidati']}; coppie "
+        f"oltre {dati['lunghezza_massima']} token: {dati['coppie_troncate']}"
+    )
+    return 0
+
+
+def _apistici(r: dict) -> bool:
+    return r["id_bando"] == APISTICI
+
+
+GRUPPI_CONTESTO = [
+    ("tutti", lambda r: True),
+    ("apistici", _apistici),
+    ("altri bandi", lambda r: not _apistici(r)),
+]
+
+
+def misure_contesto(lato: str, mano: bool) -> dict[tuple[str, str], dict[int, list]]:
+    """Le misure scritte, per (configurazione, righe), con tutti e due i k."""
+    misure = {}
+    for nome in CONFIG_CONTESTO:
+        for righe in [NESSUNA] if nome == "c-0" else list(RIGHE_CONTESTO):
+            file_ = {k: file_contesto(nome, righe, k, lato, mano) for k in K_ESATTI}
+            if all(p.exists() for p in file_.values()):
+                misure[(nome, righe)] = {k: leggi_misura(p) for k, p in file_.items()}
+    return misure
+
+
+def _scegli(righe: list[dict], scelta) -> list[dict]:
+    return [r for r in righe if scelta(r)]
+
+
+def adottabile(base: dict[int, list], variante: dict[int, list]) -> bool:
+    """La regola di adozione: in B, più guadagnati che persi con p ≤ 0,05, a k=10 e 15."""
+    for k in K_ESATTI:
+        guadagnati, persi = cambi_di_esito(base[k], variante[k], "B")
+        if len(guadagnati) <= len(persi):
+            return False
+        if probabilita_segni(len(guadagnati), len(persi)) > SOGLIA_CASO:
+            return False
+    return True
+
+
+def esito_a_mano(netto_foglio: int, netto_mano: int) -> str:
+    """La regola delle domande a mano (decisa prima della misura)."""
+    if netto_foglio <= 0:
+        return "nessun guadagno con le domande del foglio: niente da verificare"
+    if netto_mano <= 0:
+        return "non resta"
+    return "resta" if 2 * netto_mano >= netto_foglio else "si riduce"
+
+
+def _netto(base: list[dict], variante: list[dict], c: str) -> int:
+    guadagnati, persi = cambi_di_esito(base, variante, c)
+    return len(guadagnati) - len(persi)
+
+
+def parole_dal_contesto(
+    fatto: dict,
+    domanda: str,
+    giusti: set[str],
+    frammenti_per_fonte: dict[str, list[Frammento]],
+    righe_del_frammento,
+) -> tuple[list[str], dict[str, list[str]]] | None:
+    """(parole della domanda simili nel frammento, parole simili solo nel contesto
+    per riga) sul primo frammento giusto che contiene il primo pezzo."""
+    from src.database.interrogazioni_bandi import _simili
+
+    pezzo = unita_del_fatto(fatto)[0]
+    for fonte in sorted(giusti):
+        for fr in frammenti_per_fonte.get(fonte, []):
+            if contiene(pezzo, fr):
+                _, nel_frammento = parole_in_comune(domanda, fr.testo)
+                solo = {}
+                for riga, testo in (
+                    righe_del_frammento(fonte, fr.chunk_num) or {}
+                ).items():
+                    parole = parole_significative(testo)
+                    solo[riga] = [
+                        p
+                        for p in parole_significative(domanda)
+                        if p not in nel_frammento and any(_simili(p, q) for q in parole)
+                    ]
+                return nel_frammento, solo
+    return None
+
+
+def esegui_rapporto_contesto(lato: str) -> int:
+    import json
+
+    from scripts.diagnostica import genera_contesti as gc
+    from src.retrieval import normalizza_domanda
+
+    if lato != TARATURA:
+        raise ErroreMisura("il rapporto del contesto si fa solo sulla taratura")
+    misure = misure_contesto(lato, False)
+    if ("c-0", NESSUNA) not in misure:
+        raise ErroreMisura("manca la misura di c-0: serve --contesto c-0")
+    base = misure[("c-0", NESSUNA)]
+    documenti, salvati = leggi_contesti_generati()
+    _, violazioni = contesti_da(documenti, salvati, "tutte")
+    _, fatti, file_per_bando = fatti_intera(lato)
+    fatto_di = {str(f["riga"]): f for f in fatti}
+    frammenti_per_fonte, _ = frammenti_dei_vettori()
+    id_di = {(d.fonte, f.chunk_num): f.id for d in documenti for f in d.frammenti}
+
+    def righe_del_frammento(fonte, chunk):
+        i = id_di.get((fonte, chunk))
+        if i is None or i in violazioni:
+            return {}
+        return salvati[i].get("righe") or {}
+
+    linee = [
+        f"Passo 19d, contesto per frammento, metà: {lato}",
+        (
+            f"Contesti: {gc.FILE_CONTESTI.name}, modello {gc.MODELLO}, impronta "
+            f"{gc.impronta_istruzioni()[:12]}; {len(salvati)} frammenti, con "
+            f"violazioni (senza contesto nella misura) {len(violazioni)}"
+        ),
+        (
+            f"Riordinatore {RIORDINATORI[RIORDINATORE_PICCOLO]}, {CANDIDATI} candidati, "
+            "ricerca esatta; base c-0 = osiria su v0"
+        ),
+        NOTA_SEGNI,
+        (
+            "Regola di adozione: guadagno in B con k=10 e con k=15 contro c-0 (più "
+            "guadagnati che persi, p ≤ 0,05)."
+        ),
+        "",
+    ]
+
+    # 0. c-0 contro la misura della notte
+    linee.append("0. c-0 contro osiria su v0 della notte (notte/riordino)")
+    for k in K_ESATTI:
+        notte = file_riordino(RIORDINATORE_PICCOLO, "v0", k, lato)
+        if not notte.exists():
+            linee.append(f"  k={k}: manca {notte.name}")
+            continue
+        vecchie = {r["riga"]: r for r in leggi_misura(notte)}
+        diverse = [r["riga"] for r in base[k] if vecchie.get(r["riga"]) != r]
+        linee.append(
+            f"  k={k}: "
+            + (
+                "righe identiche"
+                if not diverse and len(vecchie) == len(base[k])
+                else "righe diverse: " + ", ".join(nome_della_riga(x) for x in diverse)
+            )
+        )
+
+    # 1. tabella
+    for gruppo, scelta in GRUPPI_CONTESTO:
+        n = len(_scegli(base[K], scelta))
+        linee += [
+            "",
+            (
+                f"1. Fatti trovati, A / B, {gruppo} ({n}); 1° B e ≤5 B con k=10; "
+                f"tetto: giusto tra i {CANDIDATI} candidati, A / B (solo per tutti)"
+            ),
+            (
+                f"  {'configurazione':<28}{'k=10':>10}{'k=15':>10}{'1° B':>7}"
+                f"{'≤5 B':>7}{'tetto':>10}"
+            ),
+        ]
+        for (nome, righe), m in misure.items():
+            celle = [
+                f"{_trovati(_scegli(m[k], scelta), 'A')[0]} / "
+                f"{_trovati(_scegli(m[k], scelta), 'B')[0]}"
+                for k in K_ESATTI
+            ]
+            tetto = ""
+            if gruppo == "tutti":
+                percorso = file_contesto(nome, righe, K, lato, False).with_suffix(
+                    ".json"
+                )
+                t = json.loads(percorso.read_text(encoding="utf-8"))
+                tetto = f"{t['trovati_tra_i_candidati']['A']} / " + str(
+                    t["trovati_tra_i_candidati"]["B"]
+                )
+            linee.append(
+                f"  {nome + ' ' + righe:<28}{celle[0]:>10}{celle[1]:>10}"
+                f"{_primi_entro(_scegli(m[K], scelta), 'B', 1):>7}"
+                f"{_primi_entro(_scegli(m[K], scelta), 'B', 5):>7}{tetto:>10}"
+            )
+
+    # 2. confronti con c-0
+    linee += ["", "2. Confronti con c-0"]
+    for (nome, righe), m in misure.items():
+        if nome == "c-0":
+            continue
+        linee.append(
+            f"  {nome} {righe}: regola di adozione "
+            + ("SODDISFATTA" if adottabile(base, m) else "non soddisfatta")
+        )
+        for gruppo, scelta in GRUPPI_CONTESTO:
+            for k in K_ESATTI:
+                for c in CONDIZIONI_GRIGLIA:
+                    linee.append(
+                        riga_segni(
+                            f"c-0 k={k}",
+                            _scegli(base[k], scelta),
+                            f"{nome} {righe} k={k}",
+                            _scegli(m[k], scelta),
+                            c,
+                        ).replace("  ", f"  [{gruppo}] ", 1)
+                    )
+
+    # 3. per foglio
+    linee += ["", "3. Guadagnati e persi in B per foglio"]
+    for (nome, righe), m in misure.items():
+        if nome == "c-0":
+            continue
+        for foglio in (1, 2):
+            for k in K_ESATTI:
+                linee.append(
+                    riga_segni(
+                        f"c-0 k={k}",
+                        [r for r in base[k] if foglio_della_riga(r["riga"]) == foglio],
+                        f"{nome} {righe} k={k}",
+                        [r for r in m[k] if foglio_della_riga(r["riga"]) == foglio],
+                        "B",
+                    ).replace("  ", f"  [foglio {foglio}] ", 1)
+                )
+
+    # 4. bando sbagliato
+    linee += ["", "4. Presi dal bando o dall'allegato sbagliato prima del giusto"]
+    for (nome, righe), m in misure.items():
+        for k in K_ESATTI:
+            for c in CONDIZIONI_GRIGLIA:
+                gemelle, altri = gemelli_presi(m[k], c)
+                linee.append(
+                    f"  {nome} {righe} k={k} {c}: frasi gemelle "
+                    f"{', '.join(gemelle) or '-'}; altri {', '.join(altri) or '-'}"
+                )
+
+    # 5. parole in comune per i fatti guadagnati
+    linee += [
+        "",
+        (
+            "5. Fatti guadagnati in B contro c-0: parole della domanda (B) simili "
+            "solo nel contesto del primo frammento giusto, per riga (rischio: "
+            "domande e contesti scritti da un modello)"
+        ),
+    ]
+    for (nome, righe), m in misure.items():
+        if nome == "c-0":
+            continue
+        for k in K_ESATTI:
+            guadagnati, _ = cambi_di_esito(base[k], m[k], "B")
+            per_riga: Counter = Counter()
+            con_solo = 0
+            dettagli = []
+            for riga in guadagnati:
+                fatto = fatto_di[riga]
+                r = next(x for x in m[k] if x["riga"] == riga)
+                domanda = r["domanda_B"] or normalizza_domanda(str(fatto["domanda"]))
+                giusti, _ = documenti_del_fatto(fatto, file_per_bando)
+                esito = parole_dal_contesto(
+                    fatto, domanda, giusti, frammenti_per_fonte, righe_del_frammento
+                )
+                if esito is None:
+                    continue
+                _, solo = esito
+                usate = {
+                    q: p for q, p in solo.items() if p and q in RIGHE_CONTESTO[righe]
+                }
+                if usate:
+                    con_solo += 1
+                    per_riga.update(usate)
+                    dettagli.append(
+                        f"{nome_della_riga(riga)} ("
+                        + "; ".join(
+                            f"{NOME_RIGA[q]}: {', '.join(p)}" for q, p in usate.items()
+                        )
+                        + ")"
+                    )
+            linee.append(
+                f"  {nome} {righe} k={k}: guadagnati {len(guadagnati)}, con parole solo "
+                f"nel contesto {con_solo}; per riga: "
+                + (", ".join(f"{NOME_RIGA[q]} {n}" for q, n in per_riga.items()) or "-")
+            )
+            if dettagli:
+                linee.append("    " + "; ".join(dettagli))
+
+    # 6. domande a mano
+    mano = misure_contesto(lato, True)
+    linee += ["", "6. Domande a mano (30 fatti di taratura)"]
+    if ("c-0", NESSUNA) not in mano:
+        linee.append("  non misurate: serve --contesto c-0 --domande-a-mano")
+    else:
+        base_mano = mano[("c-0", NESSUNA)]
+        dei_30 = {r["riga"] for r in base_mano[K]}
+        linee.append(
+            "  regola: il guadagno netto in B resta se con le domande a mano è "
+            "positivo e almeno metà di quello con le domande del foglio sugli stessi "
+            "fatti; si riduce se è positivo ma sotto la metà; non resta se è zero o "
+            "negativo"
+        )
+        for (nome, righe), m in mano.items():
+            if nome == "c-0" or (nome, righe) not in misure:
+                continue
+            for k in K_ESATTI:
+                foglio_base = [r for r in base[k] if r["riga"] in dei_30]
+                foglio_var = [
+                    r for r in misure[(nome, righe)][k] if r["riga"] in dei_30
+                ]
+                celle = []
+                for c in CONDIZIONI_GRIGLIA:
+                    nf = _netto(foglio_base, foglio_var, c)
+                    nm = _netto(base_mano[k], m[k], c)
+                    celle.append(f"{c}: foglio {nf:+d}, a mano {nm:+d}")
+                verdetto = esito_a_mano(
+                    _netto(foglio_base, foglio_var, "B"),
+                    _netto(base_mano[k], m[k], "B"),
+                )
+                linee.append(
+                    f"  {nome} {righe} k={k}: " + "; ".join(celle) + f" -> {verdetto}"
+                )
+                for c in CONDIZIONI_GRIGLIA:
+                    linee.append(
+                        "    a mano "
+                        + riga_segni(
+                            f"c-0 k={k}", base_mano[k], f"{nome} k={k}", m[k], c
+                        ).strip()
+                    )
+
+    # 7. tempi e troncamenti
+    linee += ["", "7. Riordinatore: tempi per domanda e coppie oltre il limite"]
+    for nome, righe in misure:
+        percorso = file_contesto(nome, righe, K, lato, False).with_suffix(".json")
+        t = json.loads(percorso.read_text(encoding="utf-8"))
+        tempi = "; ".join(
+            f"{c} {v['media'] * 1000:.0f} ms"
+            for c, v in t["tempo_per_domanda_s"].items()
+        )
+        linee.append(
+            f"  {nome} {righe}: {tempi}; coppie oltre {t['lunghezza_massima']} token "
+            + ", ".join(
+                f"{c} {t['coppie_troncate'][c]} su {t['coppie'][c]}"
+                for c in CONDIZIONI_GRIGLIA
+            )
+        )
+
+    testo = "\n".join(linee)
+    uscita = CARTELLA_CONTESTO / f"rapporto_contesto_{lato}.txt"
+    uscita.write_text(testo + "\n", encoding="utf-8")
+    print(testo)
+    return 0
+
+
+def esegui_argomenti_contesto(lato: str) -> int:
+    """Quante volte la voce di ARGOMENTO del frammento della risposta è il tipo del fatto.
+
+    Misura dell'affidabilità dell'etichetta, non una variante di ricerca:
+    nessuna ricerca, solo i frammenti che contengono i pezzi del fatto.
+    """
+    if lato != TARATURA:
+        raise ErroreMisura("gli argomenti si contano solo sulla taratura")
+    documenti, salvati = leggi_contesti_generati()
+    _, violazioni = contesti_da(documenti, salvati, "tutte")
+    _, fatti, file_per_bando = fatti_intera(lato)
+    frammenti_per_fonte, _ = frammenti_dei_vettori()
+    id_di = {(d.fonte, f.chunk_num): f.id for d in documenti for f in d.frammenti}
+    ignoti = sorted({tipo_del_fatto(f) for f in fatti} - set(VOCE_DEL_TIPO))
+    if ignoti:
+        raise ErroreMisura(f"tipi di fatto senza voce: {ignoti}")
+    esiti = conta_argomenti(
+        fatti, file_per_bando, frammenti_per_fonte, id_di, salvati, violazioni
+    )
+    linee = [
+        f"Passo 19d, ARGOMENTO del contesto contro il tipo del fatto, metà: {lato}",
+        (
+            "Frammento della risposta: il primo frammento giusto (per file e "
+            "chunk_num) che contiene il primo pezzo; 'almeno uno': uno qualunque "
+            "dei frammenti giusti che contengono un pezzo. Voce attesa da "
+            "VOCE_DEL_TIPO."
+        ),
+        "",
+    ]
+    linee += righe_argomenti(esiti)
+    testo = "\n".join(linee)
+    uscita = CARTELLA_CONTESTO / f"argomenti_{lato}.txt"
+    uscita.write_text(testo + "\n", encoding="utf-8")
+    print(testo)
+    return 0
+
+
+def conta_argomenti(
+    fatti, file_per_bando, frammenti_per_fonte, id_di, salvati, violazioni
+) -> list[dict]:
+    """Per fatto: tipo, voce attesa, voci del primo frammento, coincidenze."""
+    esiti = []
+    for fatto in fatti:
+        giusti, _ = documenti_del_fatto(fatto, file_per_bando)
+        voce = VOCE_DEL_TIPO[tipo_del_fatto(fatto)]
+        contenenti = []
+        for numero, pezzo in enumerate(unita_del_fatto(fatto)):
+            for fonte in sorted(giusti):
+                for fr in frammenti_per_fonte.get(fonte, []):
+                    if contiene(pezzo, fr):
+                        contenenti.append((numero, fonte, fr.chunk_num))
+        esito = {"riga": fatto["riga"], "id_bando": fatto["id_bando"]}
+        esito.update(tipo=tipo_del_fatto(fatto), voce=voce, primo=None, uno=False)
+        if not contenenti:
+            esito["stato"] = "senza frammento"
+            esiti.append(esito)
+            continue
+        voci_di = {}
+        for _, fonte, chunk in contenenti:
+            i = id_di[(fonte, chunk)]
+            voci_di[(fonte, chunk)] = (
+                None if i in violazioni else salvati[i].get("argomento_voci") or []
+            )
+        _, fonte, chunk = contenenti[0]
+        primo = voci_di[(fonte, chunk)]
+        if primo is None:
+            esito["stato"] = "contesto escluso"
+        else:
+            esito["stato"] = "valutato"
+            esito["primo"] = primo
+        esito["uno"] = any(v and voce in v for v in voci_di.values())
+        esiti.append(esito)
+    return esiti
+
+
+def righe_argomenti(esiti: list[dict]) -> list[str]:
+    valutati = [e for e in esiti if e["stato"] == "valutato"]
+    linee = [
+        (
+            f"Fatti {len(esiti)}; valutati {len(valutati)}; senza frammento "
+            f"{sum(e['stato'] == 'senza frammento' for e in esiti)}; contesto del "
+            f"primo frammento escluso "
+            f"{sum(e['stato'] == 'contesto escluso' for e in esiti)}"
+        ),
+    ]
+    for gruppo, scelta in GRUPPI_CONTESTO:
+        sue = [e for e in valutati if scelta(e)]
+        linee.append(
+            f"  {gruppo}: coincide nel primo frammento "
+            f"{sum(e['voce'] in e['primo'] for e in sue)} su {len(sue)}; in almeno uno "
+            f"{sum(e['uno'] for e in sue)}"
+        )
+    linee += [
+        "",
+        "Per tipo del fatto: coincide / valutati; voci date al primo frammento",
+    ]
+    for tipo in sorted({e["tipo"] for e in valutati}):
+        sue = [e for e in valutati if e["tipo"] == tipo]
+        voci = Counter(v for e in sue for v in (e["primo"] or ["(nessuna)"]))
+        linee.append(
+            f"  {tipo} ({VOCE_DEL_TIPO[tipo]}): "
+            f"{sum(e['voce'] in e['primo'] for e in sue)} / {len(sue)}; "
+            + ", ".join(f"{v} {n}" for v, n in voci.most_common())
+        )
+    mancati = [
+        f"{nome_della_riga(e['riga'])} ({e['tipo']} -> {', '.join(e['primo']) or '-'})"
+        for e in valutati
+        if e["voce"] not in e["primo"]
+    ]
+    linee += ["", "Non coincidono: " + ("; ".join(mancati) or "-")]
+    return linee
+
+
 # --- uso ---
 
 
@@ -4954,6 +5917,37 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
             "rapporto del nome dell'azione degli apistici sui 97 fatti: v0+parte "
             "contro v0, senza e con il riordinatore piccolo"
         ),
+    )
+    parser.add_argument(
+        "--contesto",
+        choices=sorted(CONFIG_CONTESTO),
+        help="contesto per frammento: misura una configurazione (con osiria)",
+    )
+    parser.add_argument(
+        "--righe",
+        choices=sorted(RIGHE_CONTESTO),
+        default="tutte",
+        help="righe del contesto che entrano nella ricerca (con --contesto)",
+    )
+    parser.add_argument(
+        "--domande-a-mano",
+        action="store_true",
+        help="con --contesto: i 30 fatti di domande_a_mano.csv, domanda scritta a mano",
+    )
+    parser.add_argument(
+        "--rapporto-contesto",
+        action="store_true",
+        help="rapporto delle misure del contesto contro c-0",
+    )
+    parser.add_argument(
+        "--argomenti-contesto",
+        action="store_true",
+        help="ARGOMENTO del frammento della risposta contro il tipo del fatto",
+    )
+    parser.add_argument(
+        "--prepara-domande-a-mano",
+        action="store_true",
+        help="scrive domande_a_mano.csv (30 fatti di taratura, seme fisso)",
     )
     parser.add_argument("--modello", choices=sorted(MODELLI), default="v0")
     parser.add_argument(
@@ -5026,13 +6020,19 @@ def main(argv: list[str] | None = None) -> int:
         argomenti.notte is not None,
         argomenti.scarica_riordinatore is not None,
         argomenti.parte_97,
+        argomenti.contesto is not None,
+        argomenti.rapporto_contesto,
+        argomenti.argomenti_contesto,
+        argomenti.prepara_domande_a_mano,
     )
     if sum(comandi) != 1:
         print(
             "Serve un comando solo: --dividi, --dividi-secondo, --misura, "
             "--riepilogo, --griglia, "
             "--apistici, --prepara-vettori, --esatta, --peso, --esatta-intera "
-            "--riepilogo-intero, --notte, --scarica-riordinatore o --parte-97.",
+            "--riepilogo-intero, --notte, --scarica-riordinatore, --parte-97, "
+            "--contesto, --rapporto-contesto, --argomenti-contesto o "
+            "--prepara-domande-a-mano.",
             file=sys.stderr,
         )
         return 2
@@ -5068,6 +6068,16 @@ def main(argv: list[str] | None = None) -> int:
             return esegui_scarica_riordinatore(argomenti.scarica_riordinatore)
         if argomenti.parte_97:
             return esegui_parte_97(lato)
+        if argomenti.contesto:
+            return esegui_contesto(
+                lato, argomenti.contesto, argomenti.righe, argomenti.domande_a_mano
+            )
+        if argomenti.rapporto_contesto:
+            return esegui_rapporto_contesto(lato)
+        if argomenti.argomenti_contesto:
+            return esegui_argomenti_contesto(lato)
+        if argomenti.prepara_domande_a_mano:
+            return esegui_prepara_a_mano()
         if argomenti.notte == 4:
             if not argomenti.riordinatore:
                 return esegui_rapporto_riordino(lato)
