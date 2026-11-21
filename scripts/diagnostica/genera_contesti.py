@@ -461,6 +461,154 @@ def voci_dell_argomento(argomento: str) -> tuple[list[str], str, list[str]]:
     return voci, libero, ignote
 
 
+# Forme vicine, scritte a mano (decisione del 21/11/2026): solo forme che
+# dicono la stessa cosa della voce. Niente somiglianze calcolate. Si
+# provano prima di scartare una parte di ARGOMENTO (normalizza_argomento).
+FORME_VICINE = {
+    "chi può partecipare": (
+        "beneficiari",
+        "soggetti beneficiari",
+        "soggetti ammessi",
+        "requisiti di accesso",
+        "requisiti di ammissibilità",
+        "requisiti di partecipazione",
+    ),
+    "importi e massimali": (
+        "importi",
+        "massimali",
+        "massimali di spesa",
+        "importo del contributo",
+        "contributo massimo",
+    ),
+    "percentuali di contributo": (
+        "percentuale di contributo",
+        "intensità del contributo",
+        "intensità dell'aiuto",
+    ),
+    "spese ammesse o escluse": (
+        "spese ammissibili",
+        "spese ammesse",
+        "spese escluse",
+        "spese non ammissibili",
+    ),
+    "punteggi e criteri di valutazione": (
+        "punteggi",
+        "criteri di valutazione",
+        "criteri di selezione",
+        "criteri di priorità",
+    ),
+    "procedura e scadenze di presentazione": (
+        "modalità di presentazione",
+        "presentazione della domanda",
+        "termini di presentazione",
+        "scadenze",
+    ),
+    "documenti da allegare": ("documentazione da allegare", "allegati alla domanda"),
+    "cumulo con altri aiuti": ("cumulo", "cumulabilità"),
+    "obblighi, vincoli e revoche": (
+        "obblighi",
+        "vincoli",
+        "revoca",
+        "revoche",
+        "obblighi del beneficiario",
+        "impegni del beneficiario",
+    ),
+    "rendicontazione e pagamento": (
+        "rendicontazione",
+        "pagamento",
+        "domanda di pagamento",
+        "erogazione del contributo",
+    ),
+    "riferimenti normativi": ("normativa di riferimento", "quadro normativo"),
+    "definizioni": ("glossario",),
+    "controlli e sanzioni": ("controlli", "verifiche", "sanzioni"),
+    "istruttoria e graduatoria": ("istruttoria", "graduatoria"),
+    "trattamento dei dati personali": ("privacy", "protezione dei dati personali"),
+    "varianti, proroghe e modifiche": (
+        "varianti",
+        "proroghe",
+        "proroga",
+        "modifiche",
+        "varianti e proroghe",
+    ),
+    "premesse e finalità": (
+        "premesse",
+        "finalità",
+        "obiettivi",
+        "finalità e obiettivi",
+    ),
+    "contatti e informazioni": (
+        "contatti",
+        "informazioni",
+        "responsabile del procedimento",
+    ),
+    "dotazione e risorse": (
+        "dotazione finanziaria",
+        "risorse disponibili",
+        "risorse finanziarie",
+    ),
+    "aiuti di Stato e regime di aiuto": (
+        "aiuti di stato",
+        "regime di aiuto",
+        "de minimis",
+    ),
+    "indice o intestazione": ("indice", "intestazione"),
+}
+
+
+def normalizza_argomento(argomento: str) -> str:
+    """La riga ARGOMENTO ricondotta all'elenco chiuso (decisione del 21/11/2026).
+
+    Per ogni parte separata da punto e virgola: la voce dell'elenco, o la
+    voce di una sua forma vicina (FORME_VICINE); se la parte intera non è
+    né l'una né l'altra, si provano i suoi pezzi separati da virgola
+    ("varianti, modifiche non sostanziali"). Le altre parti, e le "altro:",
+    si scartano. Al massimo VOCI_MASSIME voci, senza doppioni. Se non resta
+    nessuna voce: "altro:" con il testo del modello (i punto e virgola
+    diventano virgole).
+    """
+    normali = {_normale(v): v for v in VOCI}
+    vicine = {_normale(f): v for v, forme in FORME_VICINE.items() for f in forme}
+    voci: list[str] = []
+
+    def prendi(testo: str) -> bool:
+        voce = normali.get(_normale(testo)) or vicine.get(_normale(testo))
+        if voce and voce not in voci:
+            voci.append(voce)
+        return voce is not None
+
+    for parte in argomento.split(";"):
+        p = _normale(parte)
+        if not p or p.startswith(ALTRO):
+            continue
+        if not prendi(parte):
+            for pezzo in parte.split(","):
+                prendi(pezzo)
+    if voci:
+        return "; ".join(voci[:VOCI_MASSIME])
+    libero = re.sub(rf"(?i)^\s*{ALTRO}\s*:\s*", "", argomento.strip())
+    libero = libero.strip().rstrip(";").strip().replace(";", ",")
+    return f"{ALTRO}: {libero}" if libero else ALTRO
+
+
+def con_argomento_normalizzato(dato: dict) -> dict:
+    """Il contesto con ARGOMENTO normalizzato; la riga del modello resta in
+    `argomento_modello`. Un contesto già normalizzato resta com'è."""
+    righe = dato.get("righe") or {}
+    if "argomento_modello" in dato or "argomento" not in righe:
+        return dato
+    nuovo = normalizza_argomento(righe["argomento"])
+    voci, libero, ignote = voci_dell_argomento(nuovo)
+    return {
+        **dato,
+        "righe": {**righe, "argomento": nuovo},
+        "argomento_modello": righe["argomento"],
+        "argomento_voci": voci,
+        "argomento_altro": libero,
+        "argomento_non_ricondotto": ignote,
+    }
+
+
 # --- salvataggio e ripresa ---
 
 
@@ -468,7 +616,9 @@ def leggi_salvati(percorso: Path, impronta: str | None = None) -> dict[str, dict
     """Le righe salvate per id. Un'ultima riga troncata si ignora.
 
     Con `impronta`, una riga con un'impronta diversa ferma: le versioni
-    delle istruzioni non si mescolano nello stesso file.
+    delle istruzioni non si mescolano nello stesso file. ARGOMENTO esce
+    normalizzato anche per le righe scritte prima della normalizzazione
+    (con_argomento_normalizzato).
     """
     if not percorso.exists():
         return {}
@@ -492,7 +642,7 @@ def leggi_salvati(percorso: Path, impronta: str | None = None) -> dict[str, dict
                 f"{str(dato.get('impronta'))[:12]} invece di {impronta[:12]}): "
                 "spostalo o rinominalo prima di generare di nuovo"
             )
-        salvati[dato["id"]] = dato
+        salvati[dato["id"]] = con_argomento_normalizzato(dato)
     return salvati
 
 
@@ -526,25 +676,27 @@ def riga_salvata(
     scritta = lette.pop("bando", None)
     righe = {"bando": riga_bando(documento), **lette} if lette else {}
     voci, libero, ignote = voci_dell_argomento(righe.get("argomento", ""))
-    return {
-        "id": frammento.id,
-        "fonte": documento.fonte,
-        "chunk_num": frammento.chunk_num,
-        "sha256_frammento": frammento.sha256,
-        "impronta": impronta_istruzioni(),
-        "modello": MODELLO,
-        "testo": testo,
-        "righe": righe,
-        "bando_scritto_dal_modello": scritta,
-        "argomento_voci": voci,
-        "argomento_altro": libero,
-        "argomento_non_ricondotto": ignote,
-        "stop_reason": risposta.stop_reason,
-        **uso,
-        "costo_dollari": round(costo(uso), 8),
-        "request_id": getattr(risposta, "_request_id", None),
-        "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
-    }
+    return con_argomento_normalizzato(
+        {
+            "id": frammento.id,
+            "fonte": documento.fonte,
+            "chunk_num": frammento.chunk_num,
+            "sha256_frammento": frammento.sha256,
+            "impronta": impronta_istruzioni(),
+            "modello": MODELLO,
+            "testo": testo,
+            "righe": righe,
+            "bando_scritto_dal_modello": scritta,
+            "argomento_voci": voci,
+            "argomento_altro": libero,
+            "argomento_non_ricondotto": ignote,
+            "stop_reason": risposta.stop_reason,
+            **uso,
+            "costo_dollari": round(costo(uso), 8),
+            "request_id": getattr(risposta, "_request_id", None),
+            "ora": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    )
 
 
 # --- generazione ---
@@ -896,6 +1048,7 @@ def segni_del_gemello(
 SEGNI_AUTOMATICI = 3
 FREQUENZA_SEGNO = 3
 LETTERE_SEGNO = 5
+RADICE_SEGNO = 6
 
 
 def _parole_del_testo(testo: str) -> list[str]:
@@ -907,9 +1060,11 @@ def segni_automatici(
 ) -> list[str]:
     """Fino a SEGNI_AUTOMATICI segni del gemello, dal più frequente nel suo testo.
 
-    Parole di almeno LETTERE_SEGNO lettere, non funzionali, assenti dal
-    proprio documento; oppure coppie di parole consecutive del gemello che
-    nel proprio documento non stanno mai insieme (pur avendo le due parole).
+    Parole di almeno LETTERE_SEGNO lettere, non funzionali, la cui radice
+    (prime RADICE_SEGNO lettere) non compare nel proprio documento; oppure
+    coppie di parole consecutive del gemello le cui radici nel proprio
+    documento non stanno mai insieme (pur comparendo tutte e due). Il segno
+    scelto si cerca poi nel contesto com'è, parola intera.
     Una coppia che contiene una parola già scelta non si aggiunge. A parità
     di frequenza, in ordine alfabetico.
     """
@@ -921,8 +1076,11 @@ def segni_automatici(
         f"{documento.titolo} {documento.atto} {documento.parte} {documento.testo} "
         f"{del_bando}"
     )
-    parole_proprie = set(_parole_del_testo(proprio))
-    proprio_normale = " ".join(_parole_del_testo(proprio))
+    # l'assenza si verifica sulla radice, le prime RADICE_SEGNO lettere
+    # (21/11/2026: "attrezzatura" del gemello contro "attrezzature" proprie)
+    radici_proprie = [p[:RADICE_SEGNO] for p in _parole_del_testo(proprio)]
+    insieme_radici = set(radici_proprie)
+    sequenza_radici = " ".join(radici_proprie)
     del_gemello = _parole_del_testo(gemello.testo)
 
     def buona(p: str) -> bool:
@@ -930,13 +1088,13 @@ def segni_automatici(
 
     conti: Counter = Counter()
     for p in del_gemello:
-        if buona(p) and p not in parole_proprie:
+        if buona(p) and p[:RADICE_SEGNO] not in insieme_radici:
             conti[p] += 1
     for a, b in zip(del_gemello, del_gemello[1:], strict=False):
-        if buona(a) and buona(b) and a in parole_proprie and b in parole_proprie:
-            coppia = f"{a} {b}"
-            if not re.search(rf"\b{coppia}\b", proprio_normale):
-                conti[coppia] += 1
+        ra, rb = a[:RADICE_SEGNO], b[:RADICE_SEGNO]
+        if buona(a) and buona(b) and ra in insieme_radici and rb in insieme_radici:
+            if not re.search(rf"\b{ra} {rb}\b", sequenza_radici):
+                conti[f"{a} {b}"] += 1
     scelti: list[str] = []
     for segno, n in sorted(conti.items(), key=lambda x: (-x[1], x[0])):
         if n < FREQUENZA_SEGNO or len(scelti) == SEGNI_AUTOMATICI:
@@ -957,12 +1115,31 @@ def testo_di_ricerca(
 
 # Riferimenti di struttura senza parola davanti: 4.2.2, 16.4, 1.3.2.1 (gruppi
 # di 1-2 cifre dopo il punto; "50.000" e "1.242.000" non lo sono)
-STRUTTURA = re.compile(r"(?<![\d.,])\d{1,3}(?:\.\d{1,2})+(?![\d,]|\.\d)")
+# Dal 21/11/2026 vale anche seguito da punteggiatura ("1.1," "6.2,"), purché
+# la punteggiatura non sia seguita da una cifra (18.000,00 resta fuori)
+STRUTTURA = re.compile(r"(?<![\d.,])\d{1,3}(?:\.\d{1,2})+(?!\d|[.,]\d)")
+DATA_DOVE = re.compile(r"\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b")
+NUMERO_SOLO = re.compile(r"^\d{1,3}$")
+
+
+def apre_una_riga(numero: str, testo: str) -> bool:
+    """Nel testo il numero apre una riga come paragrafo o punto ("1.1 …", "2. …")."""
+    cerca = rf"(?m)^[ \t]*{re.escape(numero)}(?:[.)]|\s)"
+    return re.search(cerca, testo) is not None
 
 
 def _togli_struttura(testo: str, documento: Documento, violazioni: list) -> str:
-    """Toglie dal testo i riferimenti di struttura e i codici; segnala quelli che
-    nel documento non ci sono. Restituisce il testo che resta."""
+    """Toglie dal testo date, riferimenti di struttura e codici; segnala quelli
+    che nel documento non ci sono. Restituisce il testo che resta.
+
+    Un riferimento senza parola davanti (4.2.2, 16.4) vale solo se nel
+    documento apre una riga come paragrafo o punto (apre_una_riga).
+    """
+    for m in DATA_DOVE.finditer(testo):
+        violazioni.append(
+            ("numero", f"numero non di struttura nella riga DOVE (data): {m[0]}")
+        )
+    testo = DATA_DOVE.sub(" ", testo)
     del_documento = numeri_di(documento.testo)
     codici_documento = set(
         CODICE.findall(
@@ -975,7 +1152,7 @@ def _togli_struttura(testo: str, documento: Documento, violazioni: list) -> str:
             violazioni.append(("numero", f"riferimento non nel documento: {m[0]!r}"))
     resto = RIFERIMENTO.sub(" ", testo)
     for m in STRUTTURA.finditer(resto):
-        if m[0] not in documento.testo:
+        if not apre_una_riga(m[0], documento.testo):
             violazioni.append(("numero", f"riferimento non nel documento: {m[0]!r}"))
     resto = STRUTTURA.sub(" ", resto)
     for codice in CODICE.findall(resto):
@@ -1038,6 +1215,9 @@ def controlla_contesto(
     dove = righe.get("dove") or ""
     resto = _togli_struttura(dove, documento, violazioni)
     for n in NUMERO.findall(resto):
+        # un numero solo vale come riferimento se nel documento apre una riga
+        if NUMERO_SOLO.match(n) and apre_una_riga(n, documento.testo):
+            continue
         violazioni.append(("numero", f"numero non di struttura nella riga DOVE: {n}"))
     for regola in (PAROLE_NUMERO, MESI):
         for m in regola.finditer(dove):
@@ -1072,14 +1252,21 @@ def controlla_contesto(
     return violazioni
 
 
-def linee_dei_segni(documenti: list[Documento]) -> list[str]:
-    """Per file: i segni del gemello rimasti dopo la verifica e quelli scartati."""
-    gemelli = gemelli_dei_file(documenti)
+def linee_dei_segni(
+    documenti: list[Documento], tutti: list[Documento] | None = None
+) -> list[str]:
+    """Per file: i segni del gemello rimasti dopo la verifica e quelli scartati.
+
+    `tutti`: i file fra cui cercare gemelli e altri file del bando (con
+    --prova, tutti i 17, anche se si controlla un file solo).
+    """
+    tutti = tutti or documenti
+    gemelli = gemelli_dei_file(tutti)
     linee = []
     for d in documenti:
         if not gemelli[d.fonte]:
             continue
-        s = segni_del_gemello(d, gemelli[d.fonte], altri_del_bando(d, documenti))
+        s = segni_del_gemello(d, gemelli[d.fonte], altri_del_bando(d, tutti))
         a_mano = sorted(s.codici) + sorted(s.frasi - s.automatici) + sorted(s.numeri)
         linee.append(
             f"  {d.fonte}: rimasti "
@@ -1096,12 +1283,22 @@ def linee_dei_segni(documenti: list[Documento]) -> list[str]:
 
 
 def controlla_tutti(
-    documenti: list[Documento], salvati: dict[str, dict]
+    documenti: list[Documento],
+    salvati: dict[str, dict],
+    tutti: list[Documento] | None = None,
 ) -> tuple[dict[str, list[tuple[str, str]]], list[str]]:
-    """(violazioni per id del frammento, linee del rapporto)."""
+    """(violazioni per id del frammento, linee del rapporto).
+
+    Si controllano i frammenti di `documenti`; gemelli e altri file del
+    bando si cercano fra `tutti` (predefinito: `documenti`). Con --prova
+    `documenti` è il file provato e `tutti` sono i 17: prima del
+    21/11/2026 i gemelli si cercavano fra i soli file provati, e il
+    controllo del gemello nella prova non trovava niente.
+    """
     from collections import Counter
 
-    gemelli = gemelli_dei_file(documenti)
+    tutti = tutti or documenti
+    gemelli = gemelli_dei_file(tutti)
     violazioni: dict[str, list[tuple[str, str]]] = {}
     per_file = []
     tipi: Counter = Counter()
@@ -1109,7 +1306,7 @@ def controlla_tutti(
     fuori_misura: Counter = Counter()
     scritta_bando = rifatti = indice = 0
     for d in documenti:
-        segni = segni_del_gemello(d, gemelli[d.fonte], altri_del_bando(d, documenti))
+        segni = segni_del_gemello(d, gemelli[d.fonte], altri_del_bando(d, tutti))
         fatti = [f for f in d.frammenti if f.id in salvati]
         con = 0
         for f in fatti:
@@ -1172,7 +1369,7 @@ def controlla_tutti(
         "Voci di ARGOMENTO: " + ", ".join(f"{v} {n}" for v, n in voci.most_common()),
         "",
         "Segni del gemello dopo la verifica sul proprio documento:",
-        *linee_dei_segni(documenti),
+        *linee_dei_segni(documenti, tutti),
         "",
         "Per file: frammenti con contesto / frammenti, con violazioni",
     ]
@@ -1204,9 +1401,10 @@ def esegui_controlli(prova: bool) -> int:
     if not salvati:
         print(f"Nessun contesto in {percorso}")
         return 1
+    tutti = documenti
     if prova:
         documenti = [d for d in documenti if any(f.id in salvati for f in d.frammenti)]
-    _, linee = controlla_tutti(documenti, salvati)
+    _, linee = controlla_tutti(documenti, salvati, tutti)
     nome = "controllo_contesti_prova.txt" if prova else "controllo_contesti.txt"
     testo = "\n".join(linee)
     (CARTELLA / nome).write_text(testo + "\n", encoding="utf-8")
@@ -1253,6 +1451,7 @@ def main(argv: list[str] | None = None, client=None) -> int:
             return 2
         documenti = leggi_documenti()
         controlla_documenti(documenti)
+        tutti = documenti
         percorso = FILE_CONTESTI
         if argomenti.prova:
             documenti = documenti_della_prova(
@@ -1278,7 +1477,7 @@ def main(argv: list[str] | None = None, client=None) -> int:
             f"(stima con i prezzi di PREZZI), {time.perf_counter() - inizio:.0f} s"
         )
         if argomenti.prova:
-            _, linee = controlla_tutti(documenti, salvati)
+            _, linee = controlla_tutti(documenti, salvati, tutti)
             print("\n" + "\n".join(linee))
         return 0
     except ArrestoGenerazione as motivo:

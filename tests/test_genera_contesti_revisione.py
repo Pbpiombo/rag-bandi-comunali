@@ -30,7 +30,9 @@ def documento(
     fonte="prova.pdf", id_bando="prova", parte="", titolo="Bando prova strade"
 ):
     corpo = (
-        "Articolo 3. Contributo. 4.2.2 Importo. Il contributo massimo è di 50.000 "
+        # 4.2.2 apre una riga, come nei PDF: dal 21/11/2026 un riferimento
+        # senza parola davanti vale solo se nel documento apre una riga
+        "Articolo 3. Contributo.\n4.2.2 Importo. Il contributo massimo è di 50.000 "
         "euro per ogni comune. "
     )
     frammenti = [
