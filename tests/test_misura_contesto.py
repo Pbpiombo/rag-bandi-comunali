@@ -69,7 +69,9 @@ def test_testo_per_riordino():
 
 def documento(n=3):
     frammenti = [
-        gc.FrammentoDaContestualizzare(f"a::{i}", i, f"Articolo 2. Testo {i} del bando.")
+        gc.FrammentoDaContestualizzare(
+            f"a::{i}", i, f"Articolo 2. Testo {i} del bando."
+        )
         for i in range(n)
     ]
     return gc.Documento(
@@ -114,7 +116,9 @@ def test_contesti_da_righe_e_violazioni(monkeypatch):
 
 def test_contesti_da_ferma_oltre_la_quota_o_se_mancano():
     d = documento()
-    salvati = {f.id: salvato(CONTESTO.replace("api", "api dal 2019")) for f in d.frammenti}
+    salvati = {
+        f.id: salvato(CONTESTO.replace("api", "api dal 2019")) for f in d.frammenti
+    }
     with pytest.raises(mr.ErroreMisura, match="oltre il 5%"):
         mr.contesti_da([d], salvati, "tutte")
     del salvati["a::0"]
@@ -201,13 +205,17 @@ def test_con_domande_a_mano(tmp_path):
 
 def righe_b(trovati: list[bool]):
     return [
-        {"riga": str(i), "B_trovato": "sì" if t else "no"} for i, t in enumerate(trovati)
+        {"riga": str(i), "B_trovato": "sì" if t else "no"}
+        for i, t in enumerate(trovati)
     ]
 
 
 def test_regola_di_adozione():
     base = {10: righe_b([False] * 20), 15: righe_b([False] * 20)}
-    meglio = {10: righe_b([True] * 8 + [False] * 12), 15: righe_b([True] * 8 + [False] * 12)}
+    meglio = {
+        10: righe_b([True] * 8 + [False] * 12),
+        15: righe_b([True] * 8 + [False] * 12),
+    }
     assert mr.adottabile(base, meglio)
     solo_k10 = {10: meglio[10], 15: righe_b([True] * 2 + [False] * 18)}
     assert not mr.adottabile(base, solo_k10)
@@ -232,12 +240,24 @@ def test_conta_argomenti():
     frammenti_per_fonte = {"a.pdf": fr}
     file_per_bando = {"b": [{"nome_file": "a.pdf", "parte": ""}]}
     fatti = [
-        {"riga": 2, "id_bando": "b", "tipo_fatto": "chi può partecipare",
-         "frase": "Possono partecipare le aziende apistiche iscritte."},
-        {"riga": 3, "id_bando": "b", "tipo_fatto": "importo o massimale (più punti)",
-         "frase": "Il contributo massimo è di 5.000 euro."},
-        {"riga": 4, "id_bando": "b", "tipo_fatto": "procedura",
-         "frase": "Frase che non sta in nessun frammento."},
+        {
+            "riga": 2,
+            "id_bando": "b",
+            "tipo_fatto": "chi può partecipare",
+            "frase": "Possono partecipare le aziende apistiche iscritte.",
+        },
+        {
+            "riga": 3,
+            "id_bando": "b",
+            "tipo_fatto": "importo o massimale (più punti)",
+            "frase": "Il contributo massimo è di 5.000 euro.",
+        },
+        {
+            "riga": 4,
+            "id_bando": "b",
+            "tipo_fatto": "procedura",
+            "frase": "Frase che non sta in nessun frammento.",
+        },
     ]
     id_di = {("a.pdf", 0): "a::0", ("a.pdf", 1): "a::1"}
     salvati = {
@@ -265,7 +285,10 @@ def test_parole_dal_contesto():
     fatto = {"riga": 2, "frase": "Possono partecipare le aziende apistiche iscritte."}
     righe = {"bando": "Bando prova", "serve_a": "sapere se chi alleva api partecipa"}
     _, solo = mr.parole_dal_contesto(
-        fatto, "chi alleva api può partecipare", {"a.pdf"}, {"a.pdf": [fr]},
+        fatto,
+        "chi alleva api può partecipare",
+        {"a.pdf"},
+        {"a.pdf": [fr]},
         lambda fonte, chunk: righe,
     )
     assert "alleva" in solo["serve_a"]
@@ -279,3 +302,63 @@ def test_configurazioni_e_vettori():
     assert mr.MODELLI[nome].limite == 512
     assert mr.MODELLI[nome].contesto == "senza-serve-a"
     assert mr.CONFIG_CONTESTO["c-0"].descrizione() == "contesto in: nessuna parte"
+
+
+def test_rapporto_conta_le_righe_dei_fatti_guadagnati(tmp_path, monkeypatch):
+    # sezione 5 con un fatto guadagnato in B le cui parole stanno solo nel
+    # contesto: prima del 21/11/2026 Counter.update sommava le liste di parole
+    def riga(trovato):
+        return {
+            "riga": "2",
+            "id_bando": "b",
+            "gemello": "no",
+            "domanda_B": "chi alleva",
+            "A_trovato": "no",
+            "B_trovato": trovato,
+            "A_primo_giusto": "",
+            "B_primo_giusto": "1" if trovato == "sì" else "",
+            "A_pezzo_dal_gemello": "no",
+            "B_pezzo_dal_gemello": "no",
+        }
+
+    base = {k: [riga("no")] for k in mr.K_ESATTI}
+    meglio = {k: [riga("sì")] for k in mr.K_ESATTI}
+    misure = {("c-0", mr.NESSUNA): base, ("c-L", "tutte"): meglio}
+    tempo = {"media": 0.1}
+    for nome in ("c-0", "c-L"):
+        (tmp_path / f"{nome}.json").write_text(
+            '{"trovati_tra_i_candidati": {"A": 0, "B": 1}, "lunghezza_massima": 512,'
+            ' "tempo_per_domanda_s": {"A": %s, "B": %s},'
+            ' "coppie_troncate": {"A": 0, "B": 0}, "coppie": {"A": 1, "B": 1}}'
+            % (str(tempo).replace("'", '"'), str(tempo).replace("'", '"')),
+            encoding="utf-8",
+        )
+    monkeypatch.setattr(mr, "CARTELLA_CONTESTO", tmp_path)
+    monkeypatch.setattr(
+        mr, "misure_contesto", lambda lato, mano: {} if mano else misure
+    )
+    monkeypatch.setattr(mr, "file_contesto", lambda nome, *a: tmp_path / f"{nome}.csv")
+    monkeypatch.setattr(mr, "file_riordino", lambda *a: tmp_path / "manca.csv")
+    monkeypatch.setattr(mr, "leggi_contesti_generati", lambda: ([], {}))
+    monkeypatch.setattr(mr, "contesti_della_misura", lambda *a: ({}, {}))
+    fatto = {"riga": 2, "id_bando": "b", "domanda": "chi alleva"}
+    monkeypatch.setattr(mr, "fatti_intera", lambda lato: (None, [fatto], {}))
+    monkeypatch.setattr(mr, "frammenti_dei_vettori", lambda: ({}, {}))
+    monkeypatch.setattr(mr, "documenti_del_fatto", lambda f, fb: ({"a.pdf"}, set()))
+    monkeypatch.setattr(
+        mr,
+        "parole_dal_contesto",
+        lambda *a: (
+            [],
+            {"serve_a": ["alleva", "api"], "parole": ["alleva"], "bando": []},
+        ),
+    )
+    assert mr.esegui_rapporto_contesto(mr.TARATURA) == 0
+    testo = (tmp_path / f"rapporto_contesto_{mr.TARATURA}.txt").read_text(
+        encoding="utf-8"
+    )
+    for k in mr.K_ESATTI:
+        assert (
+            f"c-L tutte k={k}: guadagnati 1, con parole solo nel contesto 1; "
+            "per riga: SERVE A 1, PAROLE 1"
+        ) in testo

@@ -5707,7 +5707,7 @@ def esegui_rapporto_contesto(lato: str) -> int:
                 }
                 if usate:
                     con_solo += 1
-                    per_riga.update(usate)
+                    per_riga.update(usate.keys())
                     dettagli.append(
                         f"{nome_della_riga(riga)} ("
                         + "; ".join(
