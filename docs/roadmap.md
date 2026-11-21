@@ -160,6 +160,11 @@ Passi nuovi della sezione A:
     sotto l'85%. Se resta sotto la soglia, gli avvisi entrano in
     produzione solo con il filtro per bando, e i casi difficili restano
     in coda. Le altre idee in `coda.md`, "Parcheggio".
+    Al 21/11/2026 sera: nome dell'azione nel registro, fuori dal recupero
+    (punto 5); contesto per frammento generato sugli 871 frammenti,
+    controlli e misura da fare, con le regole decise prima (punto 13);
+    poi revisione esterna del metodo, e solo dopo l'apertura del
+    controllo.
     19e, nuovo (20/11/2026): avvisi su Postgres insieme al filtro per
     `id_bando` nell'app, e rimisura del recupero su Postgres con gli
     stessi fatti, perché lì ricerca per parole e indice dei vettori sono

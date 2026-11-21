@@ -456,7 +456,9 @@ stesse colonne e stesse regole del primo, compilato da un modello e non
 corretto a mano: 114 fatti sugli stessi 11 bandi, 140 pezzi, 34 domande
 "semplice" e 80 "caso", 23 righe di tabella, 24 risposte in più pezzi.
 Serve a portare i fatti a 195, perché con 40 fatti per metà differenze di
-1-3 fatti restano nel rumore (`coda.md`, "Passo 19d", punto 2). Esiti
+1-3 fatti restavano nel rumore; dal 20/11/2026 sera due configurazioni si
+confrontano con il test esatto dei segni sulle coppie discordanti, e la
+soglia fissa di 1-3 fatti non vale più (`coda.md`, "Passo 19d", punto 2). Esiti
 del controllo: 114 trovati nella pagina dichiarata (12 alla lettera, 90
 normalizzati, 12 solo senza spazi), 0 assenti, 0 in altro bando; 140
 pezzi interi in un frammento, 59 nella parte vista. Con `--confronta` si

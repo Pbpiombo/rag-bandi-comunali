@@ -549,3 +549,32 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
     predefiniti; il caricamento ridà gli stessi 871 frammenti con la
     stessa impronta.
   - Risultati e stato delle strade in `docs/coda.md`, "Passo 19d".
+- **Passo 19d, nome dell'azione degli apistici nel registro** (21/11/2026,
+  commit b2e3d42). Colonna `parte` di `data/processed/documenti_bandi.csv`
+  per i quattro allegati del decreto 14025, dal titolo a pagina 1
+  (`scripts/ingestione/registra_avvisi.py`); misura sui 97 fatti e
+  decisione di non metterlo nel recupero in `docs/coda.md`, "Passo 19d",
+  punto 5.
+- **Passo 19d, contesto per frammento: script e controlli** (21/11/2026,
+  commit 72c269c, f7498e7, 4c58a3a, a8ef955). Nessuna chiamata al modello
+  nei test.
+  - `scripts/diagnostica/genera_contesti.py`: un documento alla volta, la
+    prima chiamata scrive la cache e solo dopo partono le altre; una riga
+    per frammento in `dati-grezzi/prova/19d/contesto/`, ripresa senza
+    rifare; tetto di spesa cumulativo; arresto se dopo la seconda chiamata
+    di un documento lungo i token letti dalla cache sono zero; un
+    contesto troncato si rifà una volta; `--prova --file` su un file a
+    scelta; `--controlla` per i controlli senza chiamate.
+  - Riga BANDO composta dal codice dal registro; righe DOVE, ARGOMENTO,
+    SERVE A, PAROLE dal modello; ARGOMENTO normalizzato dal codice con
+    l'elenco chiuso e le forme vicine scritte a mano, con la riga del
+    modello conservata.
+  - Controlli: numeri e date non nel frammento, riferimenti di struttura
+    della riga DOVE, bando gemello (segni scritti a mano verificati sul
+    proprio documento e segni automatici verificati sulla radice), forma.
+  - `scripts/diagnostica/misura_recupero_avvisi.py`: configurazioni c-0,
+    c-R, c-L, c-LR, c-LVR con il riordinatore piccolo, righe del contesto
+    tolte una alla volta, 30 domande scritte a mano
+    (`--prepara-domande-a-mano`, `--domande-a-mano`), etichetta di
+    ARGOMENTO contro il tipo del fatto, rapporto con le regole di adozione.
+  - Generazioni, prova e regole in `docs/coda.md`, "Passo 19d", punto 13.

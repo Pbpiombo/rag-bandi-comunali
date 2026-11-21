@@ -465,6 +465,10 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
    sul Chroma locale; gli avvisi vanno su Postgres solo se il 19d passa.
    Stato al 21/11/2026: in chiusura, con il perimetro del punto 10. Non è
    più una verifica, è il lavoro che ridisegna la ricerca nei documenti.
+   Al 21/11/2026 sera: mossa 2 fatta (punto 5); mossa 3, il contesto per
+   frammento, generata sugli 871 frammenti e non ancora controllata né
+   misurata (punto 13); mosse 1 e 4 dopo quella misura (punto 13,
+   "Prossimo compito").
    Dalla notte del 20/11/2026 le misure sono sulla taratura intera, 97
    fatti dei due fogli, con la misura esatta (punto 3); quelle sui primi
    40 fatti restano, superate. Il controllo non è mai stato letto.
@@ -790,8 +794,8 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
    5. **Nome dell'azione degli apistici** (decreto n. 14025 del
       18/06/2026). Fonte: il titolo a pagina 1 di ogni allegato, per
       esempio "Intervento B Azione B1: Lotta a parassiti e malattie".
-      Valori per la colonna `parte` del registro, decisi e non ancora
-      scritti:
+      Valori per la colonna `parte` del registro, decisi il 20/11/2026 e
+      scritti il 21/11/2026 (più sotto):
       - Allegato A1: "Azione B1: Lotta a parassiti e malattie";
       - Allegato A3: "Azione B3: Ripopolamento patrimonio apistico";
       - Allegato A4: "Azione B4: Razionalizzazione della transumanza";
@@ -803,6 +807,26 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
       74 in B sale (dal 32° al 16° su v0, dal 39° al 12° su v1) senza
       entrare nei primi 10; la 72 resta oltre il 50°. Nessun pezzo preso
       dal gemello.
+      **Scritti nel registro il 21/11/2026** (commit b2e3d42): colonna
+      `parte` di `data/processed/documenti_bandi.csv`, i quattro valori qui
+      sopra, ricavati dal titolo a pagina 1 di ogni allegato. Misura sui 97
+      fatti di taratura, copia `v0+parte` (parte davanti al testo del
+      vettore e della ricerca per parole dei soli allegati con il nome;
+      fonte `dati-grezzi/prova/19d/v0+parte97/parte_taratura_97.txt`):
+      - senza riordinatore, contro v0: B k=10 63 contro 60 (+3 −0, p =
+        0,250), k=15 73 contro 71 (+2 −0, p = 0,500); A k=10 42 contro 42,
+        k=15 52 contro 53; tutti entro il rumore;
+      - con osiria, contro osiria su v0: B k=10 72 contro 72 (nessun fatto
+        discordante), k=15 77 contro 78 (persa la 2:106, p = 1); A 58 e 62
+        uguali; entro il rumore.
+      Decisione del 21/11/2026: il nome dell'azione sta nel registro e non
+      entra nel recupero (né nel vettore né nella ricerca per parole),
+      perché con il riordinatore non dà guadagno. Eccezione: la riga BANDO
+      del contesto per frammento, composta dal programma, riporta la parte
+      (punto 13); per questo i 14 fatti degli apistici si riportano a parte
+      in ogni tabella di quella misura. Riserva: se il riordinatore non
+      fosse adottabile su Streamlit Community Cloud, il nome dell'azione
+      nel recupero si rimisura senza riordinatore.
    6. **Scoperte sul sistema.**
       - `avvolgi` restringe la ricerca per 19 domande di taratura su 40:
         17 al documento giusto, 2 al giusto più il gemello (righe 55 e 63:
@@ -829,6 +853,31 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
         frammenti di quelli chiesti. La ricerca per parole è il full-text
         italiano di Postgres (`to_tsquery`, `ts_rank_cd`), non BM25. Le
         misure su Chroma non valgono come misure della produzione.
+      - Copertura dell'archivio (21/11/2026, sola lettura; fonte
+        `dati-grezzi/prova/19d/archivio/rapporto_archivio_taratura.txt`,
+        script accanto). Per ogni fatto di taratura, la frase contro i
+        campi dell'archivio del suo bando (`bandi`, `beneficiari_bando`,
+        `interventi_bando`, `scadenze_bando`, `testo_ricerca`); confronto
+        meccanico su date intere, percentuali e numeri di almeno tre cifre,
+        sulle parole per le frasi senza numeri. Su 97: 7 sì, 6 in parte, 7
+        dubbi da guardare a mano, 77 no. Due dei 7 sì sono probabili
+        coincidenze (righe 53 e 2:75: il solo numero in comune è il 651
+        del regolamento 651/2014). Dei 25 fatti che osiria su v0 non trova
+        in B con k=10, uno è sì (2:75, dubbio) e uno in parte (2:98).
+        Campi vuoti su 113 bandi: `beneficiari_rimando` 113,
+        `cumulabilita` 109, `premialita` 102, `costo_min` 95,
+        `contributo_perc` 93, `contributo_min` 90, `dotazione` 67,
+        `costo_max` 59, `contributo_max` 39; nessuna riga in
+        `scadenze_bando` per 108 bandi, in `interventi_bando` per 55.
+        L'app passa questi campi al modello solo se il router sceglie
+        `dettaglio_bando` (`src/chains/router.py:62-66`, punto 7), e degli
+        interventi passa genere e descrizione, non la frase
+        (`src/database/interrogazioni_bandi.py`, `_dettaglio`);
+        `testo_ricerca` non arriva al modello. Conseguenza per il passo 2b
+        ("Pulizia dei dati"): le risposte di dettaglio sui bandi vengono
+        dai frammenti, non dall'archivio; il 2b resta la correzione dei
+        campi sbagliati elencati in quella sezione, non il loro
+        riempimento per coprire le domande di dettaglio.
    7. **Conseguenza per il passo 19e** (nuovo, 20/11/2026: caricamento
       degli avvisi su Postgres). Comprende il filtro per `id_bando`
       nell'app: se una variante passa in B, gli avvisi vanno su Postgres
@@ -836,6 +885,20 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
       non filtra per bando, e il filtro di Postgres è per file. Il
       recupero va rimisurato su Postgres con gli stessi fatti e la stessa
       divisione.
+      Dove agganciare il filtro (letto dal codice il 21/11/2026, `src/`
+      non toccato): quando la domanda nomina un bando il router sceglie
+      `dettaglio_bando` (`src/chains/router.py:62-66`). In
+      `src/chains/rag.py`, `prepara` (riga 377) esegue prima le
+      interrogazioni (riga 381) e poi cerca i frammenti con `recupera`
+      sulla domanda intera, senza filtro per bando (righe 385-386); oggi
+      l'unico restringimento è `avvolgi` (riga 367,
+      `src/recupero_documenti.py:272`), che lavora sui titoli dei
+      documenti. Il filtro va tra i due passi: dall'id del bando trovato da
+      `dettaglio_bando` (`trova_bandi`) al filtro dei frammenti.
+      Idea per le domande ambigue (21/11/2026, da progettare nel 19e):
+      l'app chiede quale bando. Un candidato: filtro su quel bando; due o
+      tre: mostra i nomi e chiede; nessuno: cerca in tutto e lo dice; bando
+      in più parti (gli allegati degli apistici): chiede la parte.
    8. **Strade da provare, nell'ordine** (superato dal perimetro del
       punto 10, 20/11/2026 sera: la strada 1 è fatta, punto 3; la 2 resta;
       la 3 è l'unica strada nuova, limitata al contesto per frammento; il
@@ -881,7 +944,8 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
        Quattro mosse, e non altre:
        1. scelta della configurazione, sulla taratura;
        2. nome dell'azione degli apistici nel registro (punto 5);
-       3. una sola strada nuova: il contesto per frammento (punto 11);
+       3. una sola strada nuova: il contesto per frammento (conteggi al
+          punto 11, lavoro e regole al punto 13);
        4. apertura del controllo, una volta, con il via esplicito; il
           numero che esce si scrive anche se è sotto l'85%.
        Se resta sotto la soglia, gli avvisi entrano in produzione solo con
@@ -965,6 +1029,103 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
        openvino, `pytorch_model.bin` e lo script. Decisione rivista e
        accettata da chi mantiene il progetto il 21/11/2026. I modelli
        stanno nella cache di Hugging Face, fuori dal repository.
+   13. **Terza mossa: contesto per frammento** (21/11/2026; perimetro,
+       punto 10, voce 3). Per ogni frammento degli avvisi un modello
+       (claude-haiku-5-5) riceve il documento intero, in cache, e il
+       frammento, e scrive alcune righe che lo collocano nel documento.
+       Servono solo alla ricerca: il testo del frammento, che si cita e
+       che il verificatore controlla, resta pulito e separato. Script in
+       `docs/fatto.md` (21/11/2026); file in
+       `dati-grezzi/prova/19d/contesto/`.
+       1. **Prima generazione** (impronta delle istruzioni e3ef7c9ca5ad):
+          871 frammenti, spesa stimata 0,5708 dollari, 81 contesti troncati
+          dal limite di 300 token in uscita. Archiviata in
+          `contesti_v1.jsonl` e non si misura: 258 contesti su 871 (29,6%)
+          con violazioni su numeri o gemello, 408 (46,8%) con almeno una
+          violazione (`passo1_controlli_v1.txt`, `controllo_contesti_v1.txt`).
+          Cause, classificate dopo il controllo senza cambiarlo: numeri
+          presenti nel documento ma non nel frammento (199 occorrenze, tra
+          cui il "50.000,00" del bando 13512 in 40 frammenti), numeri di
+          paragrafo senza "par." (23), nessun numero assente dal
+          documento; per il gemello, la riga BANDO degli apistici che copia
+          la lista "azioni B1–B3–B4–B5" del titolo (113 frammenti) e
+          "commissioni di garanzia" nel 9506 (44), un segno scelto a mano
+          che compare nel testo del 9506 stesso.
+       2. **Revisione**, l'unica prevista, nata dai controlli e non dai
+          risultati di ricerca, che non sono stati calcolati
+          (`revisione_21-11.txt`):
+          - la riga BANDO la compone il codice dal registro: titolo, atto e
+            parte (per gli apistici la sola azione del file, senza la
+            lista del titolo); uguale per tutti i frammenti di un file;
+          - il modello scrive DOVE (articolo, paragrafo o sezione, con i
+            soli numeri di struttura), ARGOMENTO (da una a tre voci di un
+            elenco chiuso), SERVE A (una frase con le parole di un
+            ufficio o di un'impresa) e PAROLE (da 5 a 10 parole o brevi
+            espressioni di ricerca, senza numeri né nome del bando);
+          - elenco di ARGOMENTO allargato da 10 a 21 voci: le 11 nuove
+            coprono 378 delle 570 descrizioni libere finite in "altro"
+            nella prima generazione, 135 erano già voci dell'elenco, 57
+            restano "altro";
+          - in ARGOMENTO, SERVE A e PAROLE solo numeri, date e parole di
+            numero del frammento, anche il numero dell'atto; nella riga
+            DOVE solo riferimenti di struttura del documento;
+          - limite in uscita a 600 token, un contesto troncato si rifà una
+            volta; segni del gemello verificati sul proprio documento, più
+            fino a 3 segni automatici per coppia;
+          - impronta delle istruzioni a758adc6d26c.
+       3. **Prova sull'allegato A3** degli apistici (40 frammenti, 0,0153
+          dollari; `diagnosi_prova_a3.txt`). Il rapporto della prova dava 12
+          frammenti con violazioni su 40, perché nella prova i gemelli non
+          venivano caricati; con i gemelli, 15 su 40. Tutti difetti di
+          forma o falsi allarmi, nessun numero inventato: 6 nella riga DOVE
+          (paragrafi veri, "1.1," o "2.", che il controllo non
+          riconosceva), 7 in ARGOMENTO (voci fuori dall'elenco), 4 sul
+          gemello (il segno automatico "attrezzatura", mentre l'A3 dice
+          "attrezzature"). Dopo quattro correzioni del codice (controllo
+          DOVE allargato, ARGOMENTO normalizzato dal codice con un elenco di
+          forme vicine scritto a mano, gemelli caricati nella prova, radice
+          di 6 lettere nei segni automatici): 0 su 40, impronta invariata.
+          Avvertenza: quello zero è ottenuto sugli stessi 40 frammenti
+          usati per correggere i controlli, quindi non vale come verifica.
+       4. **Generazione completa** (21/11/2026): 871 chiamate, 871
+          frammenti salvati, spesa stimata 0,5675 dollari, 1510 secondi
+          (dal terminale di chi mantiene il progetto; nel file, 1508
+          secondi tra il primo e l'ultimo salvataggio), impronta
+          a758adc6d26c, nessun contesto troncato. File `contesti.jsonl`.
+          Controlli e misura sugli 871 non ancora fatti.
+       5. **Regole decise prima di guardare i controlli sugli 871**
+          (21/11/2026):
+          - condizione di arresto: violazioni vere sopra il 5% dei
+            frammenti;
+          - niente altra revisione del prompt: i falsi allarmi si
+            correggono nel codice;
+          - i contesti con violazioni vere si scartano sempre, e quei
+            frammenti entrano nella misura senza contesto;
+          - le violazioni da segno automatico del gemello si contano a
+            parte e si leggono una per una; la soglia dei segni resta a 3
+            occorrenze; un segno si toglie solo se tutti i suoi casi sono
+            usi generici;
+          - l'elenco delle forme vicine di ARGOMENTO resta congelato fino a
+            fine misura;
+          - una configurazione non si adotta se guadagna con le domande dei
+            fogli ma non con le domande scritte a mano.
+          Regole già in vigore: si adotta solo se guadagna in B sia con
+          k=10 sia con k=15 contro c-0 (più guadagnati che persi, p ≤ 0,05);
+          sulle 30 domande scritte a mano (`domande_a_mano.csv`) il guadagno
+          netto in B "resta" se è positivo e almeno metà di quello con le
+          domande del foglio sugli stessi fatti.
+       6. **Prossimo compito**, nell'ordine:
+          1. i controlli sugli 871 contesti della generazione completa
+             (`genera_contesti --controlla`);
+          2. se le violazioni vere su numeri o gemello restano entro il 5%,
+             la misura sulla taratura: c-0 (deve ridare osiria su v0 della
+             notte, riga per riga), c-R, c-L, c-LR, c-LVR; righe tolte una
+             alla volta; domande a mano; etichetta di ARGOMENTO contro il
+             tipo del fatto;
+          3. revisione esterna del metodo prima di aprire la metà di
+             controllo;
+          4. apertura del controllo una sola volta, con il via esplicito;
+          5. il numero che esce si scrive anche se è sotto l'85%.
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):
@@ -1604,6 +1765,11 @@ l'archivio e con le pagine salvate il 19/11:
 - Restano le voci già note qui sopra: scadenza dell'azione B4 degli
   apistici, `riferimento_atto` dei Punti Digitale (decreto 25205),
   `altra_impresa`.
+- (→ passo 2b, 21/11/2026) **Copertura dell'archivio**: dei 97 fatti di
+  taratura solo 7 hanno la risposta nei campi dell'archivio, e molti campi
+  di dettaglio sono vuoti per la maggior parte dei bandi ("Passo 19d",
+  punto 6). Le risposte di dettaglio vengono dai frammenti; il 2b corregge
+  i campi sbagliati, non li riempie per coprire quelle domande.
 
 ## Testo di ricerca (passo 17)
 
@@ -1881,7 +2047,9 @@ compito chiuso.
   fatti e le domande scritte da un solo modello. Aspetta la nuova
   baseline.
 - **Revisione del metodo da parte di altri modelli.** Attacca gli errori
-  di metodo che chi misura non vede. Aspetta la chiusura del 19d; il
+  di metodo che chi misura non vede. (Anticipata il 21/11/2026: si fa
+  prima di aprire la metà di controllo, "Passo 19d", punto 13, "Prossimo
+  compito".) Aspetta la chiusura del 19d; il
   documento che ne esce segue la regola delle revisioni esterne
   (intestazione e verifica a mano prima di salvarlo).
 - **Riordinatore più grande.** Attacca i fatti che i due riordinatori
@@ -1889,3 +2057,19 @@ compito chiuso.
   riordinatore piccolo su Streamlit Community Cloud (oggi 4-5 secondi a
   domanda con 30 candidati); il guadagno resta limitato dal tetto dei 30
   candidati, 81-82 fatti in B ("Passo 19d", punto 4).
+- **Riga DOVE ricavata dal programma** (proposta del 21/11/2026):
+  l'intestazione di paragrafo più vicina prima del frammento nel testo
+  pulito, invece che scritta dal modello. Attacca i 23 riferimenti di
+  paragrafo segnalati nella prima generazione ("Passo 19d", punto 13).
+  Oggi non serve: sulla prova dell'A3 il controllo allargato dà lo
+  stesso risultato. Aspetta un estrattore delle intestazioni, che non c'è.
+- **Togliere solo la frase che viola** invece dell'intero contesto
+  (proposta del 21/11/2026). Attacca il 29,6% di contesti esclusi nella
+  prima generazione ("Passo 19d", punto 13). Non costa di più farla dopo.
+- **Forme vicine anche dopo "altro:"** in ARGOMENTO (approvata il
+  21/11/2026): applicare l'elenco delle forme vicine anche al testo che il
+  modello scrive dopo "altro:" (caso dell'A3, frammento 0: "altro:
+  intestazione del bando e indice delle sezioni"). Si fa nel prossimo
+  compito di codice; l'elenco resta congelato fino a fine misura ("Passo
+  19d", punto 13, regole), quindi va fatta prima della misura o dopo la sua
+  fine.
