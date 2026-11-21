@@ -369,6 +369,97 @@ def test_documenti_del_fatto_apistici_e_bandi_gemelli(monkeypatch):
     )
 
 
+@pytest.mark.parametrize(
+    ("parte", "codice"),
+    [
+        ("Azione B1", "B1"),
+        ("Azione B5: Acquisto di attrezzature e sistemi di gestione", "B5"),
+        ("", None),
+        (None, None),
+        ("Azione B12x", None),
+        ("Intervento B Azione B1: Lotta", None),
+    ],
+)
+def test_codice_della_parte(parte, codice):
+    assert mr.codice_della_parte(parte) == codice
+
+
+def test_parti_del_registro_solo_con_il_nome():
+    righe = [
+        {"nome_file": "a1.pdf", "parte": "Azione B1: Lotta a parassiti e malattie"},
+        {"nome_file": "a2.pdf", "parte": "Azione B2"},
+        {"nome_file": "altro.pdf", "parte": ""},
+    ]
+    assert mr.parti_del_registro(righe) == {
+        "a1.pdf": "Azione B1: Lotta a parassiti e malattie"
+    }
+
+
+class EmbeddingsDellaParte:
+    """Un vettore per testo: [1, 0] senza "Azione", [0, 1] con."""
+
+    def embed_documents(self, testi):
+        return [[0.0, 1.0] if "Azione" in t else [1.0, 0.0] for t in testi]
+
+
+def test_vettori_con_la_parte_solo_i_file_con_la_parte():
+    metadati = [{"fonte": "a1.pdf"}, {"fonte": "altro.pdf"}, {"fonte": "a1.pdf"}]
+    matrice = [[1.0, 0.0]] * 3
+    nuova, indici, scarto = mr.vettori_con_la_parte(
+        ["x", "y", "z"],
+        ["testo uno", "testo due", "testo tre"],
+        metadati,
+        matrice,
+        {"a1.pdf": "Azione B1: Lotta"},
+        EmbeddingsDellaParte(),
+    )
+    assert indici == [0, 2]
+    assert scarto == 0
+    assert nuova.tolist() == [[0.0, 1.0], [1.0, 0.0], [0.0, 1.0]]
+
+
+def test_vettori_con_la_parte_si_ferma_se_il_modello_non_ridà_v0():
+    with pytest.raises(mr.ErroreMisura, match="non ridà i vettori di v0"):
+        mr.vettori_con_la_parte(
+            ["x"],
+            ["testo"],
+            [{"fonte": "a1.pdf"}],
+            [[0.0, 1.0]],
+            {"a1.pdf": "Azione B1: Lotta"},
+            EmbeddingsDellaParte(),
+        )
+
+
+class TokenizerPerCarattere:
+    """Un token per carattere, più [CLS] e [SEP]."""
+
+    def __call__(self, testo, return_offsets_mapping=False):
+        offset = [(0, 0)] + [(i, i + 1) for i in range(len(testo))] + [(0, 0)]
+        return {"input_ids": list(range(len(offset))), "offset_mapping": offset}
+
+
+def test_visti_con_prefisso_toglie_al_testo_quanto_vede_il_prefisso():
+    frammenti = {"a1.pdf": [fr(0, "x" * 50)], "altro.pdf": [fr(0, "y" * 50)]}
+    mr.visti_con_prefisso(frammenti, {"a1.pdf": "P" * 9}, TokenizerPerCarattere(), 32)
+    # 30 token di testo visti: 9 del prefisso, 1 dell'a capo, 20 del frammento
+    assert frammenti["a1.pdf"][0].car_visti == 20
+    assert frammenti["altro.pdf"][0].car_visti == 50
+
+
+def test_documenti_del_fatto_apistici_con_il_nome_dell_azione():
+    registro = {
+        "api": [
+            {"nome_file": "a1.pdf", "parte": "Azione B1: Lotta a parassiti e malattie"},
+            {
+                "nome_file": "a3.pdf",
+                "parte": "Azione B3: Ripopolamento patrimonio apistico",
+            },
+        ],
+    }
+    apistico = {"riga": 9, "id_bando": "api", "note": "Azione B3, Allegato A3, par. 2"}
+    assert mr.documenti_del_fatto(apistico, registro) == ({"a3.pdf"}, {"a1.pdf"})
+
+
 # --- tempo 2: cause dei mancati ---
 
 

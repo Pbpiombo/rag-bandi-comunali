@@ -84,6 +84,7 @@ from scripts.diagnostica.controlla_fatti import (
     SEPARATORE_PEZZI,
     Frammento,
     _unione,
+    codice_della_parte,
     leggi_foglio,
     livello_c,
     posizione,
@@ -782,7 +783,9 @@ def documenti_del_fatto(
     nota = NOTA_APISTICI.match(str(fatto.get("note") or ""))
     if nota:
         giusti = {
-            r["nome_file"] for r in del_bando if r["parte"] == f"Azione {nota[1]}"
+            r["nome_file"]
+            for r in del_bando
+            if codice_della_parte(r["parte"]) == nota[1]
         }
         if not giusti:
             raise ErroreMisura(f"riga {fatto['riga']}: allegato {nota[2]} non trovato")
@@ -2348,9 +2351,9 @@ def esegui_apistici(foglio: Path, divisione: Path, lato: str) -> int:
     ]
     parti: dict[str, str] = {}
     for r in ca.leggi_registro(PROCESSED_DIR / NOME_FILE):
-        if not r["parte"].startswith("Azione "):
+        codice = codice_della_parte(r["parte"])
+        if codice is None:
             continue
-        codice = r["parte"].split()[1]
         trovato = nome_dell_azione(ca.pagine_del_pdf(ca.percorso_del_file(r)), codice)
         if trovato is None:
             raise ErroreMisura(
@@ -2487,6 +2490,10 @@ class Modello:
     passaggio: str = ""
     intestazione: bool = False
     cartella: str = ""
+    # parte: la parte del registro ("Azione B1: <nome>") davanti al testo del
+    # vettore e della ricerca per parole, solo per i file che ne hanno una
+    # con il nome (parti_del_registro); il testo del frammento resta pulito
+    parte: bool = False
 
 
 MINILM = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
@@ -2499,6 +2506,9 @@ MODELLI: dict[str, Modello] = {
     "v1+v2": Modello(MINILM, 512, intestazione=True, cartella="notte/v1+v2"),
     "e5-small": Modello("intfloat/multilingual-e5-small", 512, "query: ", "passage: "),
     "e5-base": Modello("intfloat/multilingual-e5-base", 512, "query: ", "passage: "),
+    # v0 con il nome dell'azione degli apistici (21/11/2026): vettori di v0,
+    # ricalcolati solo i frammenti dei file con la parte
+    "v0+parte": Modello(MINILM, parte=True, cartella="v0+parte97"),
 }
 K_ESATTI = (K, 15)
 FILE_VETTORI = "vettori.npy"
@@ -2653,8 +2663,61 @@ def testi_dei_vettori(modello: Modello, testi: list[str], metadati: list[dict]):
     )
 
 
+def parti_del_registro(righe: list[dict] | None = None) -> dict[str, str]:
+    """Nome del file -> parte, per i file del registro con il nome dell'azione.
+
+    Solo le parti nella forma "Azione B1: <nome>" (registra_avvisi); una
+    parte con il solo codice non entra. Senza `righe` si legge il registro
+    di data/processed.
+    """
+    if righe is None:
+        from scripts.ingestione import carica_avvisi as ca
+        from scripts.ingestione.registra_avvisi import NOME_FILE
+        from src.config import PROCESSED_DIR
+
+        righe = ca.leggi_registro(PROCESSED_DIR / NOME_FILE)
+    return {
+        r["nome_file"]: r["parte"]
+        for r in righe
+        if codice_della_parte(r["parte"]) and ":" in r["parte"]
+    }
+
+
+def vettori_con_la_parte(
+    ids, testi, metadati, matrice, parti: dict[str, str], embeddings
+):
+    """La matrice di v0 con i vettori ricalcolati, parte davanti, per i file in `parti`.
+
+    Prima di ricalcolare controlla che lo stesso modello, sui testi senza
+    parte, ridia i vettori di v0 (scarto massimo restituito); poi sostituisce
+    solo le righe dei file in `parti`. Restituisce (matrice, indici
+    ricalcolati, scarto).
+    """
+    import numpy as np
+
+    indici = [i for i, m in enumerate(metadati) if (m.get("fonte") or "") in parti]
+    if {metadati[i]["fonte"] for i in indici} != set(parti):
+        raise ErroreMisura("file con la parte senza frammenti tra quelli di v0")
+    nuova = np.array(matrice, dtype=np.float32, copy=True)
+    senza = np.asarray(embeddings.embed_documents([testi[i] for i in indici]))
+    scarto = float(np.max(np.abs(senza - nuova[indici])))
+    if scarto > TOLLERANZA_NORMA:
+        raise ErroreMisura(
+            f"il modello non ridà i vettori di v0 (scarto {scarto:.2e}): "
+            "non si ricalcola"
+        )
+    con = embeddings.embed_documents(
+        [testo_lessicale(testi[i], metadati[i], parti) for i in indici]
+    )
+    nuova[indici] = np.asarray(con, dtype=np.float32)
+    return nuova, indici, scarto
+
+
 def esegui_prepara_vettori(nome: str) -> int:
-    """v0: vettori letti dalla copia di v0; gli altri: ricalcolati con il modello."""
+    """v0: vettori letti dalla copia di v0; gli altri: ricalcolati con il modello.
+
+    v0+parte: i vettori di v0, ricalcolati solo per i file con la parte.
+    """
     import time
 
     import numpy as np
@@ -2665,8 +2728,19 @@ def esegui_prepara_vettori(nome: str) -> int:
     modello = MODELLI[nome]
     cartella = cartella_modello(nome)
     inizio = time.perf_counter()
+    nota = ""
     with senza_connessioni():
-        if nome == "v0":
+        if modello.parte:
+            ids, testi, metadati, matrice = leggi_vettori(CARTELLA_19D / "v0")
+            parti = parti_del_registro()
+            matrice, indici, scarto_v0 = vettori_con_la_parte(
+                ids, testi, metadati, matrice, parti, crea_embeddings_di(modello)
+            )
+            nota = (
+                f"; ricalcolati {len(indici)} frammenti di {len(parti)} file "
+                f"(scarto dai vettori di v0 senza parte {scarto_v0:.2e})"
+            )
+        elif nome == "v0":
             copia = CARTELLA_19D / "v0" / "chroma"
             ids, testi, metadati, matrice = esporta_frammenti(copia)
         else:
@@ -2684,7 +2758,7 @@ def esegui_prepara_vettori(nome: str) -> int:
     print(
         f"{nome}: {len(ids)} frammenti, dimensione {len(matrice[0])}, scarto massimo "
         f"della norma {scarto:.2e}, impronta dei frammenti {firma[:16]}, "
-        f"{time.perf_counter() - inizio:.1f} s"
+        f"{time.perf_counter() - inizio:.1f} s{nota}"
     )
     return 0
 
@@ -2695,19 +2769,42 @@ def apri_recupero_esatto(nome: str):
     ids, testi, metadati, matrice = leggi_vettori(cartella_modello(nome))
     embeddings = crea_embeddings_di(modello)
     store = StoreEsatto(ids, testi, metadati, matrice, embeddings, modello.domanda)
-    return apri_recupero(Path(), store=store)
+    prefissi = parti_del_registro() if modello.parte else None
+    return apri_recupero(Path(), store=store, prefissi=prefissi)
+
+
+def visti_con_prefisso(
+    frammenti_per_fonte: dict[str, list[Frammento]],
+    prefissi: dict[str, str],
+    tokenizer,
+    limite: int,
+) -> None:
+    """car_visti dei frammenti con il prefisso: i caratteri del testo che il
+    modello vede dopo il prefisso e l'a capo (testo_lessicale), entro `limite`."""
+    for fonte, prefisso in prefissi.items():
+        for fr in frammenti_per_fonte.get(fonte, []):
+            visti = car_visti(tokenizer, f"{prefisso}\n{fr.testo}", limite)
+            fr.car_visti = max(0, visti - len(prefisso) - 1)
 
 
 def apri_tutto_esatto(nome: str):
     """(recupero, app, profondo, frammenti per fonte, titolo per bando) di un modello."""
     from src.recupero_documenti import avvolgi
 
+    modello = MODELLI[nome]
     recupero = apri_recupero_esatto(nome)
     app = avvolgi(recupero)
     profondo = avvolgi(Profondo(recupero))
     frammenti_per_fonte, titolo_del_bando = frammenti_della_copia(
-        recupero, MODELLI[nome].limite
+        recupero, modello.limite
     )
+    if modello.parte:
+        visti_con_prefisso(
+            frammenti_per_fonte,
+            parti_del_registro(),
+            recupero.store.embeddings._client.tokenizer,
+            modello.limite or LIMITE_MODELLO,
+        )
     return recupero, app, profondo, frammenti_per_fonte, titolo_del_bando
 
 
@@ -2775,6 +2872,13 @@ def descrizione_modello(modello: Modello) -> str:
         f"prefisso della domanda {modello.domanda!r}, dei frammenti "
         f"{modello.passaggio!r}"
         + ("; intestazione nel vettore" if modello.intestazione else "")
+        + (
+            "; parte del registro davanti al testo del vettore e della ricerca per "
+            "parole, solo per i file con il nome dell'azione; testo del frammento "
+            "pulito"
+            if modello.parte
+            else ""
+        )
         + "; ricerca densa esatta (prodotto scalare su tutti i frammenti, pari "
         "merito per id)"
     )
@@ -4244,8 +4348,15 @@ def riordina(voti, n: int) -> list[int]:
     return sorted(range(n), key=lambda i: (-voti[i], i))
 
 
+def cartella_riordino(nome: str) -> Path:
+    """notte/riordino per i modelli della notte; per gli altri, la loro cartella."""
+    if nome in MODELLI_CURVE:
+        return NOTTE / "riordino"
+    return cartella_modello(nome) / "riordino"
+
+
 def file_riordino(chiave: str, nome: str, k: int, lato: str) -> Path:
-    return NOTTE / "riordino" / f"{chiave}_{nome}_k{k}_{lato}.csv"
+    return cartella_riordino(nome) / f"{chiave}_{nome}_k{k}_{lato}.csv"
 
 
 def esegui_riordino(lato: str, chiave: str, nome: str) -> int:
@@ -4256,8 +4367,8 @@ def esegui_riordino(lato: str, chiave: str, nome: str) -> int:
     from scripts.ingestione.carica_avvisi import senza_rete
     from src.config import CHROMA_DIR
 
-    if nome not in MODELLI_CURVE:
-        raise ErroreMisura(f"riordino solo su {', '.join(MODELLI_CURVE)}")
+    if nome not in MODELLI_CURVE and not MODELLI[nome].parte:
+        raise ErroreMisura(f"riordino solo su {', '.join(MODELLI_CURVE)} e v0+parte")
     senza_rete()
     (firma_1, firma_2), fatti, file_per_bando = fatti_intera(lato)
     prima = impronte_cartella(CHROMA_DIR)
@@ -4358,7 +4469,7 @@ def esegui_riordino(lato: str, chiave: str, nome: str) -> int:
         del recupero, app, riordinatore
     if impronte_cartella(CHROMA_DIR) != prima:
         raise ErroreMisura("le impronte del Chroma vero sono cambiate")
-    (NOTTE / "riordino").mkdir(parents=True, exist_ok=True)
+    cartella_riordino(nome).mkdir(parents=True, exist_ok=True)
     for k in K_ESATTI:
         scrivi_misura(file_riordino(chiave, nome, k, lato), righe[k])
     dati = {
@@ -4379,9 +4490,11 @@ def esegui_riordino(lato: str, chiave: str, nome: str) -> int:
         "esempio_troncamento": esempio,
         "trovati_tra_i_candidati": tra_i_candidati,
     }
-    (NOTTE / "riordino" / f"{chiave}_{nome}_{lato}.json").write_text(
+    (cartella_riordino(nome) / f"{chiave}_{nome}_{lato}.json").write_text(
         json.dumps(dati, ensure_ascii=False, indent=1), encoding="utf-8"
     )
+    if nome not in MODELLI_CURVE:
+        return 0
     return esegui_rapporto_riordino(lato)
 
 
@@ -4505,6 +4618,275 @@ def esegui_rapporto_riordino(lato: str) -> int:
     return 0
 
 
+# --- nome dell'azione degli apistici sui 97 fatti (21/11/2026) ---
+
+PARTE_97 = "v0+parte"
+RIORDINATORE_PICCOLO = "osiria"
+
+
+def pezzi_in_vista(
+    fatti: list[dict],
+    file_per_bando: dict[str, list[dict]],
+    frammenti_per_fonte: dict[str, list[Frammento]],
+) -> dict[tuple[int, int], bool]:
+    """Per ogni pezzo intero in un frammento giusto: se sta nella parte vista
+    di almeno uno. Chiave (riga, numero del pezzo da 1)."""
+    stato = {}
+    for fatto in fatti:
+        giusti, _ = documenti_del_fatto(fatto, file_per_bando)
+        frammenti = [
+            fr for f in sorted(giusti) for fr in frammenti_per_fonte.get(f, [])
+        ]
+        for numero, pezzo in enumerate(unita_del_fatto(fatto), 1):
+            tratti = [(fr, t) for fr in frammenti if (t := contiene(pezzo, fr))]
+            if tratti:
+                stato[(fatto["riga"], numero)] = any(
+                    t[1] <= fr.car_visti for fr, t in tratti
+                )
+    return stato
+
+
+def apistici_dei_primi(elenchi: dict, chiave: str, file_apistici: set[str]) -> int:
+    return sum(fonte in file_apistici for fonte, _, _ in elenchi.get(chiave, []))
+
+
+def esegui_parte_97(lato: str) -> int:
+    """Rapporto: v0+parte contro v0, senza e con il riordinatore piccolo."""
+    import json
+
+    from transformers import AutoTokenizer
+
+    from scripts.ingestione.carica_avvisi import senza_rete
+
+    if lato != TARATURA:
+        raise ErroreMisura("il rapporto della parte si fa solo sulla taratura")
+    senza_rete()
+    parti = parti_del_registro()
+    _, fatti, file_per_bando = fatti_intera(lato)
+    cartella = cartella_modello(PARTE_97)
+    misure = {}
+    for nome in ("v0", PARTE_97):
+        for k in K_ESATTI:
+            misure[(nome, k)] = leggi_misura(file_intera(nome, k, lato))
+            misure[(f"{RIORDINATORE_PICCOLO} {nome}", k)] = leggi_misura(
+                file_riordino(RIORDINATORE_PICCOLO, nome, k, lato)
+            )
+    basi = ["v0", PARTE_97, f"{RIORDINATORE_PICCOLO} v0"]
+    basi.append(f"{RIORDINATORE_PICCOLO} {PARTE_97}")
+    del_bando = {r["riga"] for r in misure[("v0", K)] if r["id_bando"] == APISTICI}
+
+    linee = [
+        f"Passo 19d, nome dell'azione degli apistici sui 97 fatti, metà: {lato}",
+        descrizione_modello(MODELLI[PARTE_97]),
+        "Parti dal registro (data/processed/documenti_bandi.csv):",
+        *[f"  {f}: {p!r}" for f, p in sorted(parti.items())],
+        (
+            "Base: le misure della notte (v0/esatta_k*_taratura_97.csv e "
+            f"notte/riordino/{RIORDINATORE_PICCOLO}_v0_k*_taratura.csv); "
+            f"riordinatore {RIORDINATORI[RIORDINATORE_PICCOLO]}, {CANDIDATI} candidati"
+        ),
+        NOTA_SEGNI,
+        "",
+        "1. Fatti trovati su 97, A / B; 1° B e ≤5 B dalla misura con k=10",
+        f"  {'configurazione':<28}{'k=10':>10}{'k=15':>10}{'1° B':>7}{'≤5 B':>7}",
+    ]
+    for b in basi:
+        celle = [
+            f"{_trovati(misure[(b, k)], 'A')[0]} / {_trovati(misure[(b, k)], 'B')[0]}"
+            for k in K_ESATTI
+        ]
+        linee.append(
+            f"  {b:<28}{celle[0]:>10}{celle[1]:>10}"
+            f"{_primi_entro(misure[(b, K)], 'B', 1):>7}"
+            f"{_primi_entro(misure[(b, K)], 'B', 5):>7}"
+        )
+
+    linee += ["", "2. Confronti con la stessa base senza la parte"]
+    for prima, dopo in ((basi[0], basi[1]), (basi[2], basi[3])):
+        for k in K_ESATTI:
+            for c in CONDIZIONI_GRIGLIA:
+                linee.append(
+                    riga_segni(
+                        f"{prima} k={k}",
+                        misure[(prima, k)],
+                        f"{dopo} k={k}",
+                        misure[(dopo, k)],
+                        c,
+                    )
+                )
+
+    linee += ["", "3. Apistici (fatti di taratura del bando), per allegato giusto"]
+    for c in CONDIZIONI_GRIGLIA:
+        allegati = {
+            (b, k): per_allegato(
+                [r for r in misure[(b, k)] if r["id_bando"] == APISTICI], c
+            )
+            for b in basi
+            for k in K_ESATTI
+        }
+        file_ = list(next(iter(allegati.values())))
+        intestazioni = [
+            m[1].upper() if (m := re.search(r"allegato-(a\d+)", f)) else f
+            for f in file_
+        ]
+        linee.append(
+            f"  {c}: {'configurazione':<30}"
+            + "".join(
+                f"{n + ' (' + str(allegati[(basi[0], K)][f][1]) + ')':>9}"
+                for n, f in zip(intestazioni, file_, strict=True)
+            )
+            + f"{'tutti':>8}"
+        )
+        for (b, k), voci in allegati.items():
+            celle = [voci[f][0] for f in file_]
+            linee.append(
+                f"     {b + ', k=' + str(k):<30}"
+                + "".join(f"{x:>9}" for x in celle)
+                + f"{sum(celle):>8}"
+            )
+    for c in CONDIZIONI_GRIGLIA:
+        for k in K_ESATTI:
+            prima, dopo = (
+                [r for r in misure[(b, k)] if r["riga"] in del_bando] for b in basi[:2]
+            )
+            linee.append(
+                riga_segni(f"v0 k={k}", prima, f"{PARTE_97} k={k}", dopo, c).replace(
+                    "  ", "  apistici: ", 1
+                )
+            )
+
+    linee += [
+        "",
+        "4. Presi dal bando o dall'allegato sbagliato prima del giusto",
+        "   (frasi gemelle; altri fatti; tra parentesi quelli degli apistici)",
+    ]
+    for b in basi:
+        for k in K_ESATTI:
+            for c in CONDIZIONI_GRIGLIA:
+                gemelle, altri = gemelli_presi(misure[(b, k)], c)
+                api = [
+                    nome_della_riga(r["riga"])
+                    for r in misure[(b, k)]
+                    if r["riga"] in del_bando and r[f"{c}_pezzo_dal_gemello"] == "sì"
+                ]
+                senza = [
+                    nome_della_riga(r["riga"])
+                    for r in misure[(b, k)]
+                    if r["riga"] in del_bando and r[f"{c}_gemello_senza_giusto"] == "sì"
+                ]
+                linee.append(
+                    f"  {b}, k={k}, {c}: frasi gemelle {', '.join(gemelle) or '-'}; "
+                    f"altri {', '.join(altri) or '-'} (apistici: presi "
+                    f"{', '.join(api) or '-'}; allegato sbagliato tra i primi senza "
+                    f"il giusto {', '.join(senza) or '-'})"
+                )
+
+    # 5. parte vista: car_visti dei metadati (v0) contro car_visti con il prefisso
+    ids, testi, metadati, _ = leggi_vettori(cartella)
+    tokenizer = AutoTokenizer.from_pretrained(MINILM, local_files_only=True)
+    senza_prefisso: dict[str, list[Frammento]] = defaultdict(list)
+    for testo, meta in zip(testi, metadati, strict=True):
+        if meta.get("fonte") in parti:
+            senza_prefisso[meta["fonte"]].append(
+                Frammento(
+                    meta.get("chunk_num", -1),
+                    meta.get("page", 0),
+                    testo,
+                    meta.get("car_visti", len(testo)),
+                )
+            )
+    con_prefisso = {
+        f: [Frammento(fr.chunk_num, fr.pagina, fr.testo, fr.car_visti) for fr in lista]
+        for f, lista in senza_prefisso.items()
+    }
+    visti_con_prefisso(con_prefisso, parti, tokenizer, LIMITE_MODELLO)
+    coppie_fr = [
+        (a, b)
+        for f in sorted(senza_prefisso)
+        for a, b in zip(senza_prefisso[f], con_prefisso[f], strict=True)
+    ]
+    fatti_api = [f for f in fatti if f["id_bando"] == APISTICI]
+    prima_vista = pezzi_in_vista(fatti_api, file_per_bando, senza_prefisso)
+    dopo_vista = pezzi_in_vista(fatti_api, file_per_bando, con_prefisso)
+    usciti = [k for k, v in prima_vista.items() if v and not dopo_vista[k]]
+    entrati = [k for k, v in prima_vista.items() if not v and dopo_vista[k]]
+    tagliati = [(a, b) for a, b in coppie_fr if b.car_visti < a.car_visti]
+    linee += [
+        "",
+        f"5. Parte vista dal modello ({LIMITE_MODELLO} token), frammenti con la parte",
+        (
+            f"  frammenti {len(coppie_fr)}; con meno testo visto per il prefisso "
+            f"{len(tagliati)}; caratteri del testo visti, media: senza prefisso "
+            f"{_media([a.car_visti for a, _ in coppie_fr])}, con prefisso "
+            f"{_media([b.car_visti for _, b in coppie_fr])}; testo intero, media "
+            f"{_media([len(a.testo) for a, _ in coppie_fr])}"
+        ),
+        (
+            f"  pezzi dei fatti degli apistici interi in un frammento giusto: "
+            f"{len(prima_vista)}; nella parte vista senza prefisso "
+            f"{sum(prima_vista.values())}, con prefisso {sum(dopo_vista.values())}"
+        ),
+        "  usciti dalla parte vista per il prefisso: "
+        + (", ".join(f"{nome_della_riga(r)} pezzo {n}" for r, n in usciti) or "-"),
+        "  entrati: "
+        + (", ".join(f"{nome_della_riga(r)} pezzo {n}" for r, n in entrati) or "-"),
+    ]
+
+    # 6. effetto sugli altri bandi
+    def altri(righe: list[dict]) -> list[dict]:
+        return [r for r in righe if r["riga"] not in del_bando]
+
+    linee += ["", f"6. Altri bandi ({len(altri(misure[('v0', K)]))} fatti)"]
+    for prima, dopo in ((basi[0], basi[1]), (basi[2], basi[3])):
+        for k in K_ESATTI:
+            for c in CONDIZIONI_GRIGLIA:
+                linee.append(
+                    riga_segni(
+                        f"{prima} k={k}",
+                        altri(misure[(prima, k)]),
+                        f"{dopo} k={k}",
+                        altri(misure[(dopo, k)]),
+                        c,
+                    )
+                )
+    elenchi = {
+        nome: json.loads(
+            (
+                cartella_modello(nome) / f"elenchi_esatti_{lato}_{SUFFISSO_INTERA}.json"
+            ).read_text(encoding="utf-8")
+        )
+        for nome in ("v0", PARTE_97)
+    }
+    file_apistici = {r["nome_file"] for r in file_per_bando[APISTICI]}
+    for k in K_ESATTI:
+        conti = {
+            nome: {
+                r["riga"]: apistici_dei_primi(
+                    elenchi[nome], f"{r['riga']} A k={k}", file_apistici
+                )
+                for r in altri(misure[("v0", k)])
+            }
+            for nome in elenchi
+        }
+        piu = [r for r in conti["v0"] if conti[PARTE_97][r] > conti["v0"][r]]
+        meno = [r for r in conti["v0"] if conti[PARTE_97][r] < conti["v0"][r]]
+        linee.append(
+            f"  frammenti degli apistici tra i primi {k} in A, fatti degli altri "
+            f"bandi: in tutto {sum(conti['v0'].values())} con v0, "
+            f"{sum(conti[PARTE_97].values())} con {PARTE_97}; fatti con più "
+            f"frammenti degli apistici {len(piu)} "
+            f"({', '.join(nome_della_riga(r) for r in piu) or '-'}), con meno "
+            f"{len(meno)} ({', '.join(nome_della_riga(r) for r in meno) or '-'})"
+        )
+
+    testo = "\n".join(linee)
+    (cartella / f"parte_{lato}_{SUFFISSO_INTERA}.txt").write_text(
+        testo + "\n", encoding="utf-8"
+    )
+    print(testo)
+    return 0
+
+
 # --- uso ---
 
 
@@ -4565,6 +4947,14 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
         help="scarica un riordinatore da huggingface.co (unica rete autorizzata)",
     )
     parser.add_argument("--riordinatore", choices=sorted(RIORDINATORI))
+    parser.add_argument(
+        "--parte-97",
+        action="store_true",
+        help=(
+            "rapporto del nome dell'azione degli apistici sui 97 fatti: v0+parte "
+            "contro v0, senza e con il riordinatore piccolo"
+        ),
+    )
     parser.add_argument("--modello", choices=sorted(MODELLI), default="v0")
     parser.add_argument(
         "--controllo",
@@ -4635,13 +5025,14 @@ def main(argv: list[str] | None = None) -> int:
         argomenti.riepilogo_intero,
         argomenti.notte is not None,
         argomenti.scarica_riordinatore is not None,
+        argomenti.parte_97,
     )
     if sum(comandi) != 1:
         print(
             "Serve un comando solo: --dividi, --dividi-secondo, --misura, "
             "--riepilogo, --griglia, "
             "--apistici, --prepara-vettori, --esatta, --peso, --esatta-intera "
-            "--riepilogo-intero, --notte o --scarica-riordinatore.",
+            "--riepilogo-intero, --notte, --scarica-riordinatore o --parte-97.",
             file=sys.stderr,
         )
         return 2
@@ -4675,6 +5066,8 @@ def main(argv: list[str] | None = None) -> int:
             return esegui_riepilogo_intero(lato)
         if argomenti.scarica_riordinatore:
             return esegui_scarica_riordinatore(argomenti.scarica_riordinatore)
+        if argomenti.parte_97:
+            return esegui_parte_97(lato)
         if argomenti.notte == 4:
             if not argomenti.riordinatore:
                 return esegui_rapporto_riordino(lato)

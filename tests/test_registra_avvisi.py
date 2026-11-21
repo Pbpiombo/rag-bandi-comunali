@@ -265,8 +265,137 @@ def test_regole_dello_script(archivio):
     assert proroga["eccezione_robots"] == "sì"
     assert proroga["scaricato_il"] == "2026-11-19"
     in_parti = per_bandi(righe)["bando-d"]
-    assert (in_parti["classe"], in_parti["parte"]) == (pb.AVVISO, "Azione B2")
+    assert (in_parti["classe"], in_parti["parte"]) == (pb.AVVISO, "Azione B2: prova")
     assert in_parti["pagine"] == "2"
+
+
+# --- nome dell'azione di un avviso in più parti ---
+
+
+@pytest.fixture
+def senza_decisioni(monkeypatch):
+    monkeypatch.setattr(script, "DECISIONI_A_MANO", {})
+
+
+def riga_in_parti(tmp_path, prima_pagina):
+    """La riga del registro di un solo avviso in più parti, con questa pagina 1."""
+    a = Archivio(tmp_path)
+    a.aggiungi(
+        "bando-d",
+        URL_DECRETO.format(id=4, numero=400, allegato="A2"),
+        pb.ALLEGATO,
+        pdf_minimo([prima_pagina, ["testo"]]),
+        sezioni=f"5 su 5 | {AVVISO_IN_PIU_PARTI}",
+    )
+    (riga,) = script.costruisci(a.scrivi(), DATA)
+    return riga
+
+
+SOLO_CODICE_B2 = script.PARTE_SOLO_CODICE.format(codice="B2")
+
+
+def test_parte_con_il_nome_dal_titolo(tmp_path, senza_decisioni):
+    riga = riga_in_parti(
+        tmp_path,
+        [
+            "Allegato A3",
+            "Intervento B Azione B3: Ripopolamento patrimonio apistico",
+            "Disposizioni e modalita attuative",
+        ],
+    )
+    assert riga["parte"] == "Azione B3: Ripopolamento patrimonio apistico"
+    assert riga["motivo"] == (
+        f"{AVVISO_IN_PIU_PARTI} (elenco_pdf_bandi); {script.PARTE_DAL_TITOLO}"
+    )
+
+
+@pytest.mark.parametrize(
+    "prima_pagina",
+    [
+        # "Azione B2:" solo dentro una frase del testo, che continua alla riga dopo
+        [
+            "Allegato A2",
+            "Sono ammesse le spese previste dall'Azione B2: arnie, telaini, fogli cerei,",
+            "nei limiti indicati al paragrafo 4 del presente bando",
+        ],
+        # nome oltre i 100 caratteri
+        ["Intervento B Azione B2: " + "parola " * 20],
+        # senza i due punti
+        ["Intervento B Azione B2 Lotta a parassiti e malattie"],
+        # parola spezzata a fine riga
+        ["Intervento B Azione B2: Acquisto di attrez-", "zature"],
+        # nome vuoto
+        ["Intervento B Azione B2:"],
+    ],
+    ids=["frase", "oltre-100", "senza-due-punti", "parola-spezzata", "vuoto"],
+)
+def test_parte_solo_codice_senza_titolo(tmp_path, prima_pagina, senza_decisioni):
+    riga = riga_in_parti(tmp_path, prima_pagina)
+    assert riga["parte"] == "Azione B2"
+    assert (
+        riga["motivo"] == f"{AVVISO_IN_PIU_PARTI} (elenco_pdf_bandi); {SOLO_CODICE_B2}"
+    )
+
+
+def test_parte_solo_codice_nel_rapporto(tmp_path, capsys, senza_decisioni):
+    a = Archivio(tmp_path / "avvisi")
+    a.cartella.mkdir()
+    a.aggiungi(
+        "bando-d",
+        URL_DECRETO.format(id=4, numero=400, allegato="A2"),
+        pb.ALLEGATO,
+        pdf_minimo([["Intervento B Azione B2 senza titolo"], ["testo"]]),
+        sezioni=f"5 su 5 | {AVVISO_IN_PIU_PARTI}",
+    )
+    uscita = tmp_path / "processed"
+    uscita.mkdir()
+    codice = script.main(["--data", DATA], a.scrivi(), uscita)
+    assert codice == 0
+    assert "Attenzione: " in capsys.readouterr().out
+    assert "Azione B2, senza nome" in "\n".join(
+        script.parti_senza_nome(script.costruisci(a.cartella, DATA))
+    )
+
+
+# I quattro allegati veri degli apistici (decreto n. 14025 del 18/06/2026) e i
+# nomi decisi in docs/coda.md, passo 19d, punto 5. I file stanno in
+# dati-grezzi/, fuori dal repository: senza, il test si salta.
+APISTICI = {
+    "decreto-n-14025-del-18-06-2026--allegato-a1-e268ff8c.pdf": (
+        "Azione B1: Lotta a parassiti e malattie"
+    ),
+    "decreto-n-14025-del-18-06-2026--allegato-a3-bd90bf80.pdf": (
+        "Azione B3: Ripopolamento patrimonio apistico"
+    ),
+    "decreto-n-14025-del-18-06-2026--allegato-a4-764c40fe.pdf": (
+        "Azione B4: Razionalizzazione della transumanza"
+    ),
+    "decreto-n-14025-del-18-06-2026--allegato-a5-955dbd58.pdf": (
+        "Azione B5: Acquisto di attrezzature e sistemi di gestione"
+    ),
+}
+BANDO_APISTICI = "sostegno-agli-investimenti-strutturali-aziende-apisti-401650"
+
+
+def test_nomi_delle_azioni_dai_quattro_allegati_veri():
+    from scripts.ingestione.elenco_pdf_bandi import cartella_di
+
+    cartella = cartella_file(cartella_di("2026-11-19"), BANDO_APISTICI)
+    percorsi = {nome: cartella / nome for nome in APISTICI}
+    if not all(p.is_file() for p in percorsi.values()):
+        pytest.skip("allegati degli apistici non su disco (dati-grezzi/)")
+    trovati = {}
+    for nome, percorso in percorsi.items():
+        f = script.FileScaricato(
+            {"sezioni": AVVISO_IN_PIU_PARTI, "id_bando": BANDO_APISTICI},
+            percorso,
+            nome,
+            {},
+        )
+        scelta, parte = script.decisione_dello_script(f, DATA)
+        assert scelta["motivo"].endswith(script.PARTE_DAL_TITOLO)
+        trovati[nome] = parte
+    assert trovati == APISTICI
 
 
 def test_totali(archivio):

@@ -18,7 +18,10 @@ Colonne:
   presentazione;
 - uso: "frammenti" (si divide e va nell'archivio dei documenti, 19c-3) o
   "solo_registro";
-- parte: per un avviso in più parti, la parte (dal testo di pagina 1);
+- parte: per un avviso in più parti, la parte dal testo di pagina 1:
+  "Azione B1: Lotta a parassiti e malattie" se il titolo si trova (prima
+  riga che contiene "Azione B1:", nome fino a fine riga; nome_dell_azione),
+  altrimenti il solo codice, "Azione B1"; motivo dice quale dei due;
 - atto: l'atto del file, dal nome del file o, per decisione a mano, dal
   titolo della prima pagina; mai da bandi.riferimento_atto (quello dei
   punti digitale cita ancora il decreto superato); atto_origine dice da
@@ -270,6 +273,33 @@ A_MANO_ORIGINE = "a mano"
 # La parte di un avviso in più parti, dalla prima pagina ("Azione B1")
 PARTE = re.compile(r"\bAzione\s+(B\d+)\b")
 
+# Il nome dell'azione: oltre questa lunghezza non è un titolo
+NOME_MASSIMO = 100
+PARTE_DAL_TITOLO = "parte dal titolo a pagina 1 del file"
+PARTE_SOLO_CODICE = (
+    "parte: solo il codice, nessun titolo 'Azione {codice}: <nome>' a pagina 1"
+)
+
+
+def nome_dell_azione(pagina: str, codice: str) -> str | None:
+    """Il nome dell'azione `codice` dal titolo della pagina, o None.
+
+    Il titolo è la prima riga che contiene "Azione <codice>:"; il nome va
+    da dopo i due punti a fine riga, spazi ai bordi tolti. Non è un titolo
+    se il nome è vuoto, supera NOME_MASSIMO caratteri, finisce con una
+    virgola o con un trattino (parola spezzata che continua alla riga dopo).
+    """
+    schema = re.compile(rf"\bAzione\s+{re.escape(codice)}\s*:(.*)$")
+    for riga in pagina.splitlines():
+        m = schema.search(riga)
+        if m is None:
+            continue
+        nome = " ".join(m[1].split())
+        if not nome or len(nome) > NOME_MASSIMO or nome.endswith((",", "-")):
+            return None
+        return nome
+    return None
+
 
 class ErroreRegistro(Exception):
     """Un ingresso che non torna: si riporta, non si indovina."""
@@ -461,12 +491,15 @@ def decisione_dello_script(f: FileScaricato, data: str) -> tuple[dict, str]:
             raise ErroreRegistro(
                 f"{f.percorso.name}: avviso in più parti senza 'Azione Bn' a pagina 1"
             )
+        codice = m.group(1)
+        nome = nome_dell_azione(testo, codice)
+        fonte = PARTE_DAL_TITOLO if nome else PARTE_SOLO_CODICE.format(codice=codice)
         return {
             "classe": pb.AVVISO,
             "uso": FRAMMENTI,
-            "motivo": f"{AVVISO_IN_PIU_PARTI} (elenco_pdf_bandi)",
+            "motivo": f"{AVVISO_IN_PIU_PARTI} (elenco_pdf_bandi); {fonte}",
             "deciso_il": data,
-        }, f"Azione {m.group(1)}"
+        }, f"Azione {codice}" + (f": {nome}" if nome else "")
     if riga["classe"] == pb.PROROGA:
         return {
             "classe": pb.PROROGA,
@@ -615,6 +648,15 @@ def totali(righe: list[dict]) -> tuple[int, int]:
     return len(da_dividere), sum(int(r["pagine"]) for r in da_dividere)
 
 
+def parti_senza_nome(righe: list[dict]) -> list[str]:
+    """Le righe con una parte ridotta al solo codice, per il rapporto."""
+    return [
+        f"{r['nome_file']}: {r['parte']}, senza nome (nessun titolo a pagina 1)"
+        for r in righe
+        if re.fullmatch(r"Azione B\d+", r["parte"])
+    ]
+
+
 def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -660,6 +702,8 @@ def main(
         f"{len(righe)} file; uso frammenti: {file_frammenti} file, "
         f"{pagine_frammenti} pagine"
     )
+    for avviso in parti_senza_nome(righe):
+        print(f"Attenzione: {avviso}")
     if argomenti.controlla:
         if destinazione.is_file() and destinazione.read_bytes() == contenuto:
             print(f"{destinazione.name}: aggiornato ({riepilogo})")

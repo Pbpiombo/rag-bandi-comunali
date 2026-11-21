@@ -68,6 +68,20 @@ CELLA_DEBOLE = 4  # caratteri senza spazi: sotto, la cella si trova per caso
 # Nota degli apistici: "Azione B1 (Allegato A1)" nel primo foglio,
 # "Azione B1, Allegato A1, par. ..." nel secondo (fatti_pdf_modello_2)
 NOTA_APISTICI = re.compile(r"^\s*Azione\s+(B\d+)\s*[(,]\s*Allegato\s+(A\d+)\b")
+# La parte di un allegato nel registro: "Azione B1" o "Azione B1: <nome>"
+PARTE_DEL_REGISTRO = re.compile(r"Azione (B\d+)(?::|$)")
+
+
+def codice_della_parte(parte: str | None) -> str | None:
+    """Il codice dell'azione ("B1") dalla parte del registro, o None.
+
+    Vale per le due forme: "Azione B1" (solo il codice) e "Azione B1: <nome>"
+    (con il nome dal titolo dell'allegato, registra_avvisi).
+    """
+    m = PARTE_DEL_REGISTRO.match(parte or "")
+    return m[1] if m else None
+
+
 # Coincidenze con un altro foglio: "contenuta" solo se il tratto più corto
 # ha almeno tanti caratteri senza spazi; "simile" da questa somiglianza
 CONTENUTA_MINIMA = 20
@@ -351,7 +365,8 @@ def controlla_fatto(
     file_nota = None
     if nota:
         file_nota = next(
-            (f for f in del_bando if f.parte == f"Azione {nota.group(1)}"), None
+            (f for f in del_bando if codice_della_parte(f.parte) == nota.group(1)),
+            None,
         )
     propri = [file_nota] if file_nota else del_bando
     altri_allegati_del_bando = [f for f in del_bando if f not in propri]

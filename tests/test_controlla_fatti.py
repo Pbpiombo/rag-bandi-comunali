@@ -227,6 +227,29 @@ def test_apistici_frase_di_un_altro_allegato(apistici):
     assert e["esito"] == cf.ALTRO_ALLEGATO
 
 
+def test_apistici_con_il_nome_dell_azione_nel_registro(apistici):
+    """Con la parte "Azione B1: <nome>" (registra_avvisi) il file della nota è lo stesso."""
+    nomi = {"B1": "Lotta a parassiti e malattie", "B3": "Ripopolamento"}
+    con_nome = [
+        cf.FilePdf(
+            f.sha256, f.id_bando, f.classe, f"{f.parte}: {nomi[f.parte[-2:]]}",
+            f.nome_file, f.pagine,
+        )
+        for f in apistici
+    ]  # fmt: skip
+    e = controlla(
+        fatto(
+            "del 50% della spesa",
+            id_bando="api",
+            note="Azione B1 (Allegato A1). x",
+            solo="no",
+        ),
+        con_nome,
+    )
+    assert e["file_della_nota"] == "a1.pdf"
+    assert (e["esito"], e["gemelli"]) == (cf.TROVATA, "coerente")
+
+
 # --- gemelli ---
 
 
