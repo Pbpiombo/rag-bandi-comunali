@@ -45,7 +45,9 @@ documento lungo, in questo lancio; tre errori dell'API di fila; un errore
 che non si ripete (credenziali, richiesta rifiutata).
 
 --controlla: i controlli sul testo generato (controlla_tutti), scritti in
-controllo_contesti.txt (o controllo_contesti_prova.txt). Nessuna chiamata.
+controllo_contesti_<data>_<ora>.txt (o controllo_contesti_prova_<data>_<ora>.txt:
+un rapporto non sovrascrive il precedente), con i segni automatici tolti
+dopo la lettura (segni_automatici_tolti.txt, se c'è). Nessuna chiamata.
 
 L'unica connessione di rete dello script è verso l'API di Anthropic, e solo
 senza --controlla.
@@ -562,10 +564,14 @@ def normalizza_argomento(argomento: str) -> str:
     Per ogni parte separata da punto e virgola: la voce dell'elenco, o la
     voce di una sua forma vicina (FORME_VICINE); se la parte intera non è
     né l'una né l'altra, si provano i suoi pezzi separati da virgola
-    ("varianti, modifiche non sostanziali"). Le altre parti, e le "altro:",
-    si scartano. Al massimo VOCI_MASSIME voci, senza doppioni. Se non resta
+    ("varianti, modifiche non sostanziali"). Dal 21/11/2026, dopo la
+    generazione completa, lo stesso vale per il testo dopo "altro:"
+    ("altro: varianti, modifiche" diventa "varianti, proroghe e
+    modifiche"); l'elenco delle forme non cambia. Le altre parti si
+    scartano. Al massimo VOCI_MASSIME voci, senza doppioni. Se non resta
     nessuna voce: "altro:" con il testo del modello (i punto e virgola
-    diventano virgole).
+    diventano virgole). Congelata fino a fine misura
+    (impronta_normalizzazione).
     """
     normali = {_normale(v): v for v in VOCI}
     vicine = {_normale(f): v for v, forme in FORME_VICINE.items() for f in forme}
@@ -579,7 +585,10 @@ def normalizza_argomento(argomento: str) -> str:
 
     for parte in argomento.split(";"):
         p = _normale(parte)
-        if not p or p.startswith(ALTRO):
+        if p.startswith(ALTRO):
+            parte = parte.split(":", 1)[1] if ":" in parte else ""
+            p = _normale(parte)
+        if not p:
             continue
         if not prendi(parte):
             for pezzo in parte.split(","):
@@ -591,18 +600,32 @@ def normalizza_argomento(argomento: str) -> str:
     return f"{ALTRO}: {libero}" if libero else ALTRO
 
 
+def impronta_normalizzazione() -> str:
+    """Cambia se cambiano voci, forme vicine o la regola: la normalizzazione è
+    congelata fino a fine misura (decisione del 21/11/2026)."""
+    import inspect
+
+    testo = json.dumps(
+        [VOCI, FORME_VICINE, VOCI_MASSIME, inspect.getsource(normalizza_argomento)],
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(testo.encode("utf-8")).hexdigest()
+
+
 def con_argomento_normalizzato(dato: dict) -> dict:
     """Il contesto con ARGOMENTO normalizzato; la riga del modello resta in
-    `argomento_modello`. Un contesto già normalizzato resta com'è."""
+    `argomento_modello`. Un contesto già normalizzato si rinormalizza dalla
+    riga del modello, così vale la regola di oggi anche per le righe salvate."""
     righe = dato.get("righe") or {}
-    if "argomento_modello" in dato or "argomento" not in righe:
+    if "argomento" not in righe:
         return dato
-    nuovo = normalizza_argomento(righe["argomento"])
+    del_modello = dato.get("argomento_modello", righe["argomento"])
+    nuovo = normalizza_argomento(del_modello)
     voci, libero, ignote = voci_dell_argomento(nuovo)
     return {
         **dato,
         "righe": {**righe, "argomento": nuovo},
-        "argomento_modello": righe["argomento"],
+        "argomento_modello": del_modello,
         "argomento_voci": voci,
         "argomento_altro": libero,
         "argomento_non_ricondotto": ignote,
@@ -864,6 +887,76 @@ NOTA_VOCI = (
     "non i risultati; prompt e impronta invariati)"
 )
 
+# Tre gruppi di violazioni (decisione del 21/11/2026, prima dei controlli
+# sugli 871): contenuto (tipi "numero" e "gemello": numeri, date, segni del
+# gemello verificati a mano, codici di altre azioni, numeri d'atto), segno
+# automatico del gemello, forma. Un contesto con violazioni di contenuto o
+# da segno automatico non tolto si scarta, e conta per la condizione di
+# arresto; uno con sole violazioni di forma resta.
+GEMELLO_AUTOMATICO = "gemello automatico"
+CONTENUTO = "contenuto"
+AUTOMATICO = "segno automatico"
+FORMA = "forma"
+GRUPPO_DEL_TIPO = {
+    "numero": CONTENUTO,
+    "gemello": CONTENUTO,
+    GEMELLO_AUTOMATICO: AUTOMATICO,
+    "forma": FORMA,
+}
+# Segni automatici tolti dopo la lettura, uno per riga: "<fonte> | <segno>".
+# Un segno si toglie solo se tutti i suoi casi sono usi generici (regola del
+# 21/11/2026); i casi di un segno non tolto contano come violazioni vere
+NOME_SEGNI_TOLTI = "segni_automatici_tolti.txt"  # in CARTELLA
+
+
+def gruppi_di(trovate: list[tuple[str, str]]) -> set[str]:
+    """I gruppi (contenuto, segno automatico, forma) delle violazioni di un frammento."""
+    return {GRUPPO_DEL_TIPO[t] for t, _ in trovate}
+
+
+def da_scartare(trovate: list[tuple[str, str]]) -> bool:
+    """Il contesto si scarta: violazioni di contenuto o da segno automatico non tolto."""
+    return bool(gruppi_di(trovate) - {FORMA})
+
+
+def leggi_segni_tolti(percorso: Path | None = None) -> set[tuple[str, str]]:
+    """Le coppie (fonte, segno) del file dei segni automatici tolti; vuoto se manca.
+
+    Righe vuote e righe che cominciano con "#" si ignorano.
+    """
+    percorso = percorso or CARTELLA / NOME_SEGNI_TOLTI
+    if not percorso.exists():
+        return set()
+    tolti = set()
+    for numero, riga in enumerate(percorso.read_text(encoding="utf-8").splitlines(), 1):
+        if not riga.strip() or riga.lstrip().startswith("#"):
+            continue
+        fonte, sep, segno = riga.partition("|")
+        if not sep or not fonte.strip() or not segno.strip():
+            raise ArrestoGenerazione(
+                f"{percorso.name}, riga {numero}: serve '<fonte> | <segno>'"
+            )
+        tolti.add((fonte.strip(), _normale(segno)))
+    return tolti
+
+
+def togli_segni(
+    segni: "SegniDelGemello", fonte: str, tolti: set[tuple[str, str]]
+) -> set[str]:
+    """Toglie dai segni di `fonte` quelli automatici del file dei tolti; li restituisce.
+
+    Ferma se il file nomina, per questa fonte, un segno che non è automatico.
+    """
+    suoi = {s for f, s in tolti if f == fonte}
+    non_automatici = suoi - segni.automatici
+    if non_automatici:
+        raise ArrestoGenerazione(
+            f"{fonte}: segni tolti che non sono automatici: {sorted(non_automatici)}"
+        )
+    segni.automatici -= suoi
+    segni.frasi -= suoi
+    return suoi
+
 
 def _norma_numero(n: str) -> str:
     return n.rstrip(".,").replace(".", "").lstrip("0") or "0"
@@ -1001,6 +1094,7 @@ def segni_del_gemello(
     from scripts.diagnostica.misura_recupero_avvisi import parole_significative
 
     segni = SegniDelGemello()
+    a_mano: set[str] = set()
     # il testo del documento, non il titolo: quello degli apistici elenca
     # tutte le azioni
     proprio = f"{documento.atto} {documento.testo}"
@@ -1027,7 +1121,7 @@ def segni_del_gemello(
         for c in codici:
             (segni.scartati if _compare(c, proprio, True) else segni.codici).add(c)
         for f in frasi:
-            (segni.scartati if _compare(f, proprio_bando) else segni.frasi).add(f)
+            (segni.scartati if _compare(f, proprio_bando) else a_mano).add(f)
         for x in NUMERO.findall(g.atto):
             n = _norma_numero(x)
             if len(n) >= 3:
@@ -1036,7 +1130,10 @@ def segni_del_gemello(
             documento, g, del_bando if g.id_bando != documento.id_bando else ""
         )
         segni.automatici |= set(automatici)
-        segni.frasi |= set(automatici)
+    # un segno scelto a mano e verificato vale come tale anche se è pure
+    # automatico: le violazioni si contano nel gruppo del contenuto
+    segni.automatici -= a_mano
+    segni.frasi = a_mano | segni.automatici
     segni.scartati -= segni.codici | segni.frasi | segni.numeri
     return segni
 
@@ -1164,7 +1261,8 @@ def _togli_struttura(testo: str, documento: Documento, violazioni: list) -> str:
 def controlla_contesto(
     dato: dict, frammento: str, documento: Documento, segni: SegniDelGemello
 ) -> list[tuple[str, str]]:
-    """Le violazioni di un contesto: (tipo, dettaglio); tipo numero, gemello o forma.
+    """Le violazioni di un contesto: (tipo, dettaglio); tipo numero, gemello,
+    gemello automatico (un segno di segni_automatici) o forma.
 
     Si controllano solo le righe scritte dal modello (DOVE, ARGOMENTO,
     SERVE A, PAROLE): la riga BANDO la compone il programma. Numeri: nella
@@ -1244,7 +1342,8 @@ def controlla_contesto(
         if re.search(cerca, _normale(del_modello)) and not re.search(
             cerca, _normale(frammento)
         ):
-            violazioni.append(("gemello", f"nome {frase!r}"))
+            tipo = GEMELLO_AUTOMATICO if frase in segni.automatici else "gemello"
+            violazioni.append((tipo, f"nome {frase!r}"))
     numeri_modello = {_norma_numero(n) for n in NUMERO.findall(del_modello)}
     for numero in sorted(segni.numeri & numeri_modello):
         if numero not in del_frammento:
@@ -1253,12 +1352,15 @@ def controlla_contesto(
 
 
 def linee_dei_segni(
-    documenti: list[Documento], tutti: list[Documento] | None = None
+    documenti: list[Documento],
+    tutti: list[Documento] | None = None,
+    tolti: set[tuple[str, str]] | None = None,
 ) -> list[str]:
     """Per file: i segni del gemello rimasti dopo la verifica e quelli scartati.
 
     `tutti`: i file fra cui cercare gemelli e altri file del bando (con
-    --prova, tutti i 17, anche se si controlla un file solo).
+    --prova, tutti i 17, anche se si controlla un file solo). `tolti`: i
+    segni automatici tolti dopo la lettura (leggi_segni_tolti).
     """
     tutti = tutti or documenti
     gemelli = gemelli_dei_file(tutti)
@@ -1267,6 +1369,7 @@ def linee_dei_segni(
         if not gemelli[d.fonte]:
             continue
         s = segni_del_gemello(d, gemelli[d.fonte], altri_del_bando(d, tutti))
+        via = togli_segni(s, d.fonte, tolti or set())
         a_mano = sorted(s.codici) + sorted(s.frasi - s.automatici) + sorted(s.numeri)
         linee.append(
             f"  {d.fonte}: rimasti "
@@ -1278,6 +1381,11 @@ def linee_dei_segni(
             )
             + "; scartati (nel testo del documento) "
             + (", ".join(sorted(s.scartati)) or "-")
+            + (
+                f"; automatici tolti dopo la lettura {', '.join(sorted(via))}"
+                if via
+                else ""
+            )
         )
     return linee
 
@@ -1286,6 +1394,7 @@ def controlla_tutti(
     documenti: list[Documento],
     salvati: dict[str, dict],
     tutti: list[Documento] | None = None,
+    tolti: set[tuple[str, str]] | None = None,
 ) -> tuple[dict[str, list[tuple[str, str]]], list[str]]:
     """(violazioni per id del frammento, linee del rapporto).
 
@@ -1293,11 +1402,19 @@ def controlla_tutti(
     bando si cercano fra `tutti` (predefinito: `documenti`). Con --prova
     `documenti` è il file provato e `tutti` sono i 17: prima del
     21/11/2026 i gemelli si cercavano fra i soli file provati, e il
-    controllo del gemello nella prova non trovava niente.
+    controllo del gemello nella prova non trovava niente. `tolti`: i segni
+    automatici tolti dopo la lettura (leggi_segni_tolti), che non si
+    cercano. Il rapporto separa i tre gruppi (gruppi_di); la condizione di
+    arresto conta i frammenti da scartare (da_scartare).
     """
     from collections import Counter
 
     tutti = tutti or documenti
+    tolti = tolti or set()
+    fonti = {d.fonte for d in tutti}
+    ignote = sorted(f for f, _ in tolti if f not in fonti)
+    if ignote:
+        raise ArrestoGenerazione(f"segni tolti di file sconosciuti: {ignote}")
     gemelli = gemelli_dei_file(tutti)
     violazioni: dict[str, list[tuple[str, str]]] = {}
     per_file = []
@@ -1307,8 +1424,10 @@ def controlla_tutti(
     scritta_bando = rifatti = indice = 0
     for d in documenti:
         segni = segni_del_gemello(d, gemelli[d.fonte], altri_del_bando(d, tutti))
+        togli_segni(segni, d.fonte, tolti)
         fatti = [f for f in d.frammenti if f.id in salvati]
         con = 0
+        gruppi_file: Counter = Counter()
         for f in fatti:
             dato = salvati[f.id]
             trovate = controlla_contesto(dato, f.testo, d, segni)
@@ -1333,24 +1452,51 @@ def controlla_tutti(
                 violazioni[f.id] = trovate
                 con += 1
                 tipi.update({t for t, _ in trovate})
-        per_file.append((d.fonte, len(fatti), len(d.frammenti), con))
-    totale = sum(n for _, n, _, _ in per_file)
-    numero_o_gemello = sum(
-        any(t in ("numero", "gemello") for t, _ in v) for v in violazioni.values()
-    )
+                gruppi_file.update(gruppi_di(trovate))
+                gruppi_file["scartare"] += da_scartare(trovate)
+        per_file.append((d.fonte, len(fatti), len(d.frammenti), con, gruppi_file))
+    totale = sum(n for _, n, _, _, _ in per_file)
+    gruppi = [set(gruppi_di(v)) for v in violazioni.values()]
+    contenuto = sum(CONTENUTO in g for g in gruppi)
+    automatico = sum(AUTOMATICO in g for g in gruppi)
+    solo_automatico = sum(g == {AUTOMATICO} or g == {AUTOMATICO, FORMA} for g in gruppi)
+    forma = sum(FORMA in g for g in gruppi)
+    solo_forma = sum(g == {FORMA} for g in gruppi)
+    vere = sum(da_scartare(v) for v in violazioni.values())
+
+    def quota(n: int) -> str:
+        return f"{n} ({n / totale:.1%})" if totale else str(n)
+
     linee = [
         (
             f"Controlli sui contesti generati ({totale} su "
             f"{sum(len(d.frammenti) for d in documenti)} frammenti)"
         ),
         NOTA_REVISIONE,
+        f"Normalizzazione di ARGOMENTO: impronta {impronta_normalizzazione()[:12]}",
         (
-            f"Frammenti con almeno una violazione: {len(violazioni)} "
-            f"({len(violazioni) / totale:.1%}); su numeri o gemello: "
-            f"{numero_o_gemello} ({numero_o_gemello / totale:.1%})"
-        )
-        if totale
-        else "Nessun contesto salvato",
+            f"Frammenti con almeno una violazione: {quota(len(violazioni))}"
+            if totale
+            else "Nessun contesto salvato"
+        ),
+        (
+            "  contenuto (numeri, date, segni del gemello verificati a mano, "
+            f"codici di altre azioni, numeri d'atto): {quota(contenuto)}"
+        ),
+        (
+            f"  segno automatico del gemello: {quota(automatico)}, di cui senza "
+            f"violazioni di contenuto {solo_automatico}"
+        ),
+        f"  forma: {quota(forma)}, di cui di sola forma {solo_forma}",
+        (
+            f"Violazioni vere (contenuto, o segno automatico non tolto): "
+            f"{quota(vere)}; soglia di arresto {QUOTA_VIOLAZIONI:.0%}; questi "
+            "contesti si scartano, quelli di sola forma restano"
+        ),
+        (
+            "Segni automatici tolti dopo la lettura: "
+            + (", ".join(f"{f} | {s}" for f, s in sorted(tolti)) or "nessuno")
+        ),
         "Per tipo (frammenti): "
         + ", ".join(f"{t} {n}" for t, n in sorted(tipi.items())),
         (
@@ -1369,11 +1515,18 @@ def controlla_tutti(
         "Voci di ARGOMENTO: " + ", ".join(f"{v} {n}" for v, n in voci.most_common()),
         "",
         "Segni del gemello dopo la verifica sul proprio documento:",
-        *linee_dei_segni(documenti, tutti),
+        *linee_dei_segni(documenti, tutti, tolti),
         "",
-        "Per file: frammenti con contesto / frammenti, con violazioni",
+        (
+            "Per file: frammenti con contesto / frammenti, con violazioni; per "
+            "gruppo: contenuto, segno automatico, forma; da scartare"
+        ),
     ]
-    linee += [f"  {f}: {n} / {tot}, {c}" for f, n, tot, c in per_file]
+    linee += [
+        f"  {f}: {n} / {tot}, {c}; {g[CONTENUTO]}, {g[AUTOMATICO]}, {g[FORMA]}; "
+        f"{g['scartare']}"
+        for f, n, tot, c, g in per_file
+    ]
     linee += ["", "Violazioni, per frammento:"]
     for d in documenti:
         for f in d.frammenti:
@@ -1394,6 +1547,20 @@ def documenti_della_prova(documenti: list[Documento], nome: str) -> list[Documen
     return scelti
 
 
+def percorso_del_rapporto(prova: bool, ora: str | None = None) -> Path:
+    """Il file del rapporto dei controlli, con data e ora: non si sovrascrive
+    un rapporto precedente (decisione del 21/11/2026). Se il nome c'è già,
+    un numero in coda."""
+    base = "controllo_contesti_prova" if prova else "controllo_contesti"
+    ora = ora or time.strftime("%Y-%m-%d_%H%M%S")
+    percorso = CARTELLA / f"{base}_{ora}.txt"
+    numero = 2
+    while percorso.exists():
+        percorso = CARTELLA / f"{base}_{ora}_{numero}.txt"
+        numero += 1
+    return percorso
+
+
 def esegui_controlli(prova: bool) -> int:
     documenti = leggi_documenti()
     percorso = FILE_PROVA if prova else FILE_CONTESTI
@@ -1404,12 +1571,12 @@ def esegui_controlli(prova: bool) -> int:
     tutti = documenti
     if prova:
         documenti = [d for d in documenti if any(f.id in salvati for f in d.frammenti)]
-    _, linee = controlla_tutti(documenti, salvati, tutti)
-    nome = "controllo_contesti_prova.txt" if prova else "controllo_contesti.txt"
+    _, linee = controlla_tutti(documenti, salvati, tutti, leggi_segni_tolti())
+    rapporto = percorso_del_rapporto(prova)
     testo = "\n".join(linee)
-    (CARTELLA / nome).write_text(testo + "\n", encoding="utf-8")
+    rapporto.write_text(testo + "\n", encoding="utf-8")
     print(testo)
-    print(f"\nScritto {CARTELLA / nome}")
+    print(f"\nScritto {rapporto}")
     return 0
 
 

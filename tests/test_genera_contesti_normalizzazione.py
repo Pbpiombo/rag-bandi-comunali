@@ -189,7 +189,8 @@ def test_controlli_della_prova_caricano_i_gemelli(tmp_path, monkeypatch):
     )
     gc.aggiungi(gc.FILE_PROVA, dato)
     assert gc.main(["--controlla", "--prova"]) == 0
-    rapporto = (tmp_path / "controllo_contesti_prova.txt").read_text(encoding="utf-8")
+    (scritto,) = tmp_path.glob("controllo_contesti_prova_*.txt")
+    rapporto = scritto.read_text(encoding="utf-8")
     assert "gemello: codice B3" in rapporto
     assert "decreto-allegato-a3-x.pdf" not in rapporto.split("Per file:")[1]
 

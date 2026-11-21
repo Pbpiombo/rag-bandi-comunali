@@ -1109,9 +1109,11 @@ def test_causa_del_fatto_la_prima_che_si_applica():
         mr.causa_del_fatto("altro")
 
 
-def test_differenza_entro_il_rumore():
-    assert mr.differenza(26, 29) == "+3 (entro il rumore)"
-    assert mr.differenza(26, 26) == "0 (entro il rumore)"
+def test_differenza_senza_soglia_fissa():
+    # dal 21/11/2026 niente soglia di 3 fatti: lo scarto lo giudica il test
+    # dei segni (nota_dei_segni)
+    assert mr.differenza(26, 29) == "+3"
+    assert mr.differenza(26, 26) == "0"
     assert mr.differenza(30, 26) == "-4"
     assert mr.differenza(26, 32) == "+6"
 
@@ -1174,8 +1176,10 @@ def test_rapporto_intero_per_bando_gemelli_e_cause():
     assert secondo.split()[2:] == ["2", "0", "/", "0", "0", "/", "1"]
     assert "v0 k=10        B: frasi gemelle 1 (3)" in testo
     assert (
-        "e5-small k=10 B: 3 contro 1, +2 (entro il rumore); ora trovati 3, 2:2" in testo
+        "e5-small k=10 B: 3 contro 1, +2; ora trovati 3, 2:2; ora non trovati -; "
+        "p = 0,500; entro il rumore" in testo
     )
+    assert "Differenze di al più" not in testo
     alfa = next(x for x in linee if x.startswith("alfa"))
     assert alfa.split() == ["alfa", "2", "1", "/", "1", "0", "/", "2"]
     assert "Non trovati in v0, condizione B, k=10: 3" in testo

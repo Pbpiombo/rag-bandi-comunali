@@ -3093,9 +3093,6 @@ def rapporto_esatto(
 SCOSTAMENTO_2 = 1000
 SUFFISSO_INTERA = "97"
 MODELLI_INTERA = ("v0", "e5-small", "e5-base")
-# Differenze di al più tanti fatti sono "entro il rumore" (docs/coda.md,
-# "Passo 19d", punto 2: con 40 fatti, 1-3 fatti)
-RUMORE = 3
 
 # Cause dei non trovati, per fatto: la prima che si applica, in quest'ordine
 CAUSA_SPEZZATO = "pezzo spezzato tra frammenti"
@@ -3255,10 +3252,17 @@ def fascia_di_posizione(cause: str) -> str:
 
 
 def differenza(prima: int, dopo: int) -> str:
-    """'+n' o '-n', con "entro il rumore" se lo scarto è al più RUMORE fatti."""
+    """'+n', '-n' o '0'. Se lo scarto è casuale lo dice il test dei segni
+    (nota_dei_segni), non una soglia fissa: la soglia di 3 fatti è tolta il
+    21/11/2026."""
     scarto = dopo - prima
-    segno = f"{scarto:+d}" if scarto else "0"
-    return segno + (" (entro il rumore)" if abs(scarto) <= RUMORE else "")
+    return f"{scarto:+d}" if scarto else "0"
+
+
+def nota_dei_segni(guadagnati: int, persi: int) -> str:
+    """'p = …', con "entro il rumore" se p > SOGLIA_CASO (test esatto dei segni)."""
+    p = probabilita_segni(guadagnati, persi)
+    return f"p = {_virgola(p)}" + ("; entro il rumore" if p > SOGLIA_CASO else "")
 
 
 def _trovati(righe: list[dict], c: str, scelta=lambda r: True) -> tuple[int, int]:
@@ -3309,8 +3313,8 @@ def rapporto_intero(
 ) -> list[str]:
     """Il riepilogo delle misure sui due fogli; misure per (modello, k).
 
-    Con confronti=False la sezione 4 (scarti con la soglia di RUMORE) non
-    c'è: i confronti li scrive chi chiama, con il test dei segni.
+    Con confronti=False la sezione 4 non c'è: i confronti li scrive chi
+    chiama. Nella sezione 4 lo scarto si giudica con il test dei segni.
     """
     configurazioni = list(misure)
     etichette = [f"{n} k={k}" for n, k in configurazioni]
@@ -3319,12 +3323,7 @@ def rapporto_intero(
         f"Passo 19d, riepilogo della misura esatta sui due fogli, metà: {lato}",
         NOTA_REGOLA,
         "Righe del secondo foglio scritte come 2:<riga>."
-        + (
-            f" Differenze di al più {RUMORE} fatti: entro il rumore (docs/coda.md, "
-            "Passo 19d, punto 2)."
-            if confronti
-            else ""
-        ),
+        + (f" {NOTA_SEGNI}" if confronti else ""),
         "",
         "1. Fatti trovati, A / B, su n fatti",
         f"{'':<{larga}}{'n':>4}" + "".join(f"{e:>18}" for e in etichette),
@@ -3381,7 +3380,8 @@ def rapporto_intero(
                     f"{_trovati(base, c)[0]}, "
                     f"{differenza(_trovati(base, c)[0], _trovati(righe, c)[0])}; "
                     f"ora trovati {', '.join(map(nome_della_riga, guadagnati)) or '-'}; "
-                    f"ora non trovati {', '.join(map(nome_della_riga, persi)) or '-'}"
+                    f"ora non trovati {', '.join(map(nome_della_riga, persi)) or '-'}; "
+                    f"{nota_dei_segni(len(guadagnati), len(persi))}"
                 )
         for n in dict.fromkeys(n for n, _ in configurazioni):
             if (n, K) in misure and (n, 15) in misure:
@@ -3394,7 +3394,8 @@ def rapporto_intero(
                     linee.append(
                         f"  {n} da k={K} a k=15 {c}: {differenza(prima_, dopo)}; "
                         f"ora trovati {len(guadagnati)}, ora non trovati {len(persi)} "
-                        f"({', '.join(map(nome_della_riga, persi)) or '-'})"
+                        f"({', '.join(map(nome_della_riga, persi)) or '-'}); "
+                        f"{nota_dei_segni(len(guadagnati), len(persi))}"
                     )
     else:
         linee += ["", "4. Confronti: più sotto, con il test esatto dei segni"]
@@ -3667,11 +3668,10 @@ def _virgola(x: float, cifre: int = 3) -> str:
 
 
 def _segni(guadagnati: list[str], persi: list[str]) -> str:
-    p = probabilita_segni(len(guadagnati), len(persi))
     return (
         f"guadagnati {len(guadagnati)} ({', '.join(guadagnati) or '-'}); persi "
-        f"{len(persi)} ({', '.join(persi) or '-'}); p = {_virgola(p)}"
-        + ("; entro il rumore" if p > SOGLIA_CASO else "")
+        f"{len(persi)} ({', '.join(persi) or '-'}); "
+        + nota_dei_segni(len(guadagnati), len(persi))
     )
 
 
@@ -4941,10 +4941,12 @@ def esegui_parte_97(lato: str) -> int:
 #   c-LR  nella ricerca per parole e nel riordinatore;
 #   c-LVR anche nel vettore, con il limite a 512 token (vettori v1+contesto).
 # Righe del contesto (--righe): tutte, senza ARGOMENTO, senza SERVE A.
-# I contesti con una violazione dei controlli (genera_contesti.controlla_tutti)
-# non entrano: quel frammento resta senza contesto. Oltre il 5% di
-# violazioni la misura non parte (decisione del 21/11/2026: una sola
-# revisione delle istruzioni, nata dai controlli).
+# I contesti con violazioni di contenuto, o da segno automatico del gemello
+# non tolto dopo la lettura (genera_contesti.da_scartare), non entrano: quel
+# frammento resta senza contesto. Le violazioni di sola forma non scartano
+# il contesto. Oltre il 5% di contesti da scartare la misura non parte
+# (decisioni del 21/11/2026: una sola revisione delle istruzioni, nata dai
+# controlli; tre gruppi di violazioni, prima dei controlli sugli 871).
 #
 # Regola di adozione (decisa il 21/11/2026, prima di ogni misura): una
 # configurazione si adotta solo se guadagna in B sia con k=10 sia con k=15
@@ -5040,12 +5042,18 @@ def tipo_del_fatto(fatto: dict) -> str:
 
 
 def contesti_da(
-    documenti, salvati: dict[str, dict], righe: str
+    documenti,
+    salvati: dict[str, dict],
+    righe: str,
+    tolti: set[tuple[str, str]] | None = None,
 ) -> tuple[dict[tuple[str, int], str], dict[str, list]]:
-    """(contesto per (fonte, chunk_num), violazioni per id) dai contesti salvati.
+    """(contesto per (fonte, chunk_num), violazioni dei contesti scartati, per id).
 
-    Ferma se manca un contesto o se le violazioni superano la quota; i
-    frammenti con una violazione restano senza contesto.
+    Ferma se manca un contesto o se i contesti da scartare superano la
+    quota. Si scartano, e quei frammenti restano senza contesto, i contesti
+    con violazioni di contenuto o da segno automatico non tolto
+    (genera_contesti.da_scartare); quelli di sola forma restano. `tolti`: i
+    segni automatici tolti dopo la lettura (genera_contesti.leggi_segni_tolti).
     """
     from scripts.diagnostica import genera_contesti as gc
 
@@ -5055,11 +5063,12 @@ def contesti_da(
         raise ErroreMisura(
             f"{len(mancanti)} frammenti senza contesto: la generazione non è finita"
         )
-    violazioni, _ = gc.controlla_tutti(documenti, salvati)
+    tutte, _ = gc.controlla_tutti(documenti, salvati, tolti=tolti)
+    violazioni = {i: v for i, v in tutte.items() if gc.da_scartare(v)}
     quota = len(violazioni) / len(frammenti)
     if quota > gc.QUOTA_VIOLAZIONI:
         raise ErroreMisura(
-            f"contesti con violazioni {len(violazioni)} su {len(frammenti)} "
+            f"contesti con violazioni vere {len(violazioni)} su {len(frammenti)} "
             f"({quota:.1%}), oltre il {gc.QUOTA_VIOLAZIONI:.0%}: si rivedono le "
             "istruzioni una volta, a partire dai controlli"
         )
@@ -5086,9 +5095,20 @@ def leggi_contesti_generati():
         raise ErroreMisura(str(errore)) from errore
 
 
+def contesti_della_misura(documenti, salvati, righe: str):
+    """contesti_da con i segni automatici tolti dopo la lettura (il file in
+    dati-grezzi/prova/19d/contesto, se c'è)."""
+    from scripts.diagnostica import genera_contesti as gc
+
+    try:
+        return contesti_da(documenti, salvati, righe, gc.leggi_segni_tolti())
+    except gc.ArrestoGenerazione as errore:
+        raise ErroreMisura(str(errore)) from errore
+
+
 def contesti_per_frammento(righe: str) -> dict[tuple[str, int], str]:
     documenti, salvati = leggi_contesti_generati()
-    return contesti_da(documenti, salvati, righe)[0]
+    return contesti_della_misura(documenti, salvati, righe)[0]
 
 
 def nome_dei_vettori(config: ConfigContesto, righe: str) -> str:
@@ -5515,7 +5535,7 @@ def esegui_rapporto_contesto(lato: str) -> int:
         raise ErroreMisura("manca la misura di c-0: serve --contesto c-0")
     base = misure[("c-0", NESSUNA)]
     documenti, salvati = leggi_contesti_generati()
-    _, violazioni = contesti_da(documenti, salvati, "tutte")
+    _, violazioni = contesti_della_misura(documenti, salvati, "tutte")
     _, fatti, file_per_bando = fatti_intera(lato)
     fatto_di = {str(f["riga"]): f for f in fatti}
     frammenti_per_fonte, _ = frammenti_dei_vettori()
@@ -5532,7 +5552,7 @@ def esegui_rapporto_contesto(lato: str) -> int:
         (
             f"Contesti: {gc.FILE_CONTESTI.name}, modello {gc.MODELLO}, impronta "
             f"{gc.impronta_istruzioni()[:12]}; {len(salvati)} frammenti, con "
-            f"violazioni (senza contesto nella misura) {len(violazioni)}"
+            f"violazioni vere (senza contesto nella misura) {len(violazioni)}"
         ),
         (
             f"Riordinatore {RIORDINATORI[RIORDINATORE_PICCOLO]}, {CANDIDATI} candidati, "
@@ -5782,7 +5802,7 @@ def esegui_argomenti_contesto(lato: str) -> int:
     if lato != TARATURA:
         raise ErroreMisura("gli argomenti si contano solo sulla taratura")
     documenti, salvati = leggi_contesti_generati()
-    _, violazioni = contesti_da(documenti, salvati, "tutte")
+    _, violazioni = contesti_della_misura(documenti, salvati, "tutte")
     _, fatti, file_per_bando = fatti_intera(lato)
     frammenti_per_fonte, _ = frammenti_dei_vettori()
     id_di = {(d.fonte, f.chunk_num): f.id for d in documenti for f in d.frammenti}
