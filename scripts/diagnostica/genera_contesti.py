@@ -608,6 +608,16 @@ PAROLE_MINIME = 15
 NGRAMMA_COPIA = 6
 QUOTA_COPIA = 0.5
 QUOTA_VIOLAZIONI = 0.05
+# Voci di ARGOMENTO ammesse per frammento. Erano 2; portate a 3 il
+# 21/11/2026 dopo la prova su 5 contesti, guardando i controlli e non i
+# risultati della misura (un frammento lungo può coprire tre argomenti).
+# Il prompt, che chiede una o due voci, e la sua impronta non cambiano.
+VOCI_MASSIME = 3
+NOTA_VOCI = (
+    f"Voci di ARGOMENTO: violazione oltre {VOCI_MASSIME} (regola allentata da 2 "
+    "a 3 il 21/11/2026, dopo la prova su 5 contesti, guardando i controlli e "
+    "non i risultati; prompt e impronta invariati)"
+)
 
 
 def _norma_numero(n: str) -> str:
@@ -755,8 +765,8 @@ def controlla_contesto(
             violazioni.append(
                 ("forma", f"argomento non ricondotto: {righe['argomento']!r}")
             )
-        if len(voci) > 2:
-            violazioni.append(("forma", f"più di due voci: {voci}"))
+        if len(voci) > VOCI_MASSIME:
+            violazioni.append(("forma", f"più di {VOCI_MASSIME} voci: {voci}"))
     parole = len(_parole(contenuto))
     if parole > PAROLE_MASSIME:
         violazioni.append(("forma", f"troppo lungo: {parole} parole"))
@@ -865,6 +875,7 @@ def controlla_tutti(
         + ", ".join(f"{t} {n}" for t, n in sorted(tipi.items())),
         f"Solo riga BANDO (indice o testo senza contenuto, ammesso): {solo_bando}",
         f"Contesti sotto {PAROLE_MINIME} parole (non è una violazione): {corti}",
+        NOTA_VOCI,
         "Voci di ARGOMENTO: " + ", ".join(f"{v} {n}" for v, n in voci.most_common()),
         "",
         "Per file: frammenti con contesto / frammenti, con violazioni",

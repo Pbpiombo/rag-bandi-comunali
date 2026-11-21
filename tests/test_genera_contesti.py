@@ -347,6 +347,16 @@ def test_solo_bando_ammesso():
     assert violazioni("BANDO: Bando prova strade, indice.") == []
 
 
+def test_tre_voci_ammesse_quattro_no():
+    tre = CONTESTO_BUONO.replace(
+        "importi e massimali",
+        "importi e massimali; spese ammesse o escluse; cumulo con altri aiuti",
+    )
+    assert violazioni(tre) == []
+    quattro = tre.replace("cumulo con altri aiuti", "cumulo con altri aiuti; altro: x")
+    assert any("più di 3 voci" in x for _, x in violazioni(quattro))
+
+
 def test_argomento_non_ricondotto():
     testo = CONTESTO_BUONO.replace("importi e massimali", "requisiti tecnici")
     assert any("non ricondotto" in x for _, x in violazioni(testo))
