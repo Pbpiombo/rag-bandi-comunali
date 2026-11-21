@@ -1126,6 +1126,86 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
              controllo;
           4. apertura del controllo una sola volta, con il via esplicito;
           5. il numero che esce si scrive anche se è sotto l'85%.
+       7. **Controlli sugli 871 contesti** (21/11/2026; numeri da
+          `dati-grezzi/prova/19d/contesto/misura_21-11.txt`, passo 1).
+          Partenza: 51 violazioni vere su 871 (5,9%), sopra la soglia di 43;
+          la misura non partiva. Lette a mano, le 51 erano: 16 falsi allarmi
+          del controllo (A), 26 riferimenti normativi o numero dell'atto
+          nella riga DOVE (B), 5 dati del documento che il frammento non ha
+          (C), 2 riferimenti di struttura assenti dal documento (D), 2 segni
+          del gemello scelti a mano, "bancari" (E). Un segno automatico
+          tolto dopo la lettura ("normativa antimafia", 1 caso, uso
+          generico). Correzioni del controllo decise dopo aver visto le
+          violazioni, prompt e impronte invariati (a758adc6d26c, d883256b1359):
+          nella riga DOVE i paragrafi a tre livelli e gli intervalli non
+          sono date se ogni paragrafo apre una riga del documento; un
+          riferimento vale se apre una riga del documento o se sta nel
+          frammento. Effetto: 15 frammenti in meno, gli stessi 15 della
+          classe A tranne "cento per cento" (22706 #54), che resta. Numero
+          finale: 36 violazioni vere su 871 (4,1%), tutte di contenuto, e i
+          36 contesti si scartano; 1 di sola forma resta. Il 5,9% di
+          partenza resta il dato del controllo deciso prima.
+       8. **Esito della misura sulla taratura** (21/11/2026; 97 fatti,
+          ricerca esatta, osiria su 30 candidati; 835 frammenti con
+          contesto, 36 senza; numeri da `misura_21-11.txt`, passi 2-4, e
+          `rapporto_contesto_taratura.txt`). c-0 ridà osiria su v0 della
+          notte riga per riga, a k=10 e a k=15.
+          - Fatti trovati su 97, A / B, e in B guadagnati/persi contro c-0
+            con p:
+            - c-0: k=10 58 / 72; k=15 62 / 78;
+            - c-R: k=10 64 / 79 (+8/-1, p 0,039); k=15 65 / 80 (+3/-1,
+              p 0,625);
+            - c-L: k=10 66 / 75 (+4/-1, p 0,375); k=15 71 / 81 (+5/-2,
+              p 0,453);
+            - c-LR: k=10 76 / 83 (+14/-3, p 0,013); k=15 77 / 85 (+9/-2,
+              p 0,065);
+            - c-LVR: k=10 69 / 80 (+14/-6, p 0,115); k=15 69 / 80 (+10/-8,
+              p 0,815).
+          - Nessuna delle cinque soddisfa la regola di adozione. c-LR, la
+            migliore in B, la manca a k=15 (p 0,065).
+          - Righe tolte una alla volta su c-LR, in B, k=10 / k=15:
+            senza-bando 76 / 82; senza-dove 85 / 87 (p 0,001 / 0,004);
+            senza-argomento 83 / 85 (p 0,007 / 0,039); senza-serve-a
+            78 / 83; senza-parole 81 / 85 (p 0,035 / 0,039). senza-dove,
+            senza-argomento e senza-parole passano la regola, ma sono
+            state scelte dopo aver visto i risultati, fra sei varianti: non
+            si adottano.
+          - Domande a mano: 29 su 30 (la riga 93 del foglio 2 ha la
+            domanda vuota, tolta da una copia del file). In B, contro c-0
+            (22 a k=10 e a k=15): c-R +2/-0, c-L +1/-0, c-LR +2/-0, c-LVR
+            +2/-2 (netto 0, veto), uguali a k=10 e a k=15; nessun p sotto
+            0,05.
+          - Etichetta ARGOMENTO del primo frammento giusto contro il tipo
+            del fatto: coincide 69 su 97; dei 28 che non coincidono, 10
+            hanno solo "altro"; la confusione più frequente è procedura ->
+            rendicontazione e pagamento (4).
+          - Tempo per domanda con il riordinatore, in B: c-0 5,0 secondi,
+            c-LR 5,9; coppie oltre 512 token in A: c-LR 702 su 2909.
+          Cosa i numeri non dicono (dal rapporto in chat del 21/11/2026,
+          ricopiato dalla trascrizione della sessione):
+          - **La misura che soddisfa la regola è stata scelta dopo.** c-LR senza-dove soddisfa la regola, ma l'ho trovata tra sei varianti misurate dopo aver visto i risultati. È un caso di confronti multipli, e quei p non hanno il peso di una misura decisa prima.
+            - Il guadagno sopra c-LR completo è di 2 fatti, cioè 52 e 74 a k=10 e 74 e 2:114 a k=15. È troppo poco per dire che DOVE danneggia.
+            - Una ragione possibile è che DOVE allunga le coppie oltre il limite di 512 token: togliendolo le coppie oltre il limite scendono da 702 a 332. Non l'ho verificato.
+          - **Le domande a mano sono troppo poche per misurare.** Su 29 domande i netti sono di +1 o +2, e servono solo da veto. Il veto non vale per le righe tolte, che non sono state misurate a mano.
+          - **Il guadagno potrebbe venire da somiglianze di testo.** Nella sezione 5 del rapporto, per 12 dei 14 fatti guadagnati da c-LR a k=10 le parole della domanda trovano corrispondenza solo nel contesto, soprattutto nelle righe BANDO e SERVE A. Domande e contesti li ha scritti un modello: parte del guadagno può essere somiglianza di stile tra i due e non un recupero vero.
+          - **I 97 fatti sono quelli su cui il controllo è stato tarato.** La metà di controllo non è stata letta.
+          - **Il dato sul gemello conta fatti, non frammenti.** Misura i fatti in cui il gemello arriva prima del giusto, non quanti frammenti del gemello entrano tra i primi k.
+          - **Due imprecisioni nel codice, non corrette.** Nel rapporto la sezione 6 porta ancora il titolo fisso "30 fatti". Al passo 4, `VOCE_DEL_TIPO` assegna "definizione" alla voce "altro", quindi il fatto 2:46, etichettato "definizioni", conta come non coincidente.
+          - **Una soluzione forse migliore, non provata.** Il riordinatore taglia una coppia su quattro, quindi il contesto aggiunto sottrae spazio al testo del frammento. Si potrebbe dare al riordinatore solo BANDO e SERVE A, cioè le due righe senza le quali si perdono più fatti. In alternativa, si potrebbe mettere il contesto dopo il testo e lasciarlo tagliare, invece di metterlo davanti.
+          Note al testo ricopiato (21/11/2026): "i netti sono di +1 o +2"
+          vale per c-R, c-L e c-LR; c-LVR ha netto 0. "Il controllo è stato
+          tarato" vuol dire che sui 97 fatti di taratura sono state scelte
+          le configurazioni e le correzioni, non i controlli dei contesti,
+          che sono stati corretti sugli 871 contesti.
+       9. **Decisioni** (21/11/2026, dopo la misura):
+          - niente adottato;
+          - c-LVR chiusa;
+          - prima di decidere, altre 30 domande a mano
+            (`domande_a_mano_2.csv`, fatti di taratura non già nel primo
+            file). Regola fissata prima di vedere il risultato: un netto da
+            -1 a +2 su 29 non decide;
+          - la regola di conferma sulla metà di controllo si scrive dopo la
+            revisione esterna e prima dell'apertura.
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):
@@ -2073,3 +2153,20 @@ compito chiuso.
   compito di codice; l'elenco resta congelato fino a fine misura ("Passo
   19d", punto 13, regole), quindi va fatta prima della misura o dopo la sua
   fine.
+- **Contesto dopo il testo invece che davanti** (21/11/2026). Attacca le
+  coppie del riordinatore oltre 512 token, dove oggi a essere tagliata è la
+  fine del frammento ("Passo 19d", punto 13, voce 8). Aspetta la decisione
+  dopo le seconde domande a mano.
+- **Solo BANDO e SERVE A al riordinatore** (21/11/2026). Sono le due righe
+  senza le quali c-LR perde più fatti in B (76 e 78 contro 83 a k=10).
+  Aspetta la decisione dopo le seconde domande a mano; sarebbe una variante
+  scelta dopo i risultati.
+- **Coppie oltre 512 token** (21/11/2026). Con il contesto nel
+  riordinatore, circa una coppia su quattro (c-LR, A: 702 su 2909) supera il
+  limite e viene tagliata. Da misurare quanto pesa prima di cambiare
+  l'ordine o le righe.
+- **Due imprecisioni del rapporto del contesto** (21/11/2026): il titolo
+  "30 fatti" della sezione 6 è fisso anche quando le domande a mano sono
+  meno (29); `VOCE_DEL_TIPO` porta "definizione" su "altro", mentre
+  "definizioni" è una voce dell'elenco (fatto 2:46). Correzioni piccole, da
+  fare a misura chiusa.

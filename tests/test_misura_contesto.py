@@ -200,6 +200,76 @@ def test_con_domande_a_mano(tmp_path):
         mr.con_domande_a_mano(fatti, percorso)
 
 
+# --- secondo file di domande a mano (21/11/2026) ---
+
+
+def test_seconda_scelta_senza_i_fatti_della_prima():
+    fatti = fatti_finti()
+    primi = {mr.chiave_a_mano(f) for f in mr.scelta_a_mano(fatti)}
+    secondi = mr.scelta_a_mano(fatti, seme=mr.SEME_MANO_2, esclusi=frozenset(primi))
+    assert len(secondi) == 30
+    assert not primi & {mr.chiave_a_mano(f) for f in secondi}
+    assert mr.ESCLUSO_MANO not in {f["id_bando"] for f in secondi}
+    assert mr.SEME_MANO_2 != mr.SEME_MANO
+    assert secondi == mr.scelta_a_mano(
+        fatti, seme=mr.SEME_MANO_2, esclusi=frozenset(primi)
+    )
+
+
+def test_prepara_il_secondo_file(tmp_path, monkeypatch):
+    fatti = fatti_finti()
+    monkeypatch.setattr(mr, "fatti_intera", lambda lato: (None, fatti, {}))
+    monkeypatch.setattr(mr, "DOMANDE_A_MANO", tmp_path / "domande_a_mano.csv")
+    monkeypatch.setattr(mr, "DOMANDE_A_MANO_2", tmp_path / "domande_a_mano_2.csv")
+    with pytest.raises(mr.ErroreMisura, match="manca"):
+        mr.esegui_prepara_a_mano(secondo=True)
+    assert mr.esegui_prepara_a_mano() == 0
+    assert mr.esegui_prepara_a_mano(secondo=True) == 0
+    primo = mr.leggi_domande_a_mano(mr.DOMANDE_A_MANO)
+    secondo = mr.leggi_domande_a_mano(mr.DOMANDE_A_MANO_2)
+    assert list(secondo[0]) == mr.COLONNE_MANO
+    assert len(secondo) == 30
+    assert not {mr.chiave_a_mano(r) for r in primo} & {
+        mr.chiave_a_mano(r) for r in secondo
+    }
+    # già scritto: non si sovrascrive, e le righe coincidono con la scelta
+    assert mr.esegui_prepara_a_mano(secondo=True) == 0
+
+
+def test_righe_vuote_saltate_con_un_avviso(tmp_path, capsys):
+    fatti = fatti_finti()
+    righe = mr.righe_a_mano(mr.scelta_a_mano(fatti))
+    for r in righe[1:]:
+        r["domanda_a_mano"] = f"mia domanda {r['riga']}"
+    percorso = tmp_path / "mano.csv"
+    scrivi_mano(percorso, righe)
+    uscita = mr.con_domande_a_mano(fatti, percorso, salta_vuote=True)
+    assert len(uscita) == 29
+    avviso = capsys.readouterr().out
+    assert f"foglio {righe[0]['foglio']} riga {righe[0]['riga']}" in avviso
+
+
+def test_i_due_file_insieme(tmp_path):
+    fatti = fatti_finti()
+    prime = mr.righe_a_mano(mr.scelta_a_mano(fatti))
+    esclusi = frozenset(mr.chiave_a_mano(r) for r in prime)
+    seconde = mr.righe_a_mano(
+        mr.scelta_a_mano(fatti, seme=mr.SEME_MANO_2, esclusi=esclusi)
+    )
+    for r in prime + seconde:
+        r["domanda_a_mano"] = f"mia domanda {r['riga']}"
+    seconde[0]["domanda_a_mano"] = ""
+    uno, due = tmp_path / "uno.csv", tmp_path / "due.csv"
+    scrivi_mano(uno, prime)
+    scrivi_mano(due, seconde)
+    assert len(mr.con_i_file_a_mano(fatti, (uno, due))) == 59
+    # il secondo file non c'è ancora: si usa il primo
+    assert len(mr.con_i_file_a_mano(fatti, (uno, tmp_path / "manca.csv"))) == 30
+    scrivi_mano(due, prime)
+    with pytest.raises(mr.ErroreMisura, match="già in un altro file"):
+        mr.con_i_file_a_mano(fatti, (uno, due))
+
+
 # --- regole ---
 
 

@@ -4964,11 +4964,18 @@ def esegui_parte_97(lato: str) -> int:
 # scritte a mano, non si adotta. "Non guadagna con le domande a mano": in B
 # il guadagno netto contro c-0 è zero o negativo, a k=10 o a k=15
 # (adottabile_con_mano).
+# Secondo file (deciso il 21/11/2026, dopo la misura sulle prime 29):
+# DOMANDE_A_MANO_2, altri 30 fatti di taratura, nessuno già nel primo file,
+# stessa esclusione e stesse colonne, seme SEME_MANO_2. Con --domande-a-mano
+# la misura usa tutti i file che ci sono; le righe con la domanda vuota si
+# saltano con un avviso.
 
 CARTELLA_CONTESTO = CARTELLA_19D / "contesto"
 DOMANDE_A_MANO = CARTELLA_CONTESTO / "domande_a_mano.csv"
 COLONNE_MANO = ["riga", "foglio", "titolo", "frase", "domanda_a_mano"]
 SEME_MANO = 19_2026_1121
+DOMANDE_A_MANO_2 = CARTELLA_CONTESTO / "domande_a_mano_2.csv"
+SEME_MANO_2 = 19_2026_1122
 NUMERO_MANO = 30
 ESCLUSO_MANO = "fondo-strade-piccoli-comuni-2026"
 NESSUNA = "nessuna"
@@ -5247,10 +5254,19 @@ def riga_nel_foglio(riga) -> int:
     return numero - SCOSTAMENTO_2 if numero >= SCOSTAMENTO_2 else numero
 
 
+def chiave_a_mano(f: dict) -> tuple[int, int]:
+    """(foglio, riga nel foglio) di un fatto o di una riga dei file a mano."""
+    return int(f["foglio"]), riga_nel_foglio(f["riga"])
+
+
 def scelta_a_mano(
-    fatti: list[dict], n: int = NUMERO_MANO, seme: int = SEME_MANO
+    fatti: list[dict],
+    n: int = NUMERO_MANO,
+    seme: int = SEME_MANO,
+    esclusi: frozenset[tuple[int, int]] = frozenset(),
 ) -> list[dict]:
-    """n fatti a caso, ripartiti tra i bandi in proporzione, senza il fondo strade.
+    """n fatti a caso, ripartiti tra i bandi in proporzione, senza il fondo strade
+    e senza i fatti di esclusi (chiavi di chiave_a_mano).
 
     Quote per bando: parte intera di n * fatti del bando / fatti, poi un
     fatto in più ai bandi con il resto più grande (a parità, per id_bando).
@@ -5259,7 +5275,7 @@ def scelta_a_mano(
     """
     per_bando: dict[str, list[dict]] = defaultdict(list)
     for f in fatti:
-        if f["id_bando"] != ESCLUSO_MANO:
+        if f["id_bando"] != ESCLUSO_MANO and chiave_a_mano(f) not in esclusi:
             per_bando[f["id_bando"]].append(f)
     totale = sum(len(v) for v in per_bando.values())
     if totale < n:
@@ -5301,21 +5317,30 @@ def leggi_domande_a_mano(percorso: Path) -> list[dict]:
     return righe
 
 
-def esegui_prepara_a_mano() -> int:
-    """Scrive DOMANDE_A_MANO, o se c'è già dice se le righe sono quelle della scelta."""
+def esegui_prepara_a_mano(secondo: bool = False) -> int:
+    """Scrive DOMANDE_A_MANO (o DOMANDE_A_MANO_2, senza i fatti del primo), o se
+    c'è già dice se le righe sono quelle della scelta."""
     _, fatti, _ = fatti_intera(TARATURA)
-    nuove = righe_a_mano(scelta_a_mano(fatti))
+    percorso, seme, esclusi = DOMANDE_A_MANO, SEME_MANO, frozenset()
+    if secondo:
+        if not DOMANDE_A_MANO.exists():
+            raise ErroreMisura(f"manca {DOMANDE_A_MANO.name}: il secondo lo esclude")
+        percorso, seme = DOMANDE_A_MANO_2, SEME_MANO_2
+        esclusi = frozenset(
+            chiave_a_mano(r) for r in leggi_domande_a_mano(DOMANDE_A_MANO)
+        )
+    nuove = righe_a_mano(scelta_a_mano(fatti, seme=seme, esclusi=esclusi))
     chiavi = [(r["foglio"], r["riga"]) for r in nuove]
     per_bando = Counter(
         f["id_bando"]
         for f in fatti
         if (int(f["foglio"]), riga_nel_foglio(f["riga"])) in set(chiavi)
     )
-    if DOMANDE_A_MANO.exists():
-        vecchie = leggi_domande_a_mano(DOMANDE_A_MANO)
+    if percorso.exists():
+        vecchie = leggi_domande_a_mano(percorso)
         uguali = [(int(r["foglio"]), int(r["riga"])) for r in vecchie] == chiavi
         print(
-            f"{DOMANDE_A_MANO} esiste già e non si sovrascrive: le righe "
+            f"{percorso} esiste già e non si sovrascrive: le righe "
             + (
                 "coincidono con la scelta."
                 if uguali
@@ -5323,28 +5348,39 @@ def esegui_prepara_a_mano() -> int:
             )
         )
         return 0 if uguali else 1
-    DOMANDE_A_MANO.parent.mkdir(parents=True, exist_ok=True)
-    with DOMANDE_A_MANO.open("w", encoding="utf-8-sig", newline="") as f:
+    percorso.parent.mkdir(parents=True, exist_ok=True)
+    with percorso.open("w", encoding="utf-8-sig", newline="") as f:
         scrittore = csv.DictWriter(f, fieldnames=COLONNE_MANO, lineterminator="\n")
         scrittore.writeheader()
         scrittore.writerows(nuove)
-    print(
-        f"Scritto {DOMANDE_A_MANO}: {len(nuove)} fatti di taratura (seme {SEME_MANO})"
-    )
+    print(f"Scritto {percorso}: {len(nuove)} fatti di taratura (seme {seme})")
     for b, n in sorted(per_bando.items()):
         print(f"  {b}: {n}")
     return 0
 
 
 def con_domande_a_mano(
-    fatti: list[dict], percorso: Path = DOMANDE_A_MANO
+    fatti: list[dict], percorso: Path = DOMANDE_A_MANO, salta_vuote: bool = False
 ) -> list[dict]:
-    """I fatti del file, con la domanda scritta a mano al posto di quella del foglio."""
+    """I fatti del file, con la domanda scritta a mano al posto di quella del foglio.
+
+    Una riga con la domanda vuota ferma tutto, o con salta_vuote si salta con
+    un avviso.
+    """
     righe = leggi_domande_a_mano(percorso)
     per_chiave = {(int(f["foglio"]), riga_nel_foglio(f["riga"])): f for f in fatti}
-    vuote = [r["riga"] for r in righe if not str(r["domanda_a_mano"] or "").strip()]
+    vuote = [r for r in righe if not str(r["domanda_a_mano"] or "").strip()]
+    if vuote and not salta_vuote:
+        raise ErroreMisura(
+            f"domande a mano vuote alle righe {', '.join(r['riga'] for r in vuote)}"
+        )
     if vuote:
-        raise ErroreMisura(f"domande a mano vuote alle righe {', '.join(vuote)}")
+        print(
+            f"Avviso: {percorso.name}, {len(vuote)} righe con la domanda vuota "
+            "saltate: "
+            + ", ".join(f"foglio {r['foglio']} riga {r['riga']}" for r in vuote)
+        )
+        righe = [r for r in righe if r not in vuote]
     uscita = []
     for r in righe:
         chiave = (int(r["foglio"]), int(r["riga"]))
@@ -5354,6 +5390,30 @@ def con_domande_a_mano(
         if str(fatto["frase"]).strip() != r["frase"].strip():
             raise ErroreMisura(f"riga {chiave}: la frase non è quella del foglio")
         uscita.append({**fatto, "domanda": r["domanda_a_mano"].strip()})
+    return uscita
+
+
+def con_i_file_a_mano(
+    fatti: list[dict],
+    percorsi: tuple[Path, ...] = (DOMANDE_A_MANO, DOMANDE_A_MANO_2),
+) -> list[dict]:
+    """I fatti di tutti i file a mano che ci sono, insieme, senza le righe vuote."""
+    presenti = [p for p in percorsi if p.exists()]
+    if not presenti:
+        raise ErroreMisura(f"manca {percorsi[0].name}")
+    uscita, viste = [], set()
+    for percorso in presenti:
+        dal_file = con_domande_a_mano(fatti, percorso, salta_vuote=True)
+        chiavi = {chiave_a_mano(f) for f in dal_file}
+        if viste & chiavi:
+            raise ErroreMisura(
+                f"{percorso.name}: fatti già in un altro file {sorted(viste & chiavi)}"
+            )
+        viste |= chiavi
+        print(f"{percorso.name}: {len(dal_file)} domande a mano nella misura")
+        uscita += dal_file
+    if not uscita:
+        raise ErroreMisura("nessuna domanda a mano compilata")
     return uscita
 
 
@@ -5375,7 +5435,7 @@ def esegui_contesto(lato: str, nome: str, righe: str, mano: bool) -> int:
     senza_rete()
     _, fatti, file_per_bando = fatti_intera(lato)
     if mano:
-        fatti = con_domande_a_mano(fatti)
+        fatti = con_i_file_a_mano(fatti)
     contesti = contesti_per_frammento(righe) if righe != NESSUNA else {}
     nome_vettori = nome_dei_vettori(config, righe)
     prima = impronte_cartella(CHROMA_DIR)
@@ -5992,7 +6052,10 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--domande-a-mano",
         action="store_true",
-        help="con --contesto: i 30 fatti di domande_a_mano.csv, domanda scritta a mano",
+        help=(
+            "con --contesto: i fatti di domande_a_mano.csv e, se c'è, di "
+            "domande_a_mano_2.csv, domanda scritta a mano; righe vuote saltate"
+        ),
     )
     parser.add_argument(
         "--rapporto-contesto",
@@ -6008,6 +6071,11 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
         "--prepara-domande-a-mano",
         action="store_true",
         help="scrive domande_a_mano.csv (30 fatti di taratura, seme fisso)",
+    )
+    parser.add_argument(
+        "--prepara-domande-a-mano-2",
+        action="store_true",
+        help="scrive domande_a_mano_2.csv (altri 30 fatti, non nel primo file)",
     )
     parser.add_argument("--modello", choices=sorted(MODELLI), default="v0")
     parser.add_argument(
@@ -6084,6 +6152,7 @@ def main(argv: list[str] | None = None) -> int:
         argomenti.rapporto_contesto,
         argomenti.argomenti_contesto,
         argomenti.prepara_domande_a_mano,
+        argomenti.prepara_domande_a_mano_2,
     )
     if sum(comandi) != 1:
         print(
@@ -6092,7 +6161,7 @@ def main(argv: list[str] | None = None) -> int:
             "--apistici, --prepara-vettori, --esatta, --peso, --esatta-intera "
             "--riepilogo-intero, --notte, --scarica-riordinatore, --parte-97, "
             "--contesto, --rapporto-contesto, --argomenti-contesto o "
-            "--prepara-domande-a-mano.",
+            "--prepara-domande-a-mano o --prepara-domande-a-mano-2.",
             file=sys.stderr,
         )
         return 2
@@ -6138,6 +6207,8 @@ def main(argv: list[str] | None = None) -> int:
             return esegui_argomenti_contesto(lato)
         if argomenti.prepara_domande_a_mano:
             return esegui_prepara_a_mano()
+        if argomenti.prepara_domande_a_mano_2:
+            return esegui_prepara_a_mano(secondo=True)
         if argomenti.notte == 4:
             if not argomenti.riordinatore:
                 return esegui_rapporto_riordino(lato)
