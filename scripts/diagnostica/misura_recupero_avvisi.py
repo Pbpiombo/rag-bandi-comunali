@@ -4979,6 +4979,10 @@ RIGHE_CONTESTO = {
     "senza-argomento": ("bando", "dove", "serve_a", "parole"),
     "senza-serve-a": ("bando", "dove", "argomento", "parole"),
     "senza-parole": ("bando", "dove", "argomento", "serve_a"),
+    # aggiunte il 21/11/2026, prima della misura, per togliere una riga alla
+    # volta anche BANDO e DOVE
+    "senza-bando": ("dove", "argomento", "serve_a", "parole"),
+    "senza-dove": ("bando", "argomento", "serve_a", "parole"),
 }
 NOME_RIGA = {
     "bando": "BANDO",

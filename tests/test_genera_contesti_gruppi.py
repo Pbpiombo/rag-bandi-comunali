@@ -282,3 +282,104 @@ def test_niente_soglia_fissa_vale_il_test_dei_segni():
     assert mr.nota_dei_segni(4, 0) == "p = 0,125; entro il rumore"
     assert mr.nota_dei_segni(6, 0) == "p = 0,031"
     assert mr.differenza(26, 30) == "+4"
+
+
+# --- righe tolte una alla volta: anche BANDO e DOVE ---
+
+
+def test_righe_senza_bando_e_senza_dove():
+    righe = {
+        "bando": "Bando prova; Decreto n. 123",
+        "dove": "Articolo 2, Requisiti",
+        "argomento": "chi può partecipare",
+        "serve_a": "sapere chi partecipa",
+        "parole": "enti; associazioni",
+    }
+    senza_bando = gc.testo_di_ricerca(righe, mr.RIGHE_CONTESTO["senza-bando"])
+    assert "Bando prova" not in senza_bando and "Articolo 2" in senza_bando
+    senza_dove = gc.testo_di_ricerca(righe, mr.RIGHE_CONTESTO["senza-dove"])
+    assert "Articolo 2" not in senza_dove and "Bando prova" in senza_dove
+    assert "enti; associazioni" in senza_bando and "enti; associazioni" in senza_dove
+    for nome in ("senza-bando", "senza-dove"):
+        vettori = mr.MODELLI[f"v1+contesto-{nome}"]
+        assert vettori.contesto == nome
+        assert vettori.cartella == f"contesto/vettori-{nome}"
+
+
+# --- riga DOVE: paragrafi a tre livelli e riferimenti nel frammento ---
+# (decisione del 21/11/2026, dopo i controlli sugli 871)
+
+TESTO_PARAGRAFI = (
+    "4.2.10 Dichiarazione sostitutiva\n"
+    "Il richiedente dichiara.\n"
+    "4.2.11 Dimensione impresa\n"
+    "10.5 Controlli in erogazione\n"
+    "10.6 Regolarizzazione contributiva\n"
+    "Il contributo è erogato al 100% degli obiettivi.\n"
+)
+
+
+def con_paragrafi(frammento="Il richiedente dichiara."):
+    return gc.Documento(
+        fonte="p.pdf",
+        id_bando="p",
+        titolo="Bando prova",
+        atto="Decreto n. 123 del 01/02/2026",
+        parte="",
+        testo=TESTO_PARAGRAFI,
+        frammenti=[gc.FrammentoDaContestualizzare("p.pdf::0", 0, frammento)],
+    )
+
+
+def dove(riga, d=None, serve="sapere chi partecipa"):
+    d = d or con_paragrafi()
+    testo = (
+        f"DOVE: {riga}\nARGOMENTO: chi può partecipare\nSERVE A: {serve}\n"
+        "PAROLE: chi partecipa; requisiti; enti; associazioni; domanda"
+    )
+    return violazioni(testo, d, gc.SegniDelGemello())
+
+
+def test_paragrafi_a_tre_livelli_e_intervalli_non_sono_date():
+    assert dove("paragrafi 4.2.10 e 4.2.11, requisiti") == []
+    assert dove("paragrafo 10.5-10.6, controlli") == []
+
+
+def test_una_data_vera_nella_riga_dove_resta_una_violazione():
+    data = ("numero", "numero non di struttura nella riga DOVE (data): 16/11/2026")
+    assert data in dove("Art. 4, Decreto del 16/11/2026")
+    con_punti = dove("Art. 4, Decreto del 01.02.2026")
+    assert any("(data): 01.02.2026" in x for _, x in con_punti)
+    # un paragrafo a tre livelli che il documento non ha resta una data
+    assert any("(data): 4.2.99" in x for _, x in dove("paragrafo 4.2.99"))
+    # un intervallo con un paragrafo che non esiste resta una data
+    assert any("(data): 10.5-10" in x for _, x in dove("paragrafo 10.5-10.9"))
+
+
+def test_riferimento_nel_frammento_vale_anche_se_non_apre_una_riga():
+    d = con_paragrafi("Ai sensi dei punti 8.1 e 8.6 dell'Avviso pubblico.")
+    # "8.6" senza parola davanti, "punti 8.1" con la parola: tutti e due nel
+    # frammento, nessuno apre una riga del documento
+    assert dove("rinvio ai punti 8.1 e 8.6 dell'Avviso", d) == []
+    assert dove("rinvio al 8.6 dell'Avviso", d) == []
+
+    def segnalati(trovate):
+        return [x for _, x in trovate if "riferimento non nel documento" in x]
+
+    assert segnalati(dove("rinvio al 8.6 dell'Avviso")) == [
+        "riferimento non nel documento: '8.6'"
+    ]
+    assert segnalati(dove("rinvio al punto 8.6")) == [
+        "riferimento non nel documento: 'punto 8.6'"
+    ]
+    # "18.6" nel frammento non vale per "8.6"
+    altro = con_paragrafi("Come stabilito dal punto 18.6.")
+    assert segnalati(dove("rinvio al 8.6", altro)) == [
+        "riferimento non nel documento: '8.6'"
+    ]
+
+
+def test_cento_per_cento_per_il_cento_per_cento_del_frammento_resta_violazione():
+    d = con_paragrafi("Il contributo è erogato al 100% degli obiettivi.")
+    trovate = dove("non indicato", d, serve="sapere se si paga al cento per cento")
+    assert ("numero", "parola non nel frammento: cento") in trovate

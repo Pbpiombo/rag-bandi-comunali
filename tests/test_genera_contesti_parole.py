@@ -76,6 +76,8 @@ def test_parole_lette_e_nella_ricerca():
         "senza-argomento",
         "senza-serve-a",
         "senza-parole",
+        "senza-bando",
+        "senza-dove",
     }
     assert "v1+contesto-senza-parole" in mr.MODELLI
 

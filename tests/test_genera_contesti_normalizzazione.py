@@ -84,6 +84,9 @@ def test_numero_inventato_resta_una_violazione():
 def test_numero_nel_testo_ma_non_a_inizio_riga():
     # "4" sta nel testo del documento, ma non apre nessuna riga
     d = documento(testo=CORPO + "Si veda il punto 4 della delibera.\n")
+    # il frammento non contiene il "4": dal 21/11/2026 un riferimento che sta
+    # nel frammento vale anche se non apre una riga
+    d.frammenti = [gc.FrammentoDaContestualizzare("a.pdf::0", 0, CORPO)]
     trovate = violazioni(contesto("punto 4"), d)
     assert trovate == []  # con la parola davanti vale la regola di prima
     assert ("numero", "numero non di struttura nella riga DOVE: 4") in violazioni(

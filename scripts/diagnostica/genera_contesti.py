@@ -1217,6 +1217,7 @@ def testo_di_ricerca(
 STRUTTURA = re.compile(r"(?<![\d.,])\d{1,3}(?:\.\d{1,2})+(?!\d|[.,]\d)")
 DATA_DOVE = re.compile(r"\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b")
 NUMERO_SOLO = re.compile(r"^\d{1,3}$")
+PARAGRAFO = re.compile(r"\d{1,3}(?:\.\d{1,2})+")
 
 
 def apre_una_riga(numero: str, testo: str) -> bool:
@@ -1225,18 +1226,55 @@ def apre_una_riga(numero: str, testo: str) -> bool:
     return re.search(cerca, testo) is not None
 
 
-def _togli_struttura(testo: str, documento: Documento, violazioni: list) -> str:
+def nel_frammento(numero: str, frammento: str) -> bool:
+    """Il numero sta nel testo del frammento, intero ("8.6", non "18.6" o "8.60")."""
+    cerca = rf"(?<![\d.,]){re.escape(numero)}(?!\d|[.,]\d)"
+    return re.search(cerca, frammento) is not None
+
+
+def riferimento_valido(numero: str, documento: "Documento", frammento: str) -> bool:
+    """Un riferimento vale se apre una riga del documento oppure se sta nel
+    testo del frammento (decisione del 21/11/2026, dopo i controlli sugli 871)."""
+    return apre_una_riga(numero, documento.testo) or nel_frammento(numero, frammento)
+
+
+def paragrafo_non_data(m: re.Match, documento: "Documento") -> bool:
+    """La "data" trovata nella riga DOVE è un paragrafo a tre livelli o un
+    intervallo di paragrafi ("4.2.10", "10.5-10.6") che esiste nel documento:
+    ogni paragrafo apre una riga (decisione del 21/11/2026, dopo i controlli
+    sugli 871). Una data vera ("16/11/2026", "01.02.2026") resta una data."""
+    inizio, fine = m.start(), m.end()
+    testo = m.string
+    while inizio > 0 and (testo[inizio - 1].isdigit() or testo[inizio - 1] in ".-"):
+        inizio -= 1
+    while fine < len(testo) and (testo[fine].isdigit() or testo[fine] in ".-"):
+        fine += 1
+    parti = testo[inizio:fine].strip(".-").split("-")
+    return all(
+        PARAGRAFO.fullmatch(p) and apre_una_riga(p, documento.testo) for p in parti
+    )
+
+
+def _togli_struttura(
+    testo: str, documento: Documento, violazioni: list, frammento: str = ""
+) -> str:
     """Toglie dal testo date, riferimenti di struttura e codici; segnala quelli
     che nel documento non ci sono. Restituisce il testo che resta.
 
     Un riferimento senza parola davanti (4.2.2, 16.4) vale solo se nel
-    documento apre una riga come paragrafo o punto (apre_una_riga).
+    documento apre una riga come paragrafo o punto, oppure se sta nel testo
+    del frammento (riferimento_valido). Un paragrafo a tre livelli o un
+    intervallo di paragrafi del documento non è una data (paragrafo_non_data).
     """
-    for m in DATA_DOVE.finditer(testo):
+    date = [
+        m for m in DATA_DOVE.finditer(testo) if not paragrafo_non_data(m, documento)
+    ]
+    for m in date:
         violazioni.append(
             ("numero", f"numero non di struttura nella riga DOVE (data): {m[0]}")
         )
-    testo = DATA_DOVE.sub(" ", testo)
+    for m in reversed(date):
+        testo = testo[: m.start()] + " " + testo[m.end() :]
     del_documento = numeri_di(documento.testo)
     codici_documento = set(
         CODICE.findall(
@@ -1245,11 +1283,15 @@ def _togli_struttura(testo: str, documento: Documento, violazioni: list) -> str:
     )
     for m in RIFERIMENTO.finditer(testo):
         numero = _norma_numero(re.sub(r"^[A-Z]", "", m[1]))
-        if m[1] not in codici_documento and numero not in del_documento:
+        if (
+            m[1] not in codici_documento
+            and numero not in del_documento
+            and not nel_frammento(m[1], frammento)
+        ):
             violazioni.append(("numero", f"riferimento non nel documento: {m[0]!r}"))
     resto = RIFERIMENTO.sub(" ", testo)
     for m in STRUTTURA.finditer(resto):
-        if not apre_una_riga(m[0], documento.testo):
+        if not riferimento_valido(m[0], documento, frammento):
             violazioni.append(("numero", f"riferimento non nel documento: {m[0]!r}"))
     resto = STRUTTURA.sub(" ", resto)
     for codice in CODICE.findall(resto):
@@ -1311,10 +1353,11 @@ def controlla_contesto(
 
     # numeri: riga DOVE
     dove = righe.get("dove") or ""
-    resto = _togli_struttura(dove, documento, violazioni)
+    resto = _togli_struttura(dove, documento, violazioni, frammento)
     for n in NUMERO.findall(resto):
-        # un numero solo vale come riferimento se nel documento apre una riga
-        if NUMERO_SOLO.match(n) and apre_una_riga(n, documento.testo):
+        # un numero solo vale come riferimento se nel documento apre una riga,
+        # o se sta nel testo del frammento
+        if NUMERO_SOLO.match(n) and riferimento_valido(n, documento, frammento):
             continue
         violazioni.append(("numero", f"numero non di struttura nella riga DOVE: {n}"))
     for regola in (PAROLE_NUMERO, MESI):
