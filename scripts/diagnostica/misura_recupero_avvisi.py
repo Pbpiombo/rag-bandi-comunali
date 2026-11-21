@@ -4957,6 +4957,11 @@ def esegui_parte_97(lato: str) -> int:
 # domande a mano è positivo e almeno metà di quello con le domande del
 # foglio sugli stessi 30 fatti; "si riduce" se è positivo ma sotto la metà;
 # "non resta" se è zero o negativo.
+# Regola in più (decisa il 21/11/2026, prima di ogni misura): se una
+# configurazione guadagna con le domande dei fogli ma non con le domande
+# scritte a mano, non si adotta. "Non guadagna con le domande a mano": in B
+# il guadagno netto contro c-0 è zero o negativo, a k=10 o a k=15
+# (adottabile_con_mano).
 
 CARTELLA_CONTESTO = CARTELLA_19D / "contesto"
 DOMANDE_A_MANO = CARTELLA_CONTESTO / "domande_a_mano.csv"
@@ -4965,12 +4970,21 @@ SEME_MANO = 19_2026_1121
 NUMERO_MANO = 30
 ESCLUSO_MANO = "fondo-strade-piccoli-comuni-2026"
 NESSUNA = "nessuna"
+# BANDO la compone il programma; DOVE, ARGOMENTO e SERVE A le scrive il
+# modello (revisione del 21/11/2026)
 RIGHE_CONTESTO = {
-    "tutte": ("bando", "argomento", "serve_a"),
-    "senza-argomento": ("bando", "serve_a"),
-    "senza-serve-a": ("bando", "argomento"),
+    "tutte": ("bando", "dove", "argomento", "serve_a", "parole"),
+    "senza-argomento": ("bando", "dove", "serve_a", "parole"),
+    "senza-serve-a": ("bando", "dove", "argomento", "parole"),
+    "senza-parole": ("bando", "dove", "argomento", "serve_a"),
 }
-NOME_RIGA = {"bando": "BANDO", "argomento": "ARGOMENTO", "serve_a": "SERVE A"}
+NOME_RIGA = {
+    "bando": "BANDO",
+    "dove": "DOVE",
+    "argomento": "ARGOMENTO",
+    "serve_a": "SERVE A",
+    "parole": "PAROLE",
+}
 
 
 @dataclass(frozen=True)
@@ -5431,6 +5445,19 @@ def adottabile(base: dict[int, list], variante: dict[int, list]) -> bool:
     return True
 
 
+def adottabile_con_mano(
+    base: dict[int, list],
+    variante: dict[int, list],
+    base_mano: dict[int, list],
+    variante_mano: dict[int, list],
+) -> bool:
+    """La regola di adozione, più quella delle domande a mano: in B il netto
+    contro c-0 con le domande a mano è positivo sia a k=10 sia a k=15."""
+    return adottabile(base, variante) and all(
+        _netto(base_mano[k], variante_mano[k], "B") > 0 for k in K_ESATTI
+    )
+
+
 def esito_a_mano(netto_foglio: int, netto_mano: int) -> str:
     """La regola delle domande a mano (decisa prima della misura)."""
     if netto_foglio <= 0:
@@ -5578,8 +5605,9 @@ def esegui_rapporto_contesto(lato: str) -> int:
         if nome == "c-0":
             continue
         linee.append(
-            f"  {nome} {righe}: regola di adozione "
+            f"  {nome} {righe}: regola di adozione con le domande dei fogli "
             + ("SODDISFATTA" if adottabile(base, m) else "non soddisfatta")
+            + " (va confermata con le domande a mano, sezione 6)"
         )
         for gruppo, scelta in GRUPPI_CONTESTO:
             for k in K_ESATTI:
@@ -5688,6 +5716,14 @@ def esegui_rapporto_contesto(lato: str) -> int:
         for (nome, righe), m in mano.items():
             if nome == "c-0" or (nome, righe) not in misure:
                 continue
+            linee.append(
+                f"  {nome} {righe}: regola di adozione con le domande a mano "
+                + (
+                    "SODDISFATTA"
+                    if adottabile_con_mano(base, misure[(nome, righe)], base_mano, m)
+                    else "non soddisfatta"
+                )
+            )
             for k in K_ESATTI:
                 foglio_base = [r for r in base[k] if r["riga"] in dei_30]
                 foglio_var = [

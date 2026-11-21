@@ -2,16 +2,24 @@
 
 Uso (dal terminale di chi mantiene il progetto; serve ANTHROPIC_API_KEY, o
 un profilo di `ant auth login`):
-    python -u -m scripts.diagnostica.genera_contesti --prova --tetto-dollari 0.05
+    python -u -m scripts.diagnostica.genera_contesti --prova [--file NOME.pdf]
+        --tetto-dollari 0.10
     python -u -m scripts.diagnostica.genera_contesti --tetto-dollari 1.00
     python -u -m scripts.diagnostica.genera_contesti --controlla [--prova]
 
 Per ogni frammento degli avvisi (871, quelli della misura esatta, letti da
 dati-grezzi/prova/19d/v0/frammenti.json; Chroma non si apre) il modello
 MODELLO riceve il documento intero, messo in cache, e il frammento, e
-scrive tre righe (BANDO, ARGOMENTO, SERVE A) che collocano il frammento nel
-documento. Il testo serve solo alla ricerca: il testo del frammento, quello
-che si cita e che il verificatore controlla, resta pulito e separato.
+scrive quattro righe (DOVE, ARGOMENTO, SERVE A, PAROLE) che collocano il frammento nel
+documento. La riga BANDO (titolo, atto, parte del registro) la compone il
+programma (riga_bando), uguale per tutti i frammenti di un file. Il testo
+serve solo alla ricerca: il testo del frammento, quello che si cita e che
+il verificatore controlla, resta pulito e separato.
+
+Revisione del 21/11/2026, la sola prevista, dopo la prima generazione
+(archiviata in contesti_v1.jsonl, non misurata): prompt e controlli rivisti
+guardando le violazioni dei controlli, non i risultati di ricerca, che non
+sono stati calcolati. Un contesto troncato (max_tokens) si rifà una volta.
 
 Il documento è il testo pulito del file (misura_recupero_avvisi.testo_pulito:
 premesse tolte, pulisci_avviso con i contatti di persone già tolti, pulizia
@@ -55,7 +63,9 @@ from pathlib import Path
 from src.config import DATI_GREZZI_DIR
 
 MODELLO = "claude-haiku-5-5"
-MAX_TOKENS = 300
+# Prima generazione: 300, con 81 contesti troncati su 871 (uscita mediana
+# 248 token). Le righe nuove sono più corte; 600 lascia margine
+MAX_TOKENS = 600
 SFORZO = "low"
 CARTELLA = DATI_GREZZI_DIR / "prova" / "19d" / "contesto"
 FILE_CONTESTI = CARTELLA / "contesti.jsonl"
@@ -96,46 +106,82 @@ VOCI = (
     "cumulo con altri aiuti",
     "obblighi, vincoli e revoche",
     "rendicontazione e pagamento",
+    # voci aggiunte il 21/11/2026 dalle 570 descrizioni libere di "altro"
+    # della prima generazione (conteggi nel rapporto della revisione)
+    "riferimenti normativi",
+    "definizioni",
+    "controlli e sanzioni",
+    "istruttoria e graduatoria",
+    "trattamento dei dati personali",
+    "varianti, proroghe e modifiche",
+    "premesse e finalità",
+    "contatti e informazioni",
+    "dotazione e risorse",
+    "aiuti di Stato e regime di aiuto",
+    "indice o intestazione",
 )
 ALTRO = "altro"
+INDICE = "indice o intestazione"
 
 ISTRUZIONI = f"""Prepari testi per la ricerca in un archivio di bandi pubblici italiani \
 (avvisi, decreti, allegati), consultato da uffici comunali, enti del terzo \
-settore e imprese. Ricevi il titolo del bando, l'atto, un documento intero e \
-un suo frammento. Scrivi un breve contesto che colloca il frammento nel \
-documento, per aiutare la ricerca a trovarlo. Il contesto non viene mostrato \
-a chi legge e non sostituisce il frammento.
+settore e imprese. Ricevi il titolo del bando, l'atto, la parte, un documento \
+intero e un suo frammento. Scrivi un breve contesto che colloca il frammento \
+nel documento, per aiutare la ricerca a trovarlo. Il contesto non viene \
+mostrato a chi legge e non sostituisce il frammento. Titolo, atto e parte li \
+aggiunge il programma: non riscriverli.
 
-Rispondi con tre righe, in italiano, in testo semplice, senza altro prima o dopo:
-BANDO: il bando com'è intitolato, e la parte del documento in cui sta il \
-frammento (articolo, paragrafo, allegato o azione), se il documento la indica. \
-Se il titolo elenca più azioni o misure e il documento ne tratta una sola, \
-indica solo quella.
-ARGOMENTO: una o due voci di questo elenco, scritte esattamente così e \
-separate da punto e virgola: {"; ".join(VOCI)}. Se nessuna va bene, scrivi \
-"{ALTRO}:" seguito da poche parole.
+Rispondi con quattro righe, in italiano, in testo semplice, senza altro prima o dopo:
+DOVE: l'articolo, il paragrafo o la sezione in cui sta il frammento, con il \
+numero e il titolo come li indica il documento, e nient'altro. Se il documento \
+non li indica, scrivi "non indicato".
+ARGOMENTO: da una a tre voci di questo elenco, scritte esattamente così e \
+separate da punto e virgola: {"; ".join(VOCI)}. Scrivi "{ALTRO}:" seguito da \
+poche parole solo se nessuna voce si applica.
 SERVE A: una frase su che cosa permette di sapere il frammento, con le parole \
 che userebbe un ufficio comunale o un'impresa che cerca un finanziamento, non \
 quelle dell'atto.
+PAROLE: da 5 a 10 parole o brevi espressioni, separate da punto e virgola, \
+con cui un ufficio comunale, un'associazione o un'impresa cercherebbe questo \
+passaggio: parole comuni, non quelle dell'atto, senza numeri e senza il nome \
+del bando.
 
-In tutto tra 50 e 100 parole.
+ARGOMENTO e SERVE A insieme: tra 30 e 60 parole.
 
 Regole:
-- Non scrivere numeri, importi, percentuali, date o scadenze che nel \
-frammento non ci sono. Sono ammessi solo il numero dell'atto, l'allegato, \
-l'articolo o il paragrafo e il codice dell'azione, come compaiono nel documento.
+- In ARGOMENTO, in SERVE A e in PAROLE non scrivere numeri, importi, \
+percentuali, date o scadenze, nemmeno in lettere, che nel frammento non ci sono.
+- Nella riga DOVE scrivi solo numeri di articolo, paragrafo, sezione o allegato.
 - Non nominare altri bandi, altri allegati o altre azioni, anche se il \
 documento li cita, a meno che il frammento parli proprio di loro.
 - Non scrivere nomi di persone, indirizzi email o numeri di telefono.
 - Non riassumere il frammento e non ripeterne le frasi: di' dove sta e a che \
 cosa serve.
 - Non scrivere domande.
-- Se il frammento è un indice, un'intestazione o un testo senza contenuto, \
-scrivi solo la riga BANDO."""
+- Se il frammento è un indice, un'intestazione o un testo senza contenuto, in \
+ARGOMENTO scrivi "{INDICE}"."""
 
 RICHIESTA_FINALE = "Scrivi il contesto di questo frammento."
 
-ETICHETTE = {"BANDO": "bando", "ARGOMENTO": "argomento", "SERVE A": "serve_a"}
+# BANDO: solo per riconoscerla se il modello la scrive lo stesso; si scarta
+# (riga_salvata) e al suo posto va quella composta dal programma
+ETICHETTE = {
+    "BANDO": "bando",
+    "DOVE": "dove",
+    "ARGOMENTO": "argomento",
+    "SERVE A": "serve_a",
+    "PAROLE": "parole",
+}
+RIGHE_DEL_MODELLO = ("dove", "argomento", "serve_a", "parole")
+# Righe in cui valgono solo i numeri del frammento (stessi controlli)
+RIGHE_DAL_FRAMMENTO = ("argomento", "serve_a", "parole")
+VOCI_DI_PAROLE = (5, 10)
+PAROLE_CHIESTE = (30, 60)  # ARGOMENTO e SERVE A insieme
+NOTA_REVISIONE = (
+    "Controlli e prompt rivisti il 21/11/2026 dopo la prima generazione "
+    "(contesti_v1.jsonl, non misurata), guardando le violazioni e non i "
+    "risultati di ricerca, che non sono stati calcolati."
+)
 
 
 class ArrestoGenerazione(Exception):
@@ -270,8 +316,29 @@ def impronta_istruzioni() -> str:
     return hashlib.sha256(testo.encode("utf-8")).hexdigest()
 
 
+# La lista delle azioni nel titolo degli apistici ("azioni B1–B3–B4–B5"):
+# nella riga composta e nel titolo dato al modello resta la sola azione
+# del file, dalla parte del registro
+AZIONI_NEL_TITOLO = re.compile(r"\s*:?\s*azioni\s+[A-Z]\d+(?:\W{1,3}[A-Z]\d+)+", re.I)
+
+
+def titolo_del_file(documento: Documento) -> str:
+    """Il titolo del bando; senza la lista delle azioni se il file ha la sua azione."""
+    from scripts.diagnostica.controlla_fatti import codice_della_parte
+
+    if codice_della_parte(documento.parte):
+        return AZIONI_NEL_TITOLO.sub("", documento.titolo).strip()
+    return documento.titolo
+
+
+def riga_bando(documento: Documento) -> str:
+    """La riga BANDO, composta dal programma: titolo, atto, parte. Uguale per il file."""
+    voci = (titolo_del_file(documento), documento.atto, documento.parte)
+    return "; ".join(v.strip() for v in voci if v and v.strip())
+
+
 def blocco_documento(documento: Documento) -> str:
-    parti = [f"<titolo_del_bando>{documento.titolo}</titolo_del_bando>"]
+    parti = [f"<titolo_del_bando>{titolo_del_file(documento)}</titolo_del_bando>"]
     if documento.atto:
         parti.append(f"<atto>{documento.atto}</atto>")
     if documento.parte:
@@ -342,7 +409,8 @@ def _normale(testo: str) -> str:
 
 
 def righe_del_contesto(testo: str) -> dict[str, str] | None:
-    """Le tre righe per etichetta (bando, argomento, serve_a); None se fuori formato.
+    """Le righe per etichetta (dove, argomento, serve_a; bando se il modello la
+    scrive lo stesso); None se fuori formato.
 
     Una riga senza etichetta continua la precedente. Un'etichetta ripetuta,
     o testo prima della prima etichetta, è fuori formato.
@@ -352,7 +420,9 @@ def righe_del_contesto(testo: str) -> dict[str, str] | None:
     for riga in testo.strip().splitlines():
         if not riga.strip():
             continue
-        m = re.match(r"^\s*\**\s*(BANDO|ARGOMENTO|SERVE A)\s*\**\s*:\s*(.*)$", riga)
+        m = re.match(
+            r"^\s*\**\s*(BANDO|DOVE|ARGOMENTO|SERVE A|PAROLE)\s*\**\s*:\s*(.*)$", riga
+        )
         if m:
             chiave = ETICHETTE[m[1]]
             if chiave in righe:
@@ -451,7 +521,10 @@ def riga_salvata(
     ).strip()
     if risposta.stop_reason == "refusal":
         testo = ""
-    righe = righe_del_contesto(testo) or {}
+    lette = righe_del_contesto(testo) or {}
+    # la riga BANDO del modello si scarta: vale quella composta dal programma
+    scritta = lette.pop("bando", None)
+    righe = {"bando": riga_bando(documento), **lette} if lette else {}
     voci, libero, ignote = voci_dell_argomento(righe.get("argomento", ""))
     return {
         "id": frammento.id,
@@ -462,6 +535,7 @@ def riga_salvata(
         "modello": MODELLO,
         "testo": testo,
         "righe": righe,
+        "bando_scritto_dal_modello": scritta,
         "argomento_voci": voci,
         "argomento_altro": libero,
         "argomento_non_ricondotto": ignote,
@@ -561,6 +635,25 @@ def genera(
                 )
             risposta = chiama(client, richiesta(documento, frammento), attesa)
             dato = riga_salvata(documento, frammento, risposta)
+            if dato["stop_reason"] == "max_tokens":
+                # troncato: si rifà una volta sola, e si tiene il secondo esito
+                speso += dato["costo_dollari"]
+                if speso + massimo > tetto:
+                    raise ArrestoGenerazione(
+                        f"tetto di spesa prima di rifare il frammento "
+                        f"{frammento.chunk_num}: spesi {speso:.4f} $"
+                    )
+                primo = dato
+                risposta = chiama(client, richiesta(documento, frammento), attesa)
+                dato = riga_salvata(documento, frammento, risposta)
+                dato["rifatto"] = True
+                dato["costo_primo_tentativo"] = primo["costo_dollari"]
+                dato["output_tokens_primo_tentativo"] = primo["output_tokens"]
+                speso -= primo["costo_dollari"]
+                dato["costo_dollari"] = round(
+                    dato["costo_dollari"] + primo["costo_dollari"], 8
+                )
+                conti["chiamate"] += 1
             aggiungi(percorso, dato)
             speso += dato["costo_dollari"]
             conti["chiamate"] += 1
@@ -649,11 +742,21 @@ def quota_copiata(contesto: str, frammento: str, n: int = NGRAMMA_COPIA) -> floa
 
 @dataclass
 class SegniDelGemello:
-    """Per un file: segni dei gemelli (codici, nomi d'azione o di bando, numeri d'atto)."""
+    """Per un file: segni dei gemelli (codici, nomi d'azione o di bando, numeri d'atto).
+
+    `scartati`: i segni candidati tolti perché compaiono nel testo del
+    proprio documento (revisione del 21/11/2026).
+    """
 
     codici: set[str] = field(default_factory=set)
     frasi: set[str] = field(default_factory=set)
     numeri: set[str] = field(default_factory=set)
+    scartati: set[str] = field(default_factory=set)
+    # quelli cercati in automatico (segni_automatici), già anche in `frasi`
+    automatici: set[str] = field(default_factory=set)
+
+    def vuoti(self) -> bool:
+        return not (self.codici or self.frasi or self.numeri)
 
 
 def gemelli_dei_file(documenti: list[Documento]) -> dict[str, list[Documento]]:
@@ -684,9 +787,9 @@ def _allegato(fonte: str) -> str | None:
     return m[1].upper() if m else None
 
 
-# Il nome che distingue un bando dal suo gemello, deciso a mano dai titoli
-# (docs/coda.md, "Passo 19d", punto 5): le altre parole dei titoli dei due
-# bandi PMI ("costi", "euro", "fino") sono troppo comuni negli avvisi
+# Candidati scelti a mano dai titoli (docs/coda.md, "Passo 19d", punto 5);
+# dal 21/11/2026 valgono solo se il programma verifica che non compaiono
+# nel testo del proprio documento (segni_del_gemello)
 NOMI_DEL_BANDO = {
     "cultura-missione-comune-2026": ("cultura",),
     "sport-missione-comune-2026": ("sport",),
@@ -702,62 +805,213 @@ NOMI_DEL_BANDO = {
 }
 
 
-def segni_del_gemello(
-    documento: Documento, gemelli: list[Documento]
-) -> SegniDelGemello:
-    """Segni che un contesto parla di un gemello.
+def _compare(segno: str, testo: str, maiuscole: bool = False) -> bool:
+    """Il segno compare nel testo come parola intera (i codici: maiuscole uguali)."""
+    if maiuscole:
+        return re.search(rf"\b{re.escape(segno)}\b", testo) is not None
+    cerca = rf"\b{re.escape(_normale(segno))}\b"
+    return re.search(cerca, _normale(testo)) is not None
 
-    Codici d'azione e d'allegato e nomi d'azione dei gemelli (dalla parte
-    del registro e dal nome del file); il nome del bando gemello
-    (NOMI_DEL_BANDO) e i numeri del suo atto che nell'atto proprio non ci
-    sono. Il controllo li ammette quando stanno nel frammento.
-    """
+
+def altri_del_bando(documento: Documento, documenti: list[Documento]) -> str:
+    """Il testo degli altri file dello stesso bando che non sono un allegato
+    d'azione (per l'avviso Cultura: la sua proroga, e viceversa)."""
     from scripts.diagnostica.controlla_fatti import codice_della_parte
 
+    if codice_della_parte(documento.parte):
+        return ""
+    return " ".join(
+        d.testo
+        for d in documenti
+        if d.id_bando == documento.id_bando
+        and d.fonte != documento.fonte
+        and not codice_della_parte(d.parte)
+    )
+
+
+def segni_del_gemello(
+    documento: Documento, gemelli: list[Documento], del_bando: str = ""
+) -> SegniDelGemello:
+    """Segni che un contesto parla di un gemello, verificati sul proprio documento.
+
+    Candidati: codici d'azione e d'allegato e nomi d'azione dei gemelli
+    (parte del registro e nome del file); per i bandi gemelli, NOMI_DEL_BANDO,
+    le parole del titolo del gemello che il titolo proprio non ha, e i
+    numeri del suo atto. Un candidato vale solo se non compare mai nel
+    testo del proprio documento (né nel suo atto); gli altri vanno in
+    `scartati`. Per i segni di un bando gemello il proprio documento è il
+    bando intero (`del_bando`: gli altri suoi file, altri_del_bando), per
+    quelli di un altro allegato è il file. A questi si aggiungono i segni
+    cercati in automatico (segni_automatici). Il controllo li cerca solo
+    nelle righe scritte dal modello.
+    """
+    from scripts.diagnostica.controlla_fatti import codice_della_parte
+    from scripts.diagnostica.misura_recupero_avvisi import parole_significative
+
     segni = SegniDelGemello()
-    numeri_propri = numeri_di(f"{documento.titolo} {documento.atto}")
+    # il testo del documento, non il titolo: quello degli apistici elenca
+    # tutte le azioni
+    proprio = f"{documento.atto} {documento.testo}"
+    proprio_bando = f"{proprio} {del_bando}"
+    numeri_propri = numeri_di(proprio_bando)
+    parole_titolo = set(parole_significative(documento.titolo))
     for g in gemelli:
+        codici, frasi = set(), set()
         codice = codice_della_parte(g.parte)
         if codice and codice != codice_della_parte(documento.parte):
-            segni.codici.add(codice)
+            codici.add(codice)
             if ":" in g.parte:
-                segni.frasi.add(_normale(g.parte.split(":", 1)[1]))
+                frasi.add(_normale(g.parte.split(":", 1)[1]))
         allegato = _allegato(g.fonte)
         if allegato and allegato != _allegato(documento.fonte):
-            segni.codici.add(allegato)
+            codici.add(allegato)
         if g.id_bando != documento.id_bando:
-            segni.frasi |= set(NOMI_DEL_BANDO.get(g.id_bando, ()))
-        segni.numeri |= {
-            n
-            for n in (_norma_numero(x) for x in NUMERO.findall(g.atto))
-            if len(n) >= 3 and n not in numeri_propri
-        }
+            frasi |= {_normale(x) for x in NOMI_DEL_BANDO.get(g.id_bando, ())}
+            frasi |= {
+                p
+                for p in parole_significative(g.titolo)
+                if len(p) >= 4 and p not in parole_titolo
+            }
+        for c in codici:
+            (segni.scartati if _compare(c, proprio, True) else segni.codici).add(c)
+        for f in frasi:
+            (segni.scartati if _compare(f, proprio_bando) else segni.frasi).add(f)
+        for x in NUMERO.findall(g.atto):
+            n = _norma_numero(x)
+            if len(n) >= 3:
+                (segni.scartati if n in numeri_propri else segni.numeri).add(n)
+        automatici = segni_automatici(
+            documento, g, del_bando if g.id_bando != documento.id_bando else ""
+        )
+        segni.automatici |= set(automatici)
+        segni.frasi |= set(automatici)
+    segni.scartati -= segni.codici | segni.frasi | segni.numeri
     return segni
 
 
+# Segni cercati in automatico (decisione del 21/11/2026): fino a
+# SEGNI_AUTOMATICI per coppia, parole o coppie di parole che compaiono
+# almeno FREQUENZA_SEGNO volte nel testo del gemello e mai nel proprio
+# documento (testo, titolo, atto, parte)
+SEGNI_AUTOMATICI = 3
+FREQUENZA_SEGNO = 3
+LETTERE_SEGNO = 5
+
+
+def _parole_del_testo(testo: str) -> list[str]:
+    return re.findall(r"[^\W\d_]+", testo.lower())
+
+
+def segni_automatici(
+    documento: Documento, gemello: Documento, del_bando: str = ""
+) -> list[str]:
+    """Fino a SEGNI_AUTOMATICI segni del gemello, dal più frequente nel suo testo.
+
+    Parole di almeno LETTERE_SEGNO lettere, non funzionali, assenti dal
+    proprio documento; oppure coppie di parole consecutive del gemello che
+    nel proprio documento non stanno mai insieme (pur avendo le due parole).
+    Una coppia che contiene una parola già scelta non si aggiunge. A parità
+    di frequenza, in ordine alfabetico.
+    """
+    from collections import Counter
+
+    from scripts.diagnostica.misura_recupero_avvisi import PAROLE_FUNZIONALI
+
+    proprio = (
+        f"{documento.titolo} {documento.atto} {documento.parte} {documento.testo} "
+        f"{del_bando}"
+    )
+    parole_proprie = set(_parole_del_testo(proprio))
+    proprio_normale = " ".join(_parole_del_testo(proprio))
+    del_gemello = _parole_del_testo(gemello.testo)
+
+    def buona(p: str) -> bool:
+        return len(p) >= LETTERE_SEGNO and p not in PAROLE_FUNZIONALI
+
+    conti: Counter = Counter()
+    for p in del_gemello:
+        if buona(p) and p not in parole_proprie:
+            conti[p] += 1
+    for a, b in zip(del_gemello, del_gemello[1:], strict=False):
+        if buona(a) and buona(b) and a in parole_proprie and b in parole_proprie:
+            coppia = f"{a} {b}"
+            if not re.search(rf"\b{coppia}\b", proprio_normale):
+                conti[coppia] += 1
+    scelti: list[str] = []
+    for segno, n in sorted(conti.items(), key=lambda x: (-x[1], x[0])):
+        if n < FREQUENZA_SEGNO or len(scelti) == SEGNI_AUTOMATICI:
+            break
+        if any(s in segno.split() for s in scelti):
+            continue
+        scelti.append(segno)
+    return scelti
+
+
 def testo_di_ricerca(
-    righe: dict[str, str], quali=("bando", "argomento", "serve_a")
+    righe: dict[str, str],
+    quali=("bando", "dove", "argomento", "serve_a", "parole"),
 ) -> str:
     """Il testo del contesto che entra nella ricerca: le righe scelte, senza etichette."""
     return " ".join(righe[q] for q in quali if righe.get(q)).strip()
 
 
+# Riferimenti di struttura senza parola davanti: 4.2.2, 16.4, 1.3.2.1 (gruppi
+# di 1-2 cifre dopo il punto; "50.000" e "1.242.000" non lo sono)
+STRUTTURA = re.compile(r"(?<![\d.,])\d{1,3}(?:\.\d{1,2})+(?![\d,]|\.\d)")
+
+
+def _togli_struttura(testo: str, documento: Documento, violazioni: list) -> str:
+    """Toglie dal testo i riferimenti di struttura e i codici; segnala quelli che
+    nel documento non ci sono. Restituisce il testo che resta."""
+    del_documento = numeri_di(documento.testo)
+    codici_documento = set(
+        CODICE.findall(
+            f"{documento.titolo} {documento.atto} {documento.parte} {documento.testo}"
+        )
+    )
+    for m in RIFERIMENTO.finditer(testo):
+        numero = _norma_numero(re.sub(r"^[A-Z]", "", m[1]))
+        if m[1] not in codici_documento and numero not in del_documento:
+            violazioni.append(("numero", f"riferimento non nel documento: {m[0]!r}"))
+    resto = RIFERIMENTO.sub(" ", testo)
+    for m in STRUTTURA.finditer(resto):
+        if m[0] not in documento.testo:
+            violazioni.append(("numero", f"riferimento non nel documento: {m[0]!r}"))
+    resto = STRUTTURA.sub(" ", resto)
+    for codice in CODICE.findall(resto):
+        if codice not in codici_documento:
+            violazioni.append(("numero", f"codice non nel documento: {codice}"))
+    return CODICE.sub(" ", resto)
+
+
 def controlla_contesto(
     dato: dict, frammento: str, documento: Documento, segni: SegniDelGemello
 ) -> list[tuple[str, str]]:
-    """Le violazioni di un contesto: (tipo, dettaglio); tipo numero, gemello o forma."""
+    """Le violazioni di un contesto: (tipo, dettaglio); tipo numero, gemello o forma.
+
+    Si controllano solo le righe scritte dal modello (DOVE, ARGOMENTO,
+    SERVE A, PAROLE): la riga BANDO la compone il programma. Numeri: nella
+    riga DOVE solo riferimenti di struttura che stanno nel documento; in
+    ARGOMENTO, SERVE A e PAROLE solo numeri, date e parole di numero che
+    stanno nel frammento. Un frammento con la sola voce "indice o
+    intestazione" vale anche senza SERVE A.
+    """
     violazioni: list[tuple[str, str]] = []
     testo = dato.get("testo") or ""
     righe = dato.get("righe") or {}
-    contenuto = testo_di_ricerca(righe)
+    del_modello = " ".join(righe[k] for k in RIGHE_DEL_MODELLO if righe.get(k))
+    argomento_serve = " ".join(righe[k] for k in RIGHE_DAL_FRAMMENTO if righe.get(k))
     if dato.get("stop_reason") != "end_turn":
         violazioni.append(("forma", f"stop_reason {dato.get('stop_reason')}"))
     if not testo.strip():
         violazioni.append(("forma", "vuoto"))
         return violazioni
-    if not righe or "bando" not in righe:
+    if not righe:
         violazioni.append(("forma", "fuori formato"))
-    elif ("argomento" in righe) != ("serve_a" in righe):
+    elif not ("argomento" in righe and "serve_a" in righe) and (
+        dato.get("argomento_voci") != [INDICE]
+    ):
+        # un frammento di solo indice o intestazione vale anche senza SERVE A
         violazioni.append(("forma", "manca ARGOMENTO o SERVE A"))
     if "argomento" in righe:
         voci = dato.get("argomento_voci") or []
@@ -767,67 +1021,78 @@ def controlla_contesto(
             )
         if len(voci) > VOCI_MASSIME:
             violazioni.append(("forma", f"più di {VOCI_MASSIME} voci: {voci}"))
-    parole = len(_parole(contenuto))
+    parole = len(_parole(del_modello))
     if parole > PAROLE_MASSIME:
         violazioni.append(("forma", f"troppo lungo: {parole} parole"))
     if "?" in testo:
         violazioni.append(("forma", "domanda"))
     if PREMESSA.match(testo):
         violazioni.append(("forma", "premessa"))
-    quota = quota_copiata(contenuto, frammento)
+    quota = quota_copiata(del_modello, frammento)
     if quota > QUOTA_COPIA:
         violazioni.append(("forma", f"copiato dal frammento: {quota:.0%}"))
     if contatti_rimasti(testo, documento.titolo) or "@" in testo:
         violazioni.append(("forma", "contatti"))
 
-    # numeri e date
-    ammessi = numeri_di(f"{documento.titolo} {documento.atto} {documento.parte}")
-    del_frammento = numeri_di(frammento)
-    del_documento = numeri_di(documento.testo)
-    codici_ammessi = set(
-        CODICE.findall(
-            f"{documento.titolo} {documento.atto} {documento.parte} {documento.testo}"
-        )
-    )
-    resto = contenuto
-    for m in RIFERIMENTO.finditer(contenuto):
-        numero = _norma_numero(re.sub(r"^[A-Z]", "", m[1]))
-        if m[1] not in codici_ammessi and numero not in del_documento:
-            violazioni.append(("numero", f"riferimento non nel documento: {m[0]!r}"))
-    resto = RIFERIMENTO.sub(" ", resto)
-    for codice in CODICE.findall(resto):
-        if codice not in codici_ammessi:
-            violazioni.append(("numero", f"codice non nel documento: {codice}"))
-    resto = CODICE.sub(" ", resto)
+    # numeri: riga DOVE
+    dove = righe.get("dove") or ""
+    resto = _togli_struttura(dove, documento, violazioni)
     for n in NUMERO.findall(resto):
-        norma = _norma_numero(n)
-        if norma not in del_frammento and norma not in ammessi:
-            violazioni.append(("numero", f"numero non nel frammento: {n}"))
-    dove_ammesse = (
-        f"{frammento} {documento.titolo} {documento.atto} {documento.parte}"
-    ).lower()
+        violazioni.append(("numero", f"numero non di struttura nella riga DOVE: {n}"))
     for regola in (PAROLE_NUMERO, MESI):
-        for m in regola.finditer(contenuto):
-            if m[0].lower() not in dove_ammesse:
+        for m in regola.finditer(dove):
+            violazioni.append(("numero", f"parola di numero nella riga DOVE: {m[0]}"))
+    # numeri: ARGOMENTO e SERVE A, solo quelli del frammento
+    del_frammento = numeri_di(frammento)
+    for n in NUMERO.findall(argomento_serve):
+        if _norma_numero(n) not in del_frammento:
+            violazioni.append(("numero", f"numero non nel frammento: {n}"))
+    frammento_minuscolo = frammento.lower()
+    for regola in (PAROLE_NUMERO, MESI):
+        for m in regola.finditer(argomento_serve):
+            if m[0].lower() not in frammento_minuscolo:
                 violazioni.append(("numero", f"parola non nel frammento: {m[0]}"))
 
-    # gemello: ammesso se il segno sta nel frammento
+    # gemello, nelle sole righe del modello; ammesso se il segno sta nel frammento
     for codice in sorted(segni.codici):
-        if re.search(rf"\b{codice}\b", contenuto, re.IGNORECASE) and not re.search(
+        if re.search(rf"\b{codice}\b", del_modello, re.IGNORECASE) and not re.search(
             rf"\b{codice}\b", frammento, re.IGNORECASE
         ):
             violazioni.append(("gemello", f"codice {codice}"))
     for frase in sorted(segni.frasi):
         cerca = rf"\b{re.escape(frase)}\b"
-        if re.search(cerca, _normale(contenuto)) and not re.search(
+        if re.search(cerca, _normale(del_modello)) and not re.search(
             cerca, _normale(frammento)
         ):
             violazioni.append(("gemello", f"nome {frase!r}"))
-    numeri_contenuto = {_norma_numero(n) for n in NUMERO.findall(contenuto)}
-    for numero in sorted(segni.numeri & numeri_contenuto):
+    numeri_modello = {_norma_numero(n) for n in NUMERO.findall(del_modello)}
+    for numero in sorted(segni.numeri & numeri_modello):
         if numero not in del_frammento:
             violazioni.append(("gemello", f"atto {numero}"))
     return violazioni
+
+
+def linee_dei_segni(documenti: list[Documento]) -> list[str]:
+    """Per file: i segni del gemello rimasti dopo la verifica e quelli scartati."""
+    gemelli = gemelli_dei_file(documenti)
+    linee = []
+    for d in documenti:
+        if not gemelli[d.fonte]:
+            continue
+        s = segni_del_gemello(d, gemelli[d.fonte], altri_del_bando(d, documenti))
+        a_mano = sorted(s.codici) + sorted(s.frasi - s.automatici) + sorted(s.numeri)
+        linee.append(
+            f"  {d.fonte}: rimasti "
+            + (
+                "NESSUNO"
+                if s.vuoti()
+                else f"verificati {', '.join(a_mano) or '-'}; automatici "
+                f"{', '.join(sorted(s.automatici)) or '-'}"
+            )
+            + "; scartati (nel testo del documento) "
+            + (", ".join(sorted(s.scartati)) or "-")
+        )
+    return linee
 
 
 def controlla_tutti(
@@ -840,21 +1105,32 @@ def controlla_tutti(
     violazioni: dict[str, list[tuple[str, str]]] = {}
     per_file = []
     tipi: Counter = Counter()
-    solo_bando = 0
-    corti = 0
     voci: Counter = Counter()
+    fuori_misura: Counter = Counter()
+    scritta_bando = rifatti = indice = 0
     for d in documenti:
-        segni = segni_del_gemello(d, gemelli[d.fonte])
+        segni = segni_del_gemello(d, gemelli[d.fonte], altri_del_bando(d, documenti))
         fatti = [f for f in d.frammenti if f.id in salvati]
         con = 0
         for f in fatti:
             dato = salvati[f.id]
             trovate = controlla_contesto(dato, f.testo, d, segni)
             righe = dato.get("righe") or {}
-            if righe and set(righe) == {"bando"}:
-                solo_bando += 1
-            if len(_parole(testo_di_ricerca(righe))) < PAROLE_MINIME:
-                corti += 1
+            parole = len(_parole(testo_di_ricerca(righe, ("argomento", "serve_a"))))
+            voci_parole = [
+                v for v in (righe.get("parole") or "").split(";") if v.strip()
+            ]
+            if righe and not (
+                VOCI_DI_PAROLE[0] <= len(voci_parole) <= VOCI_DI_PAROLE[1]
+            ):
+                fuori_misura["parole"] += 1
+            if parole < PAROLE_CHIESTE[0]:
+                fuori_misura["sotto"] += 1
+            elif parole > PAROLE_CHIESTE[1]:
+                fuori_misura["sopra"] += 1
+            scritta_bando += bool(dato.get("bando_scritto_dal_modello"))
+            rifatti += bool(dato.get("rifatto"))
+            indice += INDICE in (dato.get("argomento_voci") or [])
             voci.update(dato.get("argomento_voci") or ["(nessuna)"])
             if trovate:
                 violazioni[f.id] = trovate
@@ -862,21 +1138,41 @@ def controlla_tutti(
                 tipi.update({t for t, _ in trovate})
         per_file.append((d.fonte, len(fatti), len(d.frammenti), con))
     totale = sum(n for _, n, _, _ in per_file)
+    numero_o_gemello = sum(
+        any(t in ("numero", "gemello") for t, _ in v) for v in violazioni.values()
+    )
     linee = [
         (
             f"Controlli sui contesti generati ({totale} su "
             f"{sum(len(d.frammenti) for d in documenti)} frammenti)"
         ),
-        f"Frammenti con almeno una violazione: {len(violazioni)} "
-        f"({len(violazioni) / totale:.1%})"
+        NOTA_REVISIONE,
+        (
+            f"Frammenti con almeno una violazione: {len(violazioni)} "
+            f"({len(violazioni) / totale:.1%}); su numeri o gemello: "
+            f"{numero_o_gemello} ({numero_o_gemello / totale:.1%})"
+        )
         if totale
         else "Nessun contesto salvato",
         "Per tipo (frammenti): "
         + ", ".join(f"{t} {n}" for t, n in sorted(tipi.items())),
-        f"Solo riga BANDO (indice o testo senza contenuto, ammesso): {solo_bando}",
-        f"Contesti sotto {PAROLE_MINIME} parole (non è una violazione): {corti}",
+        (
+            f"ARGOMENTO e SERVE A fuori da {PAROLE_CHIESTE[0]}-{PAROLE_CHIESTE[1]} "
+            f"parole (non è una violazione): sotto {fuori_misura['sotto']}, sopra "
+            f"{fuori_misura['sopra']}"
+        ),
+        (
+            f"PAROLE fuori da {VOCI_DI_PAROLE[0]}-{VOCI_DI_PAROLE[1]} voci (non è "
+            f"una violazione): {fuori_misura['parole']}"
+        ),
+        f"Riga BANDO scritta lo stesso dal modello (scartata): {scritta_bando}",
+        f"Contesti rifatti dopo un troncamento: {rifatti}",
+        f"ARGOMENTO '{INDICE}': {indice}",
         NOTA_VOCI,
         "Voci di ARGOMENTO: " + ", ".join(f"{v} {n}" for v, n in voci.most_common()),
+        "",
+        "Segni del gemello dopo la verifica sul proprio documento:",
+        *linee_dei_segni(documenti),
         "",
         "Per file: frammenti con contesto / frammenti, con violazioni",
     ]
@@ -892,15 +1188,24 @@ def controlla_tutti(
     return violazioni, linee
 
 
+def documenti_della_prova(documenti: list[Documento], nome: str) -> list[Documento]:
+    scelti = [d for d in documenti if d.fonte == nome]
+    if not scelti:
+        raise ArrestoGenerazione(
+            f"{nome} non è tra i {len(documenti)} file degli avvisi"
+        )
+    return scelti
+
+
 def esegui_controlli(prova: bool) -> int:
     documenti = leggi_documenti()
     percorso = FILE_PROVA if prova else FILE_CONTESTI
-    if prova:
-        documenti = [d for d in documenti if d.fonte == FILE_DELLA_PROVA]
     salvati = leggi_salvati(percorso, impronta_istruzioni())
     if not salvati:
         print(f"Nessun contesto in {percorso}")
         return 1
+    if prova:
+        documenti = [d for d in documenti if any(f.id in salvati for f in d.frammenti)]
     _, linee = controlla_tutti(documenti, salvati)
     nome = "controllo_contesti_prova.txt" if prova else "controllo_contesti.txt"
     testo = "\n".join(linee)
@@ -916,7 +1221,13 @@ def esegui_controlli(prova: bool) -> int:
 def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
-        "--prova", action="store_true", help=f"solo {FILE_DELLA_PROVA} (5 frammenti)"
+        "--prova",
+        action="store_true",
+        help=f"un file solo (--file; predefinito {FILE_DELLA_PROVA}), in "
+        f"{FILE_PROVA.name}",
+    )
+    parser.add_argument(
+        "--file", help="con --prova: il nome del PDF del registro da provare"
     )
     parser.add_argument(
         "--tetto-dollari",
@@ -932,6 +1243,9 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None, client=None) -> int:
     argomenti = leggi_argomenti(argv)
     try:
+        if argomenti.file and not argomenti.prova:
+            print("--file vale solo con --prova.", file=sys.stderr)
+            return 2
         if argomenti.controlla:
             return esegui_controlli(argomenti.prova)
         if argomenti.tetto_dollari is None or argomenti.tetto_dollari <= 0:
@@ -941,7 +1255,9 @@ def main(argv: list[str] | None = None, client=None) -> int:
         controlla_documenti(documenti)
         percorso = FILE_CONTESTI
         if argomenti.prova:
-            documenti = [d for d in documenti if d.fonte == FILE_DELLA_PROVA]
+            documenti = documenti_della_prova(
+                documenti, argomenti.file or FILE_DELLA_PROVA
+            )
             percorso = FILE_PROVA
         print(
             f"Modello {MODELLO}, impronta delle istruzioni "

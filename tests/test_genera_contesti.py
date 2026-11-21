@@ -310,9 +310,15 @@ def test_numero_non_nel_frammento():
 
 
 def test_numeri_dell_atto_e_riferimenti_ammessi():
-    testo = CONTESTO_BUONO.replace("articolo 3", "articolo 3, decreto 123 del 2026")
-    assert violazioni(testo) == []
-    fuori = CONTESTO_BUONO.replace("articolo 3", "articolo 9")
+    # riscritto il 21/11/2026 per il formato nuovo: la riga BANDO la compone
+    # il programma; il numero dell'atto in ARGOMENTO o SERVE A è una violazione
+    dove = CONTESTO_BUONO.replace(
+        "BANDO: Bando prova strade, articolo 3.", "DOVE: articolo 3"
+    )
+    assert violazioni(dove) == []
+    atto = dove.replace("comune piccolo", "comune, come dice il decreto 123,")
+    assert ("numero", "numero non nel frammento: 123") in violazioni(atto)
+    fuori = dove.replace("DOVE: articolo 3", "DOVE: articolo 9")
     assert any(t == "numero" for t, _ in violazioni(fuori))
 
 
@@ -343,8 +349,11 @@ def test_forma():
     )
 
 
-def test_solo_bando_ammesso():
-    assert violazioni("BANDO: Bando prova strade, indice.") == []
+def test_solo_indice_ammesso():
+    # era test_solo_bando_ammesso; riscritto il 21/11/2026: un frammento di
+    # solo indice o intestazione vale con ARGOMENTO "indice o intestazione"
+    indice = "DOVE: non indicato\nARGOMENTO: indice o intestazione"
+    assert violazioni(indice) == []
 
 
 def test_tre_voci_ammesse_quattro_no():
@@ -378,7 +387,11 @@ def test_gemello_tra_allegati():
     segni = gc.segni_del_gemello(a1, gc.gemelli_dei_file([a1, a3])[a1.fonte])
     assert {"B3", "A3"} <= segni.codici
     assert "ripopolamento patrimonio apistico" in segni.frasi
-    testo = CONTESTO_BUONO.replace("articolo 3", "azione B3")
+    # riscritto il 21/11/2026: il codice dell'altra azione sta in una riga
+    # scritta dal modello (SERVE A), non nella riga BANDO del programma
+    testo = CONTESTO_BUONO.replace(
+        "sistemare le strade", "sistemare le strade con l'azione B3"
+    )
     trovate = violazioni(testo, d=a1, segni=segni)
     assert ("gemello", "codice B3") in trovate
     # ammesso se il frammento parla proprio dell'altra azione
