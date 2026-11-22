@@ -981,6 +981,29 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
       bando la risposta non c'è. Materiale per il 19e dalla compilazione
       del secondo file di domande a mano: un criterio di punteggio letto
       come requisito di accesso (punto 13, voce 10, "Cambio del piano").
+      Aggiunte del 22/11/2026 sera, dopo la lettura dei mancati (punto 13,
+      voce 14):
+      - **Frammenti vicini**: quando la ricerca sceglie un frammento, al
+        modello vanno anche il precedente e il successivo. Misurato sul
+        recupero nella notte del 20/11 (punto 4, "Frammenti vicini"; v0,
+        B, k=10): da 60 trovati, a distanza 1 +13 fatti con 25.217
+        caratteri in media contro 11.509, 2,2 volte. Da riprovare sulle
+        risposte vere. Costo stimato in pianificazione, non misurato:
+        circa un centesimo in più a domanda; nessun indice da rifare.
+        Risolve quando il pezzo mancante è accanto, non quando è lontano.
+        Con il taglio per struttura ("Taglio dei documenti secondo la
+        struttura del bando (22/11/2026)") diventa "l'unità intera che
+        contiene il pezzo". Da decidere insieme a "Documento intero quando
+        il bando è noto" (Parcheggio), per il bando selezionato e corto.
+      - **Scalini al momento della domanda**: risposta dai primi
+        frammenti; se la ricerca è poco sicura, allarga ai vicini o a
+        tutto il bando; se è ancora poco sicura, l'app chiede di
+        precisare; se non trova, lo dice. Dipende da un segnale
+        calcolabile, il punteggio del riordinatore, misurabile sulle 92
+        domande a mano (è il segnale della voce "Accanto" qui sopra). No a
+        due indici dello stesso archivio.
+      - **Colonna "approfondimento"** nei fogli delle domande a mano, per
+        le domande che vengono dopo la risposta: proposta, non creata.
    8. **Strade da provare, nell'ordine** (superato dal perimetro del
       punto 10, 20/11/2026 sera: la strada 1 è fatta, punto 3; la 2 resta;
       la 3 è l'unica strada nuova, limitata al contesto per frammento; il
@@ -1197,7 +1220,8 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
           sulle 30 domande scritte a mano (`domande_a_mano.csv`) il guadagno
           netto in B "resta" se è positivo e almeno metà di quello con le
           domande del foglio sugli stessi fatti.
-       6. **Prossimo compito**, nell'ordine:
+       6. **Prossimo compito**, nell'ordine (superato dalla voce 17,
+          22/11/2026):
           1. i controlli sugli 871 contesti della generazione completa
              (`genera_contesti --controlla`);
           2. se le violazioni vere su numeri o gemello restano entro il 5%,
@@ -1472,6 +1496,142 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
           sulle 92, a k=10 e a k=15. Di c-0 la misura salvata ha solo la
           mediana del tempo, non il massimo, che la regola chiede solo alle
           T.
+      13. **Esito della misura delle T** (22/11/2026 sera; numeri da
+          `dati-grezzi/prova/19d/contesto/misura_T_22-11.txt`, che
+          contiene parola per parola `rapporto_T_taratura.txt`). T-0 e T-R
+          in B, k=10 e k=15, sulle 97 domande dei fogli e sulle 92 a mano;
+          `misura_recupero_avvisi.py` invariato durante la misura (sha256
+          uguale prima e dopo). Secondo la regola della voce 12, scritta
+          prima della misura, punto per punto:
+          - T-0: 1 no (a mano, k=10, presi 6, persi 1, p 0,125; k=15 netto
+            +3); 2 sì (fogli, netto +5 a k=10 e +6 a k=15); 3 no (fogli,
+            k=10, fatti con un pezzo dal gemello prima del giusto: c-0 0,
+            T-0 1); 4 no (mediana 11,248 s sui fogli e 11,435 s a mano,
+            contro i limiti 10,584 e 10,214; massimo 27,114 e 24,130 s,
+            sotto i 30). **Non adottabile.**
+          - T-R: 1 no (a mano, k=10, presi 9, persi 4, p 0,267; k=15 netto
+            +6); 2 sì (+11 a k=10 e a k=15); 3 no (fogli, k=10: c-0 0, T-R
+            1); 4 no (mediana 14,561 e 14,035 s; massimo 32,466 e 39,618
+            s, oltre i 30). **Non adottabile.**
+          - Al controllo va **c-LR con tutte le righe, come candidata
+            debole**.
+          - Domande a mano in B, su 92: k=10 c-0 73, c-LR 78, T-0 78, T-R
+            78; k=15 c-0 75, c-LR 80, T-0 78, T-R 81.
+          - Tempi del riordinatore in B, mediana per domanda: c-0 5,292 s
+            sui fogli e 5,107 a mano; c-LR 6,099 e 6,438; T-0 11,248 e
+            11,435; T-R 14,561 e 14,035. Coppie in B: c-0 2642 sui fogli e
+            2602 a mano, T 8915 e 8730. Per bando, i quattro lunghi (i due
+            PMI, risorse genetiche, apistici) stanno tra 20 e 30 s di
+            mediana con T-0 e T-R; gli altri sotto i 15 s. Tempi per bando
+            in `misura_T_22-11.txt`, sezione 4.
+          - Sospensione del PC. Regola decisa prima di vedere i tempi: una
+            domanda con tempo anomalo si esclude dal massimo solo se gli
+            orari dimostrano che cade nell'intervallo di sospensione; la
+            mediana non si tocca. Dal registro di sistema: una sola
+            sospensione, dalle 18:53:18 alle 18:53:36 (circa 17 s), dentro
+            la corsa T-R a mano. Lo script registra per ogni domanda la
+            durata e non l'orario, quindi la sospensione non si dimostra su
+            nessuna domanda: nessuna esclusa, il massimo di 39,618 s
+            (apistici) resta e la regola si applica. Le altre tre corse non
+            hanno sospensioni.
+          Cosa i numeri non dicono (da `misura_T_22-11.txt`, ricopiato dal
+          file):
+          - Il punto 3 conta i fatti, non dice se sono gli stessi. Nei fogli k=10
+            c-0 ha 0 fatti con un pezzo dal gemello, T-0 ha la riga 74 (non
+            trovata), T-R la riga 72 (trovata). A mano il conteggio è 1 e 1 ma i
+            fatti sono diversi: c-0 la 1092, T-0 la 1092, T-R la 72. Tutti nel
+            bando apistici. Il NO del punto 3 viene da un solo fatto.
+          - c-LR tutte, che va al controllo, a mano ha 2 fatti dal gemello (72,
+            1107) contro 1 di c-0: la regola del punto 3 vale per le T, non per
+            c-LR, ma il dato c’è.
+          - I tempi sono di una corsa sola, su questo PC, senza ripetizioni: non
+            dicono quanto variano. I massimi di c-0 e c-LR non sono registrati
+            nelle loro misure: il confronto con c-0 è solo sulle mediane.
+          - Il tempo è quello del solo riordinatore; il tempo in app comprende
+            anche il recupero e la risposta.
+          - Le 92 a mano comprendono le 29 misurate il 21/11, prima delle 63
+            nuove: non sono tutte fresche.
+          - Sui fogli T-R fa +11 con p 0,027 (k=10) e 0,019 (k=15), ma i fogli
+            sono le domande su cui sono state disegnate le configurazioni; la
+            regola decide sulle domande a mano.
+          Note al testo ricopiato: 1092 e 1107 sono le righe 2:92 e 2:107
+          (numerazione interna della misura); "i fatti sono diversi" vale
+          per T-R, mentre T-0 ha lo stesso fatto di c-0.
+          Conclusione: dare al riordinatore tutti i frammenti del bando
+          costa circa 3,4 volte le coppie (da 2,1 a 2,75 volte la mediana
+          del tempo di c-0) e porta allo stesso numero a k=10 sulle domande a mano
+          (78 per c-LR, T-0 e T-R); il limite non è il numero dei
+          candidati.
+      14. **Lettura dei mancati** (22/11/2026, fatta in pianificazione da
+          chi mantiene il progetto dopo aver visto i casi in
+          `mancati_mano_22-11.txt` e `mancati_da_tutte_22-11.txt`). È un
+          giudizio: non cambia la misura né la regola.
+          1. I 12 mancati a mano da c-0 e c-LR (gli 11 a k=15 più la 89,
+             mancata a k=10):
+             - mancati veri: 29, 2:39, 2:43, 2:106;
+             - risposta trovata o quasi, manca un pezzo di contorno: 18,
+               30, 2:99, 2:107;
+             - risposta probabile da un altro passaggio, o domanda a
+               elenco: 2:24, 2:75;
+             - domanda che punta altrove: 2:95;
+             - al limite: 89.
+          2. I nove fatti mancati da tutte e quattro le configurazioni
+             (c-0, c-LR tutte, T-0, T-R tutte; 18, 29, 58, 2:43, 2:107,
+             2:114 nei fogli; 18, 29, 30, 89, 2:43, 2:99 a mano):
+             - l'app avrebbe la risposta in 18 a mano, 30, 2:99 e 58; per
+               la 58 il paragrafo 5.2.2 dice la stessa cosa del passaggio
+               del foglio ed è tra i primi tre in tutte e quattro (frammento
+               #28 dell'allegato 1 del 13512; già al punto 9, avvertenze);
+             - lo risolvono i frammenti vicini: 2:43;
+             - al limite: 89 e 2:114;
+             - mancati veri: 29 e 2:107 nei fogli.
+          3. Conseguenze:
+             - la misura è severa: 80 su 92 a k=15 con c-LR; contando i
+               casi in cui la risposta c'era, la stima è circa 86. La
+               stima sta accanto al numero e non al suo posto; "parziale"
+               vuol dire incompleta; il numero vero viene dalle risposte
+               complete del 19e;
+             - i fatti a più pezzi penalizzano;
+             - apistici: 4 mancati su 11 a k=15 (2:95, 2:99, 2:106,
+               2:107); la ricerca pesca negli allegati delle altre azioni.
+               Dopo la selezione del bando serve chiedere per quale
+               azione.
+          4. Il prossimo guadagno non viene dalla ricerca ma dal taglio dei
+             documenti ("Taglio dei documenti secondo la struttura del
+             bando (22/11/2026)", più sotto) e da cosa si passa al modello
+             (punto 7, frammenti vicini e scalini).
+      15. **Regola di perimetro** (22/11/2026 pomeriggio): nessun'altra
+          configurazione entra nel 19d. Il perimetro del punto 10 si è
+          allargato tre volte: contesto per frammento (voce 3 del punto
+          10), domande a mano (voci 10 e 11), T (voci 12 e 13).
+      16. **Da chiarire prima di aprire il controllo.** La regola di
+          chiusura (punto 1) dice che nessuna frase di controllo dei
+          gemelli deve essere presa dal bando sbagliato. Con le domande a
+          mano c-LR ha 2 fatti in cui arriva prima un allegato diverso
+          dello stesso bando apistici (72 e 2:107, a k=10 e a k=15), contro
+          1 di c-0 (2:92). Va deciso e scritto se gli allegati dello stesso
+          bando contano come bando sbagliato.
+      17. **Cosa resta per chiudere il 19d**, in ordine:
+          1. revisione esterna (domande alla voce 18);
+          2. regola di conferma scritta e committata;
+          3. circa 50 domande a mano sul controllo, cinque per bando (voce
+             10, "Cambio del piano");
+          4. apertura del controllo una volta sola, base e candidata
+             insieme;
+          5. documenti, chiusura, push.
+      18. **Domande per la revisione esterna:**
+          - regola di conferma con k=10 come prova principale, perché è il
+            k dell'app, e k=15 come controllo che non peggiori: è un
+            cambio fatto dopo aver visto la taratura e prima di vedere il
+            controllo; è difendibile?
+          - la candidata è debole (fogli +11 a k=10, 63 domande nuove a
+            mano +3): ha senso portarla al controllo o conviene chiudere
+            con la base?
+          - gli allegati dello stesso bando contano come gemello (voce 16)?
+          - sul controllo decidono le 98 domande dei fogli o le circa 50 a
+            mano?
+          - il criterio "tutti i pezzi" va tenuto così, con la lettura a
+            mano accanto, o cambiato?
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):
@@ -2394,6 +2554,31 @@ con il consulente pilota', ancora aperte") e `docs/piano-fonti-burt-ministeri.md
   indipendenti; si conta quanti erano in archivio a quella data.
 - Prima prova a mano, un'ora: dieci argomenti dalle domande di prova.
 
+## Taglio dei documenti secondo la struttura del bando (22/11/2026)
+
+Voce nuova, fuori dal Parcheggio perché attacca un difetto misurato e
+costa di più farla dopo. Si aggancia al ramo della regola di chiusura
+del 19d "ci si ferma e si ripensa il modo di spezzare i documenti"
+("Passo 19d", punto 1), mai toccato fino a oggi. Viene dalla lettura dei
+mancati ("Passo 19d", punto 13, voce 14).
+
+- Difetto misurato il 22/11: la risposta è spezzata tra frammenti, per
+  il taglio a lunghezza fissa.
+- Cura della causa: tagliare per articolo, comma, tabella con le sue
+  intestazioni, elenco con la sua frase introduttiva.
+- Rischi: frammenti troppo grandi o troppo piccoli. Regole: un tetto di
+  lunghezza, scendendo di livello (comma, lettera, poi lunghezza); ogni
+  pezzo porta in testa la sua intestazione.
+- Vincolo di tempo: da decidere prima di ampliare l'archivio, perché
+  dopo ogni bando va ricaricato. Costa rifare frammenti, contesti e
+  misure. I fatti e le domande a mano restano validi.
+- Il riconoscitore dei titoli è la parte difficile (il 21/11 una regola
+  semplice sbagliava una riga su due, dato riferito da chi mantiene il
+  progetto e non scritto nei file) e serve a due cose: il taglio e la
+  riga DOVE scritta dal codice, già in Parcheggio ("Riga DOVE ricavata
+  dal programma").
+- Era un requisito iniziale del progetto: non spezzare articoli e commi.
+
 ## Parcheggio
 
 Idee che non interrompono il lavoro in corso (nuova, 21/11/2026). Regola:
@@ -2469,3 +2654,20 @@ compito chiuso.
   iscritte ai Repertori regionali?"), per cui oggi la risposta giusta è
   "il bando rimanda a quel documento, che non è tra quelli caricati"
   ("Disegno dell'app (22/11/2026)"). Aspetta il disegno dell'app.
+- **Via di mezzo tra 30 candidati e tutto il bando** (22/11/2026), per
+  esempio 60 frammenti dalla ricerca nel bando al riordinatore. Attacca
+  il tempo delle T sui bandi lunghi ("Passo 19d", punto 13, voce 13).
+  Fuori dal 19d per la regola di perimetro (voce 15); andrebbe misurata
+  con una regola scritta prima.
+- **Scartate il 22/11/2026**, con il motivo:
+  - frammenti più grandi: il modello di embedding legge solo l'inizio
+    (128 token, "Passo 19d", piano del 20/11, punto 1); i frammenti più
+    corti del 20/11 andavano peggio (v3, B da 26 a 16 sui 40 fatti,
+    punto 4); rifarli invalida le misure;
+  - doppia ricerca con frammenti grandi e piccoli e voto: c'è già la
+    fusione con il riordinatore; i pesi della fusione non spostavano
+    niente (punto 4); due indici da mantenere.
+- **Orario di ogni domanda nella misura** (22/11/2026). Lo script di
+  misura registra la durata di ogni domanda ma non l'orario; aggiungere
+  l'orario renderebbe applicabile la regola della sospensione del PC
+  ("Passo 19d", punto 13, voce 13) in una futura misura dei tempi.

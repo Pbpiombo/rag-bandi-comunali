@@ -80,6 +80,11 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
   altrimenti si perde alla prima ricreazione del database.
 - - Quando proponi un comando di commit, aggiungi sempre in fondo
   -m "Co-Authored-By: <il tuo modello> <noreply@anthropic.com>".
+- A fine giornata si propone il push, anche a passo aperto, perché il
+  lavoro del giorno non resti solo in locale. Il push si fa solo con
+  l'approvazione esplicita (vedi "Mai").
+- Prima di approvare un file prodotto (rapporto, CSV, foglio), se ne
+  leggono alcune righe vere, non solo il riepilogo o il conteggio.
 
 ## Documenti
 

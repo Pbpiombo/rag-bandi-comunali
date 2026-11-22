@@ -77,10 +77,10 @@ tecnico (18/11/2026)".
 
 I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
 1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
-A, attese con polarità); 19 (19a, 19b e 19c fatti, 19d in corso: il lavoro
-è il piano delle domande a mano, `docs/coda.md`, "Passo 19d", punto 13,
-voce 10, con la regola di lettura decisa il 22/11/2026 prima della
-misura; poi 19e e 22, in un ordine che si decide a 19d chiuso); 20 (prima
+A, attese con polarità); 19 (19a, 19b e 19c fatti, 19d in corso:
+configurazioni chiuse il 22/11/2026, restano revisione esterna e apertura
+del controllo, `docs/coda.md`, "Passo 19d", punto 13, voce 17; poi 19e e
+22, in un ordine che si decide a 19d chiuso); 20 (prima
 della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
 baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
 Il passo 23 (copertura dell'archivio) si fa dopo il 19d.
@@ -178,6 +178,21 @@ Passi nuovi della sezione A:
     fonte del filtro, al posto di "l'app indovina il bando". L'85% di
     recupero del 19d è una condizione necessaria, non il traguardo delle
     risposte giuste: quelle si misurano nel 19e.
+    Al 22/11/2026 sera: configurazioni chiuse, nessun'altra entra nel 19d
+    (`coda.md`, "Passo 19d", punto 13, voce 15). Al controllo va c-LR con
+    tutte le righe, come candidata debole: domande a mano nuove +3 in B
+    (voce 11); T-0 e T-R non adottabili (voce 13). Mancano la revisione
+    esterna e l'apertura del controllo, nell'ordine della voce 17.
+    Per il 19e (`coda.md`, "Passo 19d", punto 7, aggiunte del 22/11):
+    frammenti vicini passati al modello e scalini al momento della
+    domanda (allargare se la ricerca è poco sicura, poi chiedere di
+    precisare, poi dire che non trova).
+    Taglio dei documenti secondo la struttura del bando: da decidere
+    prima dell'ampliamento dell'archivio, perché dopo ogni bando va
+    ricaricato (`coda.md`, "Taglio dei documenti secondo la struttura del
+    bando (22/11/2026)").
+    Nota (22/11/2026): alla chiusura del 19d questa voce va sfoltita,
+    spostando in `docs/fatto.md` lo stato dei giorni passati.
 
 ### B. Correzioni del flusso, con il modello
 

@@ -590,3 +590,26 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
     colonne in più), salta con un avviso le righe con la domanda vuota e
     si ferma se un fatto compare due volte.
   - Generazioni, prova e regole in `docs/coda.md`, "Passo 19d", punto 13.
+- **Passo 19d, misure del 22/11/2026** (codice nei commit bd09fcc e
+  3f50519; rapporti in `dati-grezzi/prova/19d/contesto/`). Nessuna
+  chiamata al modello di linguaggio, nessuna rete, controllo non letto.
+  - Domande a mano: c-0 e c-LR con tutte le righe sulle 92 domande dei
+    tre file, A e B, k=10 e k=15 (`misura_mano_22-11.txt`; esito in
+    `docs/coda.md`, "Passo 19d", punto 13, voce 11). Comandi:
+    `python -m scripts.diagnostica.misura_recupero_avvisi --contesto c-0 --domande-a-mano`
+    e `--contesto c-LR --righe tutte --domande-a-mano`. Sezione 6 del
+    rapporto del contesto (prova principale, mancati da tutte e due, dati
+    secondari) calcolata con `righe_domande_a_mano`.
+  - Configurazioni T, tutti i frammenti del bando al riordinatore in B:
+    `--contesto T-0` e `--contesto T-R --righe tutte`, sui fogli e con
+    `--domande-a-mano`; `--rapporto-T` scrive `rapporto_T_taratura.txt`
+    con la regola della voce 12, i mancati da tutte, presi e persi, i
+    tempi per domanda e per bando (`misura_T_22-11.txt`; esito alla voce
+    13). Il json della misura ha ora il massimo del tempo per domanda e
+    i tempi per bando.
+  - Letture in sola lettura, senza scrivere misure:
+    `mancati_mano_22-11.txt` (12 domande a mano mancate da c-0 e c-LR) e
+    `mancati_da_tutte_22-11.txt` (12 domande mancate da tutte e quattro
+    le configurazioni, con frammento giusto e primi tre per
+    configurazione; ordine rifatto con lo stesso codice e posizioni
+    uguali a quelle delle misure in 48 casi su 48). Lettura nella voce 14.
