@@ -83,6 +83,7 @@ voce 10, con la regola di lettura decisa il 22/11/2026 prima della
 misura; poi 19e e 22, in un ordine che si decide a 19d chiuso); 20 (prima
 della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
 baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
+Il passo 23 (copertura dell'archivio) si fa dopo il 19d.
 Il passo 21 si fa prima di dare il link della demo a chiunque oltre al
 consulente pilota, in qualunque punto della sequenza. Perché la nuova
 baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
@@ -233,6 +234,14 @@ Studio in `docs/piano-fonti-burt-ministeri.md`.
 16. **Misura di copertura su un elenco esterno**, prima e dopo
     (`coda.md`, "Prova di copertura" tra le voci di "Prima della demo";
     `docs/ricognizione-fonti.md`, sezione 8).
+23. **Copertura dell'archivio** (nuovo, 22/11/2026), dopo il 19d: quanti
+    dei bandi esistenti l'archivio ha, non solo se l'app trova quelli che
+    ha. Canali paralleli per scoprire fonti e bandi mancanti, un solo
+    registro delle fonti con il canale di arrivo, una sola porta
+    d'ingresso (pagina ufficiale dell'ente, bando reale con la data,
+    robots.txt letto), misura ricorrente una volta al mese su venti
+    bandi noti. Voce vicina: il passo 16. Dettaglio in
+    `coda.md`, "Copertura dell'archivio (22/11/2026)".
 
 I due casi sono arrivati il 19/11/2026: nessuno passava dal BURT.
 L'ordine dei passi 12-15 si riconferma dopo la videochiamata della prima
