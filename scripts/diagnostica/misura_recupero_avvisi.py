@@ -5035,6 +5035,12 @@ class ConfigContesto:
     lessicale: bool
     vettore: bool
     riordinatore: bool
+    # in B, tutti i frammenti del bando al riordinatore, senza ricerca prima
+    tutto_il_bando: bool = False
+
+    @property
+    def usa_contesto(self) -> bool:
+        return self.lessicale or self.vettore or self.riordinatore
 
     def descrizione(self) -> str:
         dove = [
@@ -5046,15 +5052,25 @@ class ConfigContesto:
             )
             if sì
         ]
-        return "contesto in: " + (", ".join(dove) if dove else "nessuna parte")
+        testo = "contesto in: " + (", ".join(dove) if dove else "nessuna parte")
+        if self.tutto_il_bando:
+            testo += "; in B tutti i frammenti del bando al riordinatore"
+        return testo
 
 
+# T-0 e T-R (decisione del 22/11/2026, dopo la misura delle domande a mano;
+# coda.md, "Passo 19d", punto 13, voce 12): bando noto, in B tutti i
+# frammenti del bando al riordinatore, senza ricerca prima; T-R con il
+# contesto (tutte le righe) nel testo dato al riordinatore. A resta quella di
+# c-0 (T-0) e di c-R (T-R).
 CONFIG_CONTESTO = {
     "c-0": ConfigContesto(False, False, False),
     "c-R": ConfigContesto(False, False, True),
     "c-L": ConfigContesto(True, False, False),
     "c-LR": ConfigContesto(True, False, True),
     "c-LVR": ConfigContesto(True, True, True),
+    "T-0": ConfigContesto(False, False, False, tutto_il_bando=True),
+    "T-R": ConfigContesto(False, False, True, tutto_il_bando=True),
 }
 
 for _righe in RIGHE_CONTESTO:
@@ -5174,11 +5190,14 @@ def misura_riordinata(
     frammenti_per_fonte: dict[str, list[Frammento]],
     titoli: dict[str, str],
     contesti_riordino: dict | None,
+    tutto_il_bando: bool = False,
 ) -> tuple[dict[int, list[dict]], dict]:
     """Come esegui_riordino: 30 candidati, voti del riordinatore, primi 10 e 15.
 
     Con `contesti_riordino` il riordinatore legge contesto e frammento; la
-    valutazione è sempre sul testo pulito del frammento.
+    valutazione è sempre sul testo pulito del frammento. Con `tutto_il_bando`
+    in B i candidati sono tutti i frammenti del bando (per file e chunk_num),
+    senza ricerca prima. Il tempo per domanda è quello del riordinatore.
     """
     import statistics
     import time
@@ -5192,6 +5211,7 @@ def misura_riordinata(
     righe = {k: [] for k in K_ESATTI}
     tra_i_candidati = dict.fromkeys(CONDIZIONI_GRIGLIA, 0)
     tempi = {c: [] for c in CONDIZIONI_GRIGLIA}
+    tempi_per_bando = {c: defaultdict(list) for c in CONDIZIONI_GRIGLIA}
     lunghe = dict.fromkeys(CONDIZIONI_GRIGLIA, 0)
     coppie = dict.fromkeys(CONDIZIONI_GRIGLIA, 0)
     for fatto in fatti:
@@ -5200,12 +5220,16 @@ def misura_riordinata(
         ripulita = domanda_ripulita(domanda, titoli[fatto["id_bando"]])
         candidati = {
             "A": [d for d, _, _ in recupera(app, fatto["domanda"], k=CANDIDATI)],
-            "B": [
-                d
-                for d, _, _ in recupero.cerca_nel_bando(
-                    ripulita, fatto["id_bando"], CANDIDATI
-                )
-            ],
+            "B": (
+                frammenti_del_bando(recupero.documenti, fatto["id_bando"])
+                if tutto_il_bando
+                else [
+                    d
+                    for d, _, _ in recupero.cerca_nel_bando(
+                        ripulita, fatto["id_bando"], CANDIDATI
+                    )
+                ]
+            ),
         }
         domande = {"A": domanda, "B": ripulita}
         riordinati = {}
@@ -5219,6 +5243,7 @@ def misura_riordinata(
             inizio = time.perf_counter()
             voti = riordinatore.predict(testi, show_progress_bar=False) if docs else []
             tempi[c].append(time.perf_counter() - inizio)
+            tempi_per_bando[c][fatto["id_bando"]].append(tempi[c][-1])
             for q, testo in testi:
                 coppie[c] += 1
                 lunghe[c] += len(tokenizer(q, testo)["input_ids"]) > massimo
@@ -5254,12 +5279,35 @@ def misura_riordinata(
         "coppie_troncate": lunghe,
         "lunghezza_massima": massimo,
         "tempo_per_domanda_s": {
-            c: {"media": statistics.mean(v), "mediana": statistics.median(v)}
+            c: {
+                "media": statistics.mean(v),
+                "mediana": statistics.median(v),
+                "massimo": max(v),
+            }
             for c, v in tempi.items()
             if v
         },
+        "tempo_per_bando_s": {
+            c: {
+                bando: {
+                    "domande": len(v),
+                    "mediana": statistics.median(v),
+                    "massimo": max(v),
+                }
+                for bando, v in sorted(per_bando.items())
+            }
+            for c, per_bando in tempi_per_bando.items()
+        },
     }
     return righe, dati
+
+
+def frammenti_del_bando(documenti: list, id_bando: str) -> list:
+    """Tutti i frammenti del bando, in ordine di file e di chunk_num."""
+    return sorted(
+        (d for d in documenti if d.metadata.get("id_bando") == id_bando),
+        key=lambda d: (d.metadata.get("fonte") or "", d.metadata.get("chunk_num", -1)),
+    )
 
 
 def apri_contesto(nome_vettori: str, contesti_lessicali: dict | None):
@@ -5795,7 +5843,7 @@ def esegui_contesto(lato: str, nome: str, righe: str, mano: bool) -> int:
     if mano and lato != TARATURA:
         raise ErroreMisura("le domande a mano sono fatti di taratura")
     config = CONFIG_CONTESTO[nome]
-    if nome == "c-0":
+    if not config.usa_contesto:
         righe = NESSUNA
     senza_rete()
     _, fatti, file_per_bando = fatti_intera(lato)
@@ -5825,6 +5873,7 @@ def esegui_contesto(lato: str, nome: str, righe: str, mano: bool) -> int:
             frammenti_per_fonte,
             titoli,
             contesti if config.riordinatore else None,
+            tutto_il_bando=config.tutto_il_bando,
         )
         del recupero, app, riordinatore
     if impronte_cartella(CHROMA_DIR) != prima:
@@ -5871,8 +5920,8 @@ GRUPPI_CONTESTO = [
 def misure_contesto(lato: str, mano: bool) -> dict[tuple[str, str], dict[int, list]]:
     """Le misure scritte, per (configurazione, righe), con tutti e due i k."""
     misure = {}
-    for nome in CONFIG_CONTESTO:
-        for righe in [NESSUNA] if nome == "c-0" else list(RIGHE_CONTESTO):
+    for nome, config in CONFIG_CONTESTO.items():
+        for righe in [NESSUNA] if not config.usa_contesto else list(RIGHE_CONTESTO):
             file_ = {k: file_contesto(nome, righe, k, lato, mano) for k in K_ESATTI}
             if all(p.exists() for p in file_.values()):
                 misure[(nome, righe)] = {k: leggi_misura(p) for k, p in file_.items()}
@@ -6161,6 +6210,245 @@ def righe_domande_a_mano(
                 f"  {nome} {righe} k={k}: " + "; ".join(celle) + f" -> {verdetto}"
             )
     return linee
+
+
+# Regola per T-0 e T-R, scritta il 22/11/2026 prima della misura (coda.md,
+# "Passo 19d", punto 13, voce 12). Contro c-0 in B: domande a mano, domande dei
+# fogli, pezzi dal gemello, tempo del riordinatore.
+CONFIG_T = (("T-0", NESSUNA), ("T-R", "tutte"))
+TEMPO_MASSIMO_T = 30.0
+CANDIDATA_DEBOLE = ("c-LR", "tutte")
+
+
+@dataclass
+class EsitoT:
+    nome: str
+    punti: dict[str, bool]
+    linee: list[str]
+    trovati_mano: int  # trovati in B a k=10 con le domande a mano
+
+    @property
+    def esito(self) -> str:
+        if all(self.punti.values()):
+            return "adottabile come candidata per il controllo"
+        if all(v for p, v in self.punti.items() if p != "tempo"):
+            return "adottabile solo se si risolve il tempo: non va al controllo"
+        return "non adottabile"
+
+
+def dal_gemello_in_b(righe: list[dict]) -> int:
+    return sum(r["B_pezzo_dal_gemello"] == "sì" for r in righe)
+
+
+def regola_t(
+    nome: str,
+    base: dict[str, dict[int, list]],
+    variante: dict[str, dict[int, list]],
+    tempi_base: dict[str, dict],
+    tempi: dict[str, dict],
+) -> EsitoT:
+    """La regola delle T contro c-0, in B. `base` e `variante` per insieme
+    ("fogli", "mano") e per k; `tempi` per insieme, con mediana e massimo del
+    riordinatore in B (di c-0 basta la mediana)."""
+    k10, k15 = K_ESATTI
+    presi, persi = cambi_di_esito(base["mano"][k10], variante["mano"][k10], "B")
+    p = probabilita_segni(len(presi), len(persi))
+    netto_15 = _netto(base["mano"][k15], variante["mano"][k15], "B")
+    netti_fogli = {
+        k: _netto(base["fogli"][k], variante["fogli"][k], "B") for k in K_ESATTI
+    }
+    gemello = {
+        (insieme, k): (
+            dal_gemello_in_b(base[insieme][k]),
+            dal_gemello_in_b(variante[insieme][k]),
+        )
+        for insieme in ("fogli", "mano")
+        for k in K_ESATTI
+    }
+    tempo_ok = {
+        insieme: tempi[insieme]["mediana"] <= 2 * tempi_base[insieme]["mediana"]
+        and tempi[insieme]["massimo"] <= TEMPO_MASSIMO_T
+        for insieme in ("fogli", "mano")
+    }
+    punti = {
+        "mano": len(presi) > len(persi) and p <= SOGLIA_CASO and netto_15 >= 0,
+        "fogli": all(n >= 0 for n in netti_fogli.values()),
+        "gemello": all(v <= b for b, v in gemello.values()),
+        "tempo": all(tempo_ok.values()),
+    }
+
+    def sì(punto: str) -> str:
+        return "sì" if punti[punto] else "NO"
+
+    n_mano, n_fogli = len(base["mano"][k10]), len(base["fogli"][k10])
+    linee = [
+        (
+            f"  1. domande a mano ({n_mano}): k={k10} presi {len(presi)}, persi "
+            f"{len(persi)}, p = {_virgola(p)}; k={k15} netto {netto_15:+d} -> {sì('mano')}"
+        ),
+        (
+            f"  2. domande dei fogli ({n_fogli}): netto k={k10} {netti_fogli[k10]:+d}, "
+            f"k={k15} {netti_fogli[k15]:+d} -> {sì('fogli')}"
+        ),
+        (
+            "  3. fatti con un pezzo dal gemello prima del giusto, c-0 / "
+            + nome
+            + ": "
+            + "; ".join(f"{i} k={k} {b} / {v}" for (i, k), (b, v) in gemello.items())
+            + f" -> {sì('gemello')}"
+        ),
+        (
+            "  4. tempo del riordinatore per domanda: "
+            + "; ".join(
+                f"{i} mediana {_virgola(tempi[i]['mediana'])} s (c-0 "
+                f"{_virgola(tempi_base[i]['mediana'])} s, limite il doppio), massimo "
+                f"{_virgola(tempi[i]['massimo'])} s (limite {TEMPO_MASSIMO_T:.0f})"
+                for i in ("fogli", "mano")
+            )
+            + f" -> {sì('tempo')}"
+        ),
+    ]
+    trovati = _trovati(variante["mano"][k10], "B")[0]
+    return EsitoT(nome, punti, linee, trovati)
+
+
+def scelta_per_il_controllo(esiti: list[EsitoT]) -> str:
+    """La migliore delle T adottabili sulle domande a mano a k=10, a parità T-0;
+    se nessuna è adottabile, c-LR come candidata debole."""
+    adottabili = [e for e in esiti if all(e.punti.values())]
+    if not adottabili:
+        return f"{' '.join(CANDIDATA_DEBOLE)}, come candidata debole"
+    migliore = min(adottabili, key=lambda e: (-e.trovati_mano, e.nome != "T-0"))
+    return migliore.nome
+
+
+def _dati_contesto(nome: str, righe: str, lato: str, mano: bool) -> dict:
+    import json
+
+    percorso = file_contesto(nome, righe, K, lato, mano).with_suffix(".json")
+    return json.loads(percorso.read_text(encoding="utf-8"))
+
+
+def esegui_rapporto_t(lato: str) -> int:
+    """Rapporto di T-0 e T-R contro c-0, in B: regola, scelta, mancati, tempi."""
+    if lato != TARATURA:
+        raise ErroreMisura("il rapporto delle T si fa solo sulla taratura")
+    misure = {
+        "fogli": misure_contesto(lato, False),
+        "mano": misure_contesto(lato, True),
+    }
+    base_chiave = ("c-0", NESSUNA)
+    for insieme, m in misure.items():
+        if base_chiave not in m:
+            raise ErroreMisura(f"manca c-0 ({insieme})")
+    linee = [
+        f"Passo 19d, T-0 e T-R contro c-0, condizione B, metà: {lato}",
+        NOTA_SEGNI,
+        (
+            "Regola (22/11/2026, prima della misura): una T è candidata per il "
+            "controllo se 1. a mano, k=10, presi > persi con p ≤ 0,05 e k=15 netto "
+            "≥ 0; 2. fogli, netto ≥ 0 a k=10 e k=15; 3. nessun pezzo dal gemello in "
+            "più di c-0; 4. mediana del tempo non oltre il doppio di c-0 e massimo "
+            "non oltre 30 s. Tempo: quello del riordinatore, come per c-0."
+        ),
+        "",
+        "1. Regola",
+    ]
+    tempi_base = {
+        i: _dati_contesto(*base_chiave, lato, i == "mano")["tempo_per_domanda_s"]["B"]
+        for i in misure
+    }
+    esiti = []
+    for nome, righe in CONFIG_T:
+        if any((nome, righe) not in m for m in misure.values()):
+            linee.append(f"  {nome}: non misurata su tutti e due gli insiemi")
+            continue
+        tempi = {
+            i: _dati_contesto(nome, righe, lato, i == "mano")["tempo_per_domanda_s"][
+                "B"
+            ]
+            for i in misure
+        }
+        esito = regola_t(
+            nome,
+            {i: m[base_chiave] for i, m in misure.items()},
+            {i: m[(nome, righe)] for i, m in misure.items()},
+            tempi_base,
+            tempi,
+        )
+        esiti.append(esito)
+        linee += [f"  {nome}:", *esito.linee, f"  {nome}: {esito.esito}"]
+    linee.append(f"  al controllo: {scelta_per_il_controllo(esiti)}")
+
+    confronto = [base_chiave, CANDIDATA_DEBOLE, *CONFIG_T]
+    linee += [
+        "",
+        "2. Mancati in B da tutte le configurazioni misurate ("
+        + ", ".join(f"{n} {r}" for n, r in confronto)
+        + ")",
+    ]
+    for insieme, m in misure.items():
+        presenti = [m[c] for c in confronto if c in m]
+        for k in K_ESATTI:
+            trovate = {
+                r["riga"] for x in presenti for r in x[k] if r["B_trovato"] == "sì"
+            }
+            mancate = sorted(
+                (r for r in presenti[0][k] if r["riga"] not in trovate),
+                key=lambda r: int(r["riga"]),
+            )
+            linee.append(
+                f"  {insieme} k={k}: {len(mancate)}"
+                + (": " if mancate else "")
+                + ", ".join(
+                    f"{nome_della_riga(r['riga'])} {r['id_bando']}" for r in mancate
+                )
+            )
+
+    linee += ["", "3. Trovati in B, e guadagnati/persi contro c-0"]
+    for insieme, m in misure.items():
+        for chiave in confronto[1:]:
+            if chiave not in m:
+                continue
+            for k in K_ESATTI:
+                linee.append(
+                    riga_segni_netto(
+                        f"c-0 k={k}",
+                        m[base_chiave][k],
+                        f"{chiave[0]} k={k}",
+                        m[chiave][k],
+                        "B",
+                    ).replace("  ", f"  [{insieme}] ", 1)
+                )
+
+    linee += ["", "4. Tempo del riordinatore in B e coppie oltre il limite"]
+    for insieme in misure:
+        for chiave in confronto:
+            if chiave not in misure[insieme]:
+                continue
+            d = _dati_contesto(*chiave, lato, insieme == "mano")
+            t = d["tempo_per_domanda_s"]["B"]
+            linee.append(
+                f"  [{insieme}] {chiave[0]}: mediana {_virgola(t['mediana'])} s, massimo "
+                + (
+                    f"{_virgola(t['massimo'])} s"
+                    if "massimo" in t
+                    else "non registrato"
+                )
+                + f"; coppie oltre {d['lunghezza_massima']} token "
+                f"{d['coppie_troncate']['B']} su {d['coppie']['B']}"
+            )
+            for bando, v in d.get("tempo_per_bando_s", {}).get("B", {}).items():
+                linee.append(
+                    f"    {bando}: {v['domande']} domande, mediana "
+                    f"{_virgola(v['mediana'])} s, massimo {_virgola(v['massimo'])} s"
+                )
+
+    testo = "\n".join(linee)
+    uscita = CARTELLA_CONTESTO / f"rapporto_T_{lato}.txt"
+    uscita.write_text(testo + "\n", encoding="utf-8")
+    print(testo)
+    return 0
 
 
 def esegui_rapporto_contesto(lato: str) -> int:
@@ -6602,6 +6890,11 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
         help="rapporto delle misure del contesto contro c-0",
     )
     parser.add_argument(
+        "--rapporto-T",
+        action="store_true",
+        help="rapporto di T-0 e T-R contro c-0 in B, con la regola del 22/11/2026",
+    )
+    parser.add_argument(
         "--argomenti-contesto",
         action="store_true",
         help="ARGOMENTO del frammento della risposta contro il tipo del fatto",
@@ -6702,6 +6995,7 @@ def main(argv: list[str] | None = None) -> int:
         argomenti.parte_97,
         argomenti.contesto is not None,
         argomenti.rapporto_contesto,
+        argomenti.rapporto_T,
         argomenti.argomenti_contesto,
         argomenti.prepara_domande_a_mano,
         argomenti.prepara_domande_a_mano_2,
@@ -6714,7 +7008,7 @@ def main(argv: list[str] | None = None) -> int:
             "--riepilogo, --griglia, "
             "--apistici, --prepara-vettori, --esatta, --peso, --esatta-intera "
             "--riepilogo-intero, --notte, --scarica-riordinatore, --parte-97, "
-            "--contesto, --rapporto-contesto, --argomenti-contesto o "
+            "--contesto, --rapporto-contesto, --rapporto-T, --argomenti-contesto o "
             "--prepara-domande-a-mano, --prepara-domande-a-mano-2, "
             "--prepara-domande-a-mano-3 o --contesto-domande-a-mano.",
             file=sys.stderr,
@@ -6758,6 +7052,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         if argomenti.rapporto_contesto:
             return esegui_rapporto_contesto(lato)
+        if argomenti.rapporto_T:
+            return esegui_rapporto_t(lato)
         if argomenti.argomenti_contesto:
             return esegui_argomenti_contesto(lato)
         if argomenti.prepara_domande_a_mano:

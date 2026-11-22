@@ -1385,6 +1385,93 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
             domande che né c-0 né c-LR trovano, dati secondari con presi,
             persi, netto e p; una configurazione misurata su domande
             diverse da quelle di c-0 (le 29 di ieri) si salta.
+      11. **Esito della misura delle domande a mano** (22/11/2026; numeri
+          da `dati-grezzi/prova/19d/contesto/misura_mano_22-11.txt`). c-0 e
+          c-LR con tutte le righe, 92 domande a mano dei tre file (29 + 30
+          + 33), A e B, k=10 e k=15. Le 29 del primo file ridanno riga per
+          riga le misure del 21/11 (`misure_mano_29`).
+          - Prova principale, 63 domande nuove, B, c-LR contro c-0: k=10
+            54 contro 51, presi 5, persi 2, netto +3, p 0,453; k=15 56
+            contro 53, presi 4, persi 1, netto +3, p 0,375. Secondo la
+            regola della voce 10: **candidata debole**, decide la metà di
+            controllo.
+          - Con le domande dei fogli il netto di c-LR in B a k=10 era +11
+            su 97 (+14/-3, voce 8); con le 63 nuove a mano è +3: parte del
+            guadagno dei fogli era somiglianza tra testi scritti da modelli
+            (domande dei fogli e contesti). In A il guadagno resta forte
+            anche a mano: +17 su 63 a k=10, nessun perso; +18 su 92.
+          - Totali sulle 92: c-0 A 51 e 59, B 73 e 75 (k=10 e k=15); c-LR A
+            69 e 74, B 78 e 80.
+          Cosa i numeri non dicono (da `misura_mano_22-11.txt`, ricopiato
+          dal file):
+          - Il test ha poca forza. Sulle 63 in B le coppie discordanti sono 7 a k=10:
+            con 7 coppie la regola conferma solo con 7 presi e 0 persi (p 0,016);
+            6 a 1 dà p 0,125. Con c-0 che in B trova già 51 su 63, lo spazio per
+            guadagnare è di 12 domande. "Candidata debole" qui vuol dire anche "la
+            prova non poteva distinguere un guadagno piccolo".
+          - Le 63 domande non sono indipendenti: stanno su 9 bandi (14 sui due PMI, 10
+            sugli apistici). Il test dei segni le tratta come indipendenti.
+          - In A (percorso dell'app senza restringere al bando) c-LR guadagna molto
+            di più: +17 su 63 a k=10, nessun perso. La regola decide su B, e A è un
+            dato secondario; il guadagno in A non dice niente su B.
+          - Il guadagno in B è piccolo in ogni parte: spiegate +2 e +1, terzo file +2 e
+            +2, secondo file +1 e +1 (k=10 e k=15). Tra
+            le 55 non spiegate il netto è +1 a k=10 e +2 a k=15. Le spiegate sono 8:
+            troppo poche per leggerle.
+          - Il secondo file è stato compilato con il contesto delle frasi nella forma
+            di prima (tabelle e fatti a più pezzi poco chiari): non è separabile
+            dall'effetto del file.
+          - La regola del 21/11 (voce 5), su tutte le 92: a k=10 "si riduce" (foglio
+            +11, a mano +5), a k=15 "resta" (+7 e +5). Dato secondario.
+          - Tetto in B: c-LR ha il giusto tra i 30 candidati in 83 casi su 92 e lo
+            trova nei primi 15 in 80. Delle 11 domande che nessuna delle due trova a
+            k=15, almeno 8 non sono tra i 30 candidati di c-LR (9 fuori dai
+            candidati, 12 mancati a k=15; non contato riga per riga): il limite è la ricerca
+            prima del riordinatore, non il riordinatore. Sono concentrate: 4
+            apistici, 3 Missione Comune (Cultura 18, Sport 29 e 30), 2 sviluppo
+            progetti (01bfe9, 2:39 e 2:43), 1 Punti Digitale, 1 PMI.
+          - Le domande a elenco ("cosa posso comprare?") contano trovate solo se
+            compare il passaggio del fatto: alcuni mancati possono avere una
+            risposta giusta in un altro passaggio. Non verificato riga per riga.
+          - c-LR supera i 512 token in 648 coppie su B: il contesto toglie testo al
+            frammento nel riordinatore. Il peso di questo non è misurato.
+          Nota al testo ricopiato (22/11/2026, dalla lettura dei mancati,
+          `mancati_mano_22-11.txt`): contati riga per riga, gli 11 sono 8
+          con almeno un pezzo fuori dai 30 candidati di c-LR (29, 2:24,
+          2:39, 2:75, 2:95, 2:99, 2:106, 2:107) e 3 con tutti i pezzi tra i
+          candidati e un pezzo oltre il 15° posto dopo il riordino (18, 30,
+          2:43). "Il limite è la ricerca prima del riordinatore" vale per
+          gli 8.
+      12. **Decisione del 22/11/2026, presa dopo aver visto i risultati
+          della voce 11** (e quindi scritta come tale): una sola
+          configurazione in più si misura sulla taratura. Motivi: con la
+          selezione come filtro (disegno dell'app) la condizione che conta
+          è B; dopo l'apertura del controllo non si può più scegliere.
+          - **T-0**: bando noto, tutti i frammenti del bando al
+            riordinatore, senza ricerca prima e senza contesto.
+          - **T-R**: come T-0, con il contesto (tutte le righe) nel testo
+            dato al riordinatore.
+          Regola, scritta prima della misura. Una T si adotta come
+          candidata per il controllo solo se, contro c-0 in B:
+          - sulle 92 domande a mano, a k=10, i presi superano i persi con
+            p ≤ 0,05, e a k=15 il netto è ≥ 0;
+          - sulle 97 domande dei fogli il netto è ≥ 0 a k=10 e a k=15;
+          - nessun pezzo preso dal gemello in più rispetto a c-0;
+          - tempo per domanda: mediana non oltre il doppio di c-0 e massimo
+            non oltre 30 secondi. Se passa tutto tranne il tempo, si scrive
+            "adottabile solo se si risolve il tempo" e non va al controllo.
+          Se passano tutte e due, va la migliore a k=10 sulle domande a
+          mano; a parità T-0, che non dipende dai contesti. Se non passa
+          nessuna, al controllo va c-LR come candidata debole.
+          Nel codice (`misura_recupero_avvisi.py`, `--contesto T-0` o
+          `--contesto T-R`, poi `--rapporto-T`): la condizione A delle T è
+          quella di c-0 (T-0) e di c-R (T-R), perché il bando noto cambia
+          solo B. Il tempo è quello del riordinatore per domanda, come per
+          c-0 (la ricerca prima non è contata, e nelle T non c'è). "Pezzo
+          dal gemello": fatti con `B_pezzo_dal_gemello`, contati sulle 97 e
+          sulle 92, a k=10 e a k=15. Di c-0 la misura salvata ha solo la
+          mediana del tempo, non il massimo, che la regola chiede solo alle
+          T.
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):
@@ -2275,6 +2362,37 @@ riga nasce solo dalla pagina ufficiale o dall'atto.
 4. Gli servono i bandi in arrivo, i ricorrenti, o entrambi?
 5. La domanda a cui l'app ha risposto con opportunità corrette ma
    generiche (riscontro del 18/11) era per un ente o per un privato?
+
+## Copertura dell'archivio (22/11/2026)
+
+Voce nuova, in coda come passo a sé, da fare a 19d chiuso. Voci vicine,
+più vecchie: "Prova di copertura" (→ passo 16, in "Da 'Prima della demo
+con il consulente pilota', ancora aperte") e `docs/piano-fonti-burt-ministeri.md`.
+
+- Oggi si misura se l'app trova i bandi che ha, non quanti dei bandi
+  esistenti ha. Per chi usa l'app un bando assente è un errore come un
+  bando non trovato.
+- Canali paralleli per scoprire fonti e bandi mancanti: il consulente
+  pilota; la ricerca web per argomento a partire dalle domande; la
+  ricerca manuale di chi mantiene il progetto; le delibere dei tre comuni
+  e dell'Unione; il sommario del BURT; le newsletter del territorio; il
+  totale dichiarato dalle pagine elenco.
+- Un solo registro delle fonti, con una colonna per il canale da cui la
+  fonte è arrivata. Una sola porta d'ingresso: pagina ufficiale dell'ente
+  che emette, un bando reale con la data, robots.txt letto.
+- Ricerca web:
+  - è un controllo fuori linea, non una risposta all'utente;
+  - produce sospetti da verificare a mano;
+  - alla ricerca va l'argomento, non il testo scritto da chi ha chiesto;
+  - i siti che raccolgono bandi di altri valgono come segnali, non come
+    fonte;
+  - ogni risultato va in una di quattro caselle: in archivio, scaduto,
+    fuori territorio, mancante;
+  - di ogni mancante si cerca la causa: fonte non nel registro, bando
+    perso dalla scansione, bando scartato da un filtro.
+- Misura ricorrente: una volta al mese, venti bandi noti da fonti
+  indipendenti; si conta quanti erano in archivio a quella data.
+- Prima prova a mano, un'ora: dieci argomenti dalle domande di prova.
 
 ## Parcheggio
 

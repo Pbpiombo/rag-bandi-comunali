@@ -785,3 +785,197 @@ def test_rapporto_domande_a_mano_prova_principale_e_secondari():
         for x in linee
     )
     assert any(x.startswith("  [primo file (3)]") and "persi 1 (0)" in x for x in linee)
+
+
+# --- T-0 e T-R: tutti i frammenti del bando al riordinatore (22/11/2026) ---
+
+
+def test_configurazioni_t():
+    t0, tr = mr.CONFIG_CONTESTO["T-0"], mr.CONFIG_CONTESTO["T-R"]
+    assert t0.tutto_il_bando and tr.tutto_il_bando
+    assert not t0.usa_contesto and tr.usa_contesto and tr.riordinatore
+    assert not tr.lessicale and not tr.vettore
+    assert "tutti i frammenti del bando" in t0.descrizione()
+    assert not mr.CONFIG_CONTESTO["c-0"].tutto_il_bando
+    assert not mr.CONFIG_CONTESTO["c-0"].usa_contesto
+
+
+def test_misure_contesto_legge_t0_senza_righe(tmp_path, monkeypatch):
+    monkeypatch.setattr(mr, "CARTELLA_CONTESTO", tmp_path)
+    for k in mr.K_ESATTI:
+        p = mr.file_contesto("T-0", mr.NESSUNA, k, mr.TARATURA, True)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("riga,B_trovato\n2,sì\n", encoding="utf-8")
+    misure = mr.misure_contesto(mr.TARATURA, True)
+    assert list(misure) == [("T-0", mr.NESSUNA)]
+
+
+def documento_lc(fonte, chunk, testo, bando="b"):
+    from langchain_core.documents import Document
+
+    return Document(
+        page_content=testo,
+        metadata={"fonte": fonte, "chunk_num": chunk, "id_bando": bando, "page": 1},
+    )
+
+
+def test_frammenti_del_bando_in_ordine():
+    docs = [
+        documento_lc("b.pdf", 0, "x"),
+        documento_lc("a.pdf", 2, "y"),
+        documento_lc("c.pdf", 0, "z", bando="altro"),
+        documento_lc("a.pdf", 1, "w"),
+    ]
+    scelti = mr.frammenti_del_bando(docs, "b")
+    assert [(d.metadata["fonte"], d.metadata["chunk_num"]) for d in scelti] == [
+        ("a.pdf", 1),
+        ("a.pdf", 2),
+        ("b.pdf", 0),
+    ]
+
+
+class RiordinatoreFinto:
+    """Voto alto alle coppie il cui testo contiene "contributo"."""
+
+    max_seq_length = 8
+
+    def __init__(self):
+        self.lette = []
+
+    def tokenizer(self, domanda, testo):
+        return {"input_ids": (domanda + " " + testo).split()}
+
+    def predict(self, coppie, show_progress_bar=False):
+        self.lette += coppie
+        return [1.0 if "contributo" in t else 0.0 for _, t in coppie]
+
+
+class RecuperoSoloBando:
+    def __init__(self, documenti):
+        self.documenti = documenti
+
+    def cerca_nel_bando(self, *a, **k):
+        raise AssertionError("con tutto il bando la ricerca prima non si fa")
+
+
+def test_misura_con_tutto_il_bando(monkeypatch):
+    import src.chains.rag as rag
+    import src.recupero_documenti as rd
+
+    # 40 frammenti del bando, più di CANDIDATI: il giusto è l'ultimo
+    docs = [documento_lc("a.pdf", i, f"testo {i} senza niente") for i in range(39)]
+    docs.append(documento_lc("a.pdf", 39, "Il contributo massimo è di 5.000 euro."))
+    docs.append(documento_lc("z.pdf", 0, "contributo di un altro bando", bando="altro"))
+    monkeypatch.setattr(rag, "recupera", lambda app, domanda, k: [])
+    monkeypatch.setattr(rd, "documenti_nominati", lambda domanda, titoli: [])
+
+    class App:
+        titoli = {}
+
+    fatto = {
+        "riga": 2,
+        "id_bando": "b",
+        "domanda": "Quanto è il contributo massimo?",
+        "frase": "Il contributo massimo è di 5.000 euro.",
+        "visti": "sì",
+        "gemello": "no",
+    }
+    file_per_bando = {"b": [{"nome_file": "a.pdf", "parte": ""}]}
+    frammenti_per_fonte = {"a.pdf": [mr.frammento_di(d)[1] for d in docs[:40]]}
+    contesti = {("a.pdf", 39): "BANDO: Bando prova"}
+    riordinatore = RiordinatoreFinto()
+    per_k, dati = mr.misura_riordinata(
+        RecuperoSoloBando(docs),
+        App(),
+        riordinatore,
+        [fatto],
+        file_per_bando,
+        frammenti_per_fonte,
+        {"b": "Bando prova"},
+        contesti,
+        tutto_il_bando=True,
+    )
+    assert dati["coppie"]["B"] == 40
+    assert dati["trovati_tra_i_candidati"]["B"] == 1
+    # il contesto entra nel testo dato al riordinatore
+    assert any(t.startswith("BANDO: Bando prova\n") for _, t in riordinatore.lette)
+    for k in mr.K_ESATTI:
+        assert per_k[k][0]["B_trovato"] == "sì"
+        assert per_k[k][0]["B_primo_giusto"] == 1
+    tempo = dati["tempo_per_domanda_s"]["B"]
+    assert tempo["massimo"] >= tempo["mediana"]
+    assert dati["tempo_per_bando_s"]["B"]["b"]["domande"] == 1
+    assert dati["coppie_troncate"]["B"] == 40
+
+
+def esito_b(trovati: list[bool], gemello: list[bool] | None = None):
+    gemello = gemello or [False] * len(trovati)
+    return [
+        {
+            "riga": str(i),
+            "id_bando": "b",
+            "B_trovato": "sì" if t else "no",
+            "B_pezzo_dal_gemello": "sì" if g else "no",
+        }
+        for i, (t, g) in enumerate(zip(trovati, gemello, strict=True))
+    ]
+
+
+def insiemi(mano, fogli):
+    return {
+        "mano": dict.fromkeys(mr.K_ESATTI, mano),
+        "fogli": dict.fromkeys(mr.K_ESATTI, fogli),
+    }
+
+
+def test_regola_t():
+    vuoto = esito_b([False] * 20)
+    base = insiemi(vuoto, vuoto)
+    meglio = esito_b([True] * 6 + [False] * 14)
+    tempi_base = dict.fromkeys(("fogli", "mano"), {"mediana": 5.0})
+    svelti = dict.fromkeys(("fogli", "mano"), {"mediana": 9.0, "massimo": 20.0})
+    e = mr.regola_t("T-0", base, insiemi(meglio, meglio), tempi_base, svelti)
+    assert all(e.punti.values())
+    assert e.esito.startswith("adottabile come candidata")
+    assert e.trovati_mano == 6
+    # mediana oltre il doppio di c-0: solo se si risolve il tempo
+    lenti = dict.fromkeys(("fogli", "mano"), {"mediana": 10.5, "massimo": 20.0})
+    e = mr.regola_t("T-0", base, insiemi(meglio, meglio), tempi_base, lenti)
+    assert e.esito.startswith("adottabile solo se si risolve il tempo")
+    # massimo oltre 30 secondi
+    lungo = dict.fromkeys(("fogli", "mano"), {"mediana": 9.0, "massimo": 30.5})
+    assert not mr.regola_t(
+        "T-0", base, insiemi(meglio, meglio), tempi_base, lungo
+    ).punti["tempo"]
+    # un perso in più sui fogli
+    base_fogli = insiemi(vuoto, esito_b([True] + [False] * 19))
+    e = mr.regola_t("T-0", base_fogli, insiemi(meglio, vuoto), tempi_base, svelti)
+    assert not e.punti["fogli"] and e.esito == "non adottabile"
+    # un pezzo dal gemello in più
+    col_gemello = esito_b([True] * 6 + [False] * 14, [True] + [False] * 19)
+    e = mr.regola_t("T-0", base, insiemi(col_gemello, meglio), tempi_base, svelti)
+    assert not e.punti["gemello"] and e.esito == "non adottabile"
+    # a mano 2 presi soli: p 0,5
+    poco = esito_b([True] * 2 + [False] * 18)
+    assert not mr.regola_t(
+        "T-0", base, insiemi(poco, meglio), tempi_base, svelti
+    ).punti["mano"]
+
+
+def test_scelta_per_il_controllo():
+    def esito(nome, ok, trovati):
+        punti = dict.fromkeys(("mano", "fogli", "gemello", "tempo"), True)
+        punti["tempo"] = ok
+        return mr.EsitoT(nome, punti, [], trovati)
+
+    assert mr.scelta_per_il_controllo([]) == "c-LR tutte, come candidata debole"
+    assert (
+        mr.scelta_per_il_controllo([esito("T-0", True, 80), esito("T-R", True, 82)])
+        == "T-R"
+    )
+    assert (
+        mr.scelta_per_il_controllo([esito("T-R", True, 80), esito("T-0", True, 80)])
+        == "T-0"
+    )
+    # adottabile solo se si risolve il tempo: non va al controllo
+    assert mr.scelta_per_il_controllo([esito("T-0", False, 90)]).startswith("c-LR")
