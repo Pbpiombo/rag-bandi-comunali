@@ -341,10 +341,74 @@ def test_contesto_delle_frasi():
     # due pezzi: un contesto per pezzo, il file una volta sola
     due = contesti[mr.chiave_a_mano(fatti[0])]
     assert due["file"] == "a.pdf (Azione B1)"
-    assert due["testo_prima"].startswith("[pezzo 1] ")
-    assert "\n\n[pezzo 2] " in due["testo_prima"]
-    assert "\n\n[pezzo 2] " in due["testo_dopo"]
+    assert due["testo_prima"].startswith("[pezzo 1 di 2]\nprima: ")
+    assert "\n\n[pezzo 2 di 2]\nprima: " in due["testo_prima"]
+    assert due["testo_dopo"] == mr.nota_dei_pezzi(2)
     assert contesti[mr.chiave_a_mano(fatti[1])]["file"] == mr.NON_TROVATA
+
+
+def test_riga_di_tabella_nel_punto_in_cui_stanno_tutte_le_celle():
+    # la prima cella compare molto prima della tabella, in un titolo
+    testo = (
+        "4.2.11 Micro, Piccola e Media impresa. "
+        + "Testo lungo in mezzo. " * 30
+        + "Tab. 1 Dimensione di impresa Criterio 1 Criterio 5 "
+        "Micro e piccola impresa 35% 30% Media impresa 25% 20% Fine."
+    )
+    fr = Frammento(-1, 0, testo, len(testo))
+    a, b = mr.tratto_del_pezzo(["Media impresa", "25%", "20%"], fr)
+    assert testo[a:b] == "Media impresa 25% 20%"
+    # una cella sola: la prima occorrenza, come prima
+    a, _ = mr.tratto_del_pezzo(["Media impresa"], fr)
+    assert a == testo.index("Media impresa")
+    # il testo prima è quello della tabella vera, intestazioni comprese
+    fatti = fatti_finti()[:1]
+    fatti[0]["frase"] = "Media impresa | 25% | 20%"
+    fatti[0]["in_tabella"] = "sì"
+    documenti = [
+        gc.Documento(
+            fonte="a.pdf", id_bando="", titolo="", atto="", parte="", testo=testo
+        )
+    ]
+    contesti = mr.contesto_delle_frasi(fatti, per_bando_finto(fatti), documenti)
+    riga = contesti[mr.chiave_a_mano(fatti[0])]
+    assert riga["testo_prima"].endswith(
+        "Criterio 1 Criterio 5 Micro e piccola impresa 35% 30%"
+    )
+    assert "4.2.11" not in riga["testo_prima"]
+    assert riga["testo_dopo"] == "Fine."
+
+
+def test_fatto_a_piu_pezzi_ogni_pezzo_con_il_suo_prima_e_dopo():
+    testo = "Alfa uno. PRIMO PEZZO qui. Beta due. SECONDO PEZZO qui. Gamma tre."
+    fatti = fatti_finti()[:1]
+    fatti[0]["frase"] = "PRIMO PEZZO [...] SECONDO PEZZO [...] TERZO ASSENTE"
+    documenti = [
+        gc.Documento(
+            fonte="a.pdf", id_bando="", titolo="", atto="", parte="", testo=testo
+        )
+    ]
+    contesti = mr.contesto_delle_frasi(fatti, per_bando_finto(fatti), documenti)
+    riga = contesti[mr.chiave_a_mano(fatti[0])]
+    assert riga["testo_prima"] == (
+        "[pezzo 1 di 3]\n"
+        "prima: Alfa uno.\n"
+        "pezzo: «PRIMO PEZZO»\n"
+        "dopo: qui. Beta due. SECONDO PEZZO qui. Gamma tre.\n\n"
+        "[pezzo 2 di 3]\n"
+        "prima: Alfa uno. PRIMO PEZZO qui. Beta due.\n"
+        "pezzo: «SECONDO PEZZO»\n"
+        "dopo: qui. Gamma tre.\n\n"
+        "[pezzo 3 di 3]\n"
+        f"pezzo: «TERZO ASSENTE» ({mr.NON_TROVATA})"
+    )
+    assert riga["testo_dopo"] == mr.nota_dei_pezzi(3)
+    assert "[pezzo 1] a.pdf" in riga["file"]
+
+
+def test_contesto_a_mano_riscrive_solo_il_terzo_file():
+    # il secondo file è compilato dal 22/11/2026
+    assert mr.esegui_contesto_a_mano.__defaults__ == ((mr.DOMANDE_A_MANO_3,),)
 
 
 def test_contesto_riscrive_solo_se_le_domande_sono_vuote(tmp_path, monkeypatch):

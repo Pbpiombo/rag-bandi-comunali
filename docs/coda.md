@@ -905,6 +905,13 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
       punteggio del riordinatore basso sul primo frammento, oppure i primi
       quasi alla pari su argomenti diversi. Si misura sulle domande a
       mano: quanto il segnale distingue i fatti trovati da quelli mancati.
+      Regola per il caricamento (22/11/2026, dal 19e in avanti): ogni
+      bando nuovo entra con 6 domande scritte a mano da chi mantiene il
+      progetto prima di aprire il PDF, ognuna con la frase esatta trovata
+      a mano, il file e la pagina; si segnano anche i casi in cui nel
+      bando la risposta non c'è. Materiale per il 19e dalla compilazione
+      del secondo file di domande a mano: un criterio di punteggio letto
+      come requisito di accesso (punto 13, voce 10, "Cambio del piano").
    8. **Strade da provare, nell'ordine** (superato dal perimetro del
       punto 10, 20/11/2026 sera: la strada 1 è fatta, punto 3; la 2 resta;
       la 3 è l'unica strada nuova, limitata al contesto per frammento; il
@@ -1240,6 +1247,50 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
           strade). Questo piano supera le "altre 30 domande a mano" della
           voce 9; la regola fissata lì ("un netto da -1 a +2 su 29 non
           decide") era per il secondo blocco da solo.
+
+          **Cambio del piano** (22/11/2026, prima di qualunque misura sulle
+          domande a mano del secondo e del terzo file). Superano il primo
+          punto dell'elenco qui sopra ("una domanda a mano per tutti i
+          fatti dei due fogli, circa 190") e, per il controllo, il quarto
+          ("solo dopo si scrivono le domande sui fatti di controllo");
+          gli altri punti restano.
+          - Taratura: i tre file, 92 domande in tutto (29 + 30 + 33). Il
+            secondo è compilato (`domande_a_mano_2.xlsx`, 30 domande; 3
+            righe segnate nella colonna "spiegata", scritte "si" senza
+            accento: quando la misura leggerà la colonna, "si" e "sì"
+            valgono uguale). Il terzo è stato rigenerato vuoto il
+            22/11/2026 con due correzioni al testo intorno alla frase:
+            le celle di una riga di tabella si cercano nel tratto più
+            corto in cui stanno tutte (prima la prima cella si agganciava
+            alla sua prima occorrenza: foglio 2 riga 80, "Media impresa"
+            preso dal punto 4.2.11 invece che dalla tabella di p. 13); un
+            fatto a più pezzi ha nella colonna testo_prima ogni pezzo di
+            seguito con il suo prima e il suo dopo, e in testo_dopo solo
+            una nota che lo dice. Il secondo file è stato compilato con la
+            forma di prima.
+          - Controllo: non una domanda a mano per ogni fatto, ma circa 50,
+            cinque per bando, scelte con un seme fisso dopo che
+            configurazione candidata e regola di conferma sono committate.
+          - Motivo: le domande sullo stesso documento non sono
+            indipendenti; dieci bandi valgono come dieci prove più che
+            come cento. Molte domande sugli stessi bandi servono a
+            confrontare due configurazioni, non a dire se l'app regge su
+            un bando nuovo.
+          - Regola nuova per il caricamento, dal 19e in avanti: scritta al
+            punto 7 qui sopra.
+          - Osservazione dalla compilazione del secondo file: in 3 domande
+            su 30 un criterio di punteggio è stato letto come requisito di
+            accesso ("posso accedere?" dove la risposta è "dà punti"). È un
+            errore che farà anche chi usa l'app: materiale per il 19e.
+          - **Proposta** di regola per leggere il risultato sulla
+            taratura, da confermare prima della misura (non ancora
+            confermata): prova principale sulle domande nuove, cioè il
+            secondo e il terzo file, 63 domande; confermata se in B a k=10
+            i presi superano i persi con p ≤ 0,05 e a k=15 non peggiora;
+            bocciata se a k=10 i presi non superano i persi; in mezzo,
+            candidata debole, e decide il controllo. Le righe "spiegata"
+            si leggono anche a parte. Le 92 insieme sono un dato
+            secondario.
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):

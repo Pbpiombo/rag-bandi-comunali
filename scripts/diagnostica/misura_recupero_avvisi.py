@@ -81,6 +81,7 @@ from pathlib import Path
 
 from scripts.diagnostica.controlla_fatti import (
     NOTA_APISTICI,
+    SEPARATORE_CELLE,
     SEPARATORE_PEZZI,
     Frammento,
     _unione,
@@ -4976,6 +4977,10 @@ def esegui_parte_97(lato: str) -> int:
 # COLONNE_CONTESTO prese dal testo pulito del documento (non scritte da un
 # modello), e ne scrive una copia .xlsx con il testo a capo; la misura legge
 # la copia .xlsx se c'è, altrimenti il .csv.
+# Dal 22/11/2026 il secondo file è compilato e --contesto-domande-a-mano
+# riscrive solo il terzo; le celle di una riga di tabella si cercano nel
+# tratto più corto in cui stanno tutte, e un fatto a più pezzi ha in
+# testo_prima ogni pezzo con il suo prima e il suo dopo.
 
 CARTELLA_CONTESTO = CARTELLA_19D / "contesto"
 DOMANDE_A_MANO = CARTELLA_CONTESTO / "domande_a_mano.csv"
@@ -5469,18 +5474,36 @@ def testo_dopo(testo: str, fine_frase: int, n: int = CARATTERI_CONTESTO) -> str:
 
 def tratto_del_pezzo(pezzo: list[str], fr: Frammento) -> tuple[int, int] | None:
     """Inizio e fine del pezzo nel testo: le celle in ordine, ognuna dopo la
-    precedente; se così non si trova, come contiene (ogni cella per sé)."""
-    da, inizio = 0, None
-    for cella in pezzo:
-        compatta = livello_c(cella)
-        k = fr.compatto.find(compatta, da) if compatta else -1
-        if k < 0:
-            return contiene(pezzo, fr)
-        inizio = k if inizio is None else inizio
-        da = k + len(compatta)
-    if inizio is None:
-        return None
-    return fr.mappa[inizio], fr.mappa[da - 1] + 1
+    precedente, nel tratto più corto in cui stanno tutte (a pari lunghezza il
+    primo); se così non si trova, come contiene (ogni cella per sé).
+
+    Il tratto più corto evita che la prima cella di una riga di tabella si
+    agganci a una sua occorrenza molto prima della tabella vera ("Media
+    impresa" in "Micro, Piccola e Media impresa", 22/11/2026). Per un pezzo
+    di una cella sola è la prima occorrenza.
+    """
+    celle = [livello_c(c) for c in pezzo]
+    if not celle or not all(celle):
+        return contiene(pezzo, fr) if celle else None
+    migliore = None
+    k = fr.compatto.find(celle[0])
+    while k >= 0:
+        da = k + len(celle[0])
+        for compatta in celle[1:]:
+            j = fr.compatto.find(compatta, da)
+            if j < 0:
+                break
+            da = j + len(compatta)
+        else:
+            if migliore is None or da - k < migliore[1] - migliore[0]:
+                migliore = (k, da)
+            k = fr.compatto.find(celle[0], k + 1)
+            continue
+        # da un inizio più avanti le celle seguenti non si trovano lo stesso
+        break
+    if migliore is None:
+        return contiene(pezzo, fr)
+    return fr.mappa[migliore[0]], fr.mappa[migliore[1] - 1] + 1
 
 
 def _per_pezzo(valori: list[str], uno_se_uguali: bool = False) -> str:
@@ -5489,6 +5512,27 @@ def _per_pezzo(valori: list[str], uno_se_uguali: bool = False) -> str:
     if len(valori) == 1 or (uno_se_uguali and len(set(valori)) == 1):
         return valori[0]
     return "\n\n".join(f"[pezzo {i}] {v}" for i, v in enumerate(valori, 1))
+
+
+def nota_dei_pezzi(n: int) -> str:
+    """Il testo della colonna testo_dopo per un fatto a n pezzi."""
+    return (
+        f"(frase in {n} pezzi: il testo prima e dopo di ogni pezzo sta nella "
+        "colonna testo_prima, pezzo per pezzo)"
+    )
+
+
+def contesto_dei_pezzi(pezzi: list[str], prima: list[str], dopo: list[str]) -> str:
+    """Per un fatto a più pezzi, ogni pezzo di seguito con il suo prima e il
+    suo dopo, un blocco per pezzo (forma del 22/11/2026)."""
+    n = len(pezzi)
+    blocchi = []
+    for i, (pezzo, p, d) in enumerate(zip(pezzi, prima, dopo, strict=True), 1):
+        if p is None:
+            blocchi.append(f"[pezzo {i} di {n}]\npezzo: «{pezzo}» ({NON_TROVATA})")
+            continue
+        blocchi.append(f"[pezzo {i} di {n}]\nprima: {p}\npezzo: «{pezzo}»\ndopo: {d}")
+    return "\n\n".join(blocchi)
 
 
 def contesto_delle_frasi(
@@ -5501,13 +5545,17 @@ def contesto_delle_frasi(
     giusti in ordine di nome), le celle di una tabella in ordine
     (tratto_del_pezzo). La pagina è pagina_fisica del
     foglio. Niente è scritto da un modello; "spiegata" resta vuota.
+
+    Un fatto a più pezzi ha tutto in testo_prima, pezzo per pezzo
+    (contesto_dei_pezzi), e in testo_dopo solo la nota che lo dice.
     """
     interi = {d.fonte: (d, Frammento(-1, 0, d.testo, len(d.testo))) for d in documenti}
     uscita = {}
     for fatto in fatti:
         giusti, _ = documenti_del_fatto(fatto, file_per_bando)
         file, prima, dopo = [], [], []
-        for pezzo in unita_del_fatto(fatto):
+        unita = unita_del_fatto(fatto)
+        for pezzo in unita:
             trovato = next(
                 (
                     (interi[f][0], t)
@@ -5518,18 +5566,28 @@ def contesto_delle_frasi(
             )
             if trovato is None:
                 file.append(NON_TROVATA)
-                prima.append("")
-                dopo.append("")
+                prima.append(None)
+                dopo.append(None)
                 continue
             d, (a, b) = trovato
             file.append(d.fonte + (f" ({d.parte})" if d.parte else ""))
             prima.append(testo_prima(d.testo, a))
             dopo.append(testo_dopo(d.testo, b))
+        if len(unita) > 1:
+            testi = [SEPARATORE_CELLE.join(p) for p in unita]
+            colonne_testo = {
+                "testo_prima": contesto_dei_pezzi(testi, prima, dopo),
+                "testo_dopo": nota_dei_pezzi(len(unita)),
+            }
+        else:
+            colonne_testo = {
+                "testo_prima": (prima[0] if prima else None) or "",
+                "testo_dopo": (dopo[0] if dopo else None) or "",
+            }
         uscita[chiave_a_mano(fatto)] = {
             "file": _per_pezzo(file, uno_se_uguali=True),
             "pagina": _testo_cella(fatto.get("pagina_fisica")).strip(),
-            "testo_prima": _per_pezzo(prima),
-            "testo_dopo": _per_pezzo(dopo),
+            **colonne_testo,
             "spiegata": "",
         }
     return uscita
@@ -5609,9 +5667,10 @@ def file_da_leggere(percorso: Path) -> Path | None:
 
 
 def esegui_contesto_a_mano(
-    percorsi: tuple[Path, ...] = (DOMANDE_A_MANO_2, DOMANDE_A_MANO_3),
+    percorsi: tuple[Path, ...] = (DOMANDE_A_MANO_3,),
 ) -> int:
     """Riscrive i file dati con le colonne del contesto, più la copia .xlsx.
+    Senza argomenti solo il terzo: il secondo è compilato dal 22/11/2026.
 
     Prima controlla tutti i file: se uno ha una domanda compilata (nel .csv o
     nella copia .xlsx) non si scrive niente.
@@ -5642,15 +5701,22 @@ def esegui_contesto_a_mano(
     contesti = contesto_delle_frasi(
         [f for f in fatti if chiave_a_mano(f) in chiavi], file_per_bando, documenti
     )
+    per_chiave = {chiave_a_mano(f): f for f in fatti}
     for p, righe in da_scrivere:
         nuove = righe_con_contesto(righe, fatti, contesti)
         scrivi_csv_a_mano(p, nuove, COLONNE_MANO_CONTESTO)
         scrivi_xlsx_a_mano(p.with_suffix(".xlsx"), nuove, COLONNE_MANO_CONTESTO)
         mancate = sum(NON_TROVATA in r["file"] for r in nuove)
         pezzi = sum("[pezzo " in r["testo_prima"] for r in nuove)
+        tabella = sum(
+            str(per_chiave[chiave_a_mano(r)].get("in_tabella") or "").strip().lower()
+            == "sì"
+            for r in nuove
+        )
         print(
             f"Riscritto {p} e {p.with_suffix('.xlsx').name}: {len(nuove)} righe, "
-            f"{pezzi} a più pezzi, {mancate} con un pezzo non trovato"
+            f"{tabella} di tabella, {pezzi} a più pezzi, "
+            f"{mancate} con un pezzo non trovato"
         )
     return 0
 
@@ -6386,7 +6452,7 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
         "--contesto-domande-a-mano",
         action="store_true",
         help=(
-            "riscrive domande_a_mano_2 e _3 con il testo intorno alla frase, "
+            "riscrive domande_a_mano_3 con il testo intorno alla frase, "
             "solo se nessuna domanda è compilata, più una copia .xlsx"
         ),
     )
