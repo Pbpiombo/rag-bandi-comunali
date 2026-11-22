@@ -5916,6 +5916,70 @@ def esito_a_mano(netto_foglio: int, netto_mano: int) -> str:
     return "resta" if 2 * netto_mano >= netto_foglio else "si riduce"
 
 
+# Regola di lettura delle domande a mano di taratura (decisa il 22/11/2026,
+# prima della misura; coda.md, "Passo 19d", punto 13, voce 10): prova
+# principale sulle domande nuove (secondo e terzo file), condizione B, c-LR con
+# tutte le righe contro c-0. Il resto è un dato secondario, non decide.
+PROVA_MANO = ("c-LR", "tutte")
+SPIEGATA_SI = ("si", "sì")
+
+
+def spiegata(riga: dict) -> bool:
+    """La colonna "spiegata" segnata: "si" e "sì" valgono uguale."""
+    return str(riga.get("spiegata") or "").strip().lower() in SPIEGATA_SI
+
+
+def riga_della_misura(riga: dict) -> str:
+    """Il numero di riga della misura (come nei fatti) di una riga dei file a mano."""
+    foglio, numero = int(riga["foglio"]), int(riga["riga"])
+    return str(numero + SCOSTAMENTO_2 if foglio == 2 else numero)
+
+
+def gruppi_a_mano(percorsi: tuple[Path, ...] | None = None) -> dict[str, set[str]]:
+    """Le righe della misura delle domande compilate, per gruppo: il primo file,
+    le nuove (secondo e terzo file) e, tra le nuove, le spiegate e le altre."""
+    if percorsi is None:
+        percorsi = (DOMANDE_A_MANO, DOMANDE_A_MANO_2, DOMANDE_A_MANO_3)
+    per_file = []
+    for p in percorsi:
+        letto = file_da_leggere(p)
+        per_file.append(compilate(leggi_domande_a_mano(letto)) if letto else [])
+    nuove = [r for righe in per_file[1:] for r in righe]
+    return {
+        "primo file": {riga_della_misura(r) for r in per_file[0]},
+        "nuove": {riga_della_misura(r) for r in nuove},
+        "nuove spiegate": {riga_della_misura(r) for r in nuove if spiegata(r)},
+        "nuove non spiegate": {riga_della_misura(r) for r in nuove if not spiegata(r)},
+    }
+
+
+def esito_regola_mano(base: dict[int, list], variante: dict[int, list]) -> str:
+    """La regola di lettura delle domande a mano di taratura, in B.
+
+    Confermata se a k=10 i presi superano i persi con p ≤ 0,05 e a k=15 il
+    netto è ≥ 0; bocciata se a k=10 i presi non superano i persi; in mezzo,
+    candidata debole, e decide la metà di controllo.
+    """
+    presi, persi = cambi_di_esito(base[K], variante[K], "B")
+    if len(presi) <= len(persi):
+        return "bocciata"
+    if (
+        probabilita_segni(len(presi), len(persi)) <= SOGLIA_CASO
+        and _netto(base[K_ESATTI[1]], variante[K_ESATTI[1]], "B") >= 0
+    ):
+        return "confermata"
+    return "candidata debole: decide la metà di controllo"
+
+
+def riga_segni_netto(
+    nome_base: str, base: list[dict], nome: str, variante: list[dict], c: str
+) -> str:
+    """Come riga_segni, con il netto (presi meno persi)."""
+    return riga_segni(nome_base, base, nome, variante, c) + (
+        f"; netto {_netto(base, variante, c):+d}"
+    )
+
+
 def _netto(base: list[dict], variante: list[dict], c: str) -> int:
     guadagnati, persi = cambi_di_esito(base, variante, c)
     return len(guadagnati) - len(persi)
@@ -5949,6 +6013,154 @@ def parole_dal_contesto(
                     ]
                 return nel_frammento, solo
     return None
+
+
+def righe_domande_a_mano(
+    base: dict[int, list],
+    misure: dict[tuple[str, str], dict[int, list]],
+    mano: dict[tuple[str, str], dict[int, list]],
+    gruppi: dict[str, set[str]],
+) -> list[str]:
+    """Sezione 6 del rapporto: prova principale, dati secondari e regola del 21/11.
+
+    Una configurazione misurata su domande diverse da quelle di c-0 (per
+    esempio sulle 29 del primo file soltanto) si salta, con una riga.
+    """
+    base_mano = mano[("c-0", NESSUNA)]
+    misurate = {r["riga"] for r in base_mano[K]}
+    linee = ["", f"6. Domande a mano ({len(misurate)} fatti di taratura)"]
+    confrontabili = {}
+    for (nome, righe), m in mano.items():
+        if nome == "c-0":
+            continue
+        if all(
+            {r["riga"] for r in m[k]} == {r["riga"] for r in base_mano[k]}
+            for k in K_ESATTI
+        ):
+            confrontabili[(nome, righe)] = m
+        else:
+            linee.append(
+                f"  {nome} {righe}: misurata su altre domande ({len(m[K])}), saltata"
+            )
+    for etichetta, gruppo in gruppi.items():
+        if gruppo - misurate:
+            linee.append(
+                f"  attenzione: {len(gruppo - misurate)} righe del gruppo "
+                f"'{etichetta}' non sono nella misura: "
+                + ", ".join(
+                    nome_della_riga(r) for r in sorted(gruppo - misurate, key=int)
+                )
+            )
+
+    def scelte(m: dict[int, list], gruppo: set[str] | None) -> dict[int, list]:
+        return {
+            k: [r for r in m[k] if gruppo is None or r["riga"] in gruppo]
+            for k in K_ESATTI
+        }
+
+    nome, righe = PROVA_MANO
+    nuove = gruppi["nuove"] & misurate
+    linee += [
+        "",
+        (
+            "6a. Prova principale (regola decisa il 22/11/2026, prima della misura): "
+            f"domande nuove, secondo e terzo file ({len(nuove)}), condizione B, "
+            f"{nome} {righe} contro c-0"
+        ),
+        (
+            "  regola: confermata se a k=10 i presi superano i persi con p ≤ 0,05 e "
+            "a k=15 il netto è ≥ 0; bocciata se a k=10 i presi non superano i "
+            "persi; in mezzo, candidata debole, e decide la metà di controllo"
+        ),
+    ]
+    if PROVA_MANO not in confrontabili:
+        linee.append(
+            f"  non misurata: serve --contesto {nome} --righe {righe} --domande-a-mano"
+        )
+    else:
+        b = scelte(base_mano, nuove)
+        v = scelte(confrontabili[PROVA_MANO], nuove)
+        for k in K_ESATTI:
+            linee.append(
+                riga_segni_netto(f"c-0 k={k}", b[k], f"{nome} {righe} k={k}", v[k], "B")
+            )
+        linee.append(f"  esito: {esito_regola_mano(b, v)}")
+        linee += ["", f"6b. Domande a mano trovate né da c-0 né da {nome} {righe}"]
+        for k in K_ESATTI:
+            for c in CONDIZIONI_GRIGLIA:
+                trovate = {
+                    r["riga"]
+                    for m in (base_mano, confrontabili[PROVA_MANO])
+                    for r in m[k]
+                    if r[f"{c}_trovato"] == "sì"
+                }
+                mancate = [r for r in base_mano[k] if r["riga"] not in trovate]
+                linee.append(
+                    f"  k={k} {c}: {len(mancate)}"
+                    + (": " if mancate else "")
+                    + ", ".join(
+                        f"{nome_della_riga(r['riga'])} {r['id_bando']}"
+                        for r in sorted(mancate, key=lambda x: int(x["riga"]))
+                    )
+                )
+
+    linee += ["", "6c. Dati secondari: si riportano, non decidono"]
+    secondari = [
+        ("tutte le domande a mano", None, CONDIZIONI_GRIGLIA),
+        ("nuove", nuove, ("A",)),
+        ("nuove spiegate", gruppi["nuove spiegate"], CONDIZIONI_GRIGLIA),
+        ("nuove non spiegate", gruppi["nuove non spiegate"], CONDIZIONI_GRIGLIA),
+        ("primo file", gruppi["primo file"], CONDIZIONI_GRIGLIA),
+    ]
+    for (nome, righe), m in confrontabili.items():
+        for etichetta, gruppo, condizioni in secondari:
+            n = len(misurate) if gruppo is None else len(gruppo & misurate)
+            b, v = scelte(base_mano, gruppo), scelte(m, gruppo)
+            for k in K_ESATTI:
+                for c in condizioni:
+                    linee.append(
+                        riga_segni_netto(
+                            f"c-0 k={k}", b[k], f"{nome} {righe} k={k}", v[k], c
+                        ).replace("  ", f"  [{etichetta} ({n})] ", 1)
+                    )
+
+    linee += [
+        "",
+        "6d. Regola del 21/11/2026 (punto 13, voce 5), su tutte le domande a mano",
+        (
+            "  regola: il guadagno netto in B resta se con le domande a mano è "
+            "positivo e almeno metà di quello con le domande del foglio sugli stessi "
+            "fatti; si riduce se è positivo ma sotto la metà; non resta se è zero o "
+            "negativo"
+        ),
+    ]
+    for (nome, righe), m in confrontabili.items():
+        if (nome, righe) not in misure:
+            continue
+        linee.append(
+            f"  {nome} {righe}: regola di adozione con le domande a mano "
+            + (
+                "SODDISFATTA"
+                if adottabile_con_mano(base, misure[(nome, righe)], base_mano, m)
+                else "non soddisfatta"
+            )
+        )
+        for k in K_ESATTI:
+            foglio_base = [r for r in base[k] if r["riga"] in misurate]
+            foglio_var = [r for r in misure[(nome, righe)][k] if r["riga"] in misurate]
+            celle = []
+            for c in CONDIZIONI_GRIGLIA:
+                nf = _netto(foglio_base, foglio_var, c)
+                nm = _netto(base_mano[k], m[k], c)
+                celle.append(f"{c}: foglio {nf:+d}, a mano {nm:+d}")
+            verdetto = esito_a_mano(
+                _netto(foglio_base, foglio_var, "B"),
+                _netto(base_mano[k], m[k], "B"),
+            )
+            linee.append(
+                f"  {nome} {righe} k={k}: " + "; ".join(celle) + f" -> {verdetto}"
+            )
+    return linee
 
 
 def esegui_rapporto_contesto(lato: str) -> int:
@@ -6150,53 +6362,14 @@ def esegui_rapporto_contesto(lato: str) -> int:
 
     # 6. domande a mano
     mano = misure_contesto(lato, True)
-    linee += ["", "6. Domande a mano (30 fatti di taratura)"]
     if ("c-0", NESSUNA) not in mano:
-        linee.append("  non misurate: serve --contesto c-0 --domande-a-mano")
+        linee += [
+            "",
+            "6. Domande a mano",
+            "  non misurate: serve --contesto c-0 --domande-a-mano",
+        ]
     else:
-        base_mano = mano[("c-0", NESSUNA)]
-        dei_30 = {r["riga"] for r in base_mano[K]}
-        linee.append(
-            "  regola: il guadagno netto in B resta se con le domande a mano è "
-            "positivo e almeno metà di quello con le domande del foglio sugli stessi "
-            "fatti; si riduce se è positivo ma sotto la metà; non resta se è zero o "
-            "negativo"
-        )
-        for (nome, righe), m in mano.items():
-            if nome == "c-0" or (nome, righe) not in misure:
-                continue
-            linee.append(
-                f"  {nome} {righe}: regola di adozione con le domande a mano "
-                + (
-                    "SODDISFATTA"
-                    if adottabile_con_mano(base, misure[(nome, righe)], base_mano, m)
-                    else "non soddisfatta"
-                )
-            )
-            for k in K_ESATTI:
-                foglio_base = [r for r in base[k] if r["riga"] in dei_30]
-                foglio_var = [
-                    r for r in misure[(nome, righe)][k] if r["riga"] in dei_30
-                ]
-                celle = []
-                for c in CONDIZIONI_GRIGLIA:
-                    nf = _netto(foglio_base, foglio_var, c)
-                    nm = _netto(base_mano[k], m[k], c)
-                    celle.append(f"{c}: foglio {nf:+d}, a mano {nm:+d}")
-                verdetto = esito_a_mano(
-                    _netto(foglio_base, foglio_var, "B"),
-                    _netto(base_mano[k], m[k], "B"),
-                )
-                linee.append(
-                    f"  {nome} {righe} k={k}: " + "; ".join(celle) + f" -> {verdetto}"
-                )
-                for c in CONDIZIONI_GRIGLIA:
-                    linee.append(
-                        "    a mano "
-                        + riga_segni(
-                            f"c-0 k={k}", base_mano[k], f"{nome} k={k}", m[k], c
-                        ).strip()
-                    )
+        linee += righe_domande_a_mano(base, misure, mano, gruppi_a_mano())
 
     # 7. tempi e troncamenti
     linee += ["", "7. Riordinatore: tempi per domanda e coppie oltre il limite"]

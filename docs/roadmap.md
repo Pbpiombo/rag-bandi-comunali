@@ -2,7 +2,7 @@
 
 I documenti scritti prima del 18/11/2026 citano sezioni di questa roadmap che oggi stanno in docs/coda.md con il loro numero originale (Difetti del 14/11, Dopo la demo, Prossimi passi, In coda, priorità del consulente pilota, indicazioni del revisore tecnico) e in docs/fatto.md.
 
-Stato al 21 novembre 2026. Da aggiornare alla fine di ogni passo.
+Stato al 22 novembre 2026. Da aggiornare alla fine di ogni passo.
 
 Qui stanno solo stato, principi, ordine dei passi e decisioni prese. Il
 lavoro chiuso è in `docs/fatto.md`; le voci in attesa, con il loro numero
@@ -79,7 +79,8 @@ I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
 1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
 A, attese con polarità); 19 (19a, 19b e 19c fatti, 19d in corso: il lavoro
 è il piano delle domande a mano, `docs/coda.md`, "Passo 19d", punto 13,
-voce 10; poi 19e); 20 (prima
+voce 10, con la regola di lettura decisa il 22/11/2026 prima della
+misura; poi 19e e 22, in un ordine che si decide a 19d chiuso); 20 (prima
 della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
 baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
 Il passo 21 si fa prima di dare il link della demo a chiunque oltre al
@@ -171,6 +172,11 @@ Passi nuovi della sezione A:
     `id_bando` nell'app, e rimisura del recupero su Postgres con gli
     stessi fatti, perché lì ricerca per parole e indice dei vettori sono
     diversi da Chroma.
+    Dal 22/11/2026 (disegno dell'app, `coda.md`, "Disegno dell'app
+    (22/11/2026)"): quando c'è una selezione di bandi, è la selezione la
+    fonte del filtro, al posto di "l'app indovina il bando". L'85% di
+    recupero del 19d è una condizione necessaria, non il traguardo delle
+    risposte giuste: quelle si misurano nel 19e.
 
 ### B. Correzioni del flusso, con il modello
 
@@ -255,6 +261,12 @@ Ordine previsto: PDF, valutazione, fascicolo.
     complessivo** (`coda.md`, "Sezione riservata", parte sul limite).
     Prima di dare il link della demo a chiunque oltre al consulente
     pilota.
+22. **Scheda per bando** (nuovo, 22/11/2026; era nel "Parcheggio" di
+    `coda.md`): in parole semplici, a chi è rivolto, come si accede, cosa
+    si ottiene. Generata al caricamento, una fonte per ogni riga, numeri
+    controllati dal verificatore, voce vuota se il bando non lo dice.
+    L'ordine rispetto al filtro del 19e si decide a 19d chiuso. Dettaglio
+    in `coda.md`, "Disegno dell'app (22/11/2026)".
 
 ### Riempitivi e passi manuali
 
@@ -314,3 +326,12 @@ Ordine previsto: PDF, valutazione, fascicolo.
   entrano tra i bandi**: vanno in `scansioni` come da verificare, anche
   per incentivi-5013 e incentivi-3373. Dettaglio in `coda.md`, "Pulizia
   dei dati" (19/11/2026).
+- **Disegno dell'app** (22/11/2026, da chi mantiene il progetto; non si
+  costruisce ora): prima parte in tre passi, elenco dei bandi con
+  selezione e "approfondisci", scheda dei bandi scelti (passo 22),
+  domande puntuali sul bando scelto; la compilazione viene dopo. Errori
+  gravi: perdere un bando adatto, un dato sbagliato nella scheda, una
+  risposta sbagliata data con sicurezza; tollerabili: due bandi in più se
+  pertinenti, una voce vuota, "non lo trovo". Traguardo indicato: 85-90%
+  di risposte giuste. Dettaglio in `coda.md`, "Disegno dell'app
+  (22/11/2026)".

@@ -256,6 +256,51 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
 - I giri sono limitati.
 - Ripieghi e forma della risposta li decide il codice.
 
+## Disegno dell'app (22/11/2026)
+
+Deciso il 22/11/2026 da chi mantiene il progetto. Non si costruisce ora.
+
+Prima parte, in tre passi:
+1. elenco dei bandi, con selezione e tasto "approfondisci";
+2. scheda in parole semplici dei bandi scelti: a chi è rivolto, come si
+   accede, cosa si ottiene; non come si compila la domanda;
+3. domande puntuali sul bando scelto.
+
+Seconda parte, dopo: la compilazione.
+
+Errori, per passo:
+- selezione: è grave perdere un bando adatto; è tollerabile averne due
+  in più, se pertinenti;
+- scheda: è grave un dato sbagliato; è tollerabile una voce vuota;
+- domande: è grave una risposta sbagliata data con sicurezza; è
+  tollerabile "non lo trovo".
+
+Traguardo indicato: 85-90% di risposte giuste. L'85% di recupero che si
+misura nel 19d è una condizione necessaria, non quel numero: le risposte
+vere si misurano nel 19e.
+
+Conseguenze:
+- **19e**: la selezione dei bandi è la fonte del filtro per bando, al
+  posto di "l'app indovina il bando", nei casi in cui c'è una selezione
+  ("Passo 19d", punto 7).
+- **Scheda per bando**, passo a sé (passo 22 della roadmap), fuori dal
+  "Parcheggio":
+  - (era la seconda voce del "Parcheggio", in fondo a questo file)
+    **Scheda per bando** (era la strada 4). Attacca le domande sulle voci
+    ricorrenti di un bando. Aspetta la chiusura del 19d e domande non
+    scritte da un modello, perché le sue otto voci sono le categorie del
+    foglio dei fatti ("Passo 19d", punto 9).
+  - (22/11/2026) Generata al caricamento, con una fonte per ogni riga,
+    i numeri controllati dal verificatore, la voce vuota se il bando non
+    lo dice. L'ordine tra la scheda e il filtro del 19e si decide a 19d
+    chiuso. Voce vicina, più vecchia: la prima di "Prossimi passi, voci
+    numerate", qui sotto (per chi è e per cosa si può usare, con le
+    clausole citate).
+- **Domande che escono dal bando** (esempio: "quali sono le risorse
+  genetiche iscritte ai Repertori regionali?"): la risposta giusta oggi è
+  "il bando rimanda a quel documento, che non è tra quelli caricati".
+  Caricare i documenti richiamati resta in "Parcheggio".
+
 ## Prossimi passi, voci numerate
 
 - (era la voce 1 dei Prossimi passi) **Scheda per bando**: per chi è e per cosa si può usare, divisa per tipo di
@@ -905,6 +950,10 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
       punteggio del riordinatore basso sul primo frammento, oppure i primi
       quasi alla pari su argomenti diversi. Si misura sulle domande a
       mano: quanto il segnale distingue i fatti trovati da quelli mancati.
+      Fonte del filtro (22/11/2026, "Disegno dell'app (22/11/2026)"):
+      quando chi usa l'app ha selezionato dei bandi, il filtro prende i
+      bandi dalla selezione, al posto di "l'app indovina il bando"; le
+      regole qui sopra restano per i casi senza selezione.
       Regola per il caricamento (22/11/2026, dal 19e in avanti): ogni
       bando nuovo entra con 6 domande scritte a mano da chi mantiene il
       progetto prima di aprire il PDF, ognuna con la frase esatta trovata
@@ -916,7 +965,8 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
       punto 10, 20/11/2026 sera: la strada 1 è fatta, punto 3; la 2 resta;
       la 3 è l'unica strada nuova, limitata al contesto per frammento; il
       riordinatore e k=15 della 5 sono misurati, punto 4; le strade 4, 6
-      e 7 sono in "Parcheggio", in fondo a questo file):
+      e 7 sono in "Parcheggio", in fondo a questo file; dal 22/11/2026 la
+      strada 4 è un passo a sé, "Disegno dell'app (22/11/2026)"):
       1. rimisura sui 97 fatti di taratura;
       2. nome dell'azione degli apistici nel registro;
       3. contesto per frammento scritto dal modello al caricamento
@@ -1234,6 +1284,8 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
             "spiegata" e si misurano anche a parte;
           - la regola per leggere il risultato sulle domande a mano di
             taratura si scrive prima di misurare: non è ancora scritta.
+            (Scritta il 22/11/2026, prima della misura: "Regola di
+            lettura decisa", in fondo a questa voce.)
 
           File della taratura (22/11/2026, in
           `dati-grezzi/prova/19d/contesto/`): `domande_a_mano.csv` 30
@@ -1290,7 +1342,29 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
             bocciata se a k=10 i presi non superano i persi; in mezzo,
             candidata debole, e decide il controllo. Le righe "spiegata"
             si leggono anche a parte. Le 92 insieme sono un dato
-            secondario.
+            secondario. (Superata dalla regola qui sotto, 22/11/2026.)
+          - **Regola di lettura decisa** (22/11/2026, prima della misura
+            sulle domande a mano del secondo e del terzo file; non più una
+            proposta). Verifica dei file prima della misura: 29, 30 e 33
+            domande compilate, 92 in tutto; righe segnate nella colonna
+            "spiegata" 0, 3 e 5, tutte scritte "si".
+            - Prova principale: le 63 domande nuove (secondo e terzo
+              file), condizione B, c-LR con tutte le righe contro c-0.
+            - Confermata: a k=10 i presi superano i persi con p ≤ 0,05 al
+              test dei segni, e a k=15 il netto è ≥ 0.
+            - Bocciata: a k=10 i presi non superano i persi.
+            - In mezzo: candidata debole, decide la metà di controllo.
+            - Dati secondari, da riportare e non da usare per decidere: le
+              92 insieme; le righe spiegate e le non spiegate separate; la
+              condizione A; il primo file da solo.
+            - Nota: le righe di tabella e a più pezzi del secondo file sono
+              state compilate con il contesto poco chiaro (la forma di
+              prima, vedi sopra).
+            Nel rapporto (`--rapporto-contesto`, sezione 6): "si" e "sì"
+            valgono uguale nella colonna "spiegata"; prova principale,
+            domande che né c-0 né c-LR trovano, dati secondari con presi,
+            persi, netto e p; una configurazione misurata su domande
+            diverse da quelle di c-0 (le 29 di ieri) si salta.
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):
@@ -2195,10 +2269,6 @@ compito chiuso.
   ricerca per significato, che fa quasi tutto il lavoro. Aspetta le coppie
   domanda e frammento generate al caricamento e la decisione su dove
   pubblicare e mantenere il modello addestrato.
-- **Scheda per bando** (era la strada 4). Attacca le domande sulle voci
-  ricorrenti di un bando. Aspetta la chiusura del 19d e domande non
-  scritte da un modello, perché le sue otto voci sono le categorie del
-  foglio dei fatti ("Passo 19d", punto 9).
 - **Glossario** (era la strada 6). Attacca le parole dell'utente diverse
   da quelle del bando ("chi alleva api" contro "aziende apistiche",
   "Passo 19d", punto 6). Aspetta fatti non ancora visti, perché scritto
@@ -2254,4 +2324,10 @@ compito chiuso.
   "30 fatti" della sezione 6 è fisso anche quando le domande a mano sono
   meno (29); `VOCE_DEL_TIPO` porta "definizione" su "altro", mentre
   "definizioni" è una voce dell'elenco (fatto 2:46). Correzioni piccole, da
-  fare a misura chiusa.
+  fare a misura chiusa. (22/11/2026: il titolo fisso "30 fatti" è
+  corretto; `VOCE_DEL_TIPO` resta.)
+- **Documenti richiamati dal bando** (nuova, 22/11/2026). Attacca le
+  domande che escono dal bando (esempio: "quali sono le risorse genetiche
+  iscritte ai Repertori regionali?"), per cui oggi la risposta giusta è
+  "il bando rimanda a quel documento, che non è tra quelli caricati"
+  ("Disegno dell'app (22/11/2026)"). Aspetta il disegno dell'app.

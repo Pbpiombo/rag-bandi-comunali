@@ -673,3 +673,115 @@ def test_rapporto_conta_le_righe_dei_fatti_guadagnati(tmp_path, monkeypatch):
             f"c-L tutte k={k}: guadagnati 1, con parole solo nel contesto 1; "
             "per riga: SERVE A 1, PAROLE 1"
         ) in testo
+
+
+# --- regola di lettura delle domande a mano (22/11/2026) ---
+
+
+def test_spiegata_con_e_senza_accento():
+    for valore in ("si", "sì", "Sì", " SI "):
+        assert mr.spiegata({"spiegata": valore})
+    for valore in ("", "no", None):
+        assert not mr.spiegata({"spiegata": valore})
+    assert not mr.spiegata({})
+
+
+def test_gruppi_a_mano(tmp_path):
+    colonne = mr.COLONNE_MANO + ["spiegata"]
+
+    def riga(foglio, numero, domanda, spiegata=""):
+        return {
+            "riga": numero,
+            "foglio": foglio,
+            "titolo": "t",
+            "frase": "f",
+            "domanda_a_mano": domanda,
+            "spiegata": spiegata,
+        }
+
+    percorsi = tuple(tmp_path / f"m{c}.csv" for c in ("", "_2", "_3"))
+    mr.scrivi_csv_a_mano(percorsi[0], [riga(1, 3, "d"), riga(1, 5, "")], colonne)
+    mr.scrivi_csv_a_mano(percorsi[1], [riga(2, 7, "d", "si"), riga(1, 9, "d")], colonne)
+    mr.scrivi_csv_a_mano(percorsi[2], [riga(2, 8, "d", "sì")], colonne)
+    gruppi = mr.gruppi_a_mano(percorsi)
+    seconda = str(7 + mr.SCOSTAMENTO_2)
+    terza = str(8 + mr.SCOSTAMENTO_2)
+    # la riga vuota del primo file non entra
+    assert gruppi["primo file"] == {"3"}
+    assert gruppi["nuove"] == {seconda, "9", terza}
+    assert gruppi["nuove spiegate"] == {seconda, terza}
+    assert gruppi["nuove non spiegate"] == {"9"}
+
+
+def misura_b(trovati: list[bool]):
+    return [
+        {
+            "riga": str(i),
+            "id_bando": f"bando{i}",
+            "A_trovato": "sì" if t else "no",
+            "B_trovato": "sì" if t else "no",
+        }
+        for i, t in enumerate(trovati)
+    ]
+
+
+def test_esito_regola_mano():
+    base = {k: misura_b([False] * 20) for k in mr.K_ESATTI}
+    sei = misura_b([True] * 6 + [False] * 14)
+    # 6 presi, 0 persi a k=10: p 0,031; a k=15 netto 0
+    assert mr.esito_regola_mano(base, {10: sei, 15: base[15]}) == "confermata"
+    # a k=15 netto -1: non confermata, ma a k=10 i presi superano i persi
+    base_15 = {10: base[10], 15: misura_b([True] + [False] * 19)}
+    esito = mr.esito_regola_mano(base_15, {10: sei, 15: base[15]})
+    assert esito.startswith("candidata debole")
+    # 2 presi e 0 persi: p 0,5, candidata debole
+    due = misura_b([True] * 2 + [False] * 18)
+    assert mr.esito_regola_mano(base, {10: due, 15: due}).startswith("candidata debole")
+    # pari a k=10: bocciata, anche se a k=15 guadagna
+    assert mr.esito_regola_mano(base, {10: base[10], 15: sei}) == "bocciata"
+
+
+def test_rapporto_domande_a_mano_prova_principale_e_secondari():
+    # 10 domande: 0-2 del primo file, 3-9 nuove (3 e 4 spiegate); c-LR prende
+    # 3-8 e perde 0; c-R è misurata su altre domande e si salta
+    base_mano = {k: misura_b([True] + [False] * 9) for k in mr.K_ESATTI}
+    clr = {k: misura_b([False] * 3 + [True] * 6 + [False]) for k in mr.K_ESATTI}
+    mano = {
+        ("c-0", mr.NESSUNA): base_mano,
+        ("c-LR", "tutte"): clr,
+        ("c-R", "tutte"): {k: misura_b([False] * 3) for k in mr.K_ESATTI},
+    }
+    gruppi = {
+        "primo file": {"0", "1", "2"},
+        "nuove": {str(i) for i in range(3, 10)},
+        "nuove spiegate": {"3", "4"},
+        "nuove non spiegate": {str(i) for i in range(5, 10)},
+    }
+    linee = mr.righe_domande_a_mano(base_mano, {}, mano, gruppi)
+    testo = "\n".join(linee)
+    assert "6. Domande a mano (10 fatti di taratura)" in testo
+    assert "30 fatti" not in testo
+    assert "c-R tutte: misurata su altre domande (3), saltata" in testo
+    assert "domande nuove, secondo e terzo file (7)" in testo
+    assert (
+        "c-LR tutte k=10 contro c-0 k=10, B: 6 contro 0; guadagnati 6 "
+        "(3, 4, 5, 6, 7, 8); persi 0 (-); p = 0,031; netto +6"
+    ) in testo
+    assert "  esito: confermata" in linee
+    # le righe 1, 2 e 9 non le trova nessuna delle due
+    assert "  k=10 B: 3: 1 bando1, 2 bando2, 9 bando9" in linee
+    assert any(
+        x.startswith("  [tutte le domande a mano (10)] c-LR tutte k=10")
+        and "persi 1 (0)" in x
+        and "netto +5" in x
+        for x in linee
+    )
+    assert any(
+        x.startswith("  [nuove (7)] c-LR tutte k=15 contro c-0 k=15, A") for x in linee
+    )
+    assert not any(x.startswith("  [nuove (7)]") and ", B:" in x for x in linee)
+    assert any(
+        x.startswith("  [nuove spiegate (2)]") and "guadagnati 2 (3, 4)" in x
+        for x in linee
+    )
+    assert any(x.startswith("  [primo file (3)]") and "persi 1 (0)" in x for x in linee)
