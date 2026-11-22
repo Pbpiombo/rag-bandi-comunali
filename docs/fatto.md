@@ -577,4 +577,16 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
     tolte una alla volta, 30 domande scritte a mano
     (`--prepara-domande-a-mano`, `--domande-a-mano`), etichetta di
     ARGOMENTO contro il tipo del fatto, rapporto con le regole di adozione.
+  - Domande a mano (21-22/11/2026): `--prepara-domande-a-mano-2` scrive
+    `domande_a_mano_2.csv`, altri 30 fatti di taratura con un seme
+    diverso, nessuno del primo file, stessa esclusione del fondo strade;
+    `--prepara-domande-a-mano-3` scrive `domande_a_mano_3.csv`, tutti i
+    fatti di taratura rimanenti (33). `--contesto-domande-a-mano`
+    riscrive il secondo e il terzo, solo se nessuna domanda è compilata,
+    con file, pagina, testo prima e dopo la frase (circa 400 caratteri
+    dal testo pulito) e la colonna "spiegata", più una copia .xlsx con
+    il testo a capo. Con `--domande-a-mano` la misura legge i file
+    insieme (la copia .xlsx se c'è, altrimenti il .csv, ignorando le
+    colonne in più), salta con un avviso le righe con la domanda vuota e
+    si ferma se un fatto compare due volte.
   - Generazioni, prova e regole in `docs/coda.md`, "Passo 19d", punto 13.

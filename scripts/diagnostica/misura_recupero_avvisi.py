@@ -4969,6 +4969,13 @@ def esegui_parte_97(lato: str) -> int:
 # stessa esclusione e stesse colonne, seme SEME_MANO_2. Con --domande-a-mano
 # la misura usa tutti i file che ci sono; le righe con la domanda vuota si
 # saltano con un avviso.
+# Terzo file e contesto delle frasi (piano del 21/11/2026 sera):
+# DOMANDE_A_MANO_3, tutti i fatti di taratura che non stanno nei primi due,
+# senza il fondo strade. --contesto-domande-a-mano riscrive il secondo e il
+# terzo, solo se nessuna domanda è compilata, con le colonne di
+# COLONNE_CONTESTO prese dal testo pulito del documento (non scritte da un
+# modello), e ne scrive una copia .xlsx con il testo a capo; la misura legge
+# la copia .xlsx se c'è, altrimenti il .csv.
 
 CARTELLA_CONTESTO = CARTELLA_19D / "contesto"
 DOMANDE_A_MANO = CARTELLA_CONTESTO / "domande_a_mano.csv"
@@ -4976,6 +4983,24 @@ COLONNE_MANO = ["riga", "foglio", "titolo", "frase", "domanda_a_mano"]
 SEME_MANO = 19_2026_1121
 DOMANDE_A_MANO_2 = CARTELLA_CONTESTO / "domande_a_mano_2.csv"
 SEME_MANO_2 = 19_2026_1122
+DOMANDE_A_MANO_3 = CARTELLA_CONTESTO / "domande_a_mano_3.csv"
+COLONNE_CONTESTO = ["file", "pagina", "testo_prima", "testo_dopo", "spiegata"]
+# ordine delle colonne nei file con il contesto: la frase tra il testo prima e
+# quello dopo, la domanda subito dopo
+COLONNE_MANO_CONTESTO = [
+    "riga",
+    "foglio",
+    "titolo",
+    "file",
+    "pagina",
+    "testo_prima",
+    "frase",
+    "testo_dopo",
+    "domanda_a_mano",
+    "spiegata",
+]
+CARATTERI_CONTESTO = 400
+NON_TROVATA = "frase non trovata nel testo pulito"
 NUMERO_MANO = 30
 ESCLUSO_MANO = "fondo-strade-piccoli-comuni-2026"
 NESSUNA = "nessuna"
@@ -5306,30 +5331,90 @@ def righe_a_mano(scelti: list[dict]) -> list[dict]:
     ]
 
 
+def _testo_cella(valore) -> str:
+    """Una cella dell'.xlsx come testo: vuota "", 13.0 (Google Sheet) "13"."""
+    if valore is None:
+        return ""
+    if isinstance(valore, float) and valore.is_integer():
+        return str(int(valore))
+    return str(valore)
+
+
+def _righe_xlsx(percorso: Path) -> list[dict]:
+    from openpyxl import load_workbook
+
+    libro = load_workbook(percorso, read_only=True, data_only=True)
+    try:
+        valori = list(libro.worksheets[0].iter_rows(values_only=True))
+    finally:
+        libro.close()
+    if not valori:
+        return []
+    testa = [_testo_cella(v).strip() for v in valori[0]]
+    righe = []
+    for riga in valori[1:]:
+        celle = [_testo_cella(v) for v in riga] + [""] * (len(testa) - len(riga))
+        if any(c.strip() for c in celle):
+            righe.append(dict(zip(testa, celle, strict=False)))
+    return righe
+
+
 def leggi_domande_a_mano(percorso: Path) -> list[dict]:
-    """Le righe del file; separatore virgola o punto e virgola (Excel)."""
-    testo = percorso.read_text(encoding="utf-8-sig")
-    prima = testo.splitlines()[0] if testo else ""
-    separatore = ";" if prima.count(";") > prima.count(",") else ","
-    righe = list(csv.DictReader(io.StringIO(testo), delimiter=separatore))
+    """Le righe del file; .xlsx, o .csv con separatore virgola o punto e virgola
+    (Excel). Le colonne in più si ignorano."""
+    if percorso.suffix.lower() == ".xlsx":
+        righe = _righe_xlsx(percorso)
+    else:
+        testo = percorso.read_text(encoding="utf-8-sig")
+        prima = testo.splitlines()[0] if testo else ""
+        separatore = ";" if prima.count(";") > prima.count(",") else ","
+        righe = list(csv.DictReader(io.StringIO(testo), delimiter=separatore))
     if not righe or set(COLONNE_MANO) - set(righe[0]):
         raise ErroreMisura(f"{percorso.name}: servono le colonne {COLONNE_MANO}")
     return righe
 
 
-def esegui_prepara_a_mano(secondo: bool = False) -> int:
-    """Scrive DOMANDE_A_MANO (o DOMANDE_A_MANO_2, senza i fatti del primo), o se
-    c'è già dice se le righe sono quelle della scelta."""
+def rimanenti_a_mano(
+    fatti: list[dict], esclusi: frozenset[tuple[int, int]]
+) -> list[dict]:
+    """Tutti i fatti senza il fondo strade e senza quelli di esclusi, in ordine
+    di foglio e riga."""
+    return sorted(
+        (
+            f
+            for f in fatti
+            if f["id_bando"] != ESCLUSO_MANO and chiave_a_mano(f) not in esclusi
+        ),
+        key=chiave_a_mano,
+    )
+
+
+def chiavi_dei_file(percorsi: tuple[Path, ...]) -> frozenset[tuple[int, int]]:
+    """Le chiavi dei fatti dei file a mano dati; si ferma se ne manca uno."""
+    chiavi = set()
+    for percorso in percorsi:
+        if not percorso.exists():
+            raise ErroreMisura(f"manca {percorso.name}: il file nuovo lo esclude")
+        chiavi |= {chiave_a_mano(r) for r in leggi_domande_a_mano(percorso)}
+    return frozenset(chiavi)
+
+
+def esegui_prepara_a_mano(secondo: bool = False, terzo: bool = False) -> int:
+    """Scrive DOMANDE_A_MANO (o DOMANDE_A_MANO_2, senza i fatti del primo, o
+    DOMANDE_A_MANO_3, tutti quelli che non stanno nei primi due), o se c'è già
+    dice se le righe sono quelle della scelta."""
     _, fatti, _ = fatti_intera(TARATURA)
     percorso, seme, esclusi = DOMANDE_A_MANO, SEME_MANO, frozenset()
     if secondo:
-        if not DOMANDE_A_MANO.exists():
-            raise ErroreMisura(f"manca {DOMANDE_A_MANO.name}: il secondo lo esclude")
         percorso, seme = DOMANDE_A_MANO_2, SEME_MANO_2
-        esclusi = frozenset(
-            chiave_a_mano(r) for r in leggi_domande_a_mano(DOMANDE_A_MANO)
-        )
-    nuove = righe_a_mano(scelta_a_mano(fatti, seme=seme, esclusi=esclusi))
+        esclusi = chiavi_dei_file((DOMANDE_A_MANO,))
+    if terzo:
+        percorso = DOMANDE_A_MANO_3
+        esclusi = chiavi_dei_file((DOMANDE_A_MANO, DOMANDE_A_MANO_2))
+        scelti = rimanenti_a_mano(fatti, esclusi)
+    else:
+        scelti = scelta_a_mano(fatti, seme=seme, esclusi=esclusi)
+    nuove = righe_a_mano(scelti)
     chiavi = [(r["foglio"], r["riga"]) for r in nuove]
     per_bando = Counter(
         f["id_bando"]
@@ -5353,9 +5438,220 @@ def esegui_prepara_a_mano(secondo: bool = False) -> int:
         scrittore = csv.DictWriter(f, fieldnames=COLONNE_MANO, lineterminator="\n")
         scrittore.writeheader()
         scrittore.writerows(nuove)
-    print(f"Scritto {percorso}: {len(nuove)} fatti di taratura (seme {seme})")
+    scelta = "tutti i rimanenti" if terzo else f"seme {seme}"
+    fuori = sum(f["id_bando"] == ESCLUSO_MANO for f in fatti)
+    print(
+        f"Scritto {percorso}: {len(nuove)} fatti di taratura ({scelta}); "
+        f"fuori per l'esclusione di {ESCLUSO_MANO}: {fuori}"
+    )
     for b, n in sorted(per_bando.items()):
         print(f"  {b}: {n}")
+    return 0
+
+
+def testo_prima(testo: str, inizio_frase: int, n: int = CARATTERI_CONTESTO) -> str:
+    """Circa n caratteri prima della frase, senza la parola tagliata in testa."""
+    inizio = max(0, inizio_frase - n)
+    tratto = testo[inizio:inizio_frase]
+    if inizio > 0 and not testo[inizio - 1].isspace():
+        tratto = re.sub(r"^\S*", "", tratto, count=1)
+    return ("… " if inizio > 0 else "") + tratto.strip()
+
+
+def testo_dopo(testo: str, fine_frase: int, n: int = CARATTERI_CONTESTO) -> str:
+    """Circa n caratteri dopo la frase, senza la parola tagliata in coda."""
+    fine = min(len(testo), fine_frase + n)
+    tratto = testo[fine_frase:fine]
+    if fine < len(testo) and not testo[fine].isspace():
+        tratto = re.sub(r"\S*$", "", tratto, count=1)
+    return tratto.strip() + (" …" if fine < len(testo) else "")
+
+
+def tratto_del_pezzo(pezzo: list[str], fr: Frammento) -> tuple[int, int] | None:
+    """Inizio e fine del pezzo nel testo: le celle in ordine, ognuna dopo la
+    precedente; se così non si trova, come contiene (ogni cella per sé)."""
+    da, inizio = 0, None
+    for cella in pezzo:
+        compatta = livello_c(cella)
+        k = fr.compatto.find(compatta, da) if compatta else -1
+        if k < 0:
+            return contiene(pezzo, fr)
+        inizio = k if inizio is None else inizio
+        da = k + len(compatta)
+    if inizio is None:
+        return None
+    return fr.mappa[inizio], fr.mappa[da - 1] + 1
+
+
+def _per_pezzo(valori: list[str], uno_se_uguali: bool = False) -> str:
+    """Il valore di un pezzo solo; per più pezzi "[pezzo N] …", uno per
+    paragrafo, o il valore una volta se uno_se_uguali e sono tutti uguali."""
+    if len(valori) == 1 or (uno_se_uguali and len(set(valori)) == 1):
+        return valori[0]
+    return "\n\n".join(f"[pezzo {i}] {v}" for i, v in enumerate(valori, 1))
+
+
+def contesto_delle_frasi(
+    fatti: list[dict], file_per_bando: dict[str, list[dict]], documenti
+) -> dict[tuple[int, int], dict[str, str]]:
+    """Per ogni fatto, le colonne di COLONNE_CONTESTO dal testo pulito dei suoi
+    file giusti (genera_contesti.Documento.testo, come lo vede spezza).
+
+    Ogni pezzo si cerca come nella misura (primo punto in cui compare, file
+    giusti in ordine di nome), le celle di una tabella in ordine
+    (tratto_del_pezzo). La pagina è pagina_fisica del
+    foglio. Niente è scritto da un modello; "spiegata" resta vuota.
+    """
+    interi = {d.fonte: (d, Frammento(-1, 0, d.testo, len(d.testo))) for d in documenti}
+    uscita = {}
+    for fatto in fatti:
+        giusti, _ = documenti_del_fatto(fatto, file_per_bando)
+        file, prima, dopo = [], [], []
+        for pezzo in unita_del_fatto(fatto):
+            trovato = next(
+                (
+                    (interi[f][0], t)
+                    for f in sorted(giusti)
+                    if f in interi and (t := tratto_del_pezzo(pezzo, interi[f][1]))
+                ),
+                None,
+            )
+            if trovato is None:
+                file.append(NON_TROVATA)
+                prima.append("")
+                dopo.append("")
+                continue
+            d, (a, b) = trovato
+            file.append(d.fonte + (f" ({d.parte})" if d.parte else ""))
+            prima.append(testo_prima(d.testo, a))
+            dopo.append(testo_dopo(d.testo, b))
+        uscita[chiave_a_mano(fatto)] = {
+            "file": _per_pezzo(file, uno_se_uguali=True),
+            "pagina": _testo_cella(fatto.get("pagina_fisica")).strip(),
+            "testo_prima": _per_pezzo(prima),
+            "testo_dopo": _per_pezzo(dopo),
+            "spiegata": "",
+        }
+    return uscita
+
+
+def compilate(righe: list[dict]) -> list[dict]:
+    return [r for r in righe if str(r.get("domanda_a_mano") or "").strip()]
+
+
+def righe_con_contesto(
+    righe: list[dict], fatti: list[dict], contesti: dict[tuple[int, int], dict]
+) -> list[dict]:
+    """Le stesse righe, nello stesso ordine, con le colonne del contesto."""
+    per_chiave = {chiave_a_mano(f): f for f in fatti}
+    uscita = []
+    for r in righe:
+        chiave = chiave_a_mano(r)
+        if chiave not in per_chiave or chiave not in contesti:
+            raise ErroreMisura(f"riga {chiave} non tra i fatti di taratura")
+        if str(per_chiave[chiave]["frase"]).strip() != str(r["frase"]).strip():
+            raise ErroreMisura(f"riga {chiave}: la frase non è quella del foglio")
+        valori = {c: str(r.get(c) or "") for c in COLONNE_MANO} | contesti[chiave]
+        uscita.append({c: valori[c] for c in COLONNE_MANO_CONTESTO})
+    return uscita
+
+
+def scrivi_csv_a_mano(percorso: Path, righe: list[dict], colonne: list[str]) -> None:
+    with percorso.open("w", encoding="utf-8-sig", newline="") as f:
+        scrittore = csv.DictWriter(f, fieldnames=colonne, lineterminator="\n")
+        scrittore.writeheader()
+        scrittore.writerows(righe)
+
+
+LARGHEZZE_XLSX = {"testo_prima": 60, "frase": 60, "testo_dopo": 60}
+LARGHEZZE_XLSX |= {"domanda_a_mano": 50, "titolo": 30, "file": 30}
+
+
+def scrivi_xlsx_a_mano(percorso: Path, righe: list[dict], colonne: list[str]) -> None:
+    """Copia .xlsx: testo a capo, celle in alto, intestazione ferma, tutto testo."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font
+
+    libro = Workbook()
+    foglio = libro.active
+    foglio.title = "domande"
+    foglio.append(colonne)
+    for r in righe:
+        foglio.append([str(r.get(c) or "") for c in colonne])
+    a_capo = Alignment(wrap_text=True, vertical="top")
+    for riga in foglio.iter_rows():
+        for cella in riga:
+            cella.data_type = "s"  # niente formule né numeri: "=…" resta testo
+            cella.alignment = a_capo
+    for cella in foglio[1]:
+        cella.font = Font(bold=True)
+        larghezza = LARGHEZZE_XLSX.get(cella.value, 10)
+        foglio.column_dimensions[cella.column_letter].width = larghezza
+    foglio.freeze_panes = "A2"
+    libro.save(percorso)
+
+
+def file_da_leggere(percorso: Path) -> Path | None:
+    """La copia .xlsx se c'è, altrimenti il .csv, o None se non c'è nessuno dei due.
+
+    Si ferma se ci sono tutti e due e il .csv ha domande compilate: si
+    compila una copia sola.
+    """
+    copia = percorso.with_suffix(".xlsx")
+    if not copia.exists():
+        return percorso if percorso.exists() else None
+    if percorso.exists() and compilate(leggi_domande_a_mano(percorso)):
+        raise ErroreMisura(
+            f"{percorso.name} ha domande compilate ma c'è anche {copia.name}: "
+            "si compila una copia sola, l'altra si toglie"
+        )
+    return copia
+
+
+def esegui_contesto_a_mano(
+    percorsi: tuple[Path, ...] = (DOMANDE_A_MANO_2, DOMANDE_A_MANO_3),
+) -> int:
+    """Riscrive i file dati con le colonne del contesto, più la copia .xlsx.
+
+    Prima controlla tutti i file: se uno ha una domanda compilata (nel .csv o
+    nella copia .xlsx) non si scrive niente.
+    """
+    from scripts.diagnostica import genera_contesti as gc
+
+    presenti = [p for p in percorsi if p.exists()]
+    if not presenti:
+        raise ErroreMisura(f"manca {percorsi[0].name}")
+    da_scrivere = []
+    for p in presenti:
+        righe = leggi_domande_a_mano(p)
+        copia = p.with_suffix(".xlsx")
+        piene = compilate(righe) + (
+            compilate(leggi_domande_a_mano(copia)) if copia.exists() else []
+        )
+        if piene:
+            raise ErroreMisura(
+                f"{p.name}: {len(piene)} domande già compilate: non si riscrive"
+            )
+        da_scrivere.append((p, righe))
+    _, fatti, file_per_bando = fatti_intera(TARATURA)
+    chiavi = {chiave_a_mano(r) for _, righe in da_scrivere for r in righe}
+    try:
+        documenti = gc.leggi_documenti()
+    except gc.ArrestoGenerazione as errore:
+        raise ErroreMisura(str(errore)) from errore
+    contesti = contesto_delle_frasi(
+        [f for f in fatti if chiave_a_mano(f) in chiavi], file_per_bando, documenti
+    )
+    for p, righe in da_scrivere:
+        nuove = righe_con_contesto(righe, fatti, contesti)
+        scrivi_csv_a_mano(p, nuove, COLONNE_MANO_CONTESTO)
+        scrivi_xlsx_a_mano(p.with_suffix(".xlsx"), nuove, COLONNE_MANO_CONTESTO)
+        mancate = sum(NON_TROVATA in r["file"] for r in nuove)
+        pezzi = sum("[pezzo " in r["testo_prima"] for r in nuove)
+        print(
+            f"Riscritto {p} e {p.with_suffix('.xlsx').name}: {len(nuove)} righe, "
+            f"{pezzi} a più pezzi, {mancate} con un pezzo non trovato"
+        )
     return 0
 
 
@@ -5395,16 +5691,19 @@ def con_domande_a_mano(
 
 def con_i_file_a_mano(
     fatti: list[dict],
-    percorsi: tuple[Path, ...] = (DOMANDE_A_MANO, DOMANDE_A_MANO_2),
+    percorsi: tuple[Path, ...] = (DOMANDE_A_MANO, DOMANDE_A_MANO_2, DOMANDE_A_MANO_3),
 ) -> list[dict]:
-    """I fatti di tutti i file a mano che ci sono, insieme, senza le righe vuote."""
-    presenti = [p for p in percorsi if p.exists()]
+    """I fatti di tutti i file a mano che ci sono (la copia .xlsx se c'è),
+    insieme, senza le righe vuote; si ferma se un fatto compare due volte."""
+    presenti = [p for p in map(file_da_leggere, percorsi) if p is not None]
     if not presenti:
         raise ErroreMisura(f"manca {percorsi[0].name}")
     uscita, viste = [], set()
     for percorso in presenti:
         dal_file = con_domande_a_mano(fatti, percorso, salta_vuote=True)
         chiavi = {chiave_a_mano(f) for f in dal_file}
+        if len(chiavi) < len(dal_file):
+            raise ErroreMisura(f"{percorso.name}: un fatto compare due volte")
         if viste & chiavi:
             raise ErroreMisura(
                 f"{percorso.name}: fatti già in un altro file {sorted(viste & chiavi)}"
@@ -6053,8 +6352,9 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
         "--domande-a-mano",
         action="store_true",
         help=(
-            "con --contesto: i fatti di domande_a_mano.csv e, se c'è, di "
-            "domande_a_mano_2.csv, domanda scritta a mano; righe vuote saltate"
+            "con --contesto: i fatti di domande_a_mano.csv e, se ci sono, di "
+            "domande_a_mano_2 e _3 (.xlsx se c'è, altrimenti .csv), domanda "
+            "scritta a mano; righe vuote saltate"
         ),
     )
     parser.add_argument(
@@ -6076,6 +6376,19 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
         "--prepara-domande-a-mano-2",
         action="store_true",
         help="scrive domande_a_mano_2.csv (altri 30 fatti, non nel primo file)",
+    )
+    parser.add_argument(
+        "--prepara-domande-a-mano-3",
+        action="store_true",
+        help="scrive domande_a_mano_3.csv (tutti i fatti non nei primi due file)",
+    )
+    parser.add_argument(
+        "--contesto-domande-a-mano",
+        action="store_true",
+        help=(
+            "riscrive domande_a_mano_2 e _3 con il testo intorno alla frase, "
+            "solo se nessuna domanda è compilata, più una copia .xlsx"
+        ),
     )
     parser.add_argument("--modello", choices=sorted(MODELLI), default="v0")
     parser.add_argument(
@@ -6153,6 +6466,8 @@ def main(argv: list[str] | None = None) -> int:
         argomenti.argomenti_contesto,
         argomenti.prepara_domande_a_mano,
         argomenti.prepara_domande_a_mano_2,
+        argomenti.prepara_domande_a_mano_3,
+        argomenti.contesto_domande_a_mano,
     )
     if sum(comandi) != 1:
         print(
@@ -6161,7 +6476,8 @@ def main(argv: list[str] | None = None) -> int:
             "--apistici, --prepara-vettori, --esatta, --peso, --esatta-intera "
             "--riepilogo-intero, --notte, --scarica-riordinatore, --parte-97, "
             "--contesto, --rapporto-contesto, --argomenti-contesto o "
-            "--prepara-domande-a-mano o --prepara-domande-a-mano-2.",
+            "--prepara-domande-a-mano, --prepara-domande-a-mano-2, "
+            "--prepara-domande-a-mano-3 o --contesto-domande-a-mano.",
             file=sys.stderr,
         )
         return 2
@@ -6209,6 +6525,10 @@ def main(argv: list[str] | None = None) -> int:
             return esegui_prepara_a_mano()
         if argomenti.prepara_domande_a_mano_2:
             return esegui_prepara_a_mano(secondo=True)
+        if argomenti.prepara_domande_a_mano_3:
+            return esegui_prepara_a_mano(terzo=True)
+        if argomenti.contesto_domande_a_mano:
+            return esegui_contesto_a_mano()
         if argomenti.notte == 4:
             if not argomenti.riordinatore:
                 return esegui_rapporto_riordino(lato)

@@ -77,7 +77,9 @@ tecnico (18/11/2026)".
 
 I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
 1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
-A, attese con polarità); 19 (19a, 19b e 19c fatti, 19d in chiusura, poi 19e); 20 (prima
+A, attese con polarità); 19 (19a, 19b e 19c fatti, 19d in corso: il lavoro
+è il piano delle domande a mano, `docs/coda.md`, "Passo 19d", punto 13,
+voce 10; poi 19e); 20 (prima
 della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
 baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
 Il passo 21 si fa prima di dare il link della demo a chiunque oltre al

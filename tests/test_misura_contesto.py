@@ -270,6 +270,183 @@ def test_i_due_file_insieme(tmp_path):
         mr.con_i_file_a_mano(fatti, (uno, due))
 
 
+# --- contesto delle frasi, terzo file, copia .xlsx (21/11/2026 sera) ---
+
+
+def test_testo_prima_e_dopo_senza_parole_tagliate():
+    testo = "uno due tre quattro FRASE cinque sei sette otto"
+    a = testo.index("FRASE")
+    b = a + len("FRASE")
+    assert mr.testo_prima(testo, a, 100) == "uno due tre quattro"
+    assert mr.testo_dopo(testo, b, 100) == "cinque sei sette otto"
+    # 10 caratteri: "e quattro " -> la parola "tre" tagliata si toglie
+    assert mr.testo_prima(testo, a, 10) == "… quattro"
+    assert mr.testo_dopo(testo, b, 9) == "cinque …"
+
+
+def test_celle_di_una_tabella_in_ordine():
+    testo = "1. Criterio uno (max 10 punti) 2. Criterio due (max 10 punti) dopo"
+    fr = Frammento(-1, 0, testo, len(testo))
+    a, b = mr.tratto_del_pezzo(["Criterio due", "(max 10 punti)"], fr)
+    assert testo[a:b] == "Criterio due (max 10 punti)"
+    # ogni cella per sé prende il primo "(max 10 punti)", prima del criterio
+    assert mr.contiene(["Criterio due", "(max 10 punti)"], fr)[0] < a
+    # celle in un altro ordine nel testo: come contiene
+    assert mr.tratto_del_pezzo(["dopo", "Criterio uno"], fr) == mr.contiene(
+        ["dopo", "Criterio uno"], fr
+    )
+    assert mr.tratto_del_pezzo(["assente"], fr) is None
+
+
+def documenti_finti(fatti):
+    testo = " ".join(
+        f"Testo prima della frase. Frase {mr.riga_nel_foglio(f['riga'])} bis. "
+        "Testo dopo la frase."
+        for f in fatti
+    )
+    return [
+        gc.Documento(
+            fonte="a.pdf",
+            id_bando="",
+            titolo="Bando prova",
+            atto="",
+            parte="Azione B1",
+            testo=testo,
+        )
+    ]
+
+
+def per_bando_finto(fatti):
+    return {
+        b: [{"nome_file": "a.pdf", "parte": ""}] for b in {f["id_bando"] for f in fatti}
+    }
+
+
+def test_contesto_delle_frasi():
+    fatti = fatti_finti()
+    for f in fatti:
+        f["frase"] = f"Frase {mr.riga_nel_foglio(f['riga'])} bis"
+        f["pagina_fisica"] = 3.0
+    fatti[0]["frase"] += " [...] " + fatti[5]["frase"]
+    fatti[1]["frase"] = "una frase che nel testo non c'è"
+    documenti = documenti_finti(fatti)
+    contesti = mr.contesto_delle_frasi(fatti[:3], per_bando_finto(fatti), documenti)
+    uno = contesti[mr.chiave_a_mano(fatti[2])]
+    assert set(uno) == set(mr.COLONNE_CONTESTO)
+    assert uno["file"] == "a.pdf (Azione B1)"
+    assert uno["pagina"] == "3"
+    assert uno["testo_prima"].endswith("Testo prima della frase.")
+    assert uno["testo_dopo"].startswith(". Testo dopo la frase.")
+    assert uno["spiegata"] == ""
+    # due pezzi: un contesto per pezzo, il file una volta sola
+    due = contesti[mr.chiave_a_mano(fatti[0])]
+    assert due["file"] == "a.pdf (Azione B1)"
+    assert due["testo_prima"].startswith("[pezzo 1] ")
+    assert "\n\n[pezzo 2] " in due["testo_prima"]
+    assert "\n\n[pezzo 2] " in due["testo_dopo"]
+    assert contesti[mr.chiave_a_mano(fatti[1])]["file"] == mr.NON_TROVATA
+
+
+def test_contesto_riscrive_solo_se_le_domande_sono_vuote(tmp_path, monkeypatch):
+    fatti = fatti_finti()
+    for f in fatti:
+        f["frase"] = f"Frase {mr.riga_nel_foglio(f['riga'])} bis"
+    monkeypatch.setattr(
+        mr, "fatti_intera", lambda lato: (None, fatti, per_bando_finto(fatti))
+    )
+    monkeypatch.setattr(gc, "leggi_documenti", lambda: documenti_finti(fatti))
+    righe = mr.righe_a_mano(mr.scelta_a_mano(fatti, seme=mr.SEME_MANO_2))
+    due = tmp_path / "domande_a_mano_2.csv"
+    mr.scrivi_csv_a_mano(due, righe, mr.COLONNE_MANO)
+    assert mr.esegui_contesto_a_mano((due, tmp_path / "manca.csv")) == 0
+    riscritte = mr.leggi_domande_a_mano(due)
+    assert list(riscritte[0]) == mr.COLONNE_MANO_CONTESTO
+    assert [mr.chiave_a_mano(r) for r in riscritte] == [
+        mr.chiave_a_mano(r) for r in righe
+    ]
+    assert all(r["testo_prima"] and r["spiegata"] == "" for r in riscritte)
+    copia = due.with_suffix(".xlsx")
+    assert mr.leggi_domande_a_mano(copia) == riscritte
+    # la misura legge il file con le colonne in più (qui la copia .xlsx)
+    for r in riscritte:
+        r["domanda_a_mano"] = f"mia domanda {r['riga']}"
+    mr.scrivi_xlsx_a_mano(copia, riscritte, mr.COLONNE_MANO_CONTESTO)
+    assert len(mr.con_i_file_a_mano(fatti, (due,))) == 30
+    # una domanda compilata, nel .csv o nella copia: non si riscrive
+    with pytest.raises(mr.ErroreMisura, match="già compilate"):
+        mr.esegui_contesto_a_mano((due,))
+    copia.unlink()
+    riscritte[0]["domanda_a_mano"] = ""
+    mr.scrivi_csv_a_mano(due, riscritte, mr.COLONNE_MANO_CONTESTO)
+    with pytest.raises(mr.ErroreMisura, match="già compilate"):
+        mr.esegui_contesto_a_mano((due,))
+
+
+def test_terzo_file_con_tutti_i_rimanenti(tmp_path, monkeypatch, capsys):
+    fatti = fatti_finti()
+    monkeypatch.setattr(mr, "fatti_intera", lambda lato: (None, fatti, {}))
+    percorsi = tuple(tmp_path / f"domande_a_mano{c}.csv" for c in ("", "_2", "_3"))
+    for nome, p in zip(
+        ("DOMANDE_A_MANO", "DOMANDE_A_MANO_2", "DOMANDE_A_MANO_3"),
+        percorsi,
+        strict=True,
+    ):
+        monkeypatch.setattr(mr, nome, p)
+    assert mr.esegui_prepara_a_mano() == 0
+    with pytest.raises(mr.ErroreMisura, match="manca"):
+        mr.esegui_prepara_a_mano(terzo=True)
+    assert mr.esegui_prepara_a_mano(secondo=True) == 0
+    assert mr.esegui_prepara_a_mano(terzo=True) == 0
+    assert "fuori per l'esclusione" in capsys.readouterr().out
+    file = [mr.leggi_domande_a_mano(p) for p in percorsi]
+    # 97 fatti, 4 del fondo strade: 93 - 30 - 30
+    assert [len(f) for f in file] == [30, 30, 33]
+    chiavi = [mr.chiave_a_mano(r) for f in file for r in f]
+    assert len(set(chiavi)) == 93
+    for p, righe in zip(percorsi, file, strict=True):
+        for r in righe:
+            r["domanda_a_mano"] = f"mia domanda {r['riga']}"
+        mr.scrivi_csv_a_mano(p, righe, mr.COLONNE_MANO)
+    assert len(mr.con_i_file_a_mano(fatti, percorsi)) == 93
+    # un fatto due volte, tra due file o nello stesso: si ferma
+    mr.scrivi_csv_a_mano(percorsi[2], file[2] + file[1][:1], mr.COLONNE_MANO)
+    with pytest.raises(mr.ErroreMisura, match="già in un altro file"):
+        mr.con_i_file_a_mano(fatti, percorsi)
+    mr.scrivi_csv_a_mano(percorsi[2], file[2] + file[2][:1], mr.COLONNE_MANO)
+    with pytest.raises(mr.ErroreMisura, match="due volte"):
+        mr.con_i_file_a_mano(fatti, percorsi)
+
+
+def test_copia_xlsx_testo_a_capo_e_letta_dalla_misura(tmp_path):
+    from openpyxl import load_workbook
+
+    fatti = fatti_finti()
+    for f in fatti:
+        f["frase"] = f"=1+{f['riga']} non è una formula"
+    righe = mr.righe_a_mano(mr.scelta_a_mano(fatti))
+    for r in righe:
+        r["domanda_a_mano"] = f"mia domanda {r['riga']}\nsu due righe"
+    csv_ = tmp_path / "mano.csv"
+    copia = csv_.with_suffix(".xlsx")
+    mr.scrivi_xlsx_a_mano(copia, righe, mr.COLONNE_MANO)
+    foglio = load_workbook(copia).active
+    assert foglio.freeze_panes == "A2"
+    assert all(c.alignment.wrap_text for riga in foglio.iter_rows() for c in riga)
+    assert all(c.data_type == "s" for riga in foglio.iter_rows() for c in riga)
+    lette = mr.leggi_domande_a_mano(copia)
+    assert [r["domanda_a_mano"] for r in lette] == [r["domanda_a_mano"] for r in righe]
+    assert lette[0]["riga"] == str(righe[0]["riga"])
+    # c'è solo la copia: la misura legge quella
+    assert mr.file_da_leggere(csv_) == copia
+    assert len(mr.con_i_file_a_mano(fatti, (csv_,))) == 30
+    # anche il .csv con domande compilate: si ferma
+    mr.scrivi_csv_a_mano(csv_, righe, mr.COLONNE_MANO)
+    with pytest.raises(mr.ErroreMisura, match="una copia sola"):
+        mr.con_i_file_a_mano(fatti, (csv_,))
+    copia.unlink()
+    assert mr.file_da_leggere(csv_) == csv_
+
+
 # --- regole ---
 
 

@@ -899,6 +899,12 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
       l'app chiede quale bando. Un candidato: filtro su quel bando; due o
       tre: mostra i nomi e chiede; nessuno: cerca in tutto e lo dice; bando
       in più parti (gli allegati degli apistici): chiede la parte.
+      Accanto (22/11/2026, da non fare ora): l'app chiede un chiarimento
+      anche quando il bando è chiaro ma la domanda è vaga, invece di
+      rispondere a caso. Serve un segnale calcolabile, per esempio il
+      punteggio del riordinatore basso sul primo frammento, oppure i primi
+      quasi alla pari su argomenti diversi. Si misura sulle domande a
+      mano: quanto il segnale distingue i fatti trovati da quelli mancati.
    8. **Strade da provare, nell'ordine** (superato dal perimetro del
       punto 10, 20/11/2026 sera: la strada 1 è fatta, punto 3; la 2 resta;
       la 3 è l'unica strada nuova, limitata al contesto per frammento; il
@@ -1206,6 +1212,34 @@ o cicli (punto 6 delle Indicazioni del revisore tecnico; oggi in coda.md,
             -1 a +2 su 29 non decide;
           - la regola di conferma sulla metà di controllo si scrive dopo la
             revisione esterna e prima dell'apertura.
+      10. **Piano delle domande a mano** (deciso il 21/11/2026 sera):
+          - chi mantiene il progetto scrive una domanda a mano per tutti i
+            fatti dei due fogli, circa 190, in blocchi da 30-35;
+          - prima la taratura (primo file già fatto, 29 domande; poi il
+            secondo e il terzo), poi misura di c-0 e c-LR soltanto;
+          - poi revisione esterna, configurazione candidata e regola di
+            conferma scritte e committate;
+          - solo dopo si scrivono le domande sui fatti di controllo, e la
+            metà di controllo si apre una volta sola, con le domande dei
+            fogli e con quelle a mano;
+          - nessun modello scrive o riscrive una domanda. Si può spiegare
+            cosa dice una frase; le righe spiegate si segnano nella colonna
+            "spiegata" e si misurano anche a parte;
+          - la regola per leggere il risultato sulle domande a mano di
+            taratura si scrive prima di misurare: non è ancora scritta.
+
+          File della taratura (22/11/2026, in
+          `dati-grezzi/prova/19d/contesto/`): `domande_a_mano.csv` 30
+          fatti, 29 domande (la riga 93 del foglio 2 è vuota);
+          `domande_a_mano_2` 30 fatti e `domande_a_mano_3` 33 fatti (tutti
+          i rimanenti), in .csv e in copia .xlsx, con file, pagina, testo
+          prima e dopo la frase presi dal testo pulito e la colonna
+          "spiegata", domande vuote. In tutto 93 fatti: i 4 del fondo
+          strade restano fuori, perché i suoi contesti si sono visti nella
+          prova della generazione (il file della prova è l'avviso del fondo
+          strade). Questo piano supera le "altre 30 domande a mano" della
+          voce 9; la regola fissata lì ("un netto da -1 a +2 su 29 non
+          decide") era per il secondo blocco da solo.
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):
