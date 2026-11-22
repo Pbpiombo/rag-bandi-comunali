@@ -301,6 +301,26 @@ Conseguenze:
   "il bando rimanda a quel documento, che non è tra quelli caricati".
   Caricare i documenti richiamati resta in "Parcheggio".
 
+Aggiunte (22/11/2026, prima della misura delle domande a mano):
+- **Più bandi insieme.** Nel passo 1 si possono selezionare più bandi
+  insieme; la scheda del passo 2 e le domande del passo 3 valgono per
+  tutti quelli selezionati.
+- **Durata della selezione.** Nella prima parte la selezione vale per la
+  sessione in corso. Il salvataggio dei bandi scelti sta nella seconda
+  parte, quella che accompagna nella stesura della domanda.
+- **Segnalazione degli errori**, da definire nel passo 20 ("Tasto di
+  segnalazione sulla risposta", più sotto): un comando in fondo a ogni
+  risposta, con un campo libero; in più, solo nell'elenco del passo 1, un
+  comando leggero per ogni bando ("non c'entra con la mia domanda"), che
+  serve a misurare la precisione della selezione con dati veri. Le
+  segnalazioni stanno nel database, mai in un file del repository, con
+  un avviso a non scrivere dati personali.
+- **Domande puntuali e domande a elenco** ("come ottengo di più?", "cosa
+  posso comprare?"): le seconde hanno la risposta in più passaggi. La
+  misura del 19d le conta trovate solo se compare il passaggio del
+  fatto: è un limite della misura da ricordare quando si leggono i
+  mancati, e un motivo in più per la scheda del passo 2.
+
 ## Prossimi passi, voci numerate
 
 - (era la voce 1 dei Prossimi passi) **Scheda per bando**: per chi è e per cosa si può usare, divisa per tipo di

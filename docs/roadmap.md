@@ -256,7 +256,12 @@ Ordine previsto: PDF, valutazione, fascicolo.
     risposta"; un campo libero facoltativo; salvataggio su Supabase solo
     quando l'utente preme il tasto. Dopo il passo 19c e comunque prima
     della videochiamata con il consulente pilota (prima settimana di
-    dicembre).
+    dicembre). Dal 22/11/2026 (disegno dell'app): in più, solo
+    nell'elenco dei bandi, un comando leggero per bando ("non c'entra con
+    la mia domanda") per misurare la precisione della selezione; le
+    segnalazioni stanno nel database, mai in un file del repository, con
+    l'avviso a non scrivere dati personali. Dettaglio in `coda.md`,
+    "Disegno dell'app (22/11/2026)".
 21. **Limite di 3 domande per sessione e tetto giornaliero
     complessivo** (`coda.md`, "Sezione riservata", parte sul limite).
     Prima di dare il link della demo a chiunque oltre al consulente
@@ -329,7 +334,9 @@ Ordine previsto: PDF, valutazione, fascicolo.
 - **Disegno dell'app** (22/11/2026, da chi mantiene il progetto; non si
   costruisce ora): prima parte in tre passi, elenco dei bandi con
   selezione e "approfondisci", scheda dei bandi scelti (passo 22),
-  domande puntuali sul bando scelto; la compilazione viene dopo. Errori
+  domande puntuali sul bando scelto, anche su più bandi selezionati
+  insieme; la selezione vale per la sessione, il salvataggio dei bandi
+  scelti sta nella seconda parte, la compilazione, che viene dopo. Errori
   gravi: perdere un bando adatto, un dato sbagliato nella scheda, una
   risposta sbagliata data con sicurezza; tollerabili: due bandi in più se
   pertinenti, una voce vuota, "non lo trovo". Traguardo indicato: 85-90%
