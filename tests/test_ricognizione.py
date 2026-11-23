@@ -15,7 +15,7 @@ import pytest
 
 import scripts.ingestione.estrai_nuovi as estrai_nuovi
 import scripts.ingestione.ricognizione as ricognizione
-from src.estrazione import elenco
+from src.estrazione import elenco, registro
 from src.estrazione.pdf_bando import INTESTAZIONI_PROGETTO
 from src.estrazione.salva import salva
 from tests.test_lettore_siti import Errore, ReteFinta
@@ -51,13 +51,15 @@ def _elenco(*slug: str) -> bytes:
     )
 
 
-def _in_archivio(id_bando: str, slug: str, scadenza: str | None) -> None:
+def _in_archivio(
+    id_bando: str, slug: str, scadenza: str | None, a_sportello: int = 0
+) -> None:
     salva(
         {
             "id": id_bando,
             "titolo": f"Bando {id_bando}",
             "ente": "Regione Toscana",
-            "a_sportello": 0,
+            "a_sportello": a_sportello,
             "beneficiari": "Comuni",
             "scadenza": scadenza,
         },
@@ -389,3 +391,117 @@ def test_improrogabile_non_da_la_nota(cartella_salvata):
     rapporto = ricognizione.ricognisci(lettore, OGGI)
 
     assert _note(rapporto, "bando-uguale") == {}
+
+
+# --- voci gia' viste, bandi a sportello, titoli ---
+
+
+def _gia_vista(slug: str, motivo: str) -> None:
+    registro.registra(_url(slug), "regione-toscana", slug, "scartato", motivo)
+
+
+def test_una_voce_gia_scartata_non_e_tra_i_nuovi_e_non_si_richiede(
+    db_su_file, tmp_path
+):
+    """Scartata per scadenza (2021) o perche' non e' un bando: esito
+    definitivo. Va tra le gia' viste con il motivo di allora, e la sua
+    pagina non si chiede: ReteFinta rifiuta ogni indirizzo non previsto."""
+    _gia_vista("bando-vecchio-2021", "scaduto il 2021-10-30")
+    _gia_vista("graduatoria-2025", "non e' un bando: graduatoria")
+    lettore, rete = _lettore(
+        tmp_path,
+        {
+            ROBOTS: ROBOTS_REGIONE,
+            ELENCO_REGIONE: _elenco("bando-vecchio-2021", "graduatoria-2025"),
+            ELENCO_MONTAGNA: _elenco(),
+        },
+    )
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    gruppi = _gruppi(rapporto)
+    assert ricognizione.NUOVI not in gruppi
+    assert gruppi[ricognizione.GIA_VISTE] == {"bando-vecchio-2021", "graduatoria-2025"}
+    assert _url("bando-vecchio-2021") not in rete.url_chiamati()
+    assert _url("graduatoria-2025") not in rete.url_chiamati()
+    [vecchio] = [r for r in rapporto.righe if r.id_bando == "bando-vecchio-2021"]
+    assert "scartato" in vecchio.nota and "scaduto il 2021-10-30" in vecchio.nota
+    assert vecchio.scadenza_pagina == ""
+
+
+def test_una_voce_con_esito_non_definitivo_si_rilegge(db_su_file, tmp_path):
+    """ "Scadenza non determinata" non e' definitivo; uno scaduto da meno di
+    GIORNI_FINESTRA giorni si rilegge per le proroghe. Le due pagine si
+    chiedono e la scadenza letta va nella riga delle gia' viste."""
+    _gia_vista("bando-incerto-2026", "scadenza non determinata")
+    _gia_vista("bando-appena-scaduto-2026", "scaduto il 2026-11-01")
+    lettore, rete = _lettore(
+        tmp_path,
+        {
+            ROBOTS: ROBOTS_REGIONE,
+            ELENCO_REGIONE: _elenco("bando-incerto-2026", "bando-appena-scaduto-2026"),
+            ELENCO_MONTAGNA: _elenco(),
+            _url("bando-incerto-2026"): _pagina("31.12.2026"),
+            _url("bando-appena-scaduto-2026"): _pagina("15.12.2026"),
+        },
+    )
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    assert _url("bando-incerto-2026") in rete.url_chiamati()
+    assert _url("bando-appena-scaduto-2026") in rete.url_chiamati()
+    viste = {
+        r.id_bando: r.scadenza_pagina
+        for r in rapporto.righe
+        if r.gruppo == ricognizione.GIA_VISTE
+    }
+    assert viste == {
+        "bando-incerto-2026": "2026-12-31",
+        "bando-appena-scaduto-2026": "2026-12-15",
+    }
+
+
+def test_un_bando_a_sportello_senza_campo_va_tra_gli_invariati(db_su_file, tmp_path):
+    """A sportello in archivio, nessuna data nel campo della pagina: non
+    e' da verificare, e' invariato con la nota "a sportello". Lo stesso
+    caso, non a sportello, resta da verificare."""
+    _in_archivio("sportello", "sportello-2026", None, a_sportello=1)
+    _in_archivio("senza-campo", "senza-campo-2026", None)
+    senza_campo = b"<html><body><p>Domande fino a esaurimento</p></body></html>"
+    lettore, _ = _lettore(
+        tmp_path,
+        {
+            ROBOTS: ROBOTS_REGIONE,
+            ELENCO_REGIONE: _elenco("sportello-2026", "senza-campo-2026"),
+            ELENCO_MONTAGNA: _elenco(),
+            _url("sportello-2026"): senza_campo,
+            _url("senza-campo-2026"): senza_campo,
+        },
+    )
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    assert _note(rapporto, "sportello") == {ricognizione.INVARIATI: "a sportello"}
+    assert set(_note(rapporto, "senza-campo")) == {ricognizione.DA_VERIFICARE}
+
+
+@pytest.mark.parametrize(
+    ("slug", "titolo"),
+    [
+        # dagli elenchi della Regione letti il 23/11/2026
+        (
+            "riconoscimento-delle-attivit-c3-a0-di-formazione",
+            "Riconoscimento delle attività di formazione",
+        ),
+        (
+            "concorso-per-2-unit%C3%A0-di-istruttore",
+            "Concorso per 2 unità di istruttore",
+        ),
+        ("2%c2%b0-bando-per-accoglienza", "2° bando per accoglienza"),
+        ("selezione-per%C2%A0dirigente-medico", "Selezione per dirigente medico"),
+        # parole che somigliano a byte restano parole
+        ("bando-de-ab-2026", "Bando de ab 2026"),
+    ],
+)
+def test_titolo_leggibile_decodifica_le_lettere_accentate(slug, titolo):
+    assert ricognizione.titolo_leggibile(slug) == titolo

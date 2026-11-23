@@ -506,6 +506,26 @@ il 23/11/2026):
      sulle pagine salvate dalla ricognizione; poi un piano breve in
      `docs/`; si costruisce dopo la videochiamata di dicembre, dove si
      chiede al consulente pilota quali voci userebbe.
+   - (23/11/2026) La prima ricognizione ha riletto 111 pagine già viste,
+     per una definizione troppo larga di "nuovi": 166 richieste invece
+     delle 62 stimate, tutte permesse dal robots.txt, con le pause e con
+     codice 200. Corretto lo stesso giorno: "nuovi" sono le voci degli
+     elenchi che non sono né in `bandi` né in `scansioni`; quelle in
+     `scansioni` vanno nel gruppo "già viste", con l'esito e il motivo di
+     allora, e la loro pagina si rilegge solo se l'esito non è definitivo
+     o se erano scadute da non più di 60 giorni. Un bando a sportello in
+     archivio senza scadenza nel campo della pagina va tra gli
+     "invariati" con la nota "a sportello", non tra i "da verificare".
+   - (23/11/2026) Esito della ricognizione: 5 voci mai viste, 6 bandi con
+     scadenza diversa tra archivio e pagina, 2 scaduti dal 13/11, nessuno
+     sparito, nessuno vietato.
+   - (23/11/2026) Osservazione: in due dei sei casi (mercati rionali,
+     percorsi formativi) l'archivio ha una data successiva a quella del
+     campo della pagina, e il testo della pagina dice la proroga: il
+     campo non sempre viene aggiornato dopo una proroga.
+   - (23/11/2026) L'elenco "bandi aperti" del Portale contiene voci
+     scadute da anni (dal 2013): conferma che lo stato si calcola dalla
+     scadenza.
 - (era la voce 4 dei Prossimi passi, → D) **Pratiche (progetti seguiti)**: per un beneficiario preciso, una
    scheda strutturata (attività con forma giuridica, ATECO, sede,
    dimensione; bandi seguiti con stato; scadenze; documenti; note), ogni

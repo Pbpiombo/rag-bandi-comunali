@@ -7,8 +7,11 @@ Uso:
 Legge, attraverso Lettore (robots.txt, intestazione del progetto, pausa
 per host, stop su 401 e 403, registro richieste.csv):
 - i due elenchi attivi della Regione (tabella elenchi);
-- la pagina di ogni voce nuova degli elenchi (non in archivio), per la
-  sua scadenza;
+- la pagina di ogni voce nuova degli elenchi (non in archivio e mai
+  esaminata), per la sua scadenza;
+- la pagina delle voci gia' esaminate (in scansioni, non in archivio)
+  solo se l'esito di allora non e' definitivo o se erano scadute da non
+  piu' di GIORNI_FINESTRA giorni;
 - la pagina di ogni bando della Regione in archivio aperto, senza
   scadenza o scaduto da non piu' di GIORNI_FINESTRA giorni.
 
@@ -18,9 +21,16 @@ confronta con quella in archivio. Scrive un solo rapporto CSV,
 ricognizione.csv, nella cartella del giorno dati-grezzi/scansioni/<data>/,
 accanto a richieste.csv, con una riga per bando e gruppo (un bando puo'
 stare in piu' gruppi):
-- nuovi: voci degli elenchi che non sono in archivio, con la scadenza
-  letta dalla pagina, o "non leggibile" (NON_LEGGIBILE); vuota, con il
-  motivo nella nota, se la pagina non si e' letta;
+- nuovi: voci degli elenchi che non sono in archivio (bandi) ne' in
+  scansioni, con la scadenza letta dalla pagina, o "non leggibile"
+  (NON_LEGGIBILE); vuota, con il motivo nella nota, se la pagina non si
+  e' letta;
+- gia' viste: voci degli elenchi in scansioni e non in archivio, con
+  l'esito e il motivo di allora nella nota. La pagina si rilegge solo se
+  quell'esito non e' definitivo (definitivi: "salvato", e gli scarti con
+  i motivi di registro.DEFINITIVI, scaduto o non e' un bando) o se la
+  scadenza di allora cade negli ultimi GIORNI_FINESTRA giorni; allora la
+  riga ha anche la scadenza della pagina, come per i nuovi;
 - cambiati: scadenza della pagina diversa da quella in archivio;
 - scaduti dal 13/11: scadenza tra ULTIMA_SCANSIONE e ieri, quella della
   pagina se si legge, se no quella dell'archivio;
@@ -29,7 +39,11 @@ stare in piu' gruppi):
 - vietati: indirizzi vietati dal robots.txt, mai richiesti;
 - da verificare: scadenza non leggibile, o pagina non letta;
 - invariati: bandi in archivio riletti senza differenze, elencati solo
-  se hanno una nota (oggi: possibile proroga).
+  se hanno una nota: possibile proroga, o "a sportello" per un bando a
+  sportello in archivio senza scadenza leggibile nel campo della pagina.
+
+I titoli delle voci vengono dallo slug: le lettere scritte come %c3%a0
+o come "c3-a0" si decodificano (titolo_leggibile).
 
 Per ogni pagina letta, dei bandi in archivio e dei nuovi, se il testo o i
 nomi dei file collegati contengono una parola di proroga
@@ -55,10 +69,12 @@ estrai_nuovi e riclassifica_bandi.
 """
 
 import csv
+import re
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import unquote
 
 from src.database.schema import connetti
 from src.estrazione.elenco import (
@@ -77,6 +93,7 @@ from src.estrazione.indirizzi import url_canonico
 from src.estrazione.lettore_siti import VIETATO
 from src.estrazione.pagina import a_testo
 from src.estrazione.proroga import nota_di_proroga
+from src.estrazione.registro import DEFINITIVI
 from src.estrazione.scadenza import preselezione
 
 FONTE = "regione-toscana"
@@ -89,16 +106,42 @@ ULTIMA_SCANSIONE = date(2026, 11, 13)
 GIORNI_FINESTRA = 60
 
 NUOVI = "nuovi"
+GIA_VISTE = "già viste"
 CAMBIATI = "cambiati"
 SCADUTI = "scaduti dal 13/11"
 SPARITI = "spariti"
 VIETATI = "vietati dal robots.txt"
 DA_VERIFICARE = "da verificare"
 INVARIATI = "invariati"
-GRUPPI = (NUOVI, CAMBIATI, SCADUTI, SPARITI, VIETATI, DA_VERIFICARE, INVARIATI)
+GRUPPI = (
+    NUOVI,
+    GIA_VISTE,
+    CAMBIATI,
+    SCADUTI,
+    SPARITI,
+    VIETATI,
+    DA_VERIFICARE,
+    INVARIATI,
+)
 
 # La scadenza di un bando nuovo quando la pagina si legge ma il campo no
 NON_LEGGIBILE = "non leggibile"
+
+# La nota di un bando a sportello in archivio senza scadenza nel campo
+A_SPORTELLO = "a sportello"
+
+# La data di uno scarto per scadenza registrato in scansioni
+SCADUTO_IL = re.compile(r"scaduto il (\d{4}-\d{2}-\d{2})")
+
+# Una lettera non ASCII scritta in UTF-8 con i byte come "-c3-a0" (il
+# sito toglie i "%"), con il trattino davanti, che stava al posto del
+# primo "%". Solo i byte d'inizio c2 e c3 (lettere accentate, °, spazio
+# fisso) ed e2 (apostrofo e virgolette tipografiche): con tutti, parole
+# come "de-ab" sembrerebbero lettere.
+BYTE_NELLO_SLUG = re.compile(
+    r"-?\b(c[23]-[89ab][0-9a-f]|e2-[89ab][0-9a-f]-[89ab][0-9a-f])(?=-|/|$)",
+    re.IGNORECASE,
+)
 
 COLONNE = [
     "gruppo",
@@ -166,8 +209,8 @@ def bandi_da_ricontrollare(oggi: date) -> list[dict]:
     return [dict(r) for r in righe]
 
 
-def gia_esaminati() -> dict[str, str]:
-    """Per URL canonico, l'esito registrato in scansioni: per i nuovi."""
+def gia_esaminati() -> dict[str, dict]:
+    """Per URL canonico, l'esito registrato in scansioni."""
     conn = connetti()
     try:
         righe = conn.execute(
@@ -175,11 +218,45 @@ def gia_esaminati() -> dict[str, str]:
         ).fetchall()
     finally:
         conn.close()
-    return {
-        r["url"]: f"in scansioni: {r['esito']} il {r['esaminato_il']}"
-        + (f" ({r['motivo']})" if r["motivo"] else "")
-        for r in righe
-    }
+    return {r["url"]: dict(r) for r in righe}
+
+
+def _nota_di_allora(esame: dict) -> str:
+    return f"in scansioni: {esame['esito']} il {esame['esaminato_il']}" + (
+        f" ({esame['motivo']})" if esame["motivo"] else ""
+    )
+
+
+def da_rileggere(esame: dict, oggi: date) -> bool:
+    """Una voce gia' esaminata si rilegge se l'esito di allora non e'
+    definitivo, o se era scaduta da non piu' di GIORNI_FINESTRA giorni
+    (per le proroghe)."""
+    motivo = esame["motivo"] or ""
+    if trovata := SCADUTO_IL.match(motivo):
+        scaduto = date.fromisoformat(trovata.group(1))
+        return scaduto >= oggi - timedelta(days=GIORNI_FINESTRA)
+    definitivo = esame["esito"] == "salvato" or (
+        esame["esito"] == "scartato" and motivo.startswith(DEFINITIVI)
+    )
+    return not definitivo
+
+
+def titolo_leggibile(slug: str) -> str:
+    """Il titolo dallo slug, con le lettere non ASCII decodificate.
+
+    "universit-c3-a0" e "universit%c3%a0" diventano "università"; uno
+    spazio scritto come %c2%a0 resta uno spazio; un gruppo di byte che
+    non e' UTF-8 valido resta com'e'.
+    """
+
+    def decodifica(trovato: re.Match) -> str:
+        try:
+            return bytes.fromhex(trovato.group(1).replace("-", "")).decode("utf-8")
+        except UnicodeDecodeError:
+            return trovato.group(0)
+
+    testo = unquote(BYTE_NELLO_SLUG.sub(decodifica, slug)).replace(" ", " ")
+    return re.sub(r"\s+", " ", testo.replace("-", " ")).strip().capitalize()
 
 
 def _etichetta_scadenza() -> str | None:
@@ -190,23 +267,34 @@ def _etichetta_scadenza() -> str | None:
 def _nuovi(
     letti, lettore, righe: list[Riga], oggi: date, etichetta: str | None
 ) -> set[str]:
-    """Le voci nuove degli elenchi, con la scadenza letta dalla loro pagina.
+    """Le voci degli elenchi fuori archivio: nuove o gia' viste.
 
-    La pagina si legge attraverso Lettore: una voce vietata dal robots.txt
-    non si richiede e va tra i vietati; una pagina letta da' la scadenza
-    del campo, o NON_LEGGIBILE; una pagina non letta resta tra i nuovi con
-    il motivo nella nota. Un host fermato interrompe le letture: le voci
-    rimaste restano tra i nuovi, senza scadenza. Restituisce gli URL di
-    tutte le voci degli elenchi.
+    Una voce mai esaminata va tra i nuovi e la sua pagina si legge; una
+    voce in scansioni va tra le gia' viste, con l'esito di allora, e la
+    pagina si legge solo se da_rileggere. La pagina si legge attraverso
+    Lettore: una voce vietata dal robots.txt non si richiede e va tra i
+    vietati; una pagina letta da' la scadenza del campo, o NON_LEGGIBILE;
+    una pagina non letta resta nel suo gruppo con il motivo nella nota.
+    Un host fermato interrompe le letture: le voci rimaste restano nel
+    loro gruppo, senza scadenza. Restituisce gli URL di tutte le voci
+    degli elenchi.
     """
     esaminati = gia_esaminati()
     voci = scopri(letti)
     for v in voci:
         if not v.nuovo:
             continue
-        riga = Riga(NUOVI, id_da_slug(v.slug, v.url), v.url, v.titolo)
-        note = [esaminati.get(url_canonico(v.url), "")]
-        if da_fermare(lettore):
+        esame = esaminati.get(url_canonico(v.url))
+        riga = Riga(
+            GIA_VISTE if esame else NUOVI,
+            id_da_slug(v.slug, v.url),
+            v.url,
+            titolo_leggibile(v.slug),
+        )
+        note = [_nota_di_allora(esame) if esame else ""]
+        if esame and not da_rileggere(esame, oggi):
+            pass  # esito definitivo: la pagina non si rilegge
+        elif da_fermare(lettore):
             note.append("pagina non letta: corsa interrotta")
         else:
             esito, html = leggi_pagina(lettore, v.url)
@@ -318,14 +406,16 @@ def _aggiungi_proroghe(righe: list[Riga], proroghe: list[tuple[Riga, str]]) -> N
 
 
 def _confronto(base: Riga, pagina: date | None, a_sportello) -> list[Riga]:
-    """Da verificare se la scadenza della pagina non si legge, cambiato
-    se e' diversa da quella in archivio. Scrive la scadenza della pagina
-    in base, che vale per le righe successive dello stesso bando."""
+    """Da verificare se la scadenza della pagina non si legge, ma tra gli
+    invariati con la nota A_SPORTELLO se il bando e' a sportello in
+    archivio; cambiato se e' diversa da quella in archivio. Scrive la
+    scadenza della pagina in base, che vale per le righe successive dello
+    stesso bando."""
     base.scadenza_pagina = pagina.isoformat() if pagina else ""
+    if pagina is None and a_sportello:
+        return [_come(base, INVARIATI, A_SPORTELLO)]
     if pagina is None:
         nota = "scadenza non leggibile dal campo della pagina"
-        if a_sportello:
-            nota += "; a sportello in archivio"
         return [_come(base, DA_VERIFICARE, nota)]
     if base.scadenza_pagina != base.scadenza_archivio:
         archivio = base.scadenza_archivio or "senza scadenza"
