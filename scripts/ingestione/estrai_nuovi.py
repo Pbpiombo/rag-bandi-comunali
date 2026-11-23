@@ -21,6 +21,12 @@ dalla pagina, un avviso se si avvicina al limite delta, e i collegamenti
 scartati con l'indirizzo. Ogni elenco letto si conserva, HTML e voci, in
 dati-grezzi/elenchi/<data>/ (ELENCHI_DIR), anche con --prova.
 
+Elenchi e pagine si leggono attraverso Lettore (lettore_della_scansione
+in src/estrazione/elenco.py): robots.txt letto, intestazione del
+progetto, pausa per host, stop su 401 e 403, registro delle richieste in
+dati-grezzi/scansioni/<data>/richieste.csv. Un host fermato interrompe la
+corsa prima di ogni estrazione.
+
 Prima del modello, una preselezione gratuita (src/estrazione/scadenza.py)
 scarica ogni pagina candidata:
 - se il campo della scadenza (etichetta_scadenza della fonte, per la
@@ -58,8 +64,12 @@ from src.estrazione.bandi import (
     valida,
 )
 from src.estrazione.elenco import (
+    da_fermare,
+    descrivi,
     id_da_slug,
     leggi_elenchi,
+    leggi_pagina,
+    lettore_della_scansione,
     riepilogo_elenchi,
     scopri,
 )
@@ -128,16 +138,22 @@ def mostra_elenchi(letti: list) -> None:
     print(riepilogo_elenchi(letti))
 
 
-def scegli_candidati() -> list:
+def scegli_candidati(lettore=None) -> list:
     """I bandi da esaminare, applicando i filtri richiesti.
 
     Gli elenchi letti si conservano in ELENCHI_DIR, anche con --prova.
+    lettore: gli elenchi si leggono attraverso Lettore (main lo passa
+    sempre); se un host si ferma (401, 403, robots.txt illeggibile), la
+    corsa si ferma: nessun candidato.
     """
     codice_fonte = opzione_testo("--fonte")
-    letti = leggi_elenchi(codice_fonte, cartella=ELENCHI_DIR)
+    letti = leggi_elenchi(codice_fonte, cartella=ELENCHI_DIR, lettore=lettore)
     if codice_fonte and not letti:
         print(f"Nessun elenco attivo per la fonte '{codice_fonte}'.")
     mostra_elenchi(letti)
+    if lettore is not None and da_fermare(lettore):
+        print(f"\nINTERROTTO: host fermati {lettore.fermati}")
+        return []
     voci = scopri(letti)
     candidati = [v for v in voci if v.nuovo]
     print(f"Nuovi rispetto all'archivio: {len(candidati)}")
@@ -172,14 +188,23 @@ def avrebbe_saltato(voce, esito: str, scadenza, filtro_anni: bool) -> bool:
     )
 
 
-def preseleziona(candidati: list, prova: bool) -> tuple[list[tuple], set[str]]:
+def preseleziona(
+    candidati: list, prova: bool, lettore=None
+) -> tuple[list[tuple], set[str]]:
     """Scarica le pagine e toglie, senza modello, quelle da non estrarre.
 
     Restituisce (voce, testo ritagliato) per le pagine da mandare al
     modello, e gli slug di quelle che il filtro sull'anno avrebbe
     saltato (vuoto se il filtro e' attivo). Gli scaduti letti dal campo
-    si registrano, salvo in prova. Una pagina che non si scarica va al
-    modello con testo None: esamina riprova a scaricarla e, se fallisce
+    si registrano, salvo in prova.
+
+    Con lettore (main lo passa sempre) le pagine si leggono attraverso
+    Lettore, che fa i suoi tentativi e le sue pause: una pagina che non
+    da' (vietata dal robots.txt, rifiutata, non trovata, in errore) non va
+    al modello e non si registra, cosi' alla prossima scansione torna
+    candidata; un host fermato interrompe la preselezione. Senza lettore
+    (i test che sostituiscono scarica) una pagina che non si scarica va
+    al modello con testo None: esamina riprova a scaricarla e, se fallisce
     ancora, la registra come fallita.
     """
     # Il filtro sull'anno vale per le fonti che lo prevedono, salvo
@@ -190,14 +215,27 @@ def preseleziona(candidati: list, prova: bool) -> tuple[list[tuple], set[str]]:
     senza_scadenza = []
     dal_filtro = set()
 
+    non_letti = 0
+
     print(f"\nPreselezione senza modello di {len(candidati)} pagine...")
     for v in candidati:
-        try:
-            completo = a_testo(scarica(v.url))
-        except (OSError, HTTPException) as errore:
-            print(f"  {v.slug[:60]}: pagina non scaricata ({errore})")
-            al_modello.append((v, None))
-            continue
+        if lettore is not None:
+            esito_lettura, html = leggi_pagina(lettore, v.url)
+            if html is None:
+                non_letti += 1
+                print(f"  {v.slug[:60]}: pagina non letta ({descrivi(esito_lettura)})")
+                if da_fermare(lettore):
+                    print(f"\nINTERROTTO: host fermati {lettore.fermati}")
+                    break
+                continue
+            completo = a_testo(html)
+        else:
+            try:
+                completo = a_testo(scarica(v.url))
+            except (OSError, HTTPException) as errore:
+                print(f"  {v.slug[:60]}: pagina non scaricata ({errore})")
+                al_modello.append((v, None))
+                continue
 
         esito, scadenza = preselezione(
             completo,
@@ -222,8 +260,12 @@ def preseleziona(candidati: list, prova: bool) -> tuple[list[tuple], set[str]]:
             al_modello.append((v, ritaglia(completo)))
             if avrebbe_saltato(v, esito, scadenza, filtro_anni):
                 dal_filtro.add(v.slug)
-        time.sleep(PAUSA_PAGINE)
+        if lettore is None:
+            # con Lettore la pausa per host la fa lui
+            time.sleep(PAUSA_PAGINE)
 
+    if non_letti:
+        print(f"  pagine non lette, non registrate: {non_letti}")
     print(f"  scaduti secondo il campo della pagina: {scaduti}")
     if filtro_anni:
         print(f"  saltati per l'anno nello slug, senza campo leggibile: {anni_passati}")
@@ -371,7 +413,20 @@ def mostra_riepilogo(esiti: dict) -> None:
 
 def main() -> None:
     prova = "--prova" in sys.argv
-    candidati, dal_filtro = preseleziona(scegli_candidati(), prova)
+    # Tutte le letture passano da Lettore, nella cartella del giorno: lo
+    # stesso giorno, elenchi e pagine gia' letti (anche dalla ricognizione)
+    # non si richiedono di nuovo
+    lettore = lettore_della_scansione()
+    print(f"Letture in {lettore.cartella} (registro: {lettore.registro.name})")
+    candidati, dal_filtro = preseleziona(scegli_candidati(lettore), prova, lettore)
+    if da_fermare(lettore):
+        # nessuna estrazione su una lettura interrotta: si guarda il registro
+        print("\nCorsa interrotta: nessuna estrazione, si riprende a mano.")
+        if not prova:
+            # gli scaduti gia' registrati dalla preselezione vanno nel CSV,
+            # perche' database e CSV non si separino
+            aggiorna_csv("scansioni")
+        return
     candidati = candidati[: opzione("--limite", len(candidati))]
 
     print(f"\nCandidati da estrarre: {len(candidati)}")

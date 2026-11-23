@@ -30,9 +30,13 @@ SQLITE_PATH = DATA_DIR / "db" / "comune.sqlite"
 # (src/estrazione/grezzi.py), per rifare la validazione senza ripagarlo.
 # ELENCHI_DIR: la copia di ogni elenco letto dalla scansione, HTML e voci
 # (src/estrazione/elenco.py), per sapere dopo che cosa l'elenco conteneva.
+# SCANSIONI_DIR: una cartella per giorno con le letture della scansione
+# fatte attraverso Lettore (robots.txt, elenchi, pagine, richieste.csv) e
+# il rapporto della ricognizione (scripts/ingestione/ricognizione.py).
 DATI_GREZZI_DIR = ROOT_DIR.parent / "dati-grezzi"
 ESTRAZIONI_DIR = DATI_GREZZI_DIR / "estrazioni"
 ELENCHI_DIR = DATI_GREZZI_DIR / "elenchi"
+SCANSIONI_DIR = DATI_GREZZI_DIR / "scansioni"
 
 # --- Parametri di ingestione ---
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"

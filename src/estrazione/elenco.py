@@ -11,6 +11,12 @@ Di ogni elenco si tengono anche i collegamenti scartati (da schema_link o
 da esclusi) e il totale che la pagina dichiara; se lo script indica una
 cartella, l'elenco letto si conserva li', HTML e voci, per sapere dopo
 che cosa conteneva.
+
+Gli script leggono elenchi e pagine attraverso Lettore
+(lettore_della_scansione, leggi_pagina): robots.txt, intestazione del
+progetto, pausa per host, stop su 401 e 403, registro delle richieste in
+dati-grezzi/scansioni/<data>/ (dal 23/11/2026; la scansione del 13/11
+usava scarica, con l'intestazione di un browser e senza robots.txt).
 """
 
 import csv
@@ -25,8 +31,11 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urljoin, urlsplit
 from zoneinfo import ZoneInfo
 
+from src.config import SCANSIONI_DIR
 from src.database.schema import connetti
+from src.estrazione import lettore_siti
 from src.estrazione.indirizzi import url_canonico
+from src.estrazione.lettore_siti import Esito, Lettore, RobotsIlleggibile
 from src.estrazione.pagina import a_testo, scarica
 
 FUSO = ZoneInfo("Europe/Rome")
@@ -384,14 +393,33 @@ def conserva_elenco(
     return pagina
 
 
-def leggi_elenco(elenco: Elenco, fonte: Fonte, cartella: Path | None = None) -> Letto:
+class LetturaMancata(Exception):
+    """Lettore non ha dato la pagina: vietata, rifiutata, host fermato..."""
+
+
+def leggi_elenco(
+    elenco: Elenco,
+    fonte: Fonte,
+    cartella: Path | None = None,
+    lettore: Lettore | None = None,
+) -> Letto:
     """Scarica un elenco e ne restituisce voci, scartati e totale dichiarato.
 
     L'ordine delle voci e' informativo: i portali presentano per primi i
     bandi pubblicati piu' di recente. Con cartella, l'elenco letto si
     conserva (conserva_elenco); senza, non si scrive nulla.
+
+    lettore: l'elenco si legge attraverso Lettore (robots.txt, intestazione
+    del progetto, pausa per host, registro); un elenco che Lettore non da'
+    solleva LetturaMancata. Senza lettore si usa scarica: resta per i test
+    che la sostituiscono, gli script passano sempre un lettore.
     """
-    html = scarica(elenco.url, timeout=ATTESA_ELENCO)
+    if lettore is None:
+        html = scarica(elenco.url, timeout=ATTESA_ELENCO)
+    else:
+        esito, html = leggi_pagina(lettore, elenco.url, "elenchi")
+        if html is None:
+            raise LetturaMancata(descrivi(esito))
     righe = _analizza(html, elenco.url, fonte)
     copia = conserva_elenco(cartella, elenco, html, righe) if cartella else None
     return Letto(
@@ -405,22 +433,118 @@ def leggi_elenco(elenco: Elenco, fonte: Fonte, cartella: Path | None = None) -> 
 
 
 def leggi_elenchi(
-    codice_fonte: str | None = None, cartella: Path | None = None
+    codice_fonte: str | None = None,
+    cartella: Path | None = None,
+    lettore: Lettore | None = None,
 ) -> list[Letto]:
     """Legge gli elenchi attivi, di tutte le fonti o di quella indicata.
 
     Un elenco che non si scarica non ferma gli altri: il suo errore resta
     nel risultato, e non se ne conserva copia. cartella: dove conservare
     gli elenchi letti; None, il valore predefinito, non scrive nulla.
+    lettore: come in leggi_elenco. Dopo un host fermato (401, 403, 429) o
+    un robots.txt illeggibile, Lettore non fa altre richieste a quell'host:
+    gli elenchi rimasti hanno l'errore, senza richieste.
     """
     letti = []
     for fonte, elenchi in elenchi_attivi(codice_fonte):
         for elenco in elenchi:
             try:
-                letti.append(leggi_elenco(elenco, fonte, cartella))
-            except (OSError, HTTPException) as errore:
+                letti.append(leggi_elenco(elenco, fonte, cartella, lettore))
+            except (OSError, HTTPException, LetturaMancata) as errore:
                 letti.append(Letto(elenco, fonte, [], str(errore)))
     return letti
+
+
+# --- letture attraverso Lettore ---
+
+# Lunghezza massima del nome di un file salvato da Lettore, prima del
+# codice che lo distingue: i percorsi di Windows restano sotto i 260
+# caratteri anche con gli slug lunghi della Regione
+LUNGHEZZA_NOME_FILE = 100
+
+# Esito di una lettura il cui robots.txt non si legge: Lettore solleva
+# RobotsIlleggibile e chi chiama si ferma, senza decidere da solo
+ROBOTS_ILLEGGIBILE = "robots.txt non leggibile"
+
+
+def lettore_della_scansione(
+    cartella: Path | None = None, senza_rete: bool = False, apri=None
+) -> Lettore:
+    """Il Lettore delle scansioni: una cartella per giorno in SCANSIONI_DIR.
+
+    Intestazione del progetto, robots.txt letto prima di ogni host, pausa
+    per host (Crawl-delay o lettore_siti.PAUSA_PREDEFINITA), stop su 401 e
+    403, registro richieste.csv nella cartella. Le richieste hanno il tempo
+    di un elenco (ATTESA_ELENCO), non quello predefinito di Lettore.
+
+    cartella: un'altra cartella al posto di quella del giorno; con
+    senza_rete, nessuna richiesta: valgono solo i file gia' salvati li'.
+    apri: la funzione che apre gli indirizzi, per i test.
+    """
+    if cartella is None:
+        cartella = SCANSIONI_DIR / datetime.now(FUSO).date().isoformat()
+    return Lettore(cartella, apri=apri or apri_scansione, senza_rete=senza_rete)
+
+
+def apri_scansione(url: str, intestazioni: dict):
+    """La richiesta vera di Lettore, con il tempo di un elenco (ATTESA_ELENCO)."""
+    return lettore_siti._apri(url, intestazioni, timeout=ATTESA_ELENCO)
+
+
+def nome_file(url: str) -> str:
+    """Il nome del file di una pagina salvata da Lettore, senza estensione.
+
+    Host, percorso e parametri ripuliti come per gli elenchi conservati;
+    oltre LUNGHEZZA_NOME_FILE caratteri, il nome si taglia e si chiude con
+    un codice dall'URL, perche' due slug lunghi con lo stesso inizio non
+    finiscano nello stesso file.
+    """
+    nome = _nome_elenco(url)
+    if len(nome) <= LUNGHEZZA_NOME_FILE:
+        return nome
+    codice = hashlib.sha1(url.encode("utf-8")).hexdigest()[:8]
+    return f"{nome[:LUNGHEZZA_NOME_FILE].rstrip('-')}-{codice}"
+
+
+def leggi_pagina(
+    lettore: Lettore, url: str, sottocartella: str = "pagine"
+) -> tuple[Esito, str | None]:
+    """Una pagina letta attraverso Lettore: l'esito e l'HTML, o None.
+
+    La pagina si salva in <cartella del lettore>/<sottocartella>/; se c'e'
+    gia' non si richiede (Lettore, "gia' presente"). Un indirizzo vietato
+    dal robots.txt non si richiede e va nel registro come vietato. Un
+    robots.txt illeggibile ferma l'host in Lettore (nel registro come
+    "host fermato") e da' l'esito ROBOTS_ILLEGGIBILE: nessun'altra
+    richiesta all'host, e chi chiama si ferma (da_fermare).
+    """
+    destinazione = lettore.cartella / sottocartella / f"{nome_file(url)}.html"
+    try:
+        esito = lettore.prendi(url, destinazione, "pagina")
+    except RobotsIlleggibile as errore:
+        lettore.ferma(errore.host, str(errore))
+        return Esito(url, ROBOTS_ILLEGGIBILE, nota=str(errore)), None
+    if not esito.presente:
+        return esito, None
+    return esito, destinazione.read_bytes().decode("utf-8", errors="ignore")
+
+
+def descrivi(esito: Esito) -> str:
+    """L'esito di una lettura mancata, in una riga."""
+    parti = [esito.stato]
+    if esito.codice:
+        parti.append(f"HTTP {esito.codice}")
+    if esito.nota:
+        parti.append(esito.nota)
+    return ", ".join(parti)
+
+
+def da_fermare(lettore: Lettore) -> bool:
+    """La corsa si ferma: un host fermato da Lettore (401, 403, 429 o
+    robots.txt illeggibile). Mai un secondo tentativo con un'altra
+    intestazione: Lettore usa sempre quella del progetto."""
+    return bool(lettore.fermati)
 
 
 def riepilogo_elenchi(letti: list[Letto]) -> str:

@@ -411,6 +411,56 @@ il 23/11/2026):
      automatici di GitHub Actions nessuno fa Reboot app, e l'app
      mostrerebbe istruzioni o archivio vecchi. Vedi la voce 12 di "Dopo
      la demo: dalla prova completa del 14 novembre".
+
+   **Letture dei siti e stato dei requisiti** (23/11/2026, scansione in
+   due tempi: ricognizione senza modello, poi estrazione scelta a mano da
+   chi mantiene il progetto). La scansione del 13/11/2026 è stata fatta
+   senza leggere il robots.txt e con l'intestazione di un browser
+   (`INTESTAZIONI` di `src/estrazione/pagina.py`). Dal controllo del
+   23/11/2026, senza rete, gli indirizzi letti allora risultano permessi
+   dal robots.txt della Regione salvato il 19/11/2026, tranne uno su 205:
+   `regione.toscana.it/ricerca-atti`, vietato da `Disallow: */ricerca`.
+   I 205 sono tutti gli indirizzi su `regione.toscana.it` in `scansioni`,
+   di ogni scansione e fonte; permessi anche i due elenchi e i 64 bandi
+   della Regione in archivio.
+   Da questa scansione in poi le letture di elenchi e pagine di
+   `estrai_nuovi` e della ricognizione (`scripts/ingestione/ricognizione.py`)
+   passano da `Lettore` (`src/estrazione/lettore_siti.py`): robots.txt
+   letto, intestazione del progetto, pausa per host, stop su 401 e 403
+   senza un secondo tentativo con un'altra intestazione, registro in
+   `dati-grezzi/scansioni/<data>/richieste.csv`.
+   - chiuso: robots.txt letto prima di elenchi e pagine, in `estrai_nuovi`
+     e nella ricognizione; `scopri_bandi` no, legge ancora con
+     `scarica`;
+   - chiuso: intestazione del progetto su tutte le letture di
+     `estrai_nuovi` e della ricognizione (decisione del 23/11/2026);
+   - in parte: ricontrollo dei bandi aperti e chiusi da poco, per le
+     proroghe. La ricognizione rilegge, senza modello, la pagina dei
+     bandi della Regione aperti o scaduti da non più di 60 giorni e
+     confronta la scadenza del campo con l'archivio; il rapporto non
+     cambia l'archivio, la riestrazione resta a mano. Restano aperti
+     gli scarti "scaduto" di `scansioni` (voce 7, caso SRA28) e
+     l'impronta del testo;
+   - in parte, voce 13: test di `estrai_nuovi` con `Lettore` e pagine
+     finte (pagina vietata, 403 in preselezione), in
+     `tests/test_ricognizione.py`; il percorso fino all'estrazione no;
+   - in parte, voce 9: se un host si ferma durante la preselezione, gli
+     scaduti già registrati si esportano in `scansioni.csv`; il resto
+     della voce resta aperto;
+   - aperti: voce 2, voce 8, impronta del testo, elenchi dei programmi,
+     GitHub Actions e ricostruzione dopo il push. Voce 15 era già fatta.
+   - (23/11/2026) `riclassifica_bandi` non si lancia finché non legge
+     attraverso `Lettore`. Si porta su `Lettore` prima del secondo tempo,
+     solo se la ricognizione trova bandi cambiati.
+   - (23/11/2026) Requisito aperto: togliere il percorso senza `Lettore`
+     da `src/estrazione/elenco.py` e `scripts/ingestione/estrai_nuovi.py`
+     (richiede di portare `tests/test_acquisizione.py` e
+     `tests/test_gal.py` su una rete finta di `Lettore`), e portare su
+     `Lettore` gli altri script che leggono i siti: `scopri_bandi`,
+     `estrai_bando`, `estrai_incentivi`, `importa_incentivi`,
+     `aggiungi_contatti`, `applica_regole_verifica`, `correggi_atti`,
+     `correggi_doppioni_tenuti`, `importi_missione_comune`,
+     `carica_istat`. Fino ad allora non si lanciano contro i siti.
 - (era la voce 4 dei Prossimi passi, → D) **Pratiche (progetti seguiti)**: per un beneficiario preciso, una
    scheda strutturata (attività con forma giuridica, ATECO, sede,
    dimensione; bandi seguiti con stato; scadenze; documenti; note), ogni
@@ -506,6 +556,10 @@ il 23/11/2026):
      compito 19b si prova, sui quattro host della prima prova, se
      un'intestazione che dichiara il progetto viene accettata; se un
      host la rifiuta, decide chi mantiene il progetto, host per host.
+     (23/11/2026: fatto per `estrai_nuovi` e per la ricognizione, che
+     leggono con `Lettore` e l'intestazione del progetto; `scopri_bandi`
+     no. Stato in "Prossimi passi, voci numerate", voce del passo 11,
+     "Letture dei siti e stato dei requisiti".)
    - Il modello di embedding ha `max_seq_length` 128: la parte densa
      della ricerca vede circa il primo terzo di un frammento di 1500
      caratteri. Da misurare al compito 19d prima di cambiare la

@@ -264,9 +264,11 @@ def permesso(regole: RegoleRobots, url: str) -> bool:
     return True if migliore is None else migliore[1]
 
 
-def _apri(url: str, intestazioni: dict):
+def _apri(url: str, intestazioni: dict, timeout: float = TIMEOUT):
+    """La richiesta vera. timeout: le pagine lente (gli elenchi della
+    Regione con 200 voci) lo alzano, senza cambiare il valore per gli altri."""
     richiesta = urllib.request.Request(indirizzo_ascii(url), headers=intestazioni)
-    return urllib.request.urlopen(richiesta, timeout=TIMEOUT)
+    return urllib.request.urlopen(richiesta, timeout=timeout)
 
 
 def host_di(url: str) -> str:
