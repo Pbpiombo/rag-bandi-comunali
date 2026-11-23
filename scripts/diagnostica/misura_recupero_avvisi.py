@@ -4989,6 +4989,12 @@ SEME_MANO = 19_2026_1121
 DOMANDE_A_MANO_2 = CARTELLA_CONTESTO / "domande_a_mano_2.csv"
 SEME_MANO_2 = 19_2026_1122
 DOMANDE_A_MANO_3 = CARTELLA_CONTESTO / "domande_a_mano_3.csv"
+# Controllo (regola del 23/11/2026, coda.md punto 13 voce 19): cinque fatti per
+# bando con un seme fisso, tutti se il bando ne ha meno, senza il fondo strade;
+# stesse colonne e stesso contesto delle frasi del terzo file di taratura.
+DOMANDE_A_MANO_CONTROLLO = CARTELLA_CONTESTO / "domande_a_mano_controllo.csv"
+SEME_MANO_CONTROLLO = 19_2026_1123
+PER_BANDO_CONTROLLO = 5
 COLONNE_CONTESTO = ["file", "pagina", "testo_prima", "testo_dopo", "spiegata"]
 # ordine delle colonne nei file con il contesto: la frase tra il testo prima e
 # quello dopo, la domanda subito dopo
@@ -5766,6 +5772,77 @@ def esegui_contesto_a_mano(
             f"{tabella} di tabella, {pezzi} a più pezzi, "
             f"{mancate} con un pezzo non trovato"
         )
+    return 0
+
+
+def scelta_per_bando(
+    fatti: list[dict],
+    n: int = PER_BANDO_CONTROLLO,
+    seme: int = SEME_MANO_CONTROLLO,
+) -> list[dict]:
+    """n fatti per bando, o tutti se il bando ne ha meno, senza il fondo strade.
+
+    Bandi in ordine di id_bando; dentro ogni bando si estrae con
+    random.Random(seme) dai fatti in ordine di riga. Uscita in ordine di
+    foglio e riga.
+    """
+    per_bando: dict[str, list[dict]] = defaultdict(list)
+    for f in fatti:
+        if f["id_bando"] != ESCLUSO_MANO:
+            per_bando[f["id_bando"]].append(f)
+    generatore = random.Random(seme)
+    scelti = []
+    for b in sorted(per_bando):
+        ordine = sorted(per_bando[b], key=lambda f: int(f["riga"]))
+        scelti += generatore.sample(ordine, min(n, len(ordine)))
+    return sorted(scelti, key=chiave_a_mano)
+
+
+def esegui_prepara_a_mano_controllo(
+    percorso: Path | None = None,
+) -> int:
+    """Scrive il file delle domande a mano del controllo, .csv e copia .xlsx,
+    con le colonne e il contesto delle frasi del terzo file di taratura.
+
+    Legge le frasi della metà di controllo (solo su istruzione esplicita) e
+    il testo pulito dei documenti; nessuna ricerca, nessun riordino, nessun
+    modello. Non sovrascrive: se c'è già uno dei due file si ferma. Stampa
+    solo i conteggi, non le frasi.
+    """
+    from scripts.diagnostica import genera_contesti as gc
+
+    percorso = percorso or DOMANDE_A_MANO_CONTROLLO
+    copia = percorso.with_suffix(".xlsx")
+    for p in (percorso, copia):
+        if p.exists():
+            raise ErroreMisura(f"{p.name} esiste già e non si sovrascrive")
+    _, fatti, file_per_bando = fatti_intera(CONTROLLO)
+    scelti = scelta_per_bando(fatti)
+    try:
+        documenti = gc.leggi_documenti()
+    except gc.ArrestoGenerazione as errore:
+        raise ErroreMisura(str(errore)) from errore
+    contesti = contesto_delle_frasi(scelti, file_per_bando, documenti)
+    nuove = righe_con_contesto(righe_a_mano(scelti), fatti, contesti)
+    percorso.parent.mkdir(parents=True, exist_ok=True)
+    scrivi_csv_a_mano(percorso, nuove, COLONNE_MANO_CONTESTO)
+    scrivi_xlsx_a_mano(copia, nuove, COLONNE_MANO_CONTESTO)
+    per_bando = Counter(f["id_bando"] for f in scelti)
+    tabella = sum(
+        str(f.get("in_tabella") or "").strip().lower() == "sì" for f in scelti
+    )
+    pezzi = sum("[pezzo " in r["testo_prima"] for r in nuove)
+    mancate = sum(NON_TROVATA in r["file"] for r in nuove)
+    fuori = sum(f["id_bando"] == ESCLUSO_MANO for f in fatti)
+    print(
+        f"Scritto {percorso} e {copia.name}: {len(nuove)} fatti di controllo "
+        f"su {len(fatti)} (seme {SEME_MANO_CONTROLLO}, {PER_BANDO_CONTROLLO} per "
+        f"bando), {tabella} di tabella, {pezzi} a più pezzi, {mancate} con un "
+        f"pezzo non trovato; fuori per l'esclusione di {ESCLUSO_MANO}: {fuori}"
+    )
+    tutti = Counter(f["id_bando"] for f in fatti if f["id_bando"] != ESCLUSO_MANO)
+    for b in sorted(tutti):
+        print(f"  {b}: {per_bando[b]} su {tutti[b]}")
     return 0
 
 
@@ -6922,6 +6999,15 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
             "solo se nessuna domanda è compilata, più una copia .xlsx"
         ),
     )
+    parser.add_argument(
+        "--prepara-domande-a-mano-controllo",
+        action="store_true",
+        help=(
+            "scrive domande_a_mano_controllo (.csv e .xlsx): 5 fatti di controllo "
+            "per bando, seme fisso, con il testo intorno alla frase (solo su "
+            "istruzione; nessuna misura)"
+        ),
+    )
     parser.add_argument("--modello", choices=sorted(MODELLI), default="v0")
     parser.add_argument(
         "--controllo",
@@ -7001,6 +7087,7 @@ def main(argv: list[str] | None = None) -> int:
         argomenti.prepara_domande_a_mano_2,
         argomenti.prepara_domande_a_mano_3,
         argomenti.contesto_domande_a_mano,
+        argomenti.prepara_domande_a_mano_controllo,
     )
     if sum(comandi) != 1:
         print(
@@ -7010,7 +7097,8 @@ def main(argv: list[str] | None = None) -> int:
             "--riepilogo-intero, --notte, --scarica-riordinatore, --parte-97, "
             "--contesto, --rapporto-contesto, --rapporto-T, --argomenti-contesto o "
             "--prepara-domande-a-mano, --prepara-domande-a-mano-2, "
-            "--prepara-domande-a-mano-3 o --contesto-domande-a-mano.",
+            "--prepara-domande-a-mano-3, --contesto-domande-a-mano o "
+            "--prepara-domande-a-mano-controllo.",
             file=sys.stderr,
         )
         return 2
@@ -7064,6 +7152,8 @@ def main(argv: list[str] | None = None) -> int:
             return esegui_prepara_a_mano(terzo=True)
         if argomenti.contesto_domande_a_mano:
             return esegui_contesto_a_mano()
+        if argomenti.prepara_domande_a_mano_controllo:
+            return esegui_prepara_a_mano_controllo()
         if argomenti.notte == 4:
             if not argomenti.riordinatore:
                 return esegui_rapporto_riordino(lato)

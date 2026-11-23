@@ -979,3 +979,74 @@ def test_scelta_per_il_controllo():
     )
     # adottabile solo se si risolve il tempo: non va al controllo
     assert mr.scelta_per_il_controllo([esito("T-0", False, 90)]).startswith("c-LR")
+
+
+def fatti_finti_controllo():
+    """Come fatti_finti, più un bando con 3 fatti soli (meno di cinque)."""
+    fatti = fatti_finti()
+    riga = 500
+    for _ in range(3):
+        fatti.append(
+            {
+                "riga": riga,
+                "foglio": 1,
+                "id_bando": "epsilon",
+                "titolo": "Bando epsilon",
+                "frase": f"Frase {riga}",
+                "domanda": f"Domanda del foglio {riga}",
+            }
+        )
+        riga += 1
+    return fatti
+
+
+def test_scelta_per_bando_cinque_o_tutti_senza_fondo_strade():
+    fatti = fatti_finti_controllo()
+    scelti = mr.scelta_per_bando(fatti)
+    per_bando = Counter(f["id_bando"] for f in scelti)
+    assert per_bando == {"alfa": 5, "beta": 5, "gamma": 5, "delta": 5, "epsilon": 3}
+    assert mr.ESCLUSO_MANO not in per_bando
+    assert len({mr.chiave_a_mano(f) for f in scelti}) == len(scelti) == 23
+    assert scelti == sorted(scelti, key=mr.chiave_a_mano)
+    # seme fisso: stessa scelta; un altro seme ne dà un'altra
+    assert mr.scelta_per_bando(fatti) == scelti
+    assert mr.scelta_per_bando(fatti, seme=1) != scelti
+    # la scelta di un bando non dipende dall'ordine dei fatti in ingresso
+    assert mr.scelta_per_bando(list(reversed(fatti))) == scelti
+
+
+def test_prepara_il_file_del_controllo(tmp_path, monkeypatch, capsys):
+    fatti = fatti_finti_controllo()
+    for f in fatti:
+        f["frase"] = f"Frase {mr.riga_nel_foglio(f['riga'])} bis"
+    lati = []
+
+    def intera(lato):
+        lati.append(lato)
+        return None, fatti, per_bando_finto(fatti)
+
+    monkeypatch.setattr(mr, "fatti_intera", intera)
+    monkeypatch.setattr(gc, "leggi_documenti", lambda: documenti_finti(fatti))
+    percorso = tmp_path / "domande_a_mano_controllo.csv"
+    assert mr.esegui_prepara_a_mano_controllo(percorso) == 0
+    assert lati == [mr.CONTROLLO]
+    righe = mr.leggi_domande_a_mano(percorso)
+    # stesse colonne del terzo file di taratura, domande e "spiegata" vuote
+    assert list(righe[0]) == mr.COLONNE_MANO_CONTESTO
+    assert [mr.chiave_a_mano(r) for r in righe] == [
+        mr.chiave_a_mano(f) for f in mr.scelta_per_bando(fatti)
+    ]
+    assert all(r["testo_prima"] and r["file"] == "a.pdf (Azione B1)" for r in righe)
+    assert all(r["domanda_a_mano"] == "" and r["spiegata"] == "" for r in righe)
+    assert mr.leggi_domande_a_mano(percorso.with_suffix(".xlsx")) == righe
+    # il rapporto dà i conteggi, non le frasi
+    uscita = capsys.readouterr().out
+    assert "23 fatti di controllo" in uscita
+    assert "epsilon: 3 su 3" in uscita
+    assert "Frase" not in uscita
+    # non sovrascrive, né il .csv né la copia .xlsx
+    with pytest.raises(mr.ErroreMisura, match="non si sovrascrive"):
+        mr.esegui_prepara_a_mano_controllo(percorso)
+    percorso.unlink()
+    with pytest.raises(mr.ErroreMisura, match="non si sovrascrive"):
+        mr.esegui_prepara_a_mano_controllo(percorso)
