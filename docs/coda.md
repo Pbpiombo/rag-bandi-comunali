@@ -1632,6 +1632,130 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
             mano?
           - il criterio "tutti i pezzi" va tenuto così, con la lettura a
             mano accanto, o cambiato?
+      19. **Regola di conferma sulla metà di controllo** (decisa il
+          23/11/2026, prima dell'apertura del controllo). È una modifica
+          della regola originaria (voce 5, "Regole già in vigore": "si
+          adotta solo se guadagna in B sia con k=10 sia con k=15 contro c-0
+          (più guadagnati che persi, p ≤ 0,05)"), fatta il 23/11/2026 dopo
+          aver visto la taratura e prima di aprire il controllo, su
+          indicazione della revisione esterna. Cosa cambia: k=10, il k
+          dell'app, è la prova principale; k=15 controlla solo che non
+          peggiori.
+          - **Decisione 1, quale configurazione.** c-LR tutte sostituisce
+            c-0 solo se, in B:
+            1. a k=10, sulle 98 domande dei fogli, i presi superano i persi
+               con p ≤ 0,05 (test esatto dei segni, a due code);
+            2. a k=10, sulle domande a mano del controllo, i presi superano
+               i persi. Questo punto non chiede un p, di proposito: con
+               circa 50 domande la serie fa da veto e non da prova; 0 presi
+               e 0 persi lascia c-0;
+            3. a k=15, su tutte e due le serie, il netto è ≥ 0, con l'elenco
+               delle regressioni (fatti trovati da c-0 e non da c-LR);
+            4. a k=10, sulle 98 domande dei fogli, il netto resta positivo
+               togliendo un bando qualunque. Si chiede solo il netto
+               positivo, non il p, di proposito: è un controllo sulla
+               direzione.
+            Se manca un punto, resta c-0. Le due serie non si sommano mai.
+          - **Decisione 2, chiusura del passo.** Sulla configurazione
+            scelta, 98 domande dei fogli, B, k=10: almeno 85%, e non più di
+            10 punti sotto la taratura della stessa configurazione, stessa
+            serie, stesso k (c-LR 83 su 97, 85,6%; c-0 72 su 97, 74,2%; voce
+            8). Sotto soglia il passo si chiude lo stesso, con gli avvisi in
+            produzione solo con il filtro per bando e il "non lo trovo".
+          - **Correzione di un difetto della bozza** (23/11/2026). La bozza
+            chiedeva anche "nessun pezzo preso da un bando diverso". In B
+            quella clausola non può scattare: la ricerca in B si fa solo
+            dentro il bando (`cerca_nel_bando` con l'`id_bando` del fatto),
+            quindi un altro `id_bando` non entra mai tra i primi k. Per
+            questo è tolta. I gemelli tra bandi si contano in A e si
+            riportano, senza veto.
+          - **Allegati dello stesso bando** (risponde alla voce 16). La
+            misura principale non cambia: conta l'allegato giusto. I pezzi
+            presi da un altro allegato si contano a parte, distinguendo
+            quelli con testo identico parola per parola, e si leggono a
+            mano con quattro casi:
+            1. testo identico e applicabile: corretto;
+            2. stessa informazione riferita a un'altra azione: errato;
+            3. informazione simile non pertinente: errato;
+            4. documento di un altro bando: errato.
+            Non fanno scattare veti. Casi letti il 23/11/2026 in taratura,
+            sui testi dei frammenti della copia v0, tutti con testo
+            identico parola per parola (l'applicabilità non è stata
+            giudicata). Le misure salvate dicono che un altro allegato
+            arriva prima, non quale: i frammenti qui sotto sono quelli
+            degli altri allegati che contengono il pezzo.
+            - 72 (c-LR, a mano; giusto A4 #25 p. 8, 2° posto): "A parità
+              di punteggio è prioritaria la domanda che richiede il
+              contributo più basso." e la frase successiva, 38 parole,
+              identiche in A1 #22, A5 #23 e A3 #22.
+            - 2:107 (c-LR, a mano; giusto A5, paragrafo 6.5, diviso tra #30
+              e #31): il paragrafo 6.5 "Controlli in loco", 121 parole,
+              identico in A4 #34, A1 #31 e A3 #31, dove sta intero in un
+              frammento solo.
+            - 2:92 (c-0, a mano; giusto A1 #20 p. 7, 2° posto): la riga 5
+              della tabella dei criteri (giovane tra 18 e 40 anni, 2,5
+              punti), 25 parole, identica in A4 #22, A5 #20 e A3 #20.
+          - **Accanto, senza peso nella decisione:** risultati per bando;
+            condizione A, con i gemelli tra bandi; lettura a mano dei
+            mancati con le classi del 22/11 (voce 14).
+          - **Domande a mano del controllo:** cinque fatti per bando scelti
+            con un seme fisso, tutti se il bando ne ha meno; fondo strade
+            escluso come in taratura (voce 10); domande scritte prima di
+            ogni misura sul controllo, da chi mantiene il progetto, nessun
+            modello; colonna "spiegata" come in taratura.
+          - **Cosa ci si aspetta, scritto prima.** c-0 in taratura è al 74%
+            sui fogli a k=10 (72 su 97): se la candidata non passa, il
+            passo si chiude con ogni probabilità sotto soglia. È un esito
+            previsto dalla regola.
+          - **Indipendenza in taratura** (23/11/2026, dalle misure salvate,
+            nessuna misura nuova;
+            `dati-grezzi/prova/19d/contesto/per_bando_23-11.txt`). c-LR
+            contro c-0, in B. Netto per bando sulle 97 dei fogli a k=10:
+            sviluppo progetti (01bfe9) +4; i due PMI, Punti Digitale e
+            apistici +2 ciascuno (apistici +3/-1); musica +1; Cultura,
+            Sport, fondo strade e parcheggi 0; risorse genetiche -2.
+            Bandi con netto positivo, zero e negativo:
+            - fogli, k=10: 6, 4, 1; k=15: 5, 5, 1;
+            - a mano (92 domande, 10 bandi), k=10: 6, 3, 1; k=15: 5, 5, 0.
+            Togliendo un bando alla volta, il netto più basso è: fogli k=10
+            +7 (senza 01bfe9, p 0,092, contro +11 e p 0,013 con tutti);
+            fogli k=15 +3 (senza 01bfe9, p 0,453); a mano +4 a k=10 e a
+            k=15. Nessun bando porta il netto a zero o sotto. Conclusione:
+            il guadagno è diffuso ma piccolo; senza il bando 01bfe9 il p sui
+            fogli a k=10 sale a 0,092.
+          - **Esito della revisione esterna** (23/11/2026; testo in
+            `dati-grezzi/prova/19d/contesto/revisione_esterna_23-11.txt`;
+            i numeri che cita sono stati confrontati con le voci 11 e 14).
+            Cinque punti:
+            1. i fatti non sono osservazioni indipendenti, perché stanno su
+               pochi bandi: verificare il guadagno per bando e togliendo un
+               bando alla volta. Accolto: misura per bando del 23/11 qui
+               sopra e punto 4 della decisione 1;
+            2. domande dei fogli e domande a mano misurano cose diverse e
+               non si sommano; le domande a mano si scelgono a caso, cinque
+               per bando, senza guardare il controllo. Accolto, tranne una
+               parte (sotto);
+            3. il passaggio a k=10 principale e k=15 di controllo è
+               difendibile se dichiarato come modifica della regola, con
+               una non inferiorità esplicita: netto ≥ 0 a k=15 con l'elenco
+               delle regressioni. Accolto;
+            4. c-LR va al controllo come ipotesi da verificare, non come
+               configurazione già vincente; se non passa resta la base.
+               Accolto: decisione 1, "se manca un punto, resta c-0";
+            5. il criterio "tutti i pezzi" si tiene come misura principale,
+               con la lettura a mano come misura secondaria; per gli
+               allegati, quattro casi decisi prima dell'apertura. Accolto.
+            Non accolto, l'unico: la revisione propone che decidano le 98
+            domande dei fogli da sole, con le domande a mano come verifica
+            secondaria. Motivo: in taratura le domande dei fogli favoriscono
+            la candidata (in B, k=10, +11 sulle 97 dei fogli contro +3 sulle
+            63 nuove a mano, voce 11); si richiedono tutte e due le serie.
+            In fondo la revisione distingue due decisioni: superare l'85% e
+            dimostrare che la candidata è meglio della base sono due cose
+            diverse. La prima riguarda la qualità del recupero (decisione
+            2), la seconda l'effetto della modifica (decisione 1); una
+            candidata può superare l'85% senza dare ragioni sufficienti per
+            sostituire la base.
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):
