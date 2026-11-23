@@ -27,7 +27,17 @@ stare in piu' gruppi):
 - spariti: bandi aperti secondo quella scadenza che nessuno dei due
   elenchi riporta piu' (solo se entrambi gli elenchi si sono letti);
 - vietati: indirizzi vietati dal robots.txt, mai richiesti;
-- da verificare: scadenza non leggibile, o pagina non letta.
+- da verificare: scadenza non leggibile, o pagina non letta;
+- invariati: bandi in archivio riletti senza differenze, elencati solo
+  se hanno una nota (oggi: possibile proroga).
+
+Per ogni pagina letta, dei bandi in archivio e dei nuovi, se il testo o i
+nomi dei file collegati contengono una parola di proroga
+(src/estrazione/proroga.py), la nota del bando dice "possibile proroga:"
+con la frase o il titolo, tagliati a 200 battute. Il gruppo non cambia e
+nessuna data si scrive: la data prorogata si legge nel secondo tempo,
+dall'atto, con la sua frase di prova. Vale anche per le pagine gia'
+salvate nella cartella del giorno, senza nuove richieste.
 
 Non scrive nel database ne' in data/processed, non chiama il modello, non
 tocca Chroma ne' Postgres. Lo stesso giorno, elenchi e pagine gia' letti
@@ -66,6 +76,7 @@ from src.estrazione.elenco import (
 from src.estrazione.indirizzi import url_canonico
 from src.estrazione.lettore_siti import VIETATO
 from src.estrazione.pagina import a_testo
+from src.estrazione.proroga import nota_di_proroga
 from src.estrazione.scadenza import preselezione
 
 FONTE = "regione-toscana"
@@ -83,7 +94,8 @@ SCADUTI = "scaduti dal 13/11"
 SPARITI = "spariti"
 VIETATI = "vietati dal robots.txt"
 DA_VERIFICARE = "da verificare"
-GRUPPI = (NUOVI, CAMBIATI, SCADUTI, SPARITI, VIETATI, DA_VERIFICARE)
+INVARIATI = "invariati"
+GRUPPI = (NUOVI, CAMBIATI, SCADUTI, SPARITI, VIETATI, DA_VERIFICARE, INVARIATI)
 
 # La scadenza di un bando nuovo quando la pagina si legge ma il campo no
 NON_LEGGIBILE = "non leggibile"
@@ -208,6 +220,7 @@ def _nuovi(
                 riga.scadenza_pagina = (
                     scadenza.isoformat() if scadenza else NON_LEGGIBILE
                 )
+                note.append(nota_di_proroga(html))
         riga.nota = "; ".join(n for n in note if n)
         righe.append(riga)
     return {v.url for v in voci}
@@ -241,6 +254,8 @@ def ricognisci(lettore, oggi: date) -> Rapporto:
     interrotta = da_fermare(lettore)
     lette = 0
     aperti = []
+    # per i bandi in archivio: la riga di base e la nota di possibile proroga
+    proroghe: list[tuple[Riga, str]] = []
     for bando in bandi_da_ricontrollare(oggi):
         url = url_canonico(bando["url"])
         archivio = bando["scadenza"] or ""
@@ -262,6 +277,8 @@ def ricognisci(lettore, oggi: date) -> Rapporto:
                 lette += 1
                 pagina = _scadenza_pagina(html, oggi, etichetta)
                 righe.extend(_confronto(base, pagina, bando["a_sportello"]))
+                if nota := nota_di_proroga(html):
+                    proroghe.append((base, nota))
 
         # la scadenza che vale: quella della pagina se si legge
         attuale = pagina or (date.fromisoformat(archivio) if archivio else None)
@@ -282,9 +299,22 @@ def ricognisci(lettore, oggi: date) -> Rapporto:
                     )
                 )
 
+    _aggiungi_proroghe(righe, proroghe)
     ordine = {g: i for i, g in enumerate(GRUPPI)}
     righe.sort(key=lambda r: (ordine[r.gruppo], r.id_bando))
     return Rapporto(righe, interrotta, dict(lettore.fermati), mancati, lette)
+
+
+def _aggiungi_proroghe(righe: list[Riga], proroghe: list[tuple[Riga, str]]) -> None:
+    """La nota di possibile proroga su ogni riga del bando, senza cambiarne
+    il gruppo. Un bando riletto senza differenze non ha righe: per non
+    perdere la nota, entra tra gli INVARIATI con la sola nota."""
+    for base, nota in proroghe:
+        sue = [r for r in righe if r.url == base.url]
+        for r in sue:
+            r.nota = f"{r.nota}; {nota}" if r.nota else nota
+        if not sue:
+            righe.append(_come(base, INVARIATI, nota))
 
 
 def _confronto(base: Riga, pagina: date | None, a_sportello) -> list[Riga]:

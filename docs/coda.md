@@ -461,6 +461,51 @@ il 23/11/2026):
      `aggiungi_contatti`, `applica_regole_verifica`, `correggi_atti`,
      `correggi_doppioni_tenuti`, `importi_missione_comune`,
      `carica_istat`. Fino ad allora non si lanciano contro i siti.
+   - (23/11/2026) Nella ricognizione c'è la nota "possibile proroga" per
+     parole chiave (`src/estrazione/proroga.py`: proroga, prorogato,
+     prorogata, prorogati, differimento, differito, riapertura dei
+     termini, riaperti i termini, come parole intere, nel testo della
+     pagina e nei nomi dei file collegati). La data prorogata si estrae
+     nel secondo tempo dall'atto, con la frase di prova.
+   - (23/11/2026) Le pagine lette da ogni scansione restano salvate nella
+     cartella del giorno in `dati-grezzi/scansioni/` e non si cancellano:
+     sono il materiale da cui ricavare in seguito le voci della traccia,
+     senza rileggere i siti. Le pagine dei bandi chiusi spariscono dal
+     Portale, quindi una scansione saltata è storia persa.
+   - (23/11/2026) Requisito aperto, collegato alla voce 7, idea di chi
+     mantiene il progetto del 23/11/2026: **traccia dei bandi non
+     estratti**. Per le pagine non estratte per intero (scadute alla
+     scoperta, vietate dal robots.txt) si salva una riga in una tabella a
+     parte, con il suo CSV, fuori dalla tabella dei bandi: l'app non le
+     propone come bandi e le usa solo per le domande sul cumulo e per
+     l'avviso "questo bando di solito esce in questo periodo". L'esito
+     "scaduto" non è definitivo per 60 giorni. Voci in tre tipi:
+     - lette dalla pagina, senza modello, con la pagina come fonte:
+       titolo, indirizzo, ente e ufficio responsabile; scadenza, data di
+       pubblicazione e di apertura; data di scoperta e dell'ultimo
+       controllo; elenco di provenienza; titoli e indirizzi degli atti
+       allegati; possibile proroga; motivo della mancata estrazione;
+       impronta del testo della pagina; programma o fondo, se la pagina
+       lo dice;
+     - ricavate dal codice confrontando più bandi, da scrivere come
+       ipotesi e non come fatti: anno dell'edizione; famiglia del bando
+       (titolo senza l'anno); possibile edizione precedente; ricorrente
+       (almeno due edizioni della stessa famiglia); periodo abituale di
+       uscita. L'archivio parte da novembre 2026: la storia si costruisce
+       scansione dopo scansione;
+     - interpretate, con il modello o a mano: a chi è destinato (se la
+       pagina non ha un campo apposito), tipo di procedura, dotazione e
+       importo massimo, com'è andata (graduatoria, fondi esauriti); bandi
+       citati dentro il bando.
+
+     In più, per ogni riga, il livello di completezza: traccia minima,
+     estratto, verificato a mano. Fuori dalla traccia: "se si è avuto
+     accesso al bando" è un'informazione su un utente, sta nell'area
+     privata (seconda parte) e non entra nel repository. Ordine: prima si
+     guarda quali campi la pagina della Regione espone in modo ordinato,
+     sulle pagine salvate dalla ricognizione; poi un piano breve in
+     `docs/`; si costruisce dopo la videochiamata di dicembre, dove si
+     chiede al consulente pilota quali voci userebbe.
 - (era la voce 4 dei Prossimi passi, → D) **Pratiche (progetti seguiti)**: per un beneficiario preciso, una
    scheda strutturata (attività con forma giuridica, ATECO, sede,
    dimensione; bandi seguiti con stato; scadenze; documenti; note), ogni

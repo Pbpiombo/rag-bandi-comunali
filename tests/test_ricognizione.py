@@ -309,3 +309,83 @@ def test_un_bando_nuovo_ha_la_scadenza_letta_dalla_sua_pagina(cartella_salvata):
         "bando-nuovo-2026": "2026-12-20",
         "bando-senza-campo-2026": ricognizione.NON_LEGGIBILE,
     }
+
+
+# --- nota "possibile proroga" ---
+
+ALLEGATO_PROROGA = (
+    "https://www.regione.toscana.it/documents/10180/0/"
+    "Decreto-Proroga-del-termine-ultimo-di-presentazione.pdf"
+)
+
+
+def _pagina_con(scadenza: str, corpo: str) -> bytes:
+    """Una pagina con il campo della scadenza e un altro contenuto."""
+    return _pagina(scadenza).replace(b"</body>", corpo.encode() + b"</body>")
+
+
+def _note(rapporto, id_bando: str) -> dict[str, str]:
+    return {r.gruppo: r.nota for r in rapporto.righe if r.id_bando == id_bando}
+
+
+def test_proroga_nel_titolo_di_un_allegato_da_la_nota(cartella_salvata):
+    """Il nome del file dice "Proroga", il testo del collegamento no: la
+    nota c'e', con il nome del file; il bando, senza differenze, entra tra
+    gli invariati. Una pagina senza quelle parole resta senza nota."""
+    _salva_pagina(
+        cartella_salvata,
+        "pagine",
+        _url("bando-uguale-2026"),
+        _pagina_con("31.01.2027", f'<a href="{ALLEGATO_PROROGA}">Scarica</a>'),
+    )
+    lettore = elenco.lettore_della_scansione(cartella_salvata, senza_rete=True)
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    assert _note(rapporto, "bando-uguale") == {
+        ricognizione.INVARIATI: "possibile proroga: "
+        "Decreto-Proroga-del-termine-ultimo-di-presentazione.pdf"
+    }
+    assert "proroga" not in _note(rapporto, "bando-cambiato")[ricognizione.CAMBIATI]
+
+
+def test_proroga_nel_testo_si_aggiunge_alla_nota_senza_cambiare_il_gruppo(
+    cartella_salvata,
+):
+    _salva_pagina(
+        cartella_salvata,
+        "pagine",
+        _url("bando-cambiato-2026"),
+        _pagina_con(
+            "15.12.2026",
+            "<p>In evidenza: la scadenza è stata PROROGATA. Altre notizie.</p>",
+        ),
+    )
+    lettore = elenco.lettore_della_scansione(cartella_salvata, senza_rete=True)
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    assert _note(rapporto, "bando-cambiato") == {
+        ricognizione.CAMBIATI: "archivio 2026-12-01, pagina 2026-12-15; "
+        "possibile proroga: In evidenza: la scadenza è stata PROROGATA."
+    }
+
+
+def test_improrogabile_non_da_la_nota(cartella_salvata):
+    """ "Improrogabile" contiene "proroga" ma dice il contrario: e' la forma
+    comune nei bandi ("termine perentorio e improrogabile")."""
+    _salva_pagina(
+        cartella_salvata,
+        "pagine",
+        _url("bando-uguale-2026"),
+        _pagina_con(
+            "31.01.2027",
+            "<p>Le domande vanno presentate entro il termine perentorio e "
+            "improrogabile indicato. Il termine non è prorogabile.</p>",
+        ),
+    )
+    lettore = elenco.lettore_della_scansione(cartella_salvata, senza_rete=True)
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    assert _note(rapporto, "bando-uguale") == {}
