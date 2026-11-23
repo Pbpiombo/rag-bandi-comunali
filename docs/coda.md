@@ -1756,6 +1756,89 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
             2), la seconda l'effetto della modifica (decisione 1); una
             candidata può superare l'85% senza dare ragioni sufficienti per
             sostituire la base.
+      20. **Esito dell'apertura della metà di controllo (23/11/2026).**
+          Numeri da `dati-grezzi/prova/19d/contesto/rapporto_apertura_controllo.txt`,
+          scritto da `--apertura --controllo` secondo la regola della voce
+          19; i candidati tra i 30 dai json delle misure in
+          `dati-grezzi/prova/19d/contesto/misure/`.
+          - **Lancio.** Una sola volta, il 23/11/2026, da chi mantiene il
+            progetto, verso le 14:39 (dalle date dei file: domande a mano
+            salvate alle 14:38, prima misura chiusa alle 14:55 dopo 995 s,
+            rapporto scritto alle 15:31). Impronta dello script prima
+            216d67cc8abc, dopo 216d67cc8abc: uguali. 98 domande dei fogli e
+            49 a mano: la riga del foglio 1 numero 57 aveva la domanda vuota
+            ed è stata saltata.
+          - **Decisione 1**, c-LR tutte contro c-0, in B:
+            1. fogli, k=10: presi 15, persi 3, netto +12, p 0,008: sì. Persi
+               2:14, 2:83, 2:100;
+            2. a mano, k=10: presi 4, persi 1, netto +3, p 0,375 (nessun p
+               richiesto): sì. Perso 64;
+            3. k=15, netto ≥ 0: fogli presi 12, persi 1, netto +11, p 0,003,
+               regressione 2:76; a mano presi 4, persi 2, netto +2, p 0,688,
+               regressioni 59 e 64: sì;
+            4. fogli, k=10, togliendo un bando alla volta: netto più basso
+               +9 (senza il PMI 7057d9, presi 12, persi 3, p 0,035): sì.
+            Esito: **c-LR sostituisce c-0**.
+          - **Decisione 2**, c-LR, fogli, B, k=10: 77 su 98, 78,6%. Almeno
+            85%: no. Taratura della stessa configurazione 83 su 97, 85,6%;
+            scarto -7,0 punti, entro i 10. Esito: **sotto soglia**: il passo
+            si chiude lo stesso, con gli avvisi in produzione solo con il
+            filtro per bando e il "non lo trovo".
+          - **Taratura e controllo**, fogli, B, k=10:
+
+            | configurazione | taratura | controllo |
+            |---|---|---|
+            | c-0 | 72 su 97 (74,2%) | 65 su 98 (66,3%) |
+            | c-LR tutte | 83 su 97 (85,6%) | 77 su 98 (78,6%) |
+
+            Il guadagno è confermato; il livello assoluto della taratura
+            era più alto di 7-8 punti per entrambe. Il numero da citare da
+            qui in avanti è quello del controllo.
+          - **Attesa scritta prima e com'è andata.** La candidata è passata;
+            la chiusura è comunque sotto soglia.
+          - **Accanto, senza peso nella decisione.**
+            - Per bando, B, k=10: fogli 6 bandi con netto positivo, 5 a
+              zero, nessuno negativo; a mano 3, 6 e 1 (PMI 8cd3ac, -1).
+            - Condizione A, c-LR contro c-0: fogli k=10 71 contro 42 (+32,
+              -3, netto +29, p 0,000), k=15 74 contro 52 (+25, -3, netto
+              +22); a mano k=10 38 contro 29 (+10, -1, netto +9, p 0,012),
+              k=15 40 contro 33 (+7, -0, netto +7, p 0,016).
+            - Gemelli tra bandi, in A: pezzo dal bando gemello prima del
+              giusto, fogli c-0 3 (2:15, 2:70, 2:84) e c-LR 4 (2:66, 2:70,
+              2:72, 2:84) a k=10 e k=15; a mano c-0 3 a k=10 (2:15, 2:70,
+              2:83) e 4 a k=15 (in più 59), c-LR 2 (2:70, 2:84). Gemello
+              senza il giusto: 0 ovunque.
+            - Candidati tra i 30 (giusto tra i candidati prima del
+              riordino): fogli, B, c-0 76 e c-LR 88 su 98; A 56 e 75. A
+              mano, B, 43 e 43 su 49; A 36 e 41.
+            - Tempi del riordinatore per domanda, B: fogli c-0 mediana
+              4,567 s, massimo 9,183 s; c-LR 5,292 s e 7,006 s. A mano c-0
+              4,019 s e 5,116 s; c-LR 5,639 s e 7,205 s. Misure intere: fogli
+              995 s e 1065 s, a mano 421 s e 571 s.
+            - Pezzi presi da un altro allegato degli apistici, tutti con
+              testo identico parola per parola (il tratto del pezzo; il
+              frammento intorno può essere diverso, per esempio nel fatto 70
+              azione e contributo massimo cambiano: sezione 4 di
+              `mancati_controllo_23-11.txt`): fogli 70 e 2:102, a mano 68
+              e 2:96. Da leggere a mano con i quattro casi della voce 19.
+            - Mancati di c-LR in B a k=10: 21 dei fogli e 7 a mano, per la
+              lettura a mano con le classi del 22/11.
+          - **Dichiarazione: colonna "spiegata".** Nel file
+            `domande_a_mano_controllo.xlsx` le righe 6 e 40 del foglio di
+            calcolo, cioè i fatti 19 (foglio 1 riga 19) e 2:59 (foglio 2
+            riga 59), erano
+            domande spiegate senza il "si" nella colonna "spiegata". Il
+            file non è stato modificato. Tabella ricalcolata dalle misure
+            salvate contando quelle due come spiegate; tutte e due sono
+            trovate da c-0 e da c-LR a k=10 e a k=15, quindi presi e persi
+            non cambiano. B, a mano:
+
+            | | rapporto | corretta |
+            |---|---|---|
+            | k=10, spiegate | 18: c-0 13, c-LR 14; +2 -1, netto +1, p 1,000 | 20: c-0 15, c-LR 16; +2 -1, netto +1, p 1,000 |
+            | k=10, non spiegate | 31: c-0 26, c-LR 28; +2 -0, netto +2, p 0,500 | 29: c-0 24, c-LR 26; +2 -0, netto +2, p 0,500 |
+            | k=15, spiegate | 18: c-0 13, c-LR 14; +2 -1, netto +1, p 1,000 | 20: c-0 15, c-LR 16; +2 -1, netto +1, p 1,000 |
+            | k=15, non spiegate | 31: c-0 27, c-LR 28; +2 -1, netto +1, p 1,000 | 29: c-0 25, c-LR 26; +2 -1, netto +1, p 1,000 |
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):

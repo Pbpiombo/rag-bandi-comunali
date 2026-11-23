@@ -613,3 +613,10 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
     le configurazioni, con frammento giusto e primi tre per
     configurazione; ordine rifatto con lo stesso codice e posizioni
     uguali a quelle delle misure in 48 casi su 48). Lettura nella voce 14.
+- **Passo 19d, apertura della metà di controllo** (23/11/2026; esito in
+  `docs/coda.md`, "Passo 19d", punto 13, voce 20).
+  - Decisione 1: c-LR tutte sostituisce c-0 (fogli, B, k=10, +15/-3,
+    p 0,008; i quattro punti passano).
+  - Decisione 2: 77 su 98 (78,6%), sotto l'85%: il passo si chiude con
+    gli avvisi in produzione solo con il filtro per bando e il "non lo
+    trovo".
