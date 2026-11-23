@@ -5872,7 +5872,7 @@ def con_domande_a_mano(
     for r in righe:
         chiave = (int(r["foglio"]), int(r["riga"]))
         if chiave not in per_chiave:
-            raise ErroreMisura(f"riga {chiave} non tra i fatti di taratura")
+            raise ErroreMisura(f"riga {chiave} non tra i fatti della metà")
         fatto = per_chiave[chiave]
         if str(fatto["frase"]).strip() != r["frase"].strip():
             raise ErroreMisura(f"riga {chiave}: la frase non è quella del foglio")
@@ -5907,6 +5907,35 @@ def con_i_file_a_mano(
     return uscita
 
 
+def file_a_mano_del_lato(lato: str) -> tuple[Path, ...]:
+    """I file a mano della metà: sul controllo solo domande_a_mano_controllo,
+    sulla taratura i tre file di sempre."""
+    if lato == CONTROLLO:
+        return (DOMANDE_A_MANO_CONTROLLO,)
+    return (DOMANDE_A_MANO, DOMANDE_A_MANO_2, DOMANDE_A_MANO_3)
+
+
+def fatti_della_misura(lato: str, mano: bool) -> tuple[list[dict], dict]:
+    """(fatti, file per bando) della metà; con mano, i fatti dei file a mano
+    della metà con la domanda scritta a mano (righe vuote saltate)."""
+    _, fatti, file_per_bando = fatti_intera(lato)
+    if mano:
+        fatti = con_i_file_a_mano(fatti, file_a_mano_del_lato(lato))
+    return fatti, file_per_bando
+
+
+def spiegate_del_lato(lato: str) -> dict[str, bool]:
+    """Per ogni domanda a mano compilata della metà (riga della misura), se la
+    colonna "spiegata" è segnata."""
+    uscita = {}
+    for p in file_a_mano_del_lato(lato):
+        letto = file_da_leggere(p)
+        if letto:
+            for r in compilate(leggi_domande_a_mano(letto)):
+                uscita[riga_della_misura(r)] = spiegata(r)
+    return uscita
+
+
 # --- misura e rapporti ---
 
 
@@ -5917,15 +5946,11 @@ def esegui_contesto(lato: str, nome: str, righe: str, mano: bool) -> int:
     from scripts.ingestione.carica_avvisi import senza_rete
     from src.config import CHROMA_DIR
 
-    if mano and lato != TARATURA:
-        raise ErroreMisura("le domande a mano sono fatti di taratura")
     config = CONFIG_CONTESTO[nome]
     if not config.usa_contesto:
         righe = NESSUNA
     senza_rete()
-    _, fatti, file_per_bando = fatti_intera(lato)
-    if mano:
-        fatti = con_i_file_a_mano(fatti)
+    fatti, file_per_bando = fatti_della_misura(lato, mano)
     contesti = contesti_per_frammento(righe) if righe != NESSUNA else {}
     nome_vettori = nome_dei_vettori(config, righe)
     prima = impronte_cartella(CHROMA_DIR)
@@ -6528,6 +6553,453 @@ def esegui_rapporto_t(lato: str) -> int:
     return 0
 
 
+# --- apertura della metà di controllo (regola del 23/11/2026) ---
+# coda.md, "Passo 19d", punto 13, voce 19, congelata prima dell'apertura. Base
+# c-0, candidata c-LR tutte, condizione B; le due serie (domande dei fogli e
+# domande a mano) non si sommano mai. --apertura misura le quattro serie che
+# mancano e scrive il rapporto; sulla taratura (prova a secco) riusa le misure
+# salvate, sul controllo si ferma se una misura c'è già (si apre una volta sola).
+
+CONFIG_APERTURA = (("c-0", NESSUNA), ("c-LR", "tutte"))
+SERIE_APERTURA = (("fogli", False), ("mano", True))
+SOGLIA_CHIUSURA = 85
+PUNTI_SOTTO_TARATURA = 10
+# taratura della stessa configurazione, domande dei fogli, B, k=10 (voce 19)
+TARATURA_APERTURA = {"c-0": (72, 97), "c-LR": (83, 97)}
+FOGLI_CONTROLLO = 98
+SOTTO_SOGLIA = (
+    "sotto soglia: il passo si chiude lo stesso, con gli avvisi in produzione "
+    'solo con il filtro per bando e il "non lo trovo"'
+)
+
+
+@dataclass
+class EsitoDecisione1:
+    punti: dict[str, bool]
+    linee: list[str]
+
+    @property
+    def sostituisce(self) -> bool:
+        return all(self.punti.values())
+
+    @property
+    def esito(self) -> str:
+        return "c-LR sostituisce c-0" if self.sostituisce else "resta c-0"
+
+
+def _si_no(v: bool) -> str:
+    return "SÌ" if v else "NO"
+
+
+def _conti_segni(presi: list[str], persi: list[str]) -> str:
+    return (
+        f"presi {len(presi)}, persi {len(persi)}, netto {len(presi) - len(persi):+d}, "
+        f"p {_virgola(probabilita_segni(len(presi), len(persi)))}"
+    )
+
+
+def _nomi(righe: list[str]) -> str:
+    return ", ".join(nome_della_riga(r) for r in righe) or "-"
+
+
+def netto_senza_ogni_bando(
+    base: list[dict], variante: list[dict], c: str = "B"
+) -> dict[str, tuple[int, int]]:
+    """Per ogni bando, (presi, persi) togliendo i fatti di quel bando."""
+    presi, persi = cambi_di_esito(base, variante, c)
+    bando = {r["riga"]: r["id_bando"] for r in base}
+    return {
+        b: (sum(bando[r] != b for r in presi), sum(bando[r] != b for r in persi))
+        for b in sorted(set(bando.values()))
+    }
+
+
+def decisione_1(
+    base_fogli: dict[int, list],
+    cand_fogli: dict[int, list],
+    base_mano: dict[int, list],
+    cand_mano: dict[int, list],
+) -> EsitoDecisione1:
+    """I quattro punti della decisione 1, in B; c-LR sostituisce c-0 solo se
+    passano tutti."""
+    k15 = K_ESATTI[1]
+    punti, linee = {}, []
+    presi, persi = cambi_di_esito(base_fogli[K], cand_fogli[K], "B")
+    p = probabilita_segni(len(presi), len(persi))
+    punti["1"] = len(presi) > len(persi) and p <= SOGLIA_CASO
+    linee += [
+        (
+            f"  1. fogli, k={K}: presi > persi con p ≤ 0,05: "
+            f"{_conti_segni(presi, persi)} -> {_si_no(punti['1'])}"
+        ),
+        f"     presi {_nomi(presi)}; persi {_nomi(persi)}",
+    ]
+    presi, persi = cambi_di_esito(base_mano[K], cand_mano[K], "B")
+    punti["2"] = len(presi) > len(persi)
+    linee += [
+        (
+            f"  2. mano, k={K}: presi > persi (nessun p richiesto, la serie fa da "
+            f"veto): {_conti_segni(presi, persi)} -> {_si_no(punti['2'])}"
+        ),
+        f"     presi {_nomi(presi)}; persi {_nomi(persi)}",
+    ]
+    tre = []
+    for serie, base, cand in (
+        ("fogli", base_fogli, cand_fogli),
+        ("mano", base_mano, cand_mano),
+    ):
+        presi, persi = cambi_di_esito(base[k15], cand[k15], "B")
+        tre.append(len(presi) - len(persi) >= 0)
+        bando = {r["riga"]: r["id_bando"] for r in base[k15]}
+        linee += [
+            (
+                f"  3. {serie}, k={k15}: netto ≥ 0: {_conti_segni(presi, persi)} -> "
+                f"{_si_no(tre[-1])}"
+            ),
+            f"     regressioni ({len(persi)}): "
+            + (", ".join(f"{nome_della_riga(r)} {bando[r]}" for r in persi) or "-"),
+        ]
+    punti["3"] = all(tre)
+    senza = netto_senza_ogni_bando(base_fogli[K], cand_fogli[K])
+    punti["4"] = all(pr - pe > 0 for pr, pe in senza.values())
+    linee.append(
+        f"  4. fogli, k={K}: netto positivo togliendo un bando qualunque (solo il "
+        f"netto, è un controllo sulla direzione) -> {_si_no(punti['4'])}"
+    )
+    for b, (pr, pe) in senza.items():
+        linee.append(f"     senza {b}: {_conti_segni(['x'] * pr, ['x'] * pe)}")
+    return EsitoDecisione1(punti, linee)
+
+
+def decisione_2(
+    scelta: str, righe: list[dict], taratura: tuple[int, int]
+) -> tuple[bool, list[str]]:
+    """Chiusura sulla configurazione scelta, fogli, B, k=10: almeno l'85% e non
+    più di 10 punti sotto la taratura della stessa configurazione."""
+    from fractions import Fraction
+
+    trovati, n = _trovati(righe, "B")
+    if not n:
+        raise ErroreMisura("decisione 2: nessuna domanda dei fogli nella misura")
+    quota = Fraction(100 * trovati, n)
+    quota_t = Fraction(100 * taratura[0], taratura[1])
+    soglia = quota >= SOGLIA_CHIUSURA
+    vicina = quota_t - quota <= PUNTI_SOTTO_TARATURA
+    linee = [
+        f"  {scelta}, fogli, B, k={K}: {trovati} su {n}, {_virgola(float(quota), 1)}%",
+        f"  almeno {SOGLIA_CHIUSURA}%: {_si_no(soglia)}",
+        (
+            f"  taratura della stessa configurazione, stessa serie, stesso k: "
+            f"{taratura[0]} su {taratura[1]}, {_virgola(float(quota_t), 1)}%; "
+            f"scarto {_virgola(float(quota - quota_t), 1)} punti; non più di "
+            f"{PUNTI_SOTTO_TARATURA} punti sotto: {_si_no(vicina)}"
+        ),
+        "  esito: " + ("supera la soglia" if soglia and vicina else SOTTO_SOGLIA),
+    ]
+    return soglia and vicina, linee
+
+
+def allegato_identico(
+    fatto: dict,
+    giusti: set[str],
+    gemelli: set[str],
+    frammenti_per_fonte: dict[str, list[Frammento]],
+) -> str:
+    """Per ogni pezzo, se il suo tratto nel testo vero dei frammenti degli altri
+    allegati è identico parola per parola a quello nel frammento giusto.
+
+    La misura salvata dice che un altro allegato arriva prima, non quale: si
+    guardano tutti i frammenti degli altri allegati che contengono il pezzo.
+    """
+
+    def tratti(fonti: set[str], pezzo: list[str]) -> list[tuple[str, int, list]]:
+        uscita = []
+        for f in sorted(fonti):
+            for fr in frammenti_per_fonte.get(f, []):
+                if t := contiene(pezzo, fr):
+                    uscita.append((f, fr.chunk_num, fr.testo[t[0] : t[1]].split()))
+        return uscita
+
+    parti = []
+    for i, pezzo in enumerate(unita_del_fatto(fatto), 1):
+        altri = tratti(gemelli, pezzo)
+        giusto = tratti(giusti, pezzo)
+        if not altri:
+            parti.append(f"pezzo {i}: in nessun frammento di un altro allegato")
+        elif not giusto:
+            parti.append(
+                f"pezzo {i}: non sta intero in un frammento giusto, da leggere"
+            )
+        else:
+            diversi = [f"{f} #{c}" for f, c, parole in altri if parole != giusto[0][2]]
+            elenco = ", ".join(f"{f} #{c}" for f, c, _ in altri)
+            parti.append(
+                f"pezzo {i}: NON identico in {', '.join(diversi)}"
+                if diversi
+                else f"pezzo {i}: testo identico parola per parola in {elenco}"
+            )
+    return "; ".join(parti)
+
+
+def frammenti_v0() -> dict[str, list[Frammento]]:
+    """Il testo vero dei frammenti, per fonte, dalla copia v0 (niente ricerca)."""
+    _, testi, metadati, _ = leggi_vettori(CARTELLA_19D / "v0")
+    per_fonte: dict[str, list[Frammento]] = defaultdict(list)
+    for testo, meta in zip(testi, metadati, strict=True):
+        per_fonte[meta.get("fonte") or ""].append(
+            Frammento(
+                meta.get("chunk_num", -1),
+                meta.get("page", 0),
+                testo,
+                meta.get("car_visti", len(testo)),
+            )
+        )
+    for lista in per_fonte.values():
+        lista.sort(key=lambda fr: fr.chunk_num)
+    return per_fonte
+
+
+def righe_per_bando(base: list[dict], cand: list[dict]) -> list[str]:
+    presi, persi = cambi_di_esito(base, cand, "B")
+    per = defaultdict(Counter)
+    for r in base:
+        per[r["id_bando"]]["domande"] += 1
+        per[r["id_bando"]]["c-0"] += r["B_trovato"] == "sì"
+    for r in cand:
+        per[r["id_bando"]]["c-LR"] += r["B_trovato"] == "sì"
+    bando = {r["riga"]: r["id_bando"] for r in base}
+    for r in presi:
+        per[bando[r]]["presi"] += 1
+    for r in persi:
+        per[bando[r]]["persi"] += 1
+    segni = Counter()
+    linee = []
+    for b in sorted(per):
+        c = per[b]
+        netto = c["presi"] - c["persi"]
+        segni["positivo" if netto > 0 else "zero" if netto == 0 else "negativo"] += 1
+        linee.append(
+            f"    {b}: {c['domande']} domande, c-0 {c['c-0']}, c-LR {c['c-LR']}, "
+            f"presi {c['presi']}, persi {c['persi']}, netto {netto:+d}"
+        )
+    linee.append(
+        f"    bandi con netto positivo {segni['positivo']}, zero {segni['zero']}, "
+        f"negativo {segni['negativo']}"
+    )
+    return linee
+
+
+def esegui_rapporto_apertura(lato: str, impronte: tuple[str, str] | None = None) -> int:
+    """Rapporto dell'apertura secondo la voce 19: decisione 1, decisione 2,
+    e accanto, senza peso, per bando, A con i gemelli, allegati, spiegate,
+    mancati e tempi. Le due serie non si sommano mai."""
+    misure = {s: misure_contesto(lato, mano) for s, mano in SERIE_APERTURA}
+    for serie, m in misure.items():
+        for chiave in CONFIG_APERTURA:
+            if chiave not in m:
+                raise ErroreMisura(f"manca {chiave[0]} {chiave[1]} ({serie}, {lato})")
+    base = {s: m[CONFIG_APERTURA[0]] for s, m in misure.items()}
+    cand = {s: m[CONFIG_APERTURA[1]] for s, m in misure.items()}
+    if lato == TARATURA:
+        for nome, chiave in zip(("c-0", "c-LR"), CONFIG_APERTURA, strict=True):
+            salvato = _trovati(misure["fogli"][chiave][K], "B")
+            if salvato != TARATURA_APERTURA[nome]:
+                raise ErroreMisura(
+                    f"taratura di {nome}: {salvato} nella misura, "
+                    f"{TARATURA_APERTURA[nome]} nella regola"
+                )
+    n_fogli, n_mano = len(base["fogli"][K]), len(base["mano"][K])
+    linee = [
+        (
+            "Passo 19d, apertura della metà di controllo: rapporto secondo la "
+            f"regola del 23/11/2026 (coda.md, punto 13, voce 19). Metà: {lato}"
+        ),
+    ]
+    if lato == TARATURA:
+        linee.append("PROVA A SECCO SULLA TARATURA: non è l'apertura del controllo.")
+    if impronte:
+        linee.append(
+            f"Impronta dello script: prima {impronte[0][:12]}, dopo "
+            f"{impronte[1][:12]}: "
+            + ("uguali" if impronte[0] == impronte[1] else "DIVERSE")
+        )
+    linee += [
+        NOTA_SEGNI,
+        f"Base c-0, candidata c-LR tutte. Domande dei fogli {n_fogli}"
+        + (
+            f" (la regola parla di {FOGLI_CONTROLLO})"
+            if lato == CONTROLLO and n_fogli != FOGLI_CONTROLLO
+            else ""
+        )
+        + f"; domande a mano {n_mano}. Le due serie non si sommano mai.",
+        "",
+        "1. Decisione 1, quale configurazione (B)",
+    ]
+    d1 = decisione_1(base["fogli"], cand["fogli"], base["mano"], cand["mano"])
+    linee += d1.linee
+    linee.append(f"  esito: {d1.esito}")
+    scelta = "c-LR" if d1.sostituisce else "c-0"
+    righe_scelta = (cand if d1.sostituisce else base)["fogli"][K]
+    _, linee_2 = decisione_2(scelta, righe_scelta, TARATURA_APERTURA[scelta])
+    linee += ["", "2. Decisione 2, chiusura del passo", *linee_2]
+
+    linee += ["", "3. Accanto, senza peso nella decisione", "  a. Per bando, B"]
+    for serie in misure:
+        for k in K_ESATTI:
+            linee.append(f"   [{serie}] k={k}")
+            linee += righe_per_bando(base[serie][k], cand[serie][k])
+
+    linee.append("  b. Condizione A, con i gemelli tra bandi")
+    for serie in misure:
+        for k in K_ESATTI:
+            linee.append(
+                riga_segni_netto(
+                    f"c-0 k={k}", base[serie][k], f"c-LR k={k}", cand[serie][k], "A"
+                ).replace("  ", f"   [{serie}] ", 1)
+            )
+            for nome, righe in (("c-0", base[serie][k]), ("c-LR", cand[serie][k])):
+                tra_bandi = [r for r in righe if not _apistici(r)]
+                dal = [r["riga"] for r in tra_bandi if r["A_pezzo_dal_gemello"] == "sì"]
+                senza = [
+                    r["riga"] for r in tra_bandi if r["A_gemello_senza_giusto"] == "sì"
+                ]
+                linee.append(
+                    f"     {nome}: pezzo dal bando gemello prima del giusto "
+                    f"{len(dal)} ({_nomi(dal)}); gemello senza il giusto {len(senza)} "
+                    f"({_nomi(senza)})"
+                )
+
+    linee.append(
+        "  c. Pezzi presi da un altro allegato dello stesso bando (apistici), da "
+        "leggere a mano con i quattro casi. La misura dice che un frammento di un "
+        "altro allegato con il pezzo arriva prima del giusto, non quale: il testo "
+        "si confronta in tutti i frammenti degli altri allegati che lo contengono."
+    )
+    da_leggere = {
+        (serie, nome, k, c): [
+            r for r in righe[k] if _apistici(r) and r[f"{c}_pezzo_dal_gemello"] == "sì"
+        ]
+        for serie in misure
+        for nome, righe in (("c-0", base[serie]), ("c-LR", cand[serie]))
+        for k in K_ESATTI
+        for c in CONDIZIONI_GRIGLIA
+    }
+    if any(da_leggere.values()):
+        _, fatti, file_per_bando = fatti_intera(lato)
+        per_riga = {str(f["riga"]): f for f in fatti}
+        frammenti = frammenti_v0()
+    identici: dict[str, str] = {}
+    for (serie, nome, k, c), righe in da_leggere.items():
+        linee.append(f"   [{serie}] {nome} {c} k={k}: {len(righe)}")
+        for r in righe:
+            if r["riga"] not in identici:
+                fatto = per_riga[r["riga"]]
+                giusti, gemelli = documenti_del_fatto(fatto, file_per_bando)
+                identici[r["riga"]] = allegato_identico(
+                    fatto, giusti, gemelli, frammenti
+                )
+            linee.append(
+                f"     {nome_della_riga(r['riga'])} (trovato {r[f'{c}_trovato']}): "
+                f"{identici[r['riga']]}"
+            )
+
+    linee.append("  d. Domande a mano, spiegate e non spiegate, B")
+    spiegate = spiegate_del_lato(lato)
+    for k in K_ESATTI:
+        for etichetta, valore in (("spiegate", True), ("non spiegate", False)):
+            b = [r for r in base["mano"][k] if spiegate.get(r["riga"]) is valore]
+            c_ = [r for r in cand["mano"][k] if spiegate.get(r["riga"]) is valore]
+            presi, persi = cambi_di_esito(b, c_, "B")
+            linee.append(
+                f"   k={k}, {etichetta} ({len(b)}): c-0 {_trovati(b, 'B')[0]}, c-LR "
+                f"{_trovati(c_, 'B')[0]}; {_conti_segni(presi, persi)}"
+            )
+
+    linee.append("  e. Mancati in B, per la lettura a mano (classi del 22/11)")
+    for serie in misure:
+        for nome, righe in (("c-0", base[serie]), ("c-LR", cand[serie])):
+            for k in K_ESATTI:
+                mancati = sorted(
+                    (r for r in righe[k] if r["B_trovato"] != "sì"),
+                    key=lambda r: int(r["riga"]),
+                )
+                linee.append(f"   [{serie}] {nome} k={k}: {len(mancati)}")
+                linee += [
+                    f"     {nome_della_riga(r['riga'])} {r['id_bando']}: "
+                    f"{r['B_cause'] or '-'}"
+                    for r in mancati
+                ]
+
+    linee.append("  f. Tempi del riordinatore per domanda")
+    for serie, mano in SERIE_APERTURA:
+        for chiave in CONFIG_APERTURA:
+            d = _dati_contesto(*chiave, lato, mano)
+            for c in CONDIZIONI_GRIGLIA:
+                t = d["tempo_per_domanda_s"].get(c, {})
+                linee.append(
+                    f"   [{serie}] {chiave[0]} {c}: mediana "
+                    f"{_virgola(t['mediana']) if 'mediana' in t else '-'} s, massimo "
+                    + (
+                        _virgola(t["massimo"]) + " s"
+                        if "massimo" in t
+                        else "non registrato"
+                    )
+                    + f"; misura intera {_virgola(d.get('tempo_s', 0), 0)} s"
+                )
+
+    testo = "\n".join(linee)
+    uscita = CARTELLA_CONTESTO / f"rapporto_apertura_{lato}.txt"
+    uscita.write_text(testo + "\n", encoding="utf-8")
+    print(testo)
+    return 0
+
+
+def file_dell_apertura(nome: str, righe: str, lato: str, mano: bool) -> list[Path]:
+    """I file di una misura dell'apertura: i due .csv (k=10 e k=15) e il .json."""
+    return [file_contesto(nome, righe, k, lato, mano) for k in K_ESATTI] + [
+        file_contesto(nome, righe, K, lato, mano).with_suffix(".json")
+    ]
+
+
+def esegui_apertura(lato: str) -> int:
+    """Misura c-0 e c-LR tutte, A e B, k=10 e k=15, sulle domande dei fogli e
+    sulle domande a mano della metà, poi il rapporto; impronta dello script
+    prima e dopo.
+
+    Sulla taratura (prova a secco) una misura già salvata per intero non si
+    rifà. Sul controllo si ferma prima di misurare se c'è già un file: la metà
+    di controllo si apre una volta sola.
+    """
+    script = Path(__file__)
+    prima = impronta(script.read_bytes())
+    da_misurare = []
+    for _, mano in SERIE_APERTURA:
+        for nome, righe in CONFIG_APERTURA:
+            file_ = file_dell_apertura(nome, righe, lato, mano)
+            presenti = [p for p in file_ if p.exists()]
+            if lato == CONTROLLO and presenti:
+                raise ErroreMisura(
+                    f"{presenti[0].name} esiste già: il controllo si apre una volta "
+                    "sola, non si misura"
+                )
+            if len(presenti) == len(file_):
+                print(f"misura già salvata, non si rifà: {file_[0].name}")
+                continue
+            if presenti:
+                raise ErroreMisura(f"misura incompleta: c'è {presenti[0].name}")
+            da_misurare.append((nome, righe, mano))
+    # le domande a mano si controllano prima di misurare (righe, file, frasi)
+    fatti_della_misura(lato, True)
+    for nome, righe, mano in da_misurare:
+        esegui_contesto(lato, nome, righe, mano)
+    dopo = impronta(script.read_bytes())
+    esegui_rapporto_apertura(lato, (prima, dopo))
+    if dopo != prima:
+        print("ATTENZIONE: lo script è cambiato durante la misura", file=sys.stderr)
+        return 1
+    return 0
+
+
 def esegui_rapporto_contesto(lato: str) -> int:
     import json
 
@@ -7008,6 +7480,20 @@ def leggi_argomenti(argv: list[str] | None = None) -> argparse.Namespace:
             "istruzione; nessuna misura)"
         ),
     )
+    parser.add_argument(
+        "--apertura",
+        action="store_true",
+        help=(
+            "c-0 e c-LR tutte, A e B, k=10 e 15, fogli e domande a mano, poi il "
+            "rapporto della voce 19; con --controllo è l'apertura (una volta sola), "
+            "senza è la prova a secco sulla taratura con le misure salvate"
+        ),
+    )
+    parser.add_argument(
+        "--rapporto-apertura",
+        action="store_true",
+        help="solo il rapporto della voce 19 sulle misure salvate della metà",
+    )
     parser.add_argument("--modello", choices=sorted(MODELLI), default="v0")
     parser.add_argument(
         "--controllo",
@@ -7088,6 +7574,8 @@ def main(argv: list[str] | None = None) -> int:
         argomenti.prepara_domande_a_mano_3,
         argomenti.contesto_domande_a_mano,
         argomenti.prepara_domande_a_mano_controllo,
+        argomenti.apertura,
+        argomenti.rapporto_apertura,
     )
     if sum(comandi) != 1:
         print(
@@ -7097,8 +7585,8 @@ def main(argv: list[str] | None = None) -> int:
             "--riepilogo-intero, --notte, --scarica-riordinatore, --parte-97, "
             "--contesto, --rapporto-contesto, --rapporto-T, --argomenti-contesto o "
             "--prepara-domande-a-mano, --prepara-domande-a-mano-2, "
-            "--prepara-domande-a-mano-3, --contesto-domande-a-mano o "
-            "--prepara-domande-a-mano-controllo.",
+            "--prepara-domande-a-mano-3, --contesto-domande-a-mano, "
+            "--prepara-domande-a-mano-controllo, --apertura o --rapporto-apertura.",
             file=sys.stderr,
         )
         return 2
@@ -7154,6 +7642,10 @@ def main(argv: list[str] | None = None) -> int:
             return esegui_contesto_a_mano()
         if argomenti.prepara_domande_a_mano_controllo:
             return esegui_prepara_a_mano_controllo()
+        if argomenti.apertura:
+            return esegui_apertura(lato)
+        if argomenti.rapporto_apertura:
+            return esegui_rapporto_apertura(lato)
         if argomenti.notte == 4:
             if not argomenti.riordinatore:
                 return esegui_rapporto_riordino(lato)
