@@ -2,7 +2,7 @@
 
 I documenti scritti prima del 18/11/2026 citano sezioni di questa roadmap che oggi stanno in docs/coda.md con il loro numero originale (Difetti del 14/11, Dopo la demo, Prossimi passi, In coda, priorità del consulente pilota, indicazioni del revisore tecnico) e in docs/fatto.md.
 
-Stato al 22 novembre 2026. Da aggiornare alla fine di ogni passo.
+Stato al 23 novembre 2026. Da aggiornare alla fine di ogni passo.
 
 Qui stanno solo stato, principi, ordine dei passi e decisioni prese. Il
 lavoro chiuso è in `docs/fatto.md`; le voci in attesa, con il loro numero
@@ -10,33 +10,18 @@ originale, in `docs/coda.md`.
 
 ## Stato
 
-- **Gli avvisi dei bandi non vanno su Postgres finché il passo 19d non
-  passa.** Dal 20/11/2026 stanno solo nel Chroma locale (passo 19c,
-  `docs/fatto.md`): l'app online non li vede. Il 19d è in chiusura dal
-  21/11/2026, con il perimetro concordato il 20/11 sera (`coda.md`,
-  "Passo 19d", punto 10); il caricamento su Postgres è il passo 19e.
-- Demo mandata al consulente pilota il 16/11/2026, riscontro ricevuto il
-  18/11/2026. Revisione del revisore tecnico ricevuta il 18/11/2026.
-  Revisione esterna del piano ricevuta il 18/11/2026.
+- **Il 19d è chiuso dal 23/11/2026, sotto soglia** (`coda.md`, "Passo
+  19d", punto 13, voci 19-21): c-LR tutte è la configurazione degli
+  avvisi; gli avvisi vanno in produzione solo con il filtro per bando e
+  con il "non lo trovo"; il numero da citare è 77 su 98 (78,6%), B, k=10,
+  metà di controllo.
 - Baseline: la regressione finale del 16/11/2026 (commit `715b411`), 55
   domande in 4 lotti. La baseline del 16/11/2026 non corrisponde più
   all'archivio dopo il passo 2a (18/11/2026). Resta l'unico riferimento
   fino alla nuova registrazione delle 55 domande, dopo il passo 3.
-- Attese: 18 sui titoli nel file delle domande, su 14 domande. La tabella
-  a freddo ne conta 17: manca quella di L05, che nel lotto 1 a freddo ha
-  avuto il router fallito 3 volte su 3 (attesa 0/1).
 
-Riscontro del consulente pilota del 18/11/2026, in sintesi:
-- prova con tre domande;
-- su una domanda senza risultati attesi l'app non ha inventato;
-- su una ha mancato due bandi, uno nazionale e uno regionale;
-- su una ha trovato opportunità corrette ma generiche;
-- suggerimenti: includere il BURT e provare con qualche ministero.
-
-Riscontro del 19/11/2026: domanda e casi indicati; diagnosi in
-`coda.md`, 'Riscontro del consulente pilota e fonti': un pertinente
-mancato per copertura (Fondo nazionale rievocazione storica 2027),
-l'altro caso non era un bando.
+Demo e riscontri del consulente pilota (18 e 19/11/2026), attese:
+`docs/fatto.md`, "Spostato dalla roadmap il 23 novembre 2026".
 
 Indicazioni del revisore tecnico (18/11): `docs/coda.md`, "Revisore
 tecnico (18/11/2026)".
@@ -77,10 +62,12 @@ tecnico (18/11/2026)".
 
 I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
 1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
-A, attese con polarità); 19 (19a, 19b e 19c fatti, 19d in corso:
-configurazioni chiuse il 22/11/2026, restano revisione esterna e apertura
-del controllo, `docs/coda.md`, "Passo 19d", punto 13, voce 17; poi 19e e
-22, in un ordine che si decide a 19d chiuso); 20 (prima
+A, attese con polarità); 19 (19a, 19b, 19c fatti; 19d chiuso il
+23/11/2026, sotto soglia, `docs/coda.md`, "Passo 19d", punto 13, voci
+19-21; poi 19e e 22, in un ordine che si decide ora); tra le prime cose a
+19d chiuso, la scansione regolare delle fonti, fatta una sola volta il
+13/11/2026, prima della videochiamata di dicembre (`coda.md`, "Disegno
+dell'app (22/11/2026)", aggiunte del 23/11); 20 (prima
 della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
 baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
 Il passo 23 (copertura dell'archivio) si fa dopo il 19d.
@@ -94,18 +81,13 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
    congelata dei CSV e con data di riferimento 2026-11-16; data fissa e
    SQLite congelato sono un compito di codice a parte, prima della nuova
    baseline (`docs/piano-insieme-prova.md`, "Regola delle misure").
-   Parti (a) e (b) fatte il 18/11/2026 (`docs/fatto.md`); la parte (c)
-   è una regola, non codice. La prima copia congelata si fa dopo il
-   passo 2b.
+   Parti (a) e (b) fatte (`docs/fatto.md`); la parte (c) è una regola,
+   non codice. La prima copia congelata si fa dopo il passo 2b.
 1. **Etichette.** Schede in `dati-grezzi/etichette/2026-11-18_152225`, per
    50 domande: le 5 domande A non hanno schede e restano misurate con le
    attese attuali.
-   - Fatto il 19/11/2026 con un metodo diverso da quello previsto: due
-     modelli, un arbitro, revisione a mano di 96 righe dei Comuni. 990
-     etichette, 27 incerte, forma incerta per C18 e C20. Metodo, numeri
-     e limiti in docs/piano-insieme-prova.md, 'Come sono state fatte le
-     etichette'. Resta da fare: la colonna 'chi atteso' per domanda e le
-     5 domande A.
+   - Resta da fare: la colonna 'chi atteso' per domanda e le 5 domande
+     A (etichette fatte il 19/11/2026, `docs/fatto.md`).
    - Due o tre domande anche al consulente pilota.
    - Dalle etichette nascono le attese con polarità (proposto, non
      proposto); `forma_attesa` si calcola dalle etichette. Oggi una
@@ -119,12 +101,7 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
    assorbe il passo 6), si registra dopo i passi 19, 2b, 4 e 3
    (decisione del 19/11/2026). Dettaglio in `coda.md`, "Pulizia dei
    dati (passi 2a e 2b)".
-   2a fatto il 18/11/2026: scadenze corrette a mano per Filiera SMART,
-   per l'edizione precedente del Bando Pmi EU-Blending (incentivi-3662,
-   non un doppione) e per il fondo di garanzia energie rinnovabili;
-   aperti al 16/11 da 54 a 51. I quattro bandi con 8 o più tipi non sono
-   errori di classificazione ma bandi "per requisito": restano come
-   sono, e il rimedio è il passo 4.
+   2a fatto il 18/11/2026 (`docs/fatto.md`).
 3. **Simulazione del router, senza modello**, dopo il passo 4, sulle
    risposte grezze già salvate e solo sulle decisioni che restano al
    router: chi chiede, bando nominato o elenco, documenti sì o no.
@@ -138,61 +115,28 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
 
 Passi nuovi della sezione A:
 
-17. **Testo di ricerca per bando**, senza modello, in un file separato
-    (`data/processed/testo_ricerca.csv`); serve solo all'ordinamento.
-    Dettaglio in `coda.md`, "Testo di ricerca (passo 17)".
-    Fatto il 19/11/2026 (`docs/fatto.md`).
+17. **Testo di ricerca per bando**: fatto il 19/11/2026
+    (`docs/fatto.md`).
 19. **PDF degli avvisi dei bandi aperti**: l'avviso in PDF di ogni
     bando aperto entra nell'archivio dei documenti, legato al bando con
     `id_bando`. Prerequisito del passo 9, non una correzione delle
     risposte. Dettaglio in `coda.md`, "PDF dei bandi" (passo 19).
-    19a e 19b fatti il 19/11/2026, 19c il 20/11/2026 (`docs/fatto.md`):
-    17 file, 871 frammenti nel Chroma locale. Prossimo: 19d, misura del
-    recupero sugli avvisi (`coda.md`, "Passo 19d"). Gli avvisi vanno su
-    Postgres solo dopo che il 19d è passato.
-    19d in corso dal 20/11/2026: non è più una verifica, è il lavoro che
-    ridisegna la ricerca nei documenti. Fatti 195, divisi in 97 di
-    taratura e 98 di controllo; il controllo si apre una volta sola,
-    sulla scelta finale. Regola di chiusura, risultati e strade in
-    `coda.md`, "Passo 19d".
-    19d in chiusura dal 21/11/2026. Misure della notte del 20/11 sui 97
-    fatti di taratura in `coda.md`, "Passo 19d", punti 3 e 4. Perimetro
-    concordato il 20/11 sera (punto 10), quattro mosse e non altre:
-    scelta della configurazione; nome dell'azione degli apistici nel
-    registro; una sola strada nuova, il contesto per frammento; apertura
-    del controllo, una volta, scrivendo il numero che esce anche se è
-    sotto l'85%. Se resta sotto la soglia, gli avvisi entrano in
-    produzione solo con il filtro per bando, e i casi difficili restano
-    in coda. Le altre idee in `coda.md`, "Parcheggio".
-    Al 21/11/2026 sera: nome dell'azione nel registro, fuori dal recupero
-    (punto 5); contesto per frammento generato sugli 871 frammenti,
-    controlli e misura da fare, con le regole decise prima (punto 13);
-    poi revisione esterna del metodo, e solo dopo l'apertura del
-    controllo.
-    19e, nuovo (20/11/2026): avvisi su Postgres insieme al filtro per
-    `id_bando` nell'app, e rimisura del recupero su Postgres con gli
-    stessi fatti, perché lì ricerca per parole e indice dei vettori sono
-    diversi da Chroma.
-    Dal 22/11/2026 (disegno dell'app, `coda.md`, "Disegno dell'app
-    (22/11/2026)"): quando c'è una selezione di bandi, è la selezione la
-    fonte del filtro, al posto di "l'app indovina il bando". L'85% di
-    recupero del 19d è una condizione necessaria, non il traguardo delle
-    risposte giuste: quelle si misurano nel 19e.
-    Al 22/11/2026 sera: configurazioni chiuse, nessun'altra entra nel 19d
-    (`coda.md`, "Passo 19d", punto 13, voce 15). Al controllo va c-LR con
-    tutte le righe, come candidata debole: domande a mano nuove +3 in B
-    (voce 11); T-0 e T-R non adottabili (voce 13). Mancano la revisione
-    esterna e l'apertura del controllo, nell'ordine della voce 17.
-    Per il 19e (`coda.md`, "Passo 19d", punto 7, aggiunte del 22/11):
-    frammenti vicini passati al modello e scalini al momento della
-    domanda (allargare se la ricerca è poco sicura, poi chiedere di
-    precisare, poi dire che non trova).
-    Taglio dei documenti secondo la struttura del bando: da decidere
-    prima dell'ampliamento dell'archivio, perché dopo ogni bando va
-    ricaricato (`coda.md`, "Taglio dei documenti secondo la struttura del
-    bando (22/11/2026)").
-    Nota (22/11/2026): alla chiusura del 19d questa voce va sfoltita,
-    spostando in `docs/fatto.md` lo stato dei giorni passati.
+    19a e 19b fatti il 19/11/2026, 19c il 20/11/2026: 17 file, 871
+    frammenti nel Chroma locale.
+    19d chiuso il 23/11/2026, sotto soglia (`coda.md`, "Passo 19d", punto
+    13, voci 19-21): c-LR tutte è la configurazione degli avvisi; avvisi
+    in produzione solo con il filtro per bando e il "non lo trovo";
+    numero da citare 77 su 98 (78,6%), B, k=10, metà di controllo. Stato
+    giorno per giorno in `docs/fatto.md`.
+    19e: avvisi su Postgres insieme al filtro per bando (dalla selezione
+    dei bandi, quando c'è) e rimisura del recupero su Postgres. Rimedi,
+    in quest'ordine:
+    1. frammenti vicini passati al modello;
+    2. segnale di scarsa fiducia;
+    3. secondo tentativo con altre parole;
+    4. scelta guidata;
+    5. domande semplici scritte al caricamento.
+    Dettaglio e altre voci del 19e in `coda.md`, "Passo 19d", punto 7.
 
 ### B. Correzioni del flusso, con il modello
 
@@ -356,13 +300,14 @@ Ordine previsto: PDF, valutazione, fascicolo.
   per incentivi-5013 e incentivi-3373. Dettaglio in `coda.md`, "Pulizia
   dei dati" (19/11/2026).
 - **Disegno dell'app** (22/11/2026, da chi mantiene il progetto; non si
-  costruisce ora): prima parte in tre passi, elenco dei bandi con
-  selezione e "approfondisci", scheda dei bandi scelti (passo 22),
-  domande puntuali sul bando scelto, anche su più bandi selezionati
-  insieme; la selezione vale per la sessione, il salvataggio dei bandi
-  scelti sta nella seconda parte, la compilazione, che viene dopo. Errori
-  gravi: perdere un bando adatto, un dato sbagliato nella scheda, una
-  risposta sbagliata data con sicurezza; tollerabili: due bandi in più se
-  pertinenti, una voce vuota, "non lo trovo". Traguardo indicato: 85-90%
-  di risposte giuste. Dettaglio in `coda.md`, "Disegno dell'app
-  (22/11/2026)".
+  costruisce ora): prima parte in tre passi, errori gravi e tollerabili,
+  traguardo 85-90%. Dettaglio in `coda.md`, "Disegno dell'app (22/11/2026)".
+- **Configurazione degli avvisi: c-LR tutte** (23/11/2026, decisione 1
+  della regola di conferma). Avvisi in produzione solo con il filtro per
+  bando e il "non lo trovo" (decisione 2, sotto soglia). Numero da
+  citare: 77 su 98 (78,6%), B, k=10, metà di controllo (`coda.md`,
+  "Passo 19d", punto 13, voce 20).
+- **Progetto in due macro parti** (23/11/2026): la prima è l'app
+  attuale, in tre passi; la seconda è l'area privata, scritta come
+  direzione e non come passi numerati. Dettaglio in `coda.md`, "Disegno
+  dell'app (22/11/2026)", aggiunte del 23/11.

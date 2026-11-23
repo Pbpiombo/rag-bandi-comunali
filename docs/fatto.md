@@ -620,3 +620,117 @@ Spostato da `docs/roadmap.md`, "Stato", il 18/11/2026.
   - Decisione 2: 77 su 98 (78,6%), sotto l'85%: il passo si chiude con
     gli avvisi in produzione solo con il filtro per bando e il "non lo
     trovo".
+- **Passo 19d chiuso** (23/11/2026), sotto soglia secondo la regola
+  della voce 19 (`docs/coda.md`, "Passo 19d", punto 13). c-LR tutte è la
+  configurazione degli avvisi; avvisi in produzione solo con il filtro
+  per bando e il "non lo trovo"; numero da citare 77 su 98 (78,6%), B,
+  k=10, metà di controllo. Il seguito è il passo 19e (roadmap).
+  - Lettura a mano dei 28 mancati di c-LR in B a k=10 (voce 21), sul
+    file `dati-grezzi/prova/19d/contesto/mancati_controllo_23-11.txt`,
+    scritto da `mancati_controllo.py` (fuori dal repository, sola
+    lettura, ordine rifatto con le funzioni della misura; posizioni
+    uguali a quelle delle misure in 58 casi su 58). Revisione esterna
+    alla cieca: stessa classe in 17 casi su 28.
+
+## Spostato dalla roadmap il 23 novembre 2026
+
+Testi tolti da `docs/roadmap.md` alla chiusura del 19d, parola per
+parola; i rimandi interni sono quelli della roadmap.
+
+**(era in "Stato" della roadmap)**
+
+- **Gli avvisi dei bandi non vanno su Postgres finché il passo 19d non
+  passa.** Dal 20/11/2026 stanno solo nel Chroma locale (passo 19c,
+  `docs/fatto.md`): l'app online non li vede. Il 19d è in chiusura dal
+  21/11/2026, con il perimetro concordato il 20/11 sera (`coda.md`,
+  "Passo 19d", punto 10); il caricamento su Postgres è il passo 19e.
+- Demo mandata al consulente pilota il 16/11/2026, riscontro ricevuto il
+  18/11/2026. Revisione del revisore tecnico ricevuta il 18/11/2026.
+  Revisione esterna del piano ricevuta il 18/11/2026.
+- Attese: 18 sui titoli nel file delle domande, su 14 domande. La tabella
+  a freddo ne conta 17: manca quella di L05, che nel lotto 1 a freddo ha
+  avuto il router fallito 3 volte su 3 (attesa 0/1).
+
+Riscontro del consulente pilota del 18/11/2026, in sintesi:
+- prova con tre domande;
+- su una domanda senza risultati attesi l'app non ha inventato;
+- su una ha mancato due bandi, uno nazionale e uno regionale;
+- su una ha trovato opportunità corrette ma generiche;
+- suggerimenti: includere il BURT e provare con qualche ministero.
+
+Riscontro del 19/11/2026: domanda e casi indicati; diagnosi in
+`coda.md`, 'Riscontro del consulente pilota e fonti': un pertinente
+mancato per copertura (Fondo nazionale rievocazione storica 2027),
+l'altro caso non era un bando.
+
+**(era in "Passo 0" della roadmap)**
+
+Parti (a) e (b) fatte il 18/11/2026 (`docs/fatto.md`).
+
+**(era in "Passo 1" della roadmap)**
+
+- Fatto il 19/11/2026 con un metodo diverso da quello previsto: due
+  modelli, un arbitro, revisione a mano di 96 righe dei Comuni. 990
+  etichette, 27 incerte, forma incerta per C18 e C20. Metodo, numeri
+  e limiti in docs/piano-insieme-prova.md, 'Come sono state fatte le
+  etichette'. Resta da fare: la colonna 'chi atteso' per domanda e le
+  5 domande A.
+
+**(era in "Passo 2" della roadmap)**
+
+2a fatto il 18/11/2026: scadenze corrette a mano per Filiera SMART,
+per l'edizione precedente del Bando Pmi EU-Blending (incentivi-3662,
+non un doppione) e per il fondo di garanzia energie rinnovabili;
+aperti al 16/11 da 54 a 51. I quattro bandi con 8 o più tipi non sono
+errori di classificazione ma bandi "per requisito": restano come
+sono, e il rimedio è il passo 4.
+
+**(era in "Passo 17" della roadmap)**
+
+17. **Testo di ricerca per bando**, senza modello, in un file separato
+    (`data/processed/testo_ricerca.csv`); serve solo all'ordinamento.
+    Dettaglio in `coda.md`, "Testo di ricerca (passo 17)".
+    Fatto il 19/11/2026 (`docs/fatto.md`).
+
+**(era nel passo 19 della roadmap)**
+
+19a e 19b fatti il 19/11/2026, 19c il 20/11/2026 (`docs/fatto.md`):
+17 file, 871 frammenti nel Chroma locale. Prossimo: 19d, misura del
+recupero sugli avvisi (`coda.md`, "Passo 19d"). Gli avvisi vanno su
+Postgres solo dopo che il 19d è passato.
+19d in corso dal 20/11/2026: non è più una verifica, è il lavoro che
+ridisegna la ricerca nei documenti. Fatti 195, divisi in 97 di
+taratura e 98 di controllo; il controllo si apre una volta sola,
+sulla scelta finale. Regola di chiusura, risultati e strade in
+`coda.md`, "Passo 19d".
+19d in chiusura dal 21/11/2026. Misure della notte del 20/11 sui 97
+fatti di taratura in `coda.md`, "Passo 19d", punti 3 e 4. Perimetro
+concordato il 20/11 sera (punto 10), quattro mosse e non altre:
+scelta della configurazione; nome dell'azione degli apistici nel
+registro; una sola strada nuova, il contesto per frammento; apertura
+del controllo, una volta, scrivendo il numero che esce anche se è
+sotto l'85%. Se resta sotto la soglia, gli avvisi entrano in
+produzione solo con il filtro per bando, e i casi difficili restano
+in coda. Le altre idee in `coda.md`, "Parcheggio".
+Al 21/11/2026 sera: nome dell'azione nel registro, fuori dal recupero
+(punto 5); contesto per frammento generato sugli 871 frammenti,
+controlli e misura da fare, con le regole decise prima (punto 13);
+poi revisione esterna del metodo, e solo dopo l'apertura del
+controllo.
+19e, nuovo (20/11/2026): avvisi su Postgres insieme al filtro per
+`id_bando` nell'app, e rimisura del recupero su Postgres con gli
+stessi fatti, perché lì ricerca per parole e indice dei vettori sono
+diversi da Chroma.
+Dal 22/11/2026 (disegno dell'app, `coda.md`, "Disegno dell'app
+(22/11/2026)"): quando c'è una selezione di bandi, è la selezione la
+fonte del filtro, al posto di "l'app indovina il bando". L'85% di
+recupero del 19d è una condizione necessaria, non il traguardo delle
+risposte giuste: quelle si misurano nel 19e.
+Al 22/11/2026 sera: configurazioni chiuse, nessun'altra entra nel 19d
+(`coda.md`, "Passo 19d", punto 13, voce 15). Al controllo va c-LR con
+tutte le righe, come candidata debole: domande a mano nuove +3 in B
+(voce 11); T-0 e T-R non adottabili (voce 13). Mancano la revisione
+esterna e l'apertura del controllo, nell'ordine della voce 17.
+19d chiuso il 23/11/2026, sotto soglia: apertura del controllo alla
+voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
+19d", punto 13).

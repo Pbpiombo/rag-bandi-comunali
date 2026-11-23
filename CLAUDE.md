@@ -92,7 +92,8 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
   decisioni, e deve restare leggibile in una volta: intorno alle 200 righe,
   senza un limite rigido. Il lavoro chiuso sta in `docs/fatto.md`, le voci
   in attesa in `docs/coda.md`, il dettaglio nei `docs/piano-*.md`. Non si
-  taglia contenuto per rientrare in un numero.
+  taglia contenuto per rientrare in un numero. La roadmap si rivede a ogni
+  chiusura di passo: le parti fatte scendono in `docs/fatto.md`.
 - Quando si divide o si sposta un documento, il testo si sposta parola per
   parola e non si cancella. Ogni voce spostata porta "(era la voce N di …)".
 - Se una parte viene riassorbita invece che spostata, dichiaralo e cerca in
@@ -134,8 +135,11 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
 - Committare `.env` o qualunque credenziale.
 - Fare commit o push se non richiesto esplicitamente.
 - Usare `--unsafe-fixes` di ruff.
-- Caricare gli avvisi dei bandi su Postgres (l'app online) prima che il passo
-  19d sia passato: fino ad allora stanno solo nel Chroma locale.
+- Caricare gli avvisi dei bandi su Postgres (l'app online) fuori dal passo
+  19e. Il 19d è chiuso sotto soglia (23/11/2026): gli avvisi vanno online
+  solo insieme al filtro per bando e al "non lo trovo", dopo la rimisura
+  su Postgres prevista nel 19e e con il via esplicito di chi mantiene il
+  progetto. Fino ad allora stanno solo nel Chroma locale.
 - Modificare i CSV in `data/processed/` a mano senza dirlo: sono dati
   verificati.
 - Leggere domande, rapporti o giudizi di un lotto dell'insieme di prova non

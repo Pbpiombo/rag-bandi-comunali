@@ -321,6 +321,43 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
   fatto: è un limite della misura da ricordare quando si leggono i
   mancati, e un motivo in più per la scheda del passo 2.
 
+Aggiunte (23/11/2026, decise in chat da chi mantiene il progetto):
+- **Due macro parti.** La prima è l'app attuale, nei tre passi qui
+  sopra; il passo 3 comprende le domande complesse e i chiarimenti sui
+  bandi scelti: le domande tecniche di dettaglio stanno qui. La seconda
+  parte è l'area privata (qui sotto).
+- **Scansione regolare delle fonti.** La prima parte la richiede già. È
+  stata fatta una sola volta, il 13/11/2026: da riprendere tra le prime
+  cose a 19d chiuso, prima della videochiamata di dicembre (roadmap,
+  "Ordine dei passi").
+- **Area privata, seconda parte**, scritta come direzione e non come
+  passi numerati: bandi salvati in cartelle per progetto; profilo
+  (azienda, comune, tecnico); seguito per compilare le domande e trovare
+  tecnici; notifiche dei bandi nuovi, che riusano la scansione della
+  prima parte. Richiede profili e quindi dati personali: mai nel
+  repository. Argomento per la videochiamata con il consulente pilota:
+  cosa userebbe davvero. Voci vicine: "Sezione riservata" e "Percorso
+  guidato per gli iscritti" (Prossimi passi).
+- **Tre tipi di domanda**: puntuale, a elenco, di significato. Per
+  quelle di significato la risposta non sta nel bando: l'app può
+  rispondere solo dichiarando che è una spiegazione generale e non un
+  dato del bando, tenuta separata. Termini per il glossario in
+  "Parcheggio", "Glossario".
+
+Testo della decisione com'era in roadmap, "Decisioni prese" (spostato
+il 23/11/2026):
+- **Disegno dell'app** (22/11/2026, da chi mantiene il progetto; non si
+  costruisce ora): prima parte in tre passi, elenco dei bandi con
+  selezione e "approfondisci", scheda dei bandi scelti (passo 22),
+  domande puntuali sul bando scelto, anche su più bandi selezionati
+  insieme; la selezione vale per la sessione, il salvataggio dei bandi
+  scelti sta nella seconda parte, la compilazione, che viene dopo. Errori
+  gravi: perdere un bando adatto, un dato sbagliato nella scheda, una
+  risposta sbagliata data con sicurezza; tollerabili: due bandi in più se
+  pertinenti, una voce vuota, "non lo trovo". Traguardo indicato: 85-90%
+  di risposte giuste. Dettaglio in `coda.md`, "Disegno dell'app
+  (22/11/2026)".
+
 ## Prossimi passi, voci numerate
 
 - (era la voce 1 dei Prossimi passi) **Scheda per bando**: per chi è e per cosa si può usare, divisa per tipo di
@@ -528,6 +565,12 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
 
    **Passo 19d: misura del recupero sugli avvisi (20/11/2026).** Si fa
    sul Chroma locale; gli avvisi vanno su Postgres solo se il 19d passa.
+   **Chiuso il 23/11/2026, sotto soglia** secondo la regola del punto 13,
+   voce 19 (esito alla voce 20, lettura a mano dei mancati alla voce 21).
+   Conseguenze: c-LR tutte è la configurazione degli avvisi; gli avvisi
+   vanno in produzione solo con il filtro per bando e con il "non lo
+   trovo"; il numero da citare è 77 su 98 (78,6%), B, k=10, metà di
+   controllo.
    Stato al 21/11/2026: in chiusura, con il perimetro del punto 10. Non è
    più una verifica, è il lavoro che ridisegna la ricerca nei documenti.
    Al 21/11/2026 sera: mossa 2 fatta (punto 5); mossa 3, il contesto per
@@ -1004,6 +1047,65 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
         due indici dello stesso archivio.
       - **Colonna "approfondimento"** nei fogli delle domande a mano, per
         le domande che vengono dopo la risposta: proposta, non creata.
+      Blocco del 19e del 23/11/2026, dopo la lettura dei mancati del
+      controllo (punto 13, voce 21); era nel passo 19 della roadmap, che
+      ora ne tiene solo l'elenco dei rimedi. Gli scalini qui sopra
+      diventano il segnale di scarsa fiducia e la scelta guidata.
+      **19e** (ordine del 23/11/2026, dalla lettura dei mancati del
+      controllo; prima versione, del 22/11: frammenti vicini e scalini al
+      momento della domanda, `coda.md`, "Passo 19d", punto 7). Rimedi, in
+      quest'ordine:
+      1. frammenti vicini passati al modello (misurati sul recupero il
+         20/11);
+      2. segnale di scarsa fiducia: il sistema si accorge che i frammenti
+         trovati c'entrano poco;
+      3. secondo tentativo con altre parole (idea di chi mantiene il
+         progetto, 23/11/2026). Quando il segnale di scarsa fiducia scatta,
+         un modello piccolo riceve la domanda e gli argomenti del bando
+         scelto e indica quali c'entrano, con le parole del bando; la
+         ricerca si ripete con quelle parole, senza che l'utente veda
+         niente. Quali righe dei contesti dare al modello piccolo è da
+         decidere con una prova: ARGOMENTO è un elenco chiuso di 21 voci,
+         probabilmente troppo generico; SERVE A e PAROLE hanno parole più
+         vicine a quelle dell'utente. Costa solo nei casi dubbi, non a ogni
+         domanda; niente da mantenere per bando; si toglie senza rifare
+         l'archivio. Il verificatore e il "non lo trovo" restano invariati.
+         Attacca i mancati per parole diverse. Tra i 28 mancati del
+         controllo sono cinque (punto 13, voce 21, punto 5.3): 22 e 48 dei fogli e
+         2:100 a mano non arrivano in nessun modo; 46 e 60 dei fogli
+         arrivano già per altra via (altro passaggio; frammenti vicini). Da
+         solo ne cura quindi tre: è una leva più piccola dei frammenti
+         vicini. Da misurare su domande nuove: la metà di controllo è spesa;
+      4. scelta guidata (idea di chi mantiene il progetto, 23/11/2026):
+         quando il segnale scatta, l'app propone tre argomenti vicini presi
+         dal bando (dalle righe ARGOMENTO e SERVE A dei contesti, senza
+         chiamata al modello), con una spiegazione in parole semplici e
+         l'uscita "nessuno di questi". Testo che non dà la colpa
+         all'utente: "Non trovo un punto preciso su questo. Nel bando ci
+         sono questi argomenti vicini: quale ti interessa?". Le domande
+         mancate non erano poco chiare: il difetto è che il sistema non sa
+         di aver sbagliato, per questo viene dopo il segnale;
+      5. domande in parole semplici scritte al caricamento per ogni
+         frammento, al posto della riscrittura della domanda a ogni
+         richiesta (che costa per domanda e, senza conoscere il bando,
+         indovina i termini).
+      Altre voci del 19e:
+      - verificare se il contesto penalizza le tabelle lunghe (casi 2:100
+        e 64);
+      - taglio per struttura, da decidere prima di allargare l'archivio,
+        perché dopo ogni bando va ricaricato (`coda.md`, "Taglio dei
+        documenti secondo la struttura del bando (22/11/2026)"); casi del
+        23/11: 2:51, 59, 64, 2:100, 68;
+      - per gli apistici l'app chiede quale azione (caso 70);
+      - se la domanda non nomina l'azione e la regola è identica negli
+        allegati, la risposta dice che vale per tutte le azioni (casi 68 e
+        2:96, contestati);
+      - due modifiche allo script di misura proposte da Claude Code il
+        23/11: salvare nelle misure l'ordine dei primi 15 frammenti in B;
+        elencare prima di misurare le righe compilate con la colonna
+        "spiegata" vuota.
+      In Parcheggio (`coda.md`): la domanda ripulita dal titolo del bando
+      lascia un buco nella frase.
    8. **Strade da provare, nell'ordine** (superato dal perimetro del
       punto 10, 20/11/2026 sera: la strada 1 è fatta, punto 3; la 2 resta;
       la 3 è l'unica strada nuova, limitata al contesto per frammento; il
@@ -1221,7 +1323,7 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
           netto in B "resta" se è positivo e almeno metà di quello con le
           domande del foglio sugli stessi fatti.
        6. **Prossimo compito**, nell'ordine (superato dalla voce 17,
-          22/11/2026):
+          22/11/2026, e dalle voci 19 e 20, 23/11/2026):
           1. i controlli sugli 871 contesti della generazione completa
              (`genera_contesti --controlla`);
           2. se le violazioni vere su numeri o gemello restano entro il 5%,
@@ -1611,7 +1713,8 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
           dello stesso bando apistici (72 e 2:107, a k=10 e a k=15), contro
           1 di c-0 (2:92). Va deciso e scritto se gli allegati dello stesso
           bando contano come bando sbagliato.
-      17. **Cosa resta per chiudere il 19d**, in ordine:
+      17. **Cosa resta per chiudere il 19d**, in ordine (fatto il
+          23/11/2026: voci 19, 20 e 21):
           1. revisione esterna (domande alla voce 18);
           2. regola di conferma scritta e committata;
           3. circa 50 domande a mano sul controllo, cinque per bando (voce
@@ -1768,6 +1871,16 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
             216d67cc8abc, dopo 216d67cc8abc: uguali. 98 domande dei fogli e
             49 a mano: la riga del foglio 1 numero 57 aveva la domanda vuota
             ed è stata saltata.
+          - **Procedimento** (aggiunto il 23/11/2026, dalla chat di
+            pianificazione). Regola (commit 7024a80) e codice della misura
+            (commit 43c2860) pubblicati prima dell'apertura. Domande a mano
+            del controllo scritte da chi mantiene il progetto con lo stesso
+            procedimento della taratura: spiegazioni su richiesta, controllo
+            "punta al fatto?", lettura del file intero con la segnalazione
+            delle sole frasi capite in un altro senso. Tre righe segnalate
+            (righe 37, 40 e 48 del foglio di calcolo, cioè i fatti 2:40,
+            2:59 e 2:96) e riscritte da chi mantiene il progetto prima
+            della misura.
           - **Decisione 1**, c-LR tutte contro c-0, in B:
             1. fogli, k=10: presi 15, persi 3, netto +12, p 0,008: sì. Persi
                2:14, 2:83, 2:100;
@@ -1839,6 +1952,86 @@ Aggiunte (22/11/2026, prima della misura delle domande a mano):
             | k=10, non spiegate | 31: c-0 26, c-LR 28; +2 -0, netto +2, p 0,500 | 29: c-0 24, c-LR 26; +2 -0, netto +2, p 0,500 |
             | k=15, spiegate | 18: c-0 13, c-LR 14; +2 -1, netto +1, p 1,000 | 20: c-0 15, c-LR 16; +2 -1, netto +1, p 1,000 |
             | k=15, non spiegate | 31: c-0 27, c-LR 28; +2 -1, netto +1, p 1,000 | 29: c-0 25, c-LR 26; +2 -1, netto +1, p 1,000 |
+      21. **Lettura a mano dei mancati del controllo (23/11/2026).** È un
+          giudizio, accanto alla misura e senza peso sull'esito (voci 19 e
+          20). Numeri della misura da `rapporto_apertura_controllo.txt` e
+          `mancati_controllo_23-11.txt`, in `dati-grezzi/prova/19d/contesto/`.
+          1. **Metodo e limiti.** I 28 mancati di c-LR in B a k=10 (21 dei
+             fogli, 7 a mano) sono stati letti dalla chat di pianificazione
+             sul file `mancati_controllo_23-11.txt`, che mostra le prime 200
+             battute dei primi 10 frammenti arrivati. Tre frammenti sono
+             stati poi letti per intero (allegato A4 degli apistici #40;
+             testo coordinato delle risorse genetiche #35 e #88): due
+             nascondevano la risposta. Il numero dei mancati veri qui sotto
+             è quindi un massimo, non un conteggio esatto.
+          2. **Classi, fogli (21):**
+             - mancato vero, 10: 2:14, 2:76, 2:83, 2:100, 22, 34, 48, 68,
+               2:90, 2:101;
+             - frammento giusto vicino (numero prima o dopo) a uno dei primi
+               10, 7: 59, 60, 92, 2:62, 2:66, 2:96, 2:112;
+             - risposta in un altro passaggio arrivato tra i primi 10, 2: 46
+               (frammento #88, criteri di selezione, cita il punto CR03) e
+               2:48 (frammento #35, "solo per uno dei 3 Settori");
+             - parte della risposta, 1: 2:32;
+             - dato giusto da un allegato sbagliato, 1: 70.
+             **Classi, a mano (7):**
+             - mancato vero, 1: 2:100;
+             - frammento giusto vicino, 3: 59, 64, 2:51;
+             - l'app risponderebbe, contestato, 2: 68 e 2:96;
+             - parte della risposta, 1: 2:32.
+          3. **I quattro casi degli allegati degli apistici** (sezione 4 del
+             file; i quattro casi della voce 19).
+             - 70: resta mancato. Il minimo di 1.800 euro è uguale in B3, B4
+               e B5, ma arriva il frammento di B5 con il massimo di 30.000
+               euro al posto di 4.500; in B1 il minimo è 1.200. Dato giusto,
+               fonte sbagliata e dato diverso accanto.
+             - 68 e 2:96 a mano: la domanda non nomina l'azione e la regola
+               è identica nei quattro allegati; contano come mancati perché
+               il foglio lega il fatto a un allegato.
+             - 2:102: trovato al quinto posto, regola identica ovunque.
+          4. **Revisione esterna alla cieca** (ChatGPT, stesso file, senza
+             le classi della chat). Stessa classe in 17 casi su 28. Le 11
+             differenze:
+             - 3 sul confine tra mancato vero e parte della risposta (2:100,
+               48, 2:90): in ogni caso l'app non risponde;
+             - 2 dove la chat aveva letto il frammento intero (46, 2:48);
+             - 4 dove nel file c'era un vicino o un segno non visto dal
+               revisore (59 e 92 dei fogli, 70, 2:51 a mano);
+             - 2 disaccordi veri (68 e 2:96 a mano: "allegato sbagliato" per
+               il revisore). Restano scritti come contestati.
+             Osservazioni del revisore sulle domande: nella 2:32 a mano "la
+             data in cui viene presentato il bando" è ambigua; la 2:51 e la
+             2:96 a mano puntano più alla tabella che alla frase.
+          5. **Cosa dice la lettura.**
+             1. I frammenti vicini sono il primo rimedio: 7 casi su 21 nei
+                fogli, 3 su 7 a mano. È un'ipotesi letta su 200 battute, da
+                misurare.
+             2. Senza i vicini alcuni casi sono pericolosi e non solo
+                mancati: nella 2:51 a mano arriva la tabella dei costi orari
+                con la sola riga "Basso"; nella 59 dei fogli arriva il
+                requisito senza la durata, con "per tre anni" del punto
+                successivo subito sotto. Sono tabelle ed elenchi spezzati
+                dal taglio.
+             3. Circa metà dei mancati veri è questione di parole:
+                magazzino, di tasca nostra, telecamere di controllo,
+                università, Banca europea degli investimenti contro BEI.
+                Sono cinque casi: 22 e 48 dei fogli e 2:100 a mano non
+                arrivano in nessun modo; 46 e 60 dei fogli arrivano già per
+                altra via (altro passaggio; frammenti vicini).
+             4. Due dei quattro persi rispetto a c-0 sono frammenti di
+                tabella (2:100 dei fogli dal primo al dodicesimo posto; 64 a
+                mano fuori dai 30 candidati). Ipotesi da verificare, non
+                conclusione: il contesto in testa può spingere le righe di
+                una tabella lunga oltre la parte che il riordinatore legge.
+             5. Nei bandi la stessa regola è spesso scritta in più punti: la
+                misura ne conta uno, l'app li può usare tutti. La misura
+                severa resta pessimista.
+             6. La metà di controllo ora è spesa: i rimedi provati su queste
+                domande non sono più una conferma pulita. Le conferme
+                successive si fanno su domande nuove (sei a mano per ogni
+                bando nuovo, punto 7) e sulle risposte vere.
+          Rimedi e voci che ne vengono: punto 7 (dettaglio) e roadmap,
+          passo 19e (elenco).
 
    **Piano del 19d del 20/11/2026 mattina** (testo di prima, invariato; i
    punti 3 e 4 sono superati dai punti 1-3 qui sopra):
@@ -2235,6 +2428,12 @@ Metodo in `docs/piano-insieme-prova.md`.
   un modello, e le tecniche in cui un modello scrive testo di ricerca
   vanno misurate anche su domande d'altra origine ("Passo 19d", punto
   9).
+- (23/11/2026) **L'insieme di prova del 19d pende verso il dettaglio
+  tecnico** (tabelle, commi), perché i fatti sono stati presi leggendo i
+  PDF riga per riga. Le domande di chi arriva per la prima volta sono
+  meno rappresentate e andranno misurate con la scheda (passo 22). Le
+  domande di dettaglio si fanno dopo aver scelto il bando: la condizione
+  B corrisponde all'uso vero.
 - **Modello giudice**: solo dopo averlo tarato su un numero sufficiente di
   giudizi a mano. La stessa taratura vale per il validatore
   dell'architettura della risposta in due passi (prima voce dei
@@ -2760,6 +2959,12 @@ con il consulente pilota', ancora aperte") e `docs/piano-fonti-burt-ministeri.md
 - Misura ricorrente: una volta al mese, venti bandi noti da fonti
   indipendenti; si conta quanti erano in archivio a quella data.
 - Prima prova a mano, un'ora: dieci argomenti dalle domande di prova.
+- (23/11/2026) Un canale in più: i bandi citati dentro altri bandi, da
+  estrarre dai PDF già caricati; ogni citazione senza corrispondenza in
+  archivio è un candidato da verificare. Un bando scaduto non è sempre
+  irrilevante: per il cumulo conta anche il bando chiuso. Resta la
+  decisione che l'app mostra la clausola di ciascun bando e non decide la
+  combinazione (roadmap, "Decisioni prese").
 
 ## Taglio dei documenti secondo la struttura del bando (22/11/2026)
 
@@ -2802,7 +3007,14 @@ compito chiuso.
 - **Glossario** (era la strada 6). Attacca le parole dell'utente diverse
   da quelle del bando ("chi alleva api" contro "aziende apistiche",
   "Passo 19d", punto 6). Aspetta fatti non ancora visti, perché scritto
-  dopo la taratura sarebbe favorito.
+  dopo la taratura sarebbe favorito. Termini raccolti il 23/11/2026
+  ("Disegno dell'app", tre tipi di domanda): plafond, ESL, intensità di
+  aiuto, riserve dell'appaltatore, cofinanziamento, accantonamento,
+  commissioni di garanzia, linee del bando, spese generali, economie e
+  ribassi di gara, lettera di endorsement, capofila, costi standard del
+  personale, Autorità di Gestione, punteggio e graduatoria.
+  (23/11/2026) Un glossario a mano cresce a ogni bando e va mantenuto:
+  prima si prova il secondo tentativo con altre parole (roadmap, 19e).
 - **Documento intero quando il bando è noto.** Attacca le risposte in più
   pezzi e il tetto dei 30 candidati ("Passo 19d", punto 4). Aspetta una
   decisione di chi mantiene il progetto, perché aumenta il testo di ogni
@@ -2817,6 +3029,10 @@ compito chiuso.
   compito".) Aspetta la chiusura del 19d; il
   documento che ne esce segue la regola delle revisioni esterne
   (intestazione e verifica a mano prima di salvarlo).
+  (23/11/2026) Revisione 1 fatta il 23/11/2026: cinque punti, quattro
+  accolti e uno in parte, da cui la regola in due decisioni ("Passo
+  19d", punto 13, voce 19). Lo stesso giorno la classificazione dei
+  mancati del controllo è stata ricontrollata alla cieca (voce 21).
 - **Riordinatore più grande.** Attacca i fatti che i due riordinatori
   provati non portano nei primi 10 o 15. Aspetta la misura dei tempi del
   riordinatore piccolo su Streamlit Community Cloud (oggi 4-5 secondi a
@@ -2861,6 +3077,14 @@ compito chiuso.
   iscritte ai Repertori regionali?"), per cui oggi la risposta giusta è
   "il bando rimanda a quel documento, che non è tra quelli caricati"
   ("Disegno dell'app (22/11/2026)"). Aspetta il disegno dell'app.
+  (23/11/2026) Esempio: "il mio Comune è nella Toscana diffusa?" ha la
+  risposta negli atti regionali richiamati. La Toscana diffusa compare in
+  almeno tre bandi (parcheggi, educazione musicale, apistici): è il primo
+  documento richiamato da caricare.
+- **Domanda ripulita con un buco** (23/11/2026). La domanda ripulita dal
+  titolo del bando lascia un buco nella frase (resta "al" seguito dai due
+  punti o dal punto di domanda). Osservazione del revisore esterno; non è
+  un difetto misurato.
 - **Via di mezzo tra 30 candidati e tutto il bando** (22/11/2026), per
   esempio 60 frammenti dalla ricerca nel bando al riordinatore. Attacca
   il tempo delle T sui bandi lunghi ("Passo 19d", punto 13, voce 13).
