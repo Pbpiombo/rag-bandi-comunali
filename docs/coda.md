@@ -598,6 +598,44 @@ il 23/11/2026):
      per le categorie dell'articolo 5 lettere a, b, c, d, e (decreto
      n. 742/2026 di Arti), aperto solo per la lettera f. Fonte: pagina
      del bando salvata il 23/11/2026. Da correggere nel secondo tempo.
+   - (24/11/2026) Scansione del Portale della Regione in due tempi:
+     ricognizione del 23/11 ed estrazione del 24/11 (`estrai_nuovi
+     --fonte regione-toscana`). 116 voci non in archivio, 109 con esito
+     definitivo, 2 saltate senza campo leggibile (ricerca finalizzata
+     2021 e 2024), 5 al modello: 3 salvate (contributi per
+     distribuzione e commercio al dettaglio di giornali; partenariato
+     europeo malattie rare ERDERA JTC 2027; partenariato europeo
+     trasformazione dei sistemi sanitari JTC 2027) e 2 scartate come
+     "non è un bando" (Toscana Art Bonus per comuni e unioni di comuni;
+     concorso per 2 unità di istruttore amministrativo). Costo 0,219 $.
+     L'elenco "politiche per la montagna, bandi aperti" ha zero voci al
+     24/11/2026. Copia di sicurezza del database e prima copia
+     congelata dei CSV fatte prima. Dettaglio in `fatto.md`, "Fatti il
+     24 novembre 2026".
+   - (24/11/2026) Osservazioni dalla lettura a mano delle righe nuove,
+     da decidere, nessuna corretta:
+     - contributi per giornali: la categoria C dei beneficiari (i
+       distributori, fino a 180 euro per Comune servito) non è in
+       `beneficiari_bando`. Il controllo della frase l'ha scartata:
+       sulla pagina c'è uno spazio dopo la virgoletta che apre e prima
+       di quella che chiude ("“ Attività … cancelleria ”"), il modello
+       le ha scritte senza, e `frase_nel_testo` toglie lo spazio solo
+       prima di ; , : . In `bandi.beneficiari` le tre categorie sono
+       scritte con i puntini ("A) Soggetti iscritti al Registro delle
+       Imprese... B) ... C) ..."); dotazione vuota (200 + 200 + 50 mila
+       euro sulla pagina);
+     - partenariato ERDERA: dotazione vuota (la pagina dice 300.000 euro
+       più 30.000 per le associazioni di pazienti);
+     - nei due partenariati la Regione chiede un modulo almeno 10 giorni
+       prima della scadenza della pre-proposal, e THCS anche una
+       lettera di interesse almeno 30 giorni prima: date che non sono in
+       `scadenze_bando`.
+   - (24/11/2026) Restano aperti: la proroga di alta formazione e
+     ricerca-azione al 24/11/2026 (decreto dirigenziale 25474 del
+     19/11/2026), la sospensione degli incentivi ai datori di lavoro
+     privati, le due ricerche finalizzate (2021 e 2024) che tornano
+     candidate a ogni scansione, il GAL MontagnAppennino da ricognire a
+     parte.
 - (era la voce 4 dei Prossimi passi, → D) **Pratiche (progetti seguiti)**: per un beneficiario preciso, una
    scheda strutturata (attività con forma giuridica, ATECO, sede,
    dimensione; bandi seguiti con stato; scadenze; documenti; note), ogni
@@ -3208,6 +3246,106 @@ decidere insieme al passo 2b.
   categorie di destinatari, con la frase di prova, e l'app lo deve dire.
 - Fino ad allora la ricognizione lo segnala con la nota "possibile
   sospensione" (`src/estrazione/sospensione.py`).
+
+## Cosa entra in archivio (24/11/2026)
+
+Decisione di chi mantiene il progetto del 24/11/2026. Voce nuova,
+fuori dal Parcheggio.
+
+L'app nasce per chi ha un'attività o un ente, o vuole avviarne una;
+mostra anche le occasioni che non sono bandi a contributo e le misure
+rivolte alle persone, perché un comune, un ente del terzo settore o
+un'azienda possono averne bisogno per i propri cittadini, utenti o
+dipendenti.
+
+Una voce entra se valgono tutte e tre le condizioni:
+1. viene da un ente pubblico o da un'istituzione, comprese banche e
+   fondazioni;
+2. si presenta una domanda o un modulo, con una scadenza e una
+   procedura;
+3. ne può arrivare denaro o un vantaggio economico, diretto o
+   indiretto.
+
+Restano fuori, per natura e non per destinatario: concorsi e selezioni
+di personale, posti di lavoro, ricerca di professionisti,
+accreditamenti senza vantaggio economico, graduatorie ed esiti. I
+contributi per assumere personale restano dentro.
+
+Ogni voce porta due etichette sempre visibili: il tipo (bando a
+contributo, manifestazione di interesse, altri da definire) e a chi è
+rivolta (imprese, enti e comuni, terzo settore, chi avvia un'attività,
+persone).
+
+Le misure per le persone entrano solo se passano le tre condizioni e
+stanno nelle fonti già seguite: non si cercano fonti apposta.
+
+Caso che ha portato alla decisione: Toscana Art Bonus per comuni e
+unioni, manifestazione di interesse aperta fino al 31/03/2027, scartata
+il 24/11 come "non è un bando".
+
+Servono: un campo "tipo" in archivio, la resa delle due etichette
+nell'app, un'istruzione nuova per il modello che estrae; le etichette
+dell'insieme di prova valgono per i soli bandi a contributo. Fino ad
+allora "non è un bando" è uno scarto definitivo e queste pagine non si
+rileggono: da decidere insieme al passo 2b e alla traccia dei bandi non
+estratti.
+
+Numeri al 24/11/2026, letti dal database senza modificarlo:
+- scarti "non è un bando" in `scansioni`: 56 (50 della Regione, 6 di
+  Incentivi Italia). Per genere, dal motivo scritto dal modello:
+  accreditamento, riconoscimento o iscrizione a un elenco 18; concorso,
+  selezione di personale o incarico 15; graduatoria o esito 11; pagina
+  informativa o di navigazione 8; manifestazione di interesse 1 (Art
+  Bonus; un'altra, per un elenco di soggetti garanti, è contata tra gli
+  elenchi); altro 3 (individuazione delle associazioni di gestori di
+  scuole più rappresentative, due; un video-concorso con vincitore).
+  Il motivo parla di vantaggio economico non diretto in 3: Art Bonus,
+  catalogo dell'offerta formativa Just in Time, elenco dei soggetti
+  garanti della linea di credito BEI. Per queste pagine il modello non
+  scrive titolo e scadenza: si fermano al campo `natura`;
+- bandi in archivio per tipo di beneficiario (bandi distinti): altra
+  impresa 65, impresa turistica 41, impresa artigiana o commerciale 39,
+  impresa agricola 28, professionista o autonomo 26, terzo settore 22,
+  ricerca e formazione 21, comune 20, altro ente pubblico 17, unione di
+  comuni 15, cittadini e famiglie 11, qualsiasi soggetto 1; senza righe
+  di beneficiari 3. Con il solo tipo "cittadini e famiglie" 7 (uno,
+  `incentivi-4939`, ha il tipo dal catalogo Incentivi Italia ma il
+  titolo parla di contributi ai datori di lavoro); 4 hanno "cittadini e
+  famiglie" insieme ad altri tipi. Per chi avvia un'impresa: la linea A1
+  del bando PMI fino a 50 mila euro
+  (`bando-2026-pmi-sovvenzioni-per-abbattere-interessi-e-7057d9`) e
+  `incentivi-3373`, che sembra la stessa misura vista da Incentivi
+  Italia (non verificato). Nessun bando trovato per chi non è ancora
+  costituito.
+
+## Età dell'impresa e chi deve ancora costituirla (24/11/2026)
+
+Requisito nuovo del 24/11/2026, voce fuori dal Parcheggio, da decidere
+insieme al passo 2b. Per rispondere a "ci sono bandi per chi vuole
+aprire?" e "posso accedere appena apro?" serve sapere, per ogni bando,
+da quanto tempo deve esistere l'impresa e se può fare domanda chi non è
+ancora costituito. Esempio: linea A1 del bando PMI fino a 50 mila euro,
+per imprese nate da non più di 36 mesi.
+
+Cosa c'è oggi (24/11/2026), da una ricerca nei campi di testo di
+`bandi`, `beneficiari_bando`, `interventi_bando`, `scadenze_bando` e
+`testo_ricerca.csv`:
+- nessun campo apposito. L'età dell'impresa compare per 2 bandi, che
+  sembrano la stessa misura da due fonti: per il bando PMI
+  (`…-7057d9`) solo in `beneficiari_bando.condizioni` e `frase` della
+  riga dei liberi professionisti della linea A1 ("con inizio attività
+  nei 36 mesi precedenti la data di presentazione della domanda"),
+  mentre le righe delle imprese sono tutte della linea B; per
+  `incentivi-3373` solo in `testo_ricerca.csv` ("la cui costituzione è
+  avvenuta nel corso dei 36 mesi precedenti"), che l'utente non vede;
+- `incentivi-3904` e `incentivi-4819`: "sede operativa costituita da
+  almeno 6 mesi in una regione del Sud Italia", condizione per una
+  quota a fondo perduto, solo in `testo_ricerca.csv`;
+- le altre corrispondenze trovate non riguardano l'età dell'impresa:
+  "costituite da almeno tre imprese/professionisti" (composizione delle
+  forme associative, bandi Neve e internazionalizzazione), ATS
+  "costituite o costituende" (raggruppamenti di soggetti), "start-up
+  innovative" (`incentivi-7933`, dove i beneficiari sono gli incubatori).
 
 ## Parcheggio
 

@@ -734,3 +734,33 @@ esterna e l'apertura del controllo, nell'ordine della voce 17.
 19d chiuso il 23/11/2026, sotto soglia: apertura del controllo alla
 voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
 19d", punto 13).
+
+## Fatti il 24 novembre 2026
+
+- (24/11/2026) Scansione del Portale della Regione in due tempi
+  (passo 11): ricognizione senza modello del 23/11/2026
+  (`scripts/ingestione/ricognizione.py`, rapporto rifatto alla stessa
+  data in `ricognizione-4.csv`) ed estrazione del 24/11/2026
+  (`estrai_nuovi --fonte regione-toscana`, lanciata da chi mantiene il
+  progetto). Prima dell'estrazione: copia di sicurezza del database
+  (`dati-grezzi/backup/comune-2026-11-24-prima-della-scansione.sqlite`)
+  e prima copia congelata dei CSV (`dati-grezzi/archivi/2026-11-24_e26e2e30/`).
+  Degli elenchi: 116 voci non in archivio, 109 con esito definitivo in
+  `scansioni`; restano 7 candidati. 2 saltati senza campo della
+  scadenza leggibile e con un anno passato nello slug, senza
+  registrarli (bando della ricerca finalizzata 2021 e 2024 del
+  Ministero della Salute); 5 al modello. Salvati 3: contributi per
+  distribuzione e commercio al dettaglio di giornali e pubblicazioni
+  periodiche (aperto fino al 15/12/2026), partenariato europeo sulle
+  malattie rare ERDERA JTC 2027 (01/02/2027), partenariato europeo
+  sulla trasformazione dei sistemi sanitari e assistenziali JTC 2027
+  (21/01/2027). Scartati 2 come "non è un bando": Toscana Art Bonus per
+  comuni e unioni di comuni (manifestazione di interesse per un
+  catalogo di progetti) e il concorso per 2 unità di istruttore
+  amministrativo. Costo 0,219 $ (ingresso 40845 token, uscita 13732);
+  10 richieste a `www.regione.toscana.it`. Bandi da 113 a 116,
+  scansioni da 381 a 386; nei CSV solo righe aggiunte, nessuna riga
+  esistente cambiata; `testo_ricerca.csv` rigenerato (3 righe nuove);
+  database ricreato dai CSV con `crea_da_csv`, conteggi uguali e
+  nessuno scarto. L'elenco "politiche per la montagna, bandi aperti"
+  ha zero voci al 24/11/2026.
