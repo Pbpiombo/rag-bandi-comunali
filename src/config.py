@@ -48,5 +48,14 @@ CHUNK_SIZE = 1500
 CHUNK_OVERLAP = 250
 SOGLIA_CHUNK = 150
 
+# Frammenti vicini passati al modello (docs/coda.md, "Passo 19e, rimedio
+# 1"): per ogni frammento di un avviso (metadato id_bando) anche quello
+# prima e quello dopo nello stesso file. Spenti: i vicini sono misurati solo
+# sull'ordine c-LR in condizione B (24/11/2026, V1 passa); si accendono con
+# (-1, 1) insieme all'ordine c-LR e al filtro per bando nel passo 19e.
+# Lavorano solo se il recupero sa restituire un frammento da (fonte,
+# chunk_num): oggi Chroma si', Postgres no (query rimandata al passo 19e).
+SPOSTAMENTI_VICINI: tuple[int, ...] = ()
+
 # Ente selezionato all'apertura dell'app e usato dagli script da riga di comando.
 ENTE_PREDEFINITO = "90060100477"

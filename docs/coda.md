@@ -3494,6 +3494,9 @@ Prima della chiamata, in quest'ordine:
 1. frammenti vicini passati al modello (passo 19e, rimedio 1; regola di
    chiusura nella voce qui sotto) e una ventina di risposte vere da
    leggere;
+   (24/11/2026) fatta per la parte di misura e codice (V1 passa; vicini
+   nel codice, spenti; "Passo 19e, rimedio 1", "Esito della lettura").
+   Resta aperta "una ventina di risposte vere da leggere";
 2. campo "sospeso" nello stato del bando: il caso degli incentivi ai
    datori di lavoro mostra "finestra aperta" prima della nota di
    sospensione ("Sospensioni e chiusure anticipate (24/11/2026)");
@@ -3611,6 +3614,88 @@ leggere le risposte. File di lavoro fuori dal repository, in
   "concordato", compilata dopo il confronto; finché ci sono disaccordi
   senza giudizio concordato, `unisci_giudizi.py` dà i conteggi per
   lettore ma non l'esito della regola.
+- (24/11/2026) Applicazione più stretta della voce qui sopra, approvata
+  da chi mantiene il progetto: `unisci_giudizi.py` lavora in due tempi.
+  Prima scrive solo `disaccordi_<data>.csv` (numero, parte, colonna, i due
+  giudizi; niente domanda né versione) e si ferma; il rapporto si
+  produce solo quando ogni disaccordo ha il suo concordato. Un rapporto
+  di un giro precedente, se lo script si ferma, si rinomina con
+  "_superato_<ora>".
+
+### Esito della lettura (24/11/2026)
+
+- (24/11/2026) Esito di `unisci_giudizi.py` del 24/11/2026
+  (`dati-grezzi/prova/19e/rapporto_giudizi_2026-11-24.txt`): costo 1,90,
+  passa; danno passa, 10 prese su 10 restano giuste e nessuna
+  discrepanza nuova del verificatore; beneficio passa, 8 casi "vicino"
+  su 10 giusti con la fonte giusta in V1 (0 su 10 in V0). **V1 passa.**
+  Verificatore, 20 risposte per versione: V0 verificato 178, non_trovato
+  5, non_citato 5; V1 verificato 173, non_trovato 2, non_citato 0. Costo
+  vero per 20 domande: V0 0,710 $, V1 0,838 $.
+- (24/11/2026) In V0 tutti e 10 i casi "vicino" dichiarano di non trovare
+  la risposta o di averla incompleta. È il dato di partenza per il
+  rimedio 2 (segnale di poca sicurezza) e per il rimedio 3 (secondo
+  tentativo).
+- (24/11/2026) La versione "vicini solo al secondo tentativo" non si
+  implementa: V1 è passata, e in costo le due strade si equivalgono (0,6
+  centesimi in più sempre, contro 4,2 centesimi solo quando scatta, cioè
+  pari intorno al 15% delle domande), mentre il secondo tentativo
+  raddoppia l'attesa.
+- (24/11/2026) Limiti dell'esito:
+  - il beneficio era atteso, perché i casi erano noti;
+  - danno zero su 10 domande e una sola esecuzione: esclude un danno
+    frequente, non uno raro;
+  - i lettori sono stati due modelli di famiglie diverse più un terzo di
+    controllo, con arbitrato di chi mantiene il progetto su 3
+    disaccordi, tutti sulla colonna "dichiara"; la lettura a mano di chi
+    mantiene il progetto non è stata praticabile;
+  - la misura è sull'ordine c-LR, non ancora nell'app;
+  - restano fuori a mano 59 (frammento a due posti) e a mano 64.
+- (24/11/2026) Terzo lettore, di controllo, fuori dallo script: differisce
+  dal giudizio finale in 3 righe su 40. Due sulla colonna "dichiara":
+  a mano 2:51 in V0 (finale "in parte", terzo lettore "sì") e a mano 64
+  in V1 (finale "in parte", terzo lettore "no"). Una sulla colonna
+  "giusta": fogli 64 in V0, una presa (finale "sì", con i due lettori
+  d'accordo; terzo lettore "in parte"). Nessuna cambia l'esito: con il
+  giudizio del terzo lettore le prese giuste in V0 sarebbero 9, sopra il
+  minimo di 8, nessuna peggiorata; i casi "vicino" giusti in V1 restano
+  8 e quelli che in V0 dichiarano di non trovare restano 10.
+- (24/11/2026) Voce nuova, requisito per la scheda del bando e per le
+  risposte: mostrare accanto a ogni dato la frase esatta del documento,
+  perché una risposta sbagliata può sembrare giusta a chi non ha il
+  testo davanti. Caso: obblighi "dopo il saldo" dati al posto di quelli
+  "fino al saldo".
+- (24/11/2026) Voce nuova: `unisci_giudizi.py` dovrebbe dire quali righe
+  hanno un concordato non ammesso e cosa contengono (oggi dà solo il
+  numero). Il caso reale è stato un "sì" salvato da Excel con una
+  codifica diversa.
+
+### Codice (24/11/2026)
+
+- (24/11/2026) I vicini sono nel codice e spenti: `con_vicini` in
+  `src/recupero_documenti.py`, `RecuperoIbrido.frammento` in
+  `src/retrieval.py`, la chiamata in `prepara` di `src/chains/rag.py`,
+  l'interruttore `SPOSTAMENTI_VICINI = ()` in `src/config.py`; test in
+  `tests/test_vicini.py`. Si accendono con `(-1, 1)` nel passo 19e,
+  insieme all'ordine c-LR e al filtro per bando: sono misurati solo
+  sull'ordine c-LR in condizione B. Su Postgres serve ancora la query
+  nuova per prendere un frammento da (fonte, chunk_num); finché manca,
+  con Postgres i vicini restano spenti anche a interruttore acceso.
+- (24/11/2026) Controllo di coincidenza: sulle 20 domande della lettura,
+  a data fissata al 24/11/2026 e con l'interruttore acceso dallo script,
+  il contesto prodotto dalla catena coincide carattere per carattere con
+  quello passato al modello dallo script di misura (risposte V1): 20 su
+  20 (`dati-grezzi/prova/19e/controllo_contesto_app.py`). Con
+  l'interruttore spento, contesto, documenti e origini della catena su
+  Chroma sono identici a quelli del codice dell'ultimo commit prima della
+  modifica, su 22 domande (le 2 di `confronta_recupero` e le 20 della
+  lettura).
+- (24/11/2026) Incidente: un controllo fuori dal repository ha aperto il
+  Chroma vero invece di una copia. È cambiata solo la tabella interna
+  `acquire_write` (il registro dei blocchi di scrittura); i dati,
+  confrontati tabella per tabella con la copia del 19d, sono identici. Lo
+  script ora lavora su una copia. **Regola da ricordare: ogni script di
+  misura apre una copia del Chroma, mai l'originale.**
 
 ## Parcheggio
 

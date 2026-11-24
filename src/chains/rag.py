@@ -16,13 +16,13 @@ from src.chains.router import (
     esegui_interrogazioni,
     formatta_dati,
 )
-from src.config import MODEL_NAME
+from src.config import MODEL_NAME, SPOSTAMENTI_VICINI
 from src.database.enti import profilo_ente
 from src.database.interrogazioni_bandi import data_di_oggi
 from src.database.repertorio import esegui
 from src.database.schema import connetti
 from src.database.stato_documenti import con_stato_bando
-from src.recupero_documenti import avvolgi
+from src.recupero_documenti import avvolgi, con_vicini
 from src.retrieval import RecuperoIbrido, normalizza_domanda
 
 K_DEFAULT = 10
@@ -383,7 +383,13 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None, route
         dati = formatta_dati(esiti) or "(nessun dato numerico richiesto)"
 
         if decisione.get("documenti", True):
-            risultati = recupera(recupero, domanda, k=k)
+            # Frammenti vicini degli avvisi (passo 19e, rimedio 1): spenti se
+            # il recupero non sa dare un frammento (Postgres, oggi)
+            risultati = con_vicini(
+                recupera(recupero, domanda, k=k),
+                recupero.frammento,
+                SPOSTAMENTI_VICINI,
+            )
             documenti = con_stato_del_giorno([doc for doc, _, _ in risultati])
             origini = [orig for _, _, orig in risultati]
         else:

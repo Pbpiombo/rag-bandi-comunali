@@ -782,3 +782,24 @@ voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
   dell'applicazione:
   `dati-grezzi/backup/comune-2026-11-24-prima-di-correggi-da-testo.sqlite`.
   Le correzioni non sono protette da una riestrazione futura.
+- (24/11/2026) Passo 19e, rimedio 1 (frammenti vicini passati al
+  modello): misura senza modello, risposte vere prima (V0) e dopo (V1)
+  su 20 domande della metà di controllo, lettura in due fasi. V1 passa
+  la regola di chiusura: costo 1,90 sul solo testo dei frammenti, danno
+  zero (10 prese su 10 restano giuste, nessuna discrepanza nuova del
+  verificatore), beneficio 8 casi "vicino" su 10 (0 su 10 in V0). Costo
+  vero delle risposte: V0 0,710 $, V1 0,838 $ per 20 domande. Dettaglio,
+  limiti e decisioni in `coda.md`, "Passo 19e, rimedio 1"; file di
+  lavoro in `dati-grezzi/prova/19e/`.
+- (24/11/2026) Frammenti vicini nel codice, spenti
+  (`SPOSTAMENTI_VICINI = ()` in `src/config.py`; `con_vicini` in
+  `src/recupero_documenti.py`, `RecuperoIbrido.frammento`, chiamata in
+  `src/chains/rag.py`; 20 test in `tests/test_vicini.py`). Si accendono
+  nel passo 19e con l'ordine c-LR e il filtro per bando; su Postgres serve
+  ancora la query nuova. Contesto della catena uguale a quello dello
+  script di misura 20 su 20; con l'interruttore spento, catena identica a
+  prima della modifica su 22 domande. Incidente: un controllo ha aperto il
+  Chroma vero invece di una copia, cambiata solo la tabella interna
+  `acquire_write`, dati identici alla copia del 19d. Regola: ogni script
+  di misura apre una copia del Chroma, mai l'originale. Dettaglio in
+  `coda.md`, "Passo 19e, rimedio 1", "Codice".

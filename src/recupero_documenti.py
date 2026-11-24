@@ -246,6 +246,15 @@ class RecuperoPerDocumento:
         self.base = base
         self.titoli = base.titoli()
 
+    def frammento(self, fonte: str, chunk_num: int) -> Document | None:
+        """Il frammento (fonte, chunk_num) dal recupero avvolto, se lo sa dare.
+
+        Un recupero senza il metodo `frammento` (oggi Postgres) restituisce
+        sempre None: i frammenti vicini restano spenti.
+        """
+        prendi = getattr(self.base, "frammento", None)
+        return prendi(fonte, chunk_num) if prendi else None
+
     def cerca(
         self, domanda: str, k: int = 8
     ) -> list[tuple[Document, float, list[str]]]:
@@ -262,6 +271,99 @@ class RecuperoPerDocumento:
             liste.append([_segna(elemento, "documento") for elemento in ristretta])
 
         return unisci(liste, dividi_posti(k, len(nominati)), k)
+
+
+# --- Frammenti vicini (passo 19e, rimedio 1) ---
+
+# Sovrapposizione più corta di così: due frammenti contigui si uniscono con
+# un a capo. Il divisore ripete fino a CHUNK_OVERLAP caratteri dentro la
+# stessa pagina, ma non sempre (non quando taglia su un titolo di
+# paragrafo) e mai tra due pagine.
+SOVRAPPOSIZIONE_MINIMA = 30
+
+
+def unisci_testi(a: str, b: str) -> str:
+    """Due frammenti contigui, a prima di b, senza ripetere la sovrapposizione."""
+    for n in range(min(len(a), len(b)), SOVRAPPOSIZIONE_MINIMA - 1, -1):
+        if a.endswith(b[:n]):
+            return a + b[n:]
+    return a + "\n" + b
+
+
+def _blocco(membri: list[Document]) -> Document:
+    """Un documento solo per frammenti contigui dello stesso file, in ordine.
+
+    Metadati del primo frammento; la pagina è "n-m" se il blocco passa su più
+    pagine; `vicini` elenca i chunk_num del blocco.
+    """
+    testo = membri[0].page_content
+    for documento in membri[1:]:
+        testo = unisci_testi(testo, documento.page_content)
+    meta = dict(membri[0].metadata)
+    pagine = sorted({d.metadata.get("page") for d in membri})
+    meta["page"] = pagine[0] if len(pagine) == 1 else f"{pagine[0]}-{pagine[-1]}"
+    meta["vicini"] = [d.metadata.get("chunk_num") for d in membri]
+    return Document(page_content=testo, metadata=meta)
+
+
+def con_vicini(risultati: list, prendi, spostamenti: tuple[int, ...]) -> list:
+    """I risultati con i frammenti vicini dei frammenti degli avvisi.
+
+    risultati: tuple (documento, punteggio, origini) in ordine di ricerca.
+    prendi(fonte, chunk_num): il frammento, o None se non c'è (fuori dal
+    file, o recupero che non lo sa dare). spostamenti: per esempio (-1, 1),
+    il frammento prima e quello dopo.
+
+    Solo i frammenti con id_bando (gli avvisi) ricevono vicini e si uniscono;
+    gli altri restano come sono. Regole, come nella misura del 24/11/2026
+    (dati-grezzi/prova/19e/vicini.py): mai vicini di un altro file; un vicino
+    già tra i risultati non si ripete; i frammenti contigui dello stesso file
+    diventano un blocco solo, in ordine di documento; i blocchi seguono
+    l'ordine del loro frammento meglio piazzato. Pura: non tocca i database.
+    """
+    if not spostamenti or not risultati:
+        return risultati
+    scelti: dict[tuple, tuple[int, Document]] = {}
+    for rango, (documento, _, _) in enumerate(risultati):
+        scelti.setdefault(chiave_di(documento), (rango, documento))
+    dei_risultati = set(scelti)
+    for rango, (documento, _, _) in enumerate(risultati):
+        if not documento.metadata.get("id_bando"):
+            continue
+        fonte, numero = chiave_di(documento)
+        for spostamento in spostamenti:
+            chiave = (fonte, numero + spostamento)
+            if chiave in dei_risultati or chiave in scelti:
+                continue
+            vicino = prendi(fonte, numero + spostamento)
+            if vicino is not None and chiave_di(vicino) == chiave:
+                scelti[chiave] = (rango, vicino)
+
+    def avviso(chiave: tuple) -> bool:
+        return bool(scelti[chiave][1].metadata.get("id_bando"))
+
+    blocchi: list[list[tuple]] = []
+    for chiave in sorted(c for c in scelti if avviso(c)):
+        fonte, numero = chiave
+        if blocchi and blocchi[-1][-1] == (fonte, numero - 1):
+            blocchi[-1].append(chiave)
+        else:
+            blocchi.append([chiave])
+    blocchi += [[c] for c in scelti if not avviso(c)]
+    blocchi.sort(key=lambda b: min(scelti[c][0] for c in b))
+
+    originali = {chiave_di(d): (p, o) for d, p, o in risultati}
+    uscita = []
+    for blocco in blocchi:
+        dai_risultati = [c for c in blocco if c in originali]
+        punteggio = max(originali[c][0] for c in dai_risultati)
+        origini = [o for c in dai_risultati for o in originali[c][1]]
+        if len(blocco) > 1:
+            origini.append("vicini: " + ", ".join(str(c[1]) for c in blocco))
+        membri = [scelti[c][1] for c in blocco]
+        documento = _blocco(membri) if avviso(blocco[0]) else membri[0]
+        uscita.append((documento, punteggio, origini))
+    return uscita
 
 
 def _segna(elemento: tuple, etichetta: str) -> tuple:

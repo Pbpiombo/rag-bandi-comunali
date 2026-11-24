@@ -70,6 +70,7 @@ class RecuperoIbrido:
         ]
 
         self.bm25 = BM25Okapi([tokenizza(d.page_content) for d in self.documenti])
+        self._per_chiave = {chiave_di(d): d for d in self.documenti}
 
         print(f"  Indice lessicale costruito su {len(self.documenti)} chunk")
 
@@ -80,6 +81,10 @@ class RecuperoIbrido:
             for d in self.documenti
             if d.metadata.get("fonte")
         }
+
+    def frammento(self, fonte: str, chunk_num: int) -> Document | None:
+        """Il frammento (fonte, chunk_num), dall'archivio già in memoria."""
+        return self._per_chiave.get((fonte, chunk_num))
 
     def _lessicale(
         self, domanda: str, quanti: int, fonte: str | None = None
