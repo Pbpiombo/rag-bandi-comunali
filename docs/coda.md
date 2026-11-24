@@ -3468,6 +3468,62 @@ progetto.
 - La ricerca per esteso sta fuori dal repository, in
   `dati-grezzi/ricerche/2026-11-24/`.
 
+## Ordine delle voci intorno alla chiamata con il consulente pilota (24/11/2026)
+
+Ordine approvato in chat da chi mantiene il progetto il 24/11/2026, in
+vista della chiamata con il consulente pilota (prima settimana di
+dicembre).
+
+Criterio: prima della chiamata entra solo ciò che il consulente vedrebbe
+come errore o che serve a fargli domande precise.
+
+Prima della chiamata, in quest'ordine:
+1. frammenti vicini passati al modello (passo 19e, rimedio 1; regola di
+   chiusura nella voce qui sotto) e una ventina di risposte vere da
+   leggere;
+2. campo "sospeso" nello stato del bando: il caso degli incentivi ai
+   datori di lavoro mostra "finestra aperta" prima della nota di
+   sospensione ("Sospensioni e chiusure anticipate (24/11/2026)");
+3. controllo del passo 20;
+4. incrocio delle due ricerche sui bandi con l'archivio, solo come elenco
+   di fonti mancanti.
+
+Dopo la chiamata:
+- dotazione in più quote (passo 2b);
+- profilo dei comuni come tabella ("Profilo dei comuni (24/11/2026)");
+- età dell'impresa ("Età dell'impresa e chi deve ancora costituirla
+  (24/11/2026)");
+- bandi annunciati;
+- traccia dei bandi non estratti;
+- etichette di tipo e destinatario;
+- "ammesso se che" in `descrivi_beneficiari`, da provare su tutte le
+  righe dei beneficiari, riportando quante cambiano;
+- virgolette in `frase_nel_testo`;
+- taglio dei documenti secondo la struttura ("Taglio dei documenti
+  secondo la struttura del bando (22/11/2026)").
+
+## Passo 19e, rimedio 1: regola di chiusura dei frammenti vicini (24/11/2026)
+
+Regola scritta il 24/11/2026, prima di ogni misura del rimedio.
+
+Premessa: la metà di controllo è stata aperta e letta il 23/11/2026, e il
+rimedio è stato scelto guardando quei casi ("Passo 19d", punto 13, voce
+21). Per questo non si può dare una percentuale nuova: il numero da citare
+resta 78,6% (77 su 98, B, k=10, metà di controllo).
+
+- **Costo**: il testo passato al modello, in media per domanda, non supera
+  il doppio di oggi.
+- **Danno**: su 10 domande a cui oggi l'app risponde bene, nessuna
+  peggiora e il verificatore non segnala discrepanze nuove. Basta un
+  peggioramento per non chiudere.
+- **Beneficio**: sui 10 casi classificati "vicino" il 23/11/2026, almeno 6
+  risposte giuste con la fonte giusta. Risultato atteso 8; tra 6 e 7 passa
+  ma si annota come più debole del previsto.
+- **Fermata**: al massimo due versioni provate. Se nessuna passa, il
+  rimedio va in Parcheggio e si passa al rimedio 2.
+- **Cosa si potrà dire se passa**: "non costa troppo e non rovina le
+  risposte buone". Non che l'app è salita di percentuale.
+
 ## Parcheggio
 
 Idee che non interrompono il lavoro in corso (nuova, 21/11/2026). Regola:
