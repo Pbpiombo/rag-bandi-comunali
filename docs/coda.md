@@ -3438,16 +3438,23 @@ progetto.
 
 - Fonte: allegato A della deliberazione del Consiglio regionale della
   Toscana n. 10 del 12 marzo 2025, letto sul sito della Regione il
-  24/11/2026. URL: da incollare.
+  24/11/2026. URL:
+  https://www.regione.toscana.it/documents/d/guest/deliberazione-del-consiglio-n-10-del-12-03-2025-allegato-a-pdf
 - Abetone Cutigliano (codice 47023): totalmente montano; aree interne
   classe F Ultraperiferico; Toscana diffusa (TD).
 - Sambuca Pistoiese (codice 47018): totalmente montano; aree interne
   classe D Intermedio; Toscana diffusa (TD).
 - San Marcello Piteglio (codice 47024): totalmente montano; aree interne
   classe D Intermedio; Toscana diffusa (TD).
-- Composizione dell'Unione di Comuni Montani Appennino Pistoiese:
-  confermata sulla pagina della Regione il 24/11/2026. Elenco: da
-  incollare. URL: da incollare. Riga aperta.
+- L'Unione di Comuni Montani Appennino Pistoiese (provincia di Pistoia)
+  è composta da Abetone Cutigliano, Sambuca Pistoiese e San Marcello
+  Piteglio. Fonte: pagina della Regione Toscana "Ambiti delle Unioni di
+  comuni", https://www.regione.toscana.it/-/unioni-di-comuni-ambiti,
+  letta il 24/11/2026.
+- Avvertenza: appartenere all'Unione e usare un servizio associato
+  dell'Unione sono due cose diverse (esempio: Marliana per la protezione
+  civile); nel profilo vanno in righe distinte. Marliana non è nel
+  territorio pilota: nessun valore scritto per quel comune.
 - Da verificare, senza valore scritto: l'elenco nazionale dei comuni
   montani (visto solo su una bozza di febbraio, non sull'atto finale) e
   tutte le altre appartenenze indicate dalla ricerca del 24/11/2026.
