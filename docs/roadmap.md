@@ -83,6 +83,10 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
    baseline (`docs/piano-insieme-prova.md`, "Regola delle misure").
    Parti (a) e (b) fatte (`docs/fatto.md`); la parte (c) è una regola,
    non codice. La prima copia congelata si fa dopo il passo 2b.
+   Fatta invece il 24/11/2026, prima di aggiungere i bandi della
+   scansione, per decisione di chi mantiene il progetto
+   (`dati-grezzi/archivi/2026-11-24_e26e2e30/`); dopo il 2b se ne farà
+   un'altra (`docs/piano-insieme-prova.md`, "Copia congelata e opzioni").
 1. **Etichette.** Schede in `dati-grezzi/etichette/2026-11-18_152225`, per
    50 domande: le 5 domande A non hanno schede e restano misurate con le
    attese attuali.

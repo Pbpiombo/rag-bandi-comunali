@@ -151,6 +151,18 @@ Verifica del 18/11/2026: 52 bandi aperti al 18/11.
 18/11/2026. Nessuna copia esiste ancora: la prima si fa dopo il passo
 2b.
 
+Aggiornamento del 24/11/2026: la prima copia congelata è
+`dati-grezzi/archivi/2026-11-24_e26e2e30/`, fatta il 24/11/2026 prima di
+aggiungere i bandi della scansione, per decisione di chi mantiene il
+progetto. Il piano prevedeva la prima copia dopo il passo 2b; dopo il
+2b se ne farà un'altra. Commit `f9f0733`, impronta complessiva
+(versione 2) `e26e2e3045f4851836096710131cf5155d91090f8dcf4bf134e7bc8db4b18a46`,
+14 CSV (le 12 tabelle di `TABELLE_DA_CSV` e i 2 di
+`CSV_FUORI_DATABASE`), presi dal commit con `git show`; prima della
+copia `crea_testo_ricerca --controlla` ha detto "aggiornato (113
+bandi)". `crea_da_csv` ne ricrea il database senza scarti (113 bandi,
+381 scansioni).
+
 Procedura per creare la copia:
 - working tree pulito (`git status --porcelain` vuoto): la copia è
   quella dei CSV del commit corrente;
