@@ -3524,6 +3524,60 @@ resta 78,6% (77 su 98, B, k=10, metà di controllo).
 - **Cosa si potrà dire se passa**: "non costa troppo e non rovina le
   risposte buone". Non che l'app è salita di percentuale.
 
+### Misura senza modello e decisioni (24/11/2026)
+
+Decisioni prese da chi mantiene il progetto il 24/11/2026, prima di
+leggere le risposte. File di lavoro fuori dal repository, in
+`dati-grezzi/prova/19e/`.
+
+- (24/11/2026) Esito della misura senza modello (c-LR tutte, B, k=10,
+  metà di controllo): V1 (frammento prima e frammento dopo) porta il
+  frammento atteso in 9 casi "vicino" su 10, con rapporto 1,90 sul solo
+  testo dei frammenti (1,38 sul messaggio intero); 119 prese su 119
+  conservate. V2 (solo il frammento dopo): 6 su 10, rapporto 1,48. V3
+  (prima e dopo dentro la stessa sezione) non misurabile: i frammenti non
+  hanno un'indicazione di sezione o articolo. Degli altri 18 mancati
+  nessuno recuperato. I mancati del 23/11/2026 sono 28, non 29: il
+  ventinovesimo caso del file, il 2:102 dei fogli, è trovato ed è lì solo
+  per la sezione degli allegati.
+- (24/11/2026) Versione scelta: V1.
+- (24/11/2026) Seconda e ultima versione, se V1 non passa: dipende da un
+  conteggio sulle risposte V0. Se in V0 almeno 6 dei 10 casi "vicino"
+  dichiarano di non trovare la risposta o di averla incompleta, la
+  seconda versione è "vicini solo al secondo tentativo" (prima risposta
+  con i 10 frammenti; se il modello dichiara di non trovare o che il dato
+  è incompleto, seconda risposta con i vicini). Altrimenti la seconda
+  versione è V1 solo sui primi 5 frammenti (7 su 10, rapporto 1,42).
+  Motivo: V1 aggiunge i vicini anche dove non servono; la versione a due
+  tentativi non tocca le domande già buone, ma funziona solo se il
+  modello ammette di non trovare invece di rispondere sbagliando.
+- (24/11/2026) Nota di metodo: i vicini sono una toppa al taglio a numero
+  di caratteri; la cura è il taglio secondo la struttura, già in coda
+  ("Taglio dei documenti secondo la struttura del bando (22/11/2026)").
+- (24/11/2026) Il costo si giudica sul solo testo dei frammenti.
+- (24/11/2026) Il danno si conta solo sulle domande risposte bene in V0;
+  se sono meno di 8, se ne aggiungono con la stessa regola delle 10
+  prese.
+- (24/11/2026) Lettura alla cieca: le due risposte compaiono come A e B
+  in ordine casuale.
+- (24/11/2026) Variabilità: una domanda buona che peggiora si rilancia
+  una volta (V0 e V1) e conta come danno solo se V1 è peggiore anche la
+  seconda volta; se il beneficio esce 6 o 7 su 10 si rilanciano i casi
+  "vicino" risultati giusti e contano solo quelli che restano giusti.
+- (24/11/2026) Il codice nell'app si scrive solo se la versione passa la
+  lettura; all'implementazione il contesto dell'app deve coincidere con
+  quello dello script su 20 domande su 20, a data fissata.
+- (24/11/2026) Voce nuova, da valutare: la catena non imposta la
+  temperatura del modello, quindi la stessa domanda può dare risposte
+  diverse.
+- (24/11/2026) Voce nuova, da valutare dopo il rimedio 1: le pagine di
+  Cultura e Sport Missione Comune hanno una sezione di domande frequenti
+  con chiarimenti che l'avviso non contiene. Prima si misura l'app su
+  quelle domande così com'è, poi si caricano come documenti e si
+  rimisura. I testi stanno in `dati-grezzi/manuali/2026-11-24/` (file
+  `faq_*.txt`), le domande candidate in
+  `dati-grezzi/manuali/2026-11-24/domande_candidate_2026-11-24.xlsx`.
+
 ## Parcheggio
 
 Idee che non interrompono il lavoro in corso (nuova, 21/11/2026). Regola:
