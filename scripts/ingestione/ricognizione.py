@@ -3,6 +3,7 @@
 Uso:
     python -m scripts.ingestione.ricognizione
     python -m scripts.ingestione.ricognizione --pagine-salvate CARTELLA
+        [--oggi AAAA-MM-GG] [--testi]
 
 Legge, attraverso Lettore (robots.txt, intestazione del progetto, pausa
 per host, stop su 401 e 403, registro richieste.csv):
@@ -31,7 +32,8 @@ stare in piu' gruppi):
   i motivi di registro.DEFINITIVI, scaduto o non e' un bando) o se la
   scadenza di allora cade negli ultimi GIORNI_FINESTRA giorni; allora la
   riga ha anche la scadenza della pagina, come per i nuovi;
-- cambiati: scadenza della pagina diversa da quella in archivio;
+- cambiati: scadenza della pagina diversa da quella in archivio e da
+  ogni finestra del bando in scadenze_bando;
 - scaduti dal 13/11: scadenza tra ULTIMA_SCANSIONE e ieri, quella della
   pagina se si legge, se no quella dell'archivio;
 - spariti: bandi aperti secondo quella scadenza che nessuno dei due
@@ -39,19 +41,29 @@ stare in piu' gruppi):
 - vietati: indirizzi vietati dal robots.txt, mai richiesti;
 - da verificare: scadenza non leggibile, o pagina non letta;
 - invariati: bandi in archivio riletti senza differenze, elencati solo
-  se hanno una nota: possibile proroga, o "a sportello" per un bando a
-  sportello in archivio senza scadenza leggibile nel campo della pagina.
+  se hanno una nota: possibile proroga o sospensione, "a sportello" per
+  un bando a sportello in archivio senza scadenza leggibile nel campo
+  della pagina, o "il campo indica la finestra n. X di Y" se la data del
+  campo e' diversa da quella in archivio ma coincide con una delle
+  finestre del bando in scadenze_bando (solo le righe di genere
+  "domanda", in ordine di numero). In questo caso la scadenza che vale,
+  per gli scaduti e gli spariti, resta quella dell'archivio.
 
 I titoli delle voci vengono dallo slug: le lettere scritte come %c3%a0
-o come "c3-a0" si decodificano (titolo_leggibile).
+o come "c3-a0" si decodificano (_titolo_da_slug di
+src/estrazione/elenco.py).
 
 Per ogni pagina letta, dei bandi in archivio e dei nuovi, se il testo o i
 nomi dei file collegati contengono una parola di proroga
 (src/estrazione/proroga.py), la nota del bando dice "possibile proroga:"
-con la frase o il titolo, tagliati a 200 battute. Il gruppo non cambia e
-nessuna data si scrive: la data prorogata si legge nel secondo tempo,
-dall'atto, con la sua frase di prova. Vale anche per le pagine gia'
-salvate nella cartella del giorno, senza nuove richieste.
+con la frase intera (che non si spezza a "n." o "art.") o il titolo,
+tagliati a 200 battute. Allo stesso modo, con le parole di
+src/estrazione/sospensione.py, "possibile sospensione:", tranne le frasi
+escluse come formule di rito. Il
+gruppo non cambia e nessuna data si scrive: la data prorogata, o la
+sospensione, si legge nel secondo tempo, dall'atto, con la sua frase di
+prova. Vale anche per le pagine gia' salvate nella cartella del giorno,
+senza nuove richieste.
 
 Non scrive nel database ne' in data/processed, non chiama il modello, non
 tocca Chroma ne' Postgres. Lo stesso giorno, elenchi e pagine gia' letti
@@ -64,6 +76,22 @@ salvati in CARTELLA (robots/, elenchi/, pagine/), e il rapporto si scrive
 li'. Una pagina che manca e' "da verificare". Serve ai test e a rifare il
 rapporto su una cartella gia' letta.
 
+--oggi AAAA-MM-GG: la data della ricognizione, al posto di quella di
+oggi (Europe/Rome). Serve a rifare il rapporto di una cartella salvata
+alla sua data: scaduti, finestra di GIORNI_FINESTRA giorni e spariti
+dipendono dalla data.
+
+--testi: accanto al rapporto, nella cartella <nome del rapporto>-testi/,
+un file <id_bando>.txt per ogni bando cambiato, per ogni bando con la
+nota "possibile sospensione" e per ogni bando con frasi di sospensione
+escluse come formule di rito (src/estrazione/sospensione.py, REGOLE),
+anche se per questo non ha la nota: le righe di scadenze_bando (data,
+genere, origine, frase di prova), la scadenza dell'archivio e quella del
+campo, le frasi intere della pagina con una data e una parola come
+scadenza, termine, entro, finestra, sportello, proroga, le frasi intere
+con una parola di sospensione e, a parte, quelle escluse con la regola
+che le ha escluse. Nessuna frase si taglia.
+
 Il secondo tempo, l'estrazione delle pagine scelte a mano, resta a
 estrai_nuovi e riclassifica_bandi.
 """
@@ -71,14 +99,14 @@ estrai_nuovi e riclassifica_bandi.
 import csv
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from urllib.parse import unquote
 
 from src.database.schema import connetti
 from src.estrazione.elenco import (
     FUSO,
+    _titolo_da_slug,
     apri_scansione,
     da_fermare,
     descrivi,
@@ -92,9 +120,11 @@ from src.estrazione.elenco import (
 from src.estrazione.indirizzi import url_canonico
 from src.estrazione.lettore_siti import VIETATO
 from src.estrazione.pagina import a_testo
-from src.estrazione.proroga import nota_di_proroga
+from src.estrazione.proroga import frasi_con, nota_di_proroga
 from src.estrazione.registro import DEFINITIVI
-from src.estrazione.scadenza import preselezione
+from src.estrazione.scadenza import MESI, preselezione
+from src.estrazione.sospensione import esamina as esamina_sospensione
+from src.estrazione.sospensione import nota_di_sospensione
 
 FONTE = "regione-toscana"
 
@@ -133,14 +163,19 @@ A_SPORTELLO = "a sportello"
 # La data di uno scarto per scadenza registrato in scansioni
 SCADUTO_IL = re.compile(r"scaduto il (\d{4}-\d{2}-\d{2})")
 
-# Una lettera non ASCII scritta in UTF-8 con i byte come "-c3-a0" (il
-# sito toglie i "%"), con il trattino davanti, che stava al posto del
-# primo "%". Solo i byte d'inizio c2 e c3 (lettere accentate, °, spazio
-# fisso) ed e2 (apostrofo e virgolette tipografiche): con tutti, parole
-# come "de-ab" sembrerebbero lettere.
-BYTE_NELLO_SLUG = re.compile(
-    r"-?\b(c[23]-[89ab][0-9a-f]|e2-[89ab][0-9a-f]-[89ab][0-9a-f])(?=-|/|$)",
-    re.IGNORECASE,
+# La nota di un bando il cui campo indica una delle sue finestre
+FINESTRA = "il campo indica la finestra n. {numero} di {quante}"
+
+# Per --testi: una frase con una data e una parola di scadenza, cercate sul
+# testo normalizzato (minuscolo, senza accenti)
+DATA_NEL_TESTO = re.compile(
+    r"(?<!\d)\d{1,2}(?:[./]\d{1,2}[./]\d{4}|\s+(?:" + "|".join(MESI) + r")\s+\d{4})"
+)
+PAROLA_DI_SCADENZA = re.compile(
+    r"(?<!\w)(?:scadenz\w*|termin\w*|entro|finestr\w*|sportell\w*|prorog\w*)(?!\w)"
+)
+FRASE_DI_SCADENZA = re.compile(
+    rf"(?=.*{DATA_NEL_TESTO.pattern})(?=.*{PAROLA_DI_SCADENZA.pattern})", re.DOTALL
 )
 
 COLONNE = [
@@ -166,6 +201,16 @@ class Riga:
 
 
 @dataclass
+class Testo:
+    """Il materiale di un bando per il file di --testi."""
+
+    base: Riga
+    # le righe di scadenze_bando del bando, di ogni genere
+    finestre: list[dict]
+    html: str
+
+
+@dataclass
 class Rapporto:
     righe: list[Riga]
     # la corsa si e' fermata: un host fermato (401, 403, 429, robots.txt
@@ -175,6 +220,9 @@ class Rapporto:
     # gli elenchi non letti per intero: gli spariti non si calcolano
     elenchi_mancati: list[str]
     pagine_lette: int
+    # per --testi: i bandi cambiati e quelli con frasi di sospensione,
+    # valide o escluse
+    testi: list[Testo] = field(default_factory=list)
 
     def conteggi(self) -> dict[str, int]:
         return {g: sum(r.gruppo == g for r in self.righe) for g in GRUPPI}
@@ -241,22 +289,35 @@ def da_rileggere(esame: dict, oggi: date) -> bool:
     return not definitivo
 
 
-def titolo_leggibile(slug: str) -> str:
-    """Il titolo dallo slug, con le lettere non ASCII decodificate.
+def finestre_dei_bandi() -> dict[str, list[dict]]:
+    """Per id del bando, le righe di scadenze_bando dei bandi della
+    Regione, di ogni genere, in ordine di numero."""
+    conn = connetti()
+    try:
+        righe = conn.execute(
+            "SELECT s.id_bando, s.numero, s.genere, s.scadenza, s.origine, s.frase "
+            "FROM scadenze_bando s JOIN bandi b ON b.id = s.id_bando "
+            "WHERE b.codice_fonte = ? ORDER BY s.id_bando, s.numero",
+            (FONTE,),
+        ).fetchall()
+    finally:
+        conn.close()
+    finestre: dict[str, list[dict]] = {}
+    for r in righe:
+        finestre.setdefault(r["id_bando"], []).append(dict(r))
+    return finestre
 
-    "universit-c3-a0" e "universit%c3%a0" diventano "università"; uno
-    spazio scritto come %c2%a0 resta uno spazio; un gruppo di byte che
-    non e' UTF-8 valido resta com'e'.
-    """
 
-    def decodifica(trovato: re.Match) -> str:
-        try:
-            return bytes.fromhex(trovato.group(1).replace("-", "")).decode("utf-8")
-        except UnicodeDecodeError:
-            return trovato.group(0)
-
-    testo = unquote(BYTE_NELLO_SLUG.sub(decodifica, slug)).replace(" ", " ")
-    return re.sub(r"\s+", " ", testo.replace("-", " ")).strip().capitalize()
+def finestra_del_campo(pagina: date | None, finestre: list[dict]) -> str | None:
+    """La nota FINESTRA se la data del campo coincide con una finestra del
+    bando: solo le righe di genere "domanda", contate in ordine di numero."""
+    if pagina is None:
+        return None
+    domande = [f for f in finestre if f["genere"] == "domanda"]
+    for numero, finestra in enumerate(domande, start=1):
+        if finestra["scadenza"] == pagina.isoformat():
+            return FINESTRA.format(numero=numero, quante=len(domande))
+    return None
 
 
 def _etichetta_scadenza() -> str | None:
@@ -265,7 +326,12 @@ def _etichetta_scadenza() -> str | None:
 
 
 def _nuovi(
-    letti, lettore, righe: list[Riga], oggi: date, etichetta: str | None
+    letti,
+    lettore,
+    righe: list[Riga],
+    oggi: date,
+    etichetta: str | None,
+    testi: list[Testo],
 ) -> set[str]:
     """Le voci degli elenchi fuori archivio: nuove o gia' viste.
 
@@ -276,8 +342,10 @@ def _nuovi(
     vietati; una pagina letta da' la scadenza del campo, o NON_LEGGIBILE;
     una pagina non letta resta nel suo gruppo con il motivo nella nota.
     Un host fermato interrompe le letture: le voci rimaste restano nel
-    loro gruppo, senza scadenza. Restituisce gli URL di tutte le voci
-    degli elenchi.
+    loro gruppo, senza scadenza. Una pagina letta con la nota di
+    possibile sospensione, o con frasi di sospensione escluse, entra in
+    testi. Restituisce gli URL di tutte le
+    voci degli elenchi.
     """
     esaminati = gia_esaminati()
     voci = scopri(letti)
@@ -289,7 +357,7 @@ def _nuovi(
             GIA_VISTE if esame else NUOVI,
             id_da_slug(v.slug, v.url),
             v.url,
-            titolo_leggibile(v.slug),
+            _titolo_da_slug(v.slug),
         )
         note = [_nota_di_allora(esame) if esame else ""]
         if esame and not da_rileggere(esame, oggi):
@@ -309,6 +377,10 @@ def _nuovi(
                     scadenza.isoformat() if scadenza else NON_LEGGIBILE
                 )
                 note.append(nota_di_proroga(html))
+                sospensione = nota_di_sospensione(html)
+                note.append(sospensione)
+                if sospensione or esamina_sospensione(html).escluse:
+                    testi.append(Testo(riga, [], html))
         riga.nota = "; ".join(n for n in note if n)
         righe.append(riga)
     return {v.url for v in voci}
@@ -335,21 +407,27 @@ def ricognisci(lettore, oggi: date) -> Rapporto:
     interrotta = da_fermare(lettore)
 
     etichetta = _etichetta_scadenza()
+    testi: list[Testo] = []
     nell_elenco = (
-        set() if interrotta else _nuovi(letti, lettore, righe, oggi, etichetta)
+        set() if interrotta else _nuovi(letti, lettore, righe, oggi, etichetta, testi)
     )
     # un host fermato durante le pagine dei nuovi ferma anche il resto
     interrotta = da_fermare(lettore)
     lette = 0
     aperti = []
-    # per i bandi in archivio: la riga di base e la nota di possibile proroga
-    proroghe: list[tuple[Riga, str]] = []
+    # per i bandi in archivio: la riga di base e la nota di possibile
+    # proroga o sospensione
+    indizi: list[tuple[Riga, str]] = []
+    tutte_le_finestre = finestre_dei_bandi()
     for bando in bandi_da_ricontrollare(oggi):
         url = url_canonico(bando["url"])
         archivio = bando["scadenza"] or ""
         base = Riga("", bando["id"], url, bando["titolo"], archivio)
+        finestre = tutte_le_finestre.get(bando["id"], [])
 
         pagina = None
+        # la data del campo e' una delle finestre: vale l'archivio
+        finestra = None
         if interrotta:
             righe.append(_come(base, DA_VERIFICARE, "non letta: corsa interrotta"))
         else:
@@ -364,13 +442,31 @@ def ricognisci(lettore, oggi: date) -> Rapporto:
             else:
                 lette += 1
                 pagina = _scadenza_pagina(html, oggi, etichetta)
-                righe.extend(_confronto(base, pagina, bando["a_sportello"]))
+                if base.scadenza_archivio != (pagina.isoformat() if pagina else ""):
+                    finestra = finestra_del_campo(pagina, finestre)
+                confronto = _confronto(base, pagina, bando["a_sportello"], finestra)
+                righe.extend(confronto)
                 if nota := nota_di_proroga(html):
-                    proroghe.append((base, nota))
+                    indizi.append((base, nota))
+                sospensione = nota_di_sospensione(html)
+                if sospensione:
+                    indizi.append((base, sospensione))
+                if (
+                    sospensione
+                    or esamina_sospensione(html).escluse
+                    or any(r.gruppo == CAMBIATI for r in confronto)
+                ):
+                    testi.append(Testo(base, finestre, html))
 
-        # la scadenza che vale: quella della pagina se si legge
-        attuale = pagina or (date.fromisoformat(archivio) if archivio else None)
-        da_dove = "pagina" if pagina else "archivio"
+        # la scadenza che vale: quella della pagina se si legge, se non e'
+        # una delle finestre del bando
+        dalla_pagina = pagina is not None and finestra is None
+        attuale = (
+            pagina
+            if dalla_pagina
+            else (date.fromisoformat(archivio) if archivio else None)
+        )
+        da_dove = "pagina" if dalla_pagina else "archivio"
         if attuale and ULTIMA_SCANSIONE <= attuale < oggi:
             righe.append(_come(base, SCADUTI, f"scadenza dalla {da_dove}"))
         if attuale is None or attuale >= oggi:
@@ -387,17 +483,18 @@ def ricognisci(lettore, oggi: date) -> Rapporto:
                     )
                 )
 
-    _aggiungi_proroghe(righe, proroghe)
+    _aggiungi_note(righe, indizi)
     ordine = {g: i for i, g in enumerate(GRUPPI)}
     righe.sort(key=lambda r: (ordine[r.gruppo], r.id_bando))
-    return Rapporto(righe, interrotta, dict(lettore.fermati), mancati, lette)
+    return Rapporto(righe, interrotta, dict(lettore.fermati), mancati, lette, testi)
 
 
-def _aggiungi_proroghe(righe: list[Riga], proroghe: list[tuple[Riga, str]]) -> None:
-    """La nota di possibile proroga su ogni riga del bando, senza cambiarne
-    il gruppo. Un bando riletto senza differenze non ha righe: per non
-    perdere la nota, entra tra gli INVARIATI con la sola nota."""
-    for base, nota in proroghe:
+def _aggiungi_note(righe: list[Riga], indizi: list[tuple[Riga, str]]) -> None:
+    """La nota di possibile proroga o sospensione su ogni riga del bando,
+    senza cambiarne il gruppo. Un bando riletto senza differenze non ha
+    righe: per non perdere la nota, entra tra gli INVARIATI con la sola
+    nota; una seconda nota dello stesso bando si aggiunge a quella riga."""
+    for base, nota in indizi:
         sue = [r for r in righe if r.url == base.url]
         for r in sue:
             r.nota = f"{r.nota}; {nota}" if r.nota else nota
@@ -405,18 +502,23 @@ def _aggiungi_proroghe(righe: list[Riga], proroghe: list[tuple[Riga, str]]) -> N
             righe.append(_come(base, INVARIATI, nota))
 
 
-def _confronto(base: Riga, pagina: date | None, a_sportello) -> list[Riga]:
+def _confronto(
+    base: Riga, pagina: date | None, a_sportello, finestra: str | None = None
+) -> list[Riga]:
     """Da verificare se la scadenza della pagina non si legge, ma tra gli
     invariati con la nota A_SPORTELLO se il bando e' a sportello in
-    archivio; cambiato se e' diversa da quella in archivio. Scrive la
-    scadenza della pagina in base, che vale per le righe successive dello
-    stesso bando."""
+    archivio; tra gli invariati con la nota finestra se la data del campo
+    e' una delle finestre del bando (finestra_del_campo); cambiato se e'
+    diversa da quella in archivio. Scrive la scadenza della pagina in
+    base, che vale per le righe successive dello stesso bando."""
     base.scadenza_pagina = pagina.isoformat() if pagina else ""
     if pagina is None and a_sportello:
         return [_come(base, INVARIATI, A_SPORTELLO)]
     if pagina is None:
         nota = "scadenza non leggibile dal campo della pagina"
         return [_come(base, DA_VERIFICARE, nota)]
+    if finestra:
+        return [_come(base, INVARIATI, finestra)]
     if base.scadenza_pagina != base.scadenza_archivio:
         archivio = base.scadenza_archivio or "senza scadenza"
         return [
@@ -452,6 +554,51 @@ def scrivi_rapporto(rapporto: Rapporto, cartella: Path) -> Path:
     return percorso
 
 
+def testo_di(t: Testo) -> str:
+    """Il contenuto del file di --testi per un bando: finestre, date e
+    frasi intere della pagina, senza tagli."""
+    b = t.base
+    righe = [
+        f"{b.titolo} [{b.id_bando}]",
+        b.url,
+        "",
+        f"Scadenza in archivio: {b.scadenza_archivio or 'nessuna'}",
+        f"Scadenza dal campo della pagina: {b.scadenza_pagina or 'non leggibile'}",
+        "",
+        f"Righe di scadenze_bando ({len(t.finestre)}):",
+    ]
+    righe += [
+        f"  {f['numero']}. {f['scadenza']} ({f['genere']}, {f['origine']}): "
+        f"{f['frase']}"
+        for f in t.finestre
+    ] or ["  nessuna"]
+    sospensione = esamina_sospensione(t.html)
+    escluse = [
+        f"{e.frase} [esclusa: {'; '.join(e.regole)}]" for e in sospensione.escluse
+    ]
+    for titolo, frasi in (
+        (
+            "Frasi della pagina con una data e una parola di scadenza",
+            frasi_con(t.html, FRASE_DI_SCADENZA),
+        ),
+        ("Frasi della pagina con una parola di sospensione", sospensione.valide),
+        ("Frasi escluse come formule di rito", escluse),
+    ):
+        righe += ["", f"{titolo} ({len(frasi)}):"]
+        righe += [f"  - {frase}" for frase in frasi] or ["  nessuna"]
+    return "\n".join(righe) + "\n"
+
+
+def scrivi_testi(rapporto: Rapporto, percorso: Path) -> Path:
+    """Un file <id_bando>.txt per ogni bando in rapporto.testi, nella
+    cartella <nome del rapporto>-testi/ accanto al rapporto."""
+    cartella = percorso.with_name(f"{percorso.stem}-testi")
+    cartella.mkdir(parents=True, exist_ok=True)
+    for t in rapporto.testi:
+        (cartella / f"{t.base.id_bando}.txt").write_text(testo_di(t), encoding="utf-8")
+    return cartella
+
+
 def mostra(rapporto: Rapporto, percorso: Path, richieste: int) -> None:
     print("\nRICOGNIZIONE DEL PORTALE DELLA REGIONE (senza modello)")
     for gruppo, quanti in rapporto.conteggi().items():
@@ -479,6 +626,12 @@ def data_di_oggi() -> date:
 
 def main() -> None:
     oggi = data_di_oggi()
+    if "--oggi" in sys.argv:
+        valore = opzione_testo("--oggi") or ""
+        try:
+            oggi = date.fromisoformat(valore)
+        except ValueError:
+            sys.exit(f"--oggi vuole una data AAAA-MM-GG, non {valore!r}")
     salvate = opzione_testo("--pagine-salvate")
     contatore = ContaRichieste(apri_scansione)
     if salvate:
@@ -486,10 +639,14 @@ def main() -> None:
     else:
         lettore = lettore_della_scansione(apri=contatore)
     print(f"Letture in {lettore.cartella}")
+    print(f"Data della ricognizione: {oggi.isoformat()}")
 
     rapporto = ricognisci(lettore, oggi)
     percorso = scrivi_rapporto(rapporto, lettore.cartella)
     mostra(rapporto, percorso, contatore.quante)
+    if "--testi" in sys.argv:
+        cartella = scrivi_testi(rapporto, percorso)
+        print(f"Testi di {len(rapporto.testi)} bandi: {cartella}")
     if rapporto.interrotta:
         sys.exit(1)
 

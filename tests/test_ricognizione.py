@@ -15,7 +15,7 @@ import pytest
 
 import scripts.ingestione.estrai_nuovi as estrai_nuovi
 import scripts.ingestione.ricognizione as ricognizione
-from src.estrazione import elenco, registro
+from src.estrazione import elenco, registro, sospensione
 from src.estrazione.pdf_bando import INTESTAZIONI_PROGETTO
 from src.estrazione.salva import salva
 from tests.test_lettore_siti import Errore, ReteFinta
@@ -504,4 +504,388 @@ def test_un_bando_a_sportello_senza_campo_va_tra_gli_invariati(db_su_file, tmp_p
     ],
 )
 def test_titolo_leggibile_decodifica_le_lettere_accentate(slug, titolo):
-    assert ricognizione.titolo_leggibile(slug) == titolo
+    """La decodifica sta in elenco._titolo_da_slug: vale per tutti gli
+    script che usano le voci degli elenchi (scopri)."""
+    assert elenco._titolo_da_slug(slug) == titolo
+
+
+# --- finestre del bando (scadenze_bando) ---
+
+
+def _finestra(db: Path, id_bando: str, numero: int, scadenza: str, genere="domanda"):
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "INSERT INTO scadenze_bando "
+        "(id_bando, numero, genere, descrizione, scadenza, frase, origine) "
+        "VALUES (?, ?, ?, ?, ?, ?, 'manuale')",
+        (id_bando, numero, genere, f"finestra {numero}", scadenza, f"frase {numero}"),
+    )
+    conn.commit()
+    conn.close()
+
+
+@pytest.fixture
+def bandi_a_finestre(cartella_salvata, db_su_file):
+    """Tre bandi a piu' finestre, in archivio con l'ultima, e una fase
+    successiva (numero 2) che non e' una finestra:
+
+    - a-finestre: il campo dice la seconda finestra, 15/12/2026;
+    - finestra-passata: il campo dice la prima, 15/11/2026, gia' passata
+      ma dopo la scansione del 13/11;
+    - fase-successiva: il campo dice la data della fase successiva.
+    """
+    campi = (
+        ("a-finestre", "15.12.2026"),
+        ("finestra-passata", "15.11.2026"),
+        ("fase-successiva", "20.12.2026"),
+    )
+    # nell'elenco, perche' non risultino spariti
+    _salva_pagina(
+        cartella_salvata,
+        "elenchi",
+        ELENCO_MONTAGNA,
+        _elenco(*(f"{id_bando}-2026" for id_bando, _ in campi)),
+    )
+    for id_bando, campo in campi:
+        _in_archivio(id_bando, f"{id_bando}-2026", "2027-03-31")
+        _finestra(db_su_file, id_bando, 1, "2026-11-15")
+        _finestra(db_su_file, id_bando, 2, "2026-12-20", genere="fase_successiva")
+        _finestra(db_su_file, id_bando, 3, "2026-12-15")
+        _finestra(db_su_file, id_bando, 4, "2027-03-31")
+        _salva_pagina(
+            cartella_salvata, "pagine", _url(f"{id_bando}-2026"), _pagina(campo)
+        )
+    return cartella_salvata
+
+
+def test_il_campo_che_indica_una_finestra_non_e_un_cambiamento(bandi_a_finestre):
+    """Il campo coincide con una finestra (solo le righe "domanda", in
+    ordine di numero): invariato con la nota, e la scadenza che vale resta
+    quella dell'archivio, quindi una finestra passata non fa scaduto il
+    bando. La data di una fase successiva non e' una finestra: cambiato."""
+    lettore = elenco.lettore_della_scansione(bandi_a_finestre, senza_rete=True)
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    assert _note(rapporto, "a-finestre") == {
+        ricognizione.INVARIATI: "il campo indica la finestra n. 2 di 3"
+    }
+    note_passata = _note(rapporto, "finestra-passata")
+    assert note_passata[ricognizione.INVARIATI] == (
+        "il campo indica la finestra n. 1 di 3"
+    )
+    assert ricognizione.SCADUTI not in note_passata
+    assert _note(rapporto, "fase-successiva") == {
+        ricognizione.CAMBIATI: "archivio 2027-03-31, pagina 2026-12-20"
+    }
+    assert _gruppi(rapporto)[ricognizione.CAMBIATI] == {
+        "bando-cambiato",
+        "fase-successiva",
+    }
+
+
+# --- nota "possibile sospensione" ---
+
+# Dalla pagina degli incentivi ai datori di lavoro privati salvata il
+# 23/11/2026 (titolo del paragrafo, poi il paragrafo, intero)
+SOSPENSIONE_VERA = (
+    "<p><br /><strong>Sospensione del bando per i seguenti destinatari:</strong></p>"
+)
+PRIMA_FRASE_VERA = (
+    "La sospensione decorre dal 8 luglio 2026, data di pubblicazione del "
+    "decreto n. 742/2026 di Arti sul Burt."
+)
+SECONDA_FRASE_VERA = (
+    "Di conseguenza, con riferimento alle categorie di destinatari sopra "
+    "indicate, saranno istruite soltanto le domande presentate entro l'8 "
+    "luglio 2026, fermo restando che la concessione del contributo resta "
+    "subordinata alla disponibilità delle risorse finanziarie."
+)
+
+
+def _pagina_uguale(cartella: Path, corpo: str) -> None:
+    _salva_pagina(
+        cartella, "pagine", _url("bando-uguale-2026"), _pagina_con("31.01.2027", corpo)
+    )
+
+
+def test_la_frase_vera_di_sospensione_da_la_nota(cartella_salvata):
+    """Il gruppo non cambia e nessuna data cambia: il bando senza
+    differenze entra tra gli invariati con la sola nota."""
+    _pagina_uguale(cartella_salvata, SOSPENSIONE_VERA)
+    lettore = elenco.lettore_della_scansione(cartella_salvata, senza_rete=True)
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    [riga] = [r for r in rapporto.righe if r.id_bando == "bando-uguale"]
+    assert (riga.gruppo, riga.nota) == (
+        ricognizione.INVARIATI,
+        "possibile sospensione: Sospensione del bando per i seguenti destinatari:",
+    )
+    assert (riga.scadenza_archivio, riga.scadenza_pagina) == (
+        "2027-01-31",
+        "2027-01-31",
+    )
+
+
+@pytest.mark.parametrize(
+    "corpo",
+    [
+        "<p>CHIUSURA ANTICIPATA del bando per esaurimento.</p>",
+        "<p>Le risorse   esaurite non consentono altre domande.</p>",
+        '<a href="/documents/d/guest/decreto-sospeso-il-bando.pdf">Decreto</a>',
+    ],
+)
+def test_sospensione_in_maiuscolo_su_piu_spazi_o_nel_nome_di_un_allegato(
+    cartella_salvata, corpo
+):
+    _pagina_uguale(cartella_salvata, corpo)
+    lettore = elenco.lettore_della_scansione(cartella_salvata, senza_rete=True)
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    nota = _note(rapporto, "bando-uguale")[ricognizione.INVARIATI]
+    assert nota.startswith("possibile sospensione: ")
+
+
+@pytest.mark.parametrize(
+    "formula",
+    [
+        "Le domande si presentano salvo esaurimento delle risorse.",
+        "Le domande si presentano fino ad esaurimento delle risorse.",
+        "In caso di esaurimento delle risorse il bando chiude.",
+        "La Regione si riserva la possibilità di sospendere il bando.",
+    ],
+)
+def test_le_formule_di_rito_non_danno_la_nota_di_sospensione(cartella_salvata, formula):
+    _pagina_uguale(cartella_salvata, f"<p>{formula}</p>")
+    lettore = elenco.lettore_della_scansione(cartella_salvata, senza_rete=True)
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    pagina = _pagina_con("31.01.2027", formula).decode()
+    assert ricognizione.nota_di_sospensione(pagina) is None
+    assert _note(rapporto, "bando-uguale") == {}
+
+
+# --- opzioni --oggi e --testi ---
+
+
+def _main(monkeypatch, cartella: Path, *opzioni: str) -> None:
+    monkeypatch.setattr(
+        sys, "argv", ["ricognizione", "--pagine-salvate", str(cartella), *opzioni]
+    )
+    monkeypatch.setattr(ricognizione, "data_di_oggi", lambda: OGGI)
+    ricognizione.main()
+
+
+def _righe_csv(percorso: Path) -> set[tuple[str, str]]:
+    with percorso.open(encoding="utf-8-sig") as f:
+        return {(r["gruppo"], r["id_bando"]) for r in csv.DictReader(f)}
+
+
+def test_oggi_da_riga_di_comando_sostituisce_la_data_di_oggi(
+    cartella_salvata, monkeypatch
+):
+    """bando-scaduto scade il 16/11: con la data di oggi (23/11) e' tra
+    gli scaduti, con --oggi 2026-11-15 no."""
+    _main(monkeypatch, cartella_salvata, "--oggi", "2026-11-15")
+
+    righe = _righe_csv(cartella_salvata / "ricognizione.csv")
+    assert (ricognizione.SCADUTI, "bando-scaduto") not in righe
+    assert (ricognizione.CAMBIATI, "bando-cambiato") in righe
+
+
+def test_oggi_non_valido_ferma_lo_script(cartella_salvata, monkeypatch):
+    with pytest.raises(SystemExit, match="AAAA-MM-GG"):
+        _main(monkeypatch, cartella_salvata, "--oggi", "23/11/2026")
+
+
+def test_testi_scrive_finestre_date_e_frasi_intere(bandi_a_finestre, monkeypatch):
+    """Un file per ogni cambiato e per ogni bando con possibile
+    sospensione, anche se invariato; le frasi lunghe, o con "n. 742",
+    restano intere."""
+    frase_lunga = (
+        "Le domande di finanziamento possono essere presentate entro il "
+        "31 gennaio 2027, termine che vale per tutte le categorie di "
+        "destinatari indicate all'articolo 5 del bando, comprese quelle "
+        "ammesse con riserva dopo la verifica dei requisiti di accesso."
+    )
+    assert len(frase_lunga) > 200
+    _pagina_uguale(
+        bandi_a_finestre,
+        f"{SOSPENSIONE_VERA}<p>{PRIMA_FRASE_VERA} {SECONDA_FRASE_VERA}</p>"
+        f"<p>{frase_lunga}</p>",
+    )
+
+    _main(monkeypatch, bandi_a_finestre, "--testi")
+
+    cartella = bandi_a_finestre / "ricognizione-testi"
+    assert sorted(p.name for p in cartella.iterdir()) == [
+        "bando-cambiato.txt",
+        "bando-uguale.txt",
+        "fase-successiva.txt",
+    ]
+    fase = (cartella / "fase-successiva.txt").read_text(encoding="utf-8")
+    assert "Scadenza in archivio: 2027-03-31" in fase
+    assert "Scadenza dal campo della pagina: 2026-12-20" in fase
+    assert "  2. 2026-12-20 (fase_successiva, manuale): frase 2" in fase
+    assert "  4. 2027-03-31 (domanda, manuale): frase 4" in fase
+    uguale = (cartella / "bando-uguale.txt").read_text(encoding="utf-8")
+    scadenza, sospensione = uguale.split("Frasi della pagina con una parola di")
+    # con una data e una parola di scadenza
+    assert f"  - {frase_lunga}\n" in scadenza
+    assert f"  - {SECONDA_FRASE_VERA}\n" in scadenza
+    # con una parola di sospensione; "n. 742" non spezza la frase
+    assert "  - Sospensione del bando per i seguenti destinatari:\n" in sospensione
+    assert f"  - {PRIMA_FRASE_VERA}\n" in sospensione
+
+
+# --- esclusioni dalla nota "possibile sospensione" (24/11/2026) ---
+
+# Frasi vere delle pagine salvate il 23/11/2026, una per ognuno dei cinque
+# bandi in cui la nota scattava senza una sospensione, con la regola che
+# le esclude; le ultime due sono estratti delle frasi sull'assunzione di
+# donne e di Just in Time, in cui una sola regola esclude.
+ESCLUSE_VERE = [
+    (
+        # contributi agli enti locali per lo sviluppo di progettualita' sui dati
+        (
+            "La Regione Toscana si riserva la facoltà di prevedere la chiusura "
+            "anticipata dello sportello per esaurimento delle risorse finanziarie "
+            "disponibili."
+        ),
+        [sospensione.RISERVA],
+    ),
+    (
+        # contributi ai datori di lavoro per l'assunzione di donne
+        (
+            "12) alla data dell'assunzione non hanno in atto, nelle unità "
+            "produttive toscane interessate dall’assunzione, sospensioni dal "
+            "lavoro connesse a trattamenti di Cassa Integrazione Guadagni "
+            "Straordinaria, Fondo di Integrazione Salariale per le causali "
+            "previste in materia di cassa integrazione guadagni straordinaria o "
+            "altro ammortizzatore sociale equivalente, salvo i casi di lavoratori "
+            "assunti/trasformati inquadrati ad un livello, una mansione o una "
+            "qualifica professionale diversa da quella posseduta dai lavoratori "
+            "sospesi;"
+        ),
+        [sospensione.RISERVA, sospensione.LAVORO],
+    ),
+    (
+        # contributi individuali per le donne in percorsi di uscita dalla violenza
+        (
+            "La chiusura del bando è il 31 dicembre 2026, salvo chiusura "
+            "anticipata per esaurimento delle risorse."
+        ),
+        [sospensione.RISERVA],
+    ),
+    (
+        # contributi per attivare tirocini non curriculari
+        (
+            "La domanda di contributo può essere presentata dal giorno successivo "
+            "alla pubblicazione del bando sul Burt (27 marzo 2024) ossia dal 28 "
+            "marzo 2024 fino al 31 dicembre 2026, salvo chiusura anticipata per "
+            "esaurimento risorse annuali disponibili."
+        ),
+        [sospensione.RISERVA],
+    ),
+    (
+        # voucher formativi Just in Time per l'occupabilita' 2.0
+        (
+            "Il Settore Formazione per l’inserimento lavorativo, in caso di "
+            "esaurimento delle risorse o altre motivazione di interesse pubblico, "
+            "si riserva la possibilità di sospendere, chiudere o prorogare "
+            "l’avviso, dandone tempestiva comunicazione sulle pagine web dedicate "
+            "all’avviso pubblico per voucher just in time per l’occupabilità 2.0 "
+            "www.regione.toscana.it/bando2025-voucher-formazioneJustinTime, e su "
+            "www.giovanisi.it e attraverso la pubblicazione del decreto di "
+            "sospensione/chiusura/proroga dell’Avviso sul BURT."
+        ),
+        [sospensione.RISERVA, sospensione.BARRE],
+    ),
+    (
+        # estratto della frase sull'assunzione di donne, pagina salvata il
+        # 23/11/2026: qui, senza "salvo", solo la regola del lavoro la esclude
+        (
+            "una qualifica professionale diversa da quella posseduta dai "
+            "lavoratori sospesi;"
+        ),
+        [sospensione.LAVORO],
+    ),
+    (
+        # estratto della frase di Just in Time, pagina salvata il 23/11/2026:
+        # qui solo la regola delle barre la esclude
+        (
+            "attraverso la pubblicazione del decreto di "
+            "sospensione/chiusura/proroga dell’Avviso sul BURT"
+        ),
+        [sospensione.BARRE],
+    ),
+]
+
+
+@pytest.mark.parametrize(("frase", "regole"), ESCLUSE_VERE)
+def test_le_formule_vere_del_23_11_sono_escluse_con_la_loro_regola(frase, regole):
+    esame = sospensione.esamina(f"<html><body><p>{frase}</p></body></html>")
+
+    assert esame.valide == []
+    assert [(e.frase, e.regole) for e in esame.escluse] == [(frase, regole)]
+
+
+@pytest.mark.parametrize(
+    "frase",
+    [
+        # dalla pagina degli incentivi ai datori di lavoro privati, 23/11/2026
+        "Sospensione del bando per i seguenti destinatari:",
+        # la parola chiave viene prima di "salvo": non e' esclusa
+        "Il bando è sospeso, salvo nuove risorse.",
+    ],
+)
+def test_una_sospensione_vera_da_la_nota(frase):
+    html = f"<html><body><p>{frase}</p></body></html>"
+
+    assert sospensione.nota_di_sospensione(html) == f"possibile sospensione: {frase}"
+    assert sospensione.esamina(html).escluse == []
+
+
+def test_un_bando_con_sole_frasi_escluse_non_ha_la_nota_ma_ha_il_suo_testo(
+    cartella_salvata, monkeypatch
+):
+    """Nessuna riga nel rapporto per bando-uguale (nessuna differenza,
+    nessuna nota); il file dei testi si scrive lo stesso, con le frasi
+    escluse e la regola, in una sezione a parte. Le prime quattro frasi
+    vere: la quinta (Just in Time) contiene "proroga" e darebbe la nota di
+    proroga."""
+    corpo = "".join(f"<p>{frase}</p>" for frase, _ in ESCLUSE_VERE[:4])
+    _pagina_uguale(cartella_salvata, corpo)
+
+    _main(monkeypatch, cartella_salvata, "--testi")
+
+    righe = _righe_csv(cartella_salvata / "ricognizione.csv")
+    assert not any(id_bando == "bando-uguale" for _, id_bando in righe)
+    testo = (cartella_salvata / "ricognizione-testi" / "bando-uguale.txt").read_text(
+        encoding="utf-8"
+    )
+    valide, escluse = testo.split("Frasi escluse come formule di rito")
+    assert "Frasi della pagina con una parola di sospensione (0):" in valide
+    assert escluse.startswith(" (4):\n")
+    for frase, regole in ESCLUSE_VERE[:4]:
+        assert f"  - {frase} [esclusa: {'; '.join(regole)}]\n" in escluse
+
+
+def test_la_nota_di_proroga_non_si_spezza_a_decreto_n(cartella_salvata):
+    """Frase vera della pagina delle celebrazioni storiche salvata il
+    23/11/2026: prima la nota cominciava da "20217 del 14 settembre"."""
+    frase = (
+        "Con Decreto Dirigenziale n. 20217 del 14 settembre 2026 è stata "
+        "disposta la proroga del termine per la presentazione delle domande."
+    )
+    _pagina_uguale(cartella_salvata, f"<p>{frase}</p>")
+    lettore = elenco.lettore_della_scansione(cartella_salvata, senza_rete=True)
+
+    rapporto = ricognizione.ricognisci(lettore, OGGI)
+
+    assert _note(rapporto, "bando-uguale") == {
+        ricognizione.INVARIATI: f"possibile proroga: {frase}"
+    }

@@ -438,9 +438,11 @@ il 23/11/2026):
      proroghe. La ricognizione rilegge, senza modello, la pagina dei
      bandi della Regione aperti o scaduti da non più di 60 giorni e
      confronta la scadenza del campo con l'archivio; il rapporto non
-     cambia l'archivio, la riestrazione resta a mano. Restano aperti
-     gli scarti "scaduto" di `scansioni` (voce 7, caso SRA28) e
-     l'impronta del testo;
+     cambia l'archivio, la riestrazione resta a mano. Gli scarti
+     "scaduto" di `scansioni` scaduti da non più di 60 giorni si
+     rileggono anche loro (gruppo "già viste", voce 7, caso SRA28);
+     resta aperta l'impronta del testo (corretto il 24/11/2026: prima
+     diceva che restavano aperti anche gli scarti "scaduto");
    - in parte, voce 13: test di `estrai_nuovi` con `Lettore` e pagine
      finte (pagina vietata, 403 in preselezione), in
      `tests/test_ricognizione.py`; il percorso fino all'estrazione no;
@@ -526,6 +528,76 @@ il 23/11/2026):
    - (23/11/2026) L'elenco "bandi aperti" del Portale contiene voci
      scadute da anni (dal 2013): conferma che lo stato si calcola dalla
      scadenza.
+   - (24/11/2026) Requisito: il campo "scadenza" della pagina non è
+     affidabile da solo. Il 23/11 mercati rionali, percorsi formativi e
+     voucher Just in Time avevano il campo vecchio o sbagliato e il testo
+     giusto (verifica di chi mantiene il progetto). Sul valore decide il
+     testo, con la frase di prova; il campo resta un indizio per la
+     ricognizione.
+   - (24/11/2026) Nella ricognizione, se la data del campo coincide con
+     una delle finestre del bando in `scadenze_bando` (solo le righe di
+     genere "domanda", in ordine di numero), il bando va tra gli
+     "invariati" con la nota "il campo indica la finestra n. X di Y", e la
+     scadenza che vale per scaduti e spariti resta quella dell'archivio.
+     Rapporto rifatto dalle pagine salvate del 23/11 alla stessa data
+     (`ricognizione-3.csv`, `--oggi 2026-11-23`): 4 cambiati invece di 6;
+     dopo la laurea (finestra 3 di 4) e incentivi ai datori di lavoro
+     privati (finestra 4 di 5) passano tra gli invariati.
+   - (24/11/2026) Requisito aperto: lo stesso confronto con le finestre
+     in `preselezione` (`src/estrazione/scadenza.py`) e in `estrai_nuovi`,
+     che oggi confrontano solo con `bandi.scadenza`. Non fatto: deciso il
+     24/11/2026 di tenerlo per dopo.
+   - (24/11/2026) Opzioni nuove della ricognizione: `--oggi AAAA-MM-GG`,
+     per rifare il rapporto di una cartella salvata alla sua data, e
+     `--testi`, che accanto al rapporto scrive per ogni bando cambiato, e
+     per ogni bando con la nota "possibile sospensione", le righe di
+     `scadenze_bando`, la data del campo e le frasi intere della pagina
+     con una data e una parola di scadenza o di sospensione.
+   - (24/11/2026) Nota "possibile sospensione" nella ricognizione, con lo
+     stesso meccanismo della proroga (`src/estrazione/sospensione.py`:
+     sospensione, sospeso, sospesa, sospesi, sospese, chiusura
+     anticipata, chiuso anticipatamente, chiusa anticipatamente, risorse
+     esaurite, esaurite le risorse, fondi esauriti). Non cambia il gruppo
+     né le date. Sul rapporto del 23/11 scatta per sei bandi; uno solo è
+     una sospensione vera (incentivi ai datori di lavoro privati). Gli
+     altri cinque hanno formule non coperte dalle esclusioni: "salvo
+     chiusura anticipata per esaurimento delle risorse" (due bandi per
+     le donne in percorsi di uscita dalla violenza), "si riserva la
+     facoltà di prevedere la chiusura anticipata dello sportello"
+     (progettualità sui dati), "decreto di sospensione/chiusura/proroga"
+     dentro la riserva di sospendere (Just in Time), "lavoratori sospesi"
+     per la Cassa integrazione (assunzione di donne). Da decidere se
+     togliere queste formule.
+     Deciso il 24/11/2026 da chi mantiene il progetto, su quei cinque casi
+     veri: tre esclusioni (`REGOLE` in `src/estrazione/sospensione.py`).
+     Una parola chiave non conta se (a) nella stessa frase, prima di lei,
+     c'è "salvo" o "si riserva la facoltà / la possibilità / il diritto
+     di"; (b) è in "sospensione (sospensioni) dal lavoro", "lavoratori
+     sospesi", "lavoratrici sospese"; (c) ha una barra subito prima o
+     dopo ("sospensione/chiusura/proroga"). Una parola chiave che viene
+     prima di "salvo" conta: "Il bando è sospeso, salvo nuove risorse" dà
+     la nota. Le frasi escluse non spariscono: con `--testi` vanno nel
+     file del bando, nella sezione "Frasi escluse come formule di rito",
+     con la regola che le ha escluse, e il file si scrive anche per un
+     bando che ha solo frasi escluse (che per questo non ha la nota e non
+     entra tra gli invariati). Rapporto rifatto alla stessa data
+     (`ricognizione-4.csv`): 1 possibile sospensione (incentivi ai datori
+     di lavoro privati), 4 cambiati, 18 invariati. Sulle 163 pagine
+     salvate del 23/11 le regole escludono 12 frasi su 7 pagine, tutte
+     formule "salvo chiusura anticipata" o già tra i cinque casi; restano
+     valide, con un altro significato, "sospesi dall'accreditamento" e
+     "sospeso l'assegno di ricollocazione", su due voci già viste che la
+     ricognizione non rilegge. Nello stesso giorno la nota di proroga
+     usa le frasi intere di `--testi`, che non si spezzano a "n." o
+     "art.": sul rapporto del 23/11 cambia una nota (celebrazioni
+     storiche).
+   - (24/11/2026) Errore in archivio: incentivi ai datori di lavoro
+     privati per l'occupazione dei disoccupati
+     (`incentivi-ai-datori-di-lavoro-privati-per-l-occupazio-801298`) è
+     aperto in archivio fino al 10/01/2028, ma è sospeso dall'8/07/2026
+     per le categorie dell'articolo 5 lettere a, b, c, d, e (decreto
+     n. 742/2026 di Arti), aperto solo per la lettera f. Fonte: pagina
+     del bando salvata il 23/11/2026. Da correggere nel secondo tempo.
 - (era la voce 4 dei Prossimi passi, → D) **Pratiche (progetti seguiti)**: per un beneficiario preciso, una
    scheda strutturata (attività con forma giuridica, ATECO, sede,
    dimensione; bandi seguiti con stato; scadenze; documenti; note), ogni
@@ -3109,6 +3181,33 @@ mancati ("Passo 19d", punto 13, voce 14).
   riga DOVE scritta dal codice, già in Parcheggio ("Riga DOVE ricavata
   dal programma").
 - Era un requisito iniziale del progetto: non spezzare articoli e commi.
+
+## Bandi a più finestre: la prossima finestra aperta (24/11/2026)
+
+Voce nuova, fuori dal Parcheggio, da decidere insieme al passo 2b.
+
+- Per i bandi a più finestre l'app mostra l'ultima scadenza; all'utente
+  serve la prossima finestra aperta e la condizione delle successive
+  (per esempio "solo se resta budget").
+- Caso: dopo la laurea (`dopo-la-laurea-finanziamenti-per-progetti-di-informaz-851fa7`),
+  in archivio fino al 15/07/2027, finestra in corso fino all'11/12/2026
+  (terza di quattro in `scadenze_bando`).
+- Da decidere come mostrarlo.
+
+## Sospensioni e chiusure anticipate (24/11/2026)
+
+Voce nuova, fuori dal Parcheggio, accanto a quella sulle finestre, da
+decidere insieme al passo 2b.
+
+- Lo stato calcolato dalla scadenza non vede le sospensioni e le
+  chiusure anticipate. Caso: incentivi ai datori di lavoro privati,
+  aperto in archivio fino al 10/01/2028, sospeso dall'8/07/2026 per
+  cinque categorie di destinatari (decreto n. 742/2026 di Arti); vedi
+  "Letture dei siti e stato dei requisiti", righe del 24/11/2026.
+- Serve un posto in archivio per "sospeso", anche solo per alcune
+  categorie di destinatari, con la frase di prova, e l'app lo deve dire.
+- Fino ad allora la ricognizione lo segnala con la nota "possibile
+  sospensione" (`src/estrazione/sospensione.py`).
 
 ## Parcheggio
 

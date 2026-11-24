@@ -583,9 +583,34 @@ def riepilogo_elenchi(letti: list[Letto]) -> str:
     return "\n".join(righe)
 
 
+# Una lettera non ASCII scritta in UTF-8 con i byte come "-c3-a0" (il
+# sito toglie i "%"), con il trattino davanti, che stava al posto del
+# primo "%". Solo i byte d'inizio c2 e c3 (lettere accentate, °, spazio
+# fisso) ed e2 (apostrofo e virgolette tipografiche): con tutti, parole
+# come "de-ab" sembrerebbero lettere.
+BYTE_NELLO_SLUG = re.compile(
+    r"-?\b(c[23]-[89ab][0-9a-f]|e2-[89ab][0-9a-f]-[89ab][0-9a-f])(?=-|/|$)",
+    re.IGNORECASE,
+)
+
+
 def _titolo_da_slug(slug: str) -> str:
-    """Ricostruisce un titolo leggibile dal segmento dell'URL."""
-    return slug.replace("-", " ").capitalize()
+    """Ricostruisce un titolo leggibile dal segmento dell'URL.
+
+    Le lettere non ASCII si decodificano: "universit-c3-a0" e
+    "universit%c3%a0" diventano "università"; uno spazio scritto come
+    %c2%a0 resta uno spazio; un gruppo di byte che non e' UTF-8 valido
+    resta com'e'.
+    """
+
+    def decodifica(trovato: re.Match) -> str:
+        try:
+            return bytes.fromhex(trovato.group(1).replace("-", "")).decode("utf-8")
+        except UnicodeDecodeError:
+            return trovato.group(0)
+
+    testo = unquote(BYTE_NELLO_SLUG.sub(decodifica, slug)).replace("\u00a0", " ")
+    return re.sub(r"\s+", " ", testo.replace("-", " ")).strip().capitalize()
 
 
 def promettente(slug: str) -> bool:

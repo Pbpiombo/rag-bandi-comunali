@@ -11,6 +11,9 @@ Casi visti sulle pagine salvate il 19/11/2026: la frase "Proroga fino
 alle ore 13 del 30 novembre 2026" (risorse genetiche forestali), il
 titolo dell'allegato "...-Proroga-del-termine-ultimo-di-presentazione-
 delle-istanze.pdf" (Cultura e Sport Missione Comune).
+
+prima_frase e frasi_con valgono per qualunque schema di parole: le usa
+anche src/estrazione/sospensione.py.
 """
 
 import re
@@ -77,21 +80,70 @@ def _nomi_file(html: str) -> list[str]:
     return nomi
 
 
-def frase_di_proroga(html: str) -> str | None:
-    """La prima frase, titolo o nome di file con una parola di PAROLE.
+def prima_frase(html: str, schema: re.Pattern) -> str | None:
+    """La prima frase, titolo o nome di file in cui compare schema.
 
-    Prima il testo della pagina (che comprende i titoli dei collegamenti),
-    poi i nomi dei file collegati. Restituisce il testo com'e' scritto,
-    tagliato a LUNGHEZZA_MASSIMA battute; None se nessuna parola compare.
+    schema si cerca sul testo normalizzato (normalizza). Prima le frasi
+    intere del testo della pagina (che comprende i titoli dei
+    collegamenti), poi i nomi dei file collegati (candidate). Restituisce
+    il testo com'e' scritto, tagliato a LUNGHEZZA_MASSIMA battute; None se
+    schema non compare.
     """
-    for riga in a_testo(html).splitlines():
-        for frase in FINE_FRASE.split(riga):
-            if SCHEMA.search(normalizza(frase)):
-                return frase.strip()[:LUNGHEZZA_MASSIMA]
-    for nome in _nomi_file(html):
-        if SCHEMA.search(normalizza(nome)):
-            return nome[:LUNGHEZZA_MASSIMA]
+    for frase in candidate(html):
+        if schema.search(normalizza(frase)):
+            return frase[:LUNGHEZZA_MASSIMA]
     return None
+
+
+def candidate(html: str) -> list[str]:
+    """Le frasi intere del testo della pagina (frasi_intere), riga per
+    riga, poi i nomi dei file collegati: dove si cercano le parole."""
+    frasi = [f for riga in a_testo(html).splitlines() for f in frasi_intere(riga)]
+    return frasi + _nomi_file(html)
+
+
+# Le abbreviazioni dopo le quali un punto non chiude la frase ("decreto
+# n. 742/2026", "art. 5"), gia' in minuscolo; e ogni lettera sola ("L.
+# 68/1999", "D. Lgs.")
+ABBREVIAZIONI = frozenset(
+    "n nn art artt lett pag pagg ecc sig dott prof lgs dlgs reg cfr es "
+    "all rif tel num cap".split()
+)
+PAROLA_PRIMA = re.compile(r"(\w+)$")
+
+
+def frasi_intere(riga: str) -> list[str]:
+    """Le frasi di una riga, intere: si divide come FINE_FRASE, ma non
+    dopo il punto di un'abbreviazione (ABBREVIAZIONI) o di una lettera
+    sola."""
+    frasi, inizio = [], 0
+    for fine in FINE_FRASE.finditer(riga):
+        prima = riga[inizio : fine.start()]
+        parola = PAROLA_PRIMA.search(prima[:-1]) if prima.endswith(".") else None
+        if parola and (
+            len(parola.group(1)) == 1 or parola.group(1).lower() in ABBREVIAZIONI
+        ):
+            continue
+        frasi.append(prima.strip())
+        inizio = fine.end()
+    frasi.append(riga[inizio:].strip())
+    return [f for f in frasi if f]
+
+
+def frasi_con(html: str, schema: re.Pattern) -> list[str]:
+    """Tutte le frasi intere, poi i nomi dei file collegati (candidate),
+    in cui compare schema, senza tagli e senza ripetizioni."""
+    trovate: list[str] = []
+    for frase in candidate(html):
+        if schema.search(normalizza(frase)) and frase not in trovate:
+            trovate.append(frase)
+    return trovate
+
+
+def frase_di_proroga(html: str) -> str | None:
+    """La prima frase, titolo o nome di file con una parola di PAROLE,
+    tagliata a LUNGHEZZA_MASSIMA battute (prima_frase)."""
+    return prima_frase(html, SCHEMA)
 
 
 def nota_di_proroga(html: str) -> str | None:
