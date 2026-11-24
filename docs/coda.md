@@ -3279,6 +3279,19 @@ mancati ("Passo 19d", punto 13, voce 14).
   riga DOVE scritta dal codice, già in Parcheggio ("Riga DOVE ricavata
   dal programma").
 - Era un requisito iniziale del progetto: non spezzare articoli e commi.
+- (24/11/2026) Requisito: le tabelle restano intere se corte; se lunghe
+  si tagliano per righe, ripetendo intestazione e titolo della tabella in
+  ogni pezzo.
+- (24/11/2026) Requisito: l'unità passata al modello ha un tetto di
+  dimensione, e ogni pezzo porta il titolo della sezione o dell'articolo
+  a cui appartiene.
+- (24/11/2026) Passo preliminare: provare sui 25 PDF già scaricati un
+  lettore che riconosce le tabelle (per esempio pdfplumber o PyMuPDF),
+  contando le tabelle trovate e guardandone una decina a mano. Oggi i PDF
+  si leggono con pypdf, che restituisce solo testo. I modelli che
+  riscrivono la pagina da immagine si valutano solo se questi falliscono
+  o per gli avvisi scansionati, e sempre con un controllo: ogni numero
+  della tabella ricostruita deve comparire nel testo estratto da pypdf.
 
 ## Bandi a più finestre: la prossima finestra aperta (24/11/2026)
 
@@ -3577,6 +3590,27 @@ leggere le risposte. File di lavoro fuori dal repository, in
   rimisura. I testi stanno in `dati-grezzi/manuali/2026-11-24/` (file
   `faq_*.txt`), le domande candidate in
   `dati-grezzi/manuali/2026-11-24/domande_candidate_2026-11-24.xlsx`.
+- (24/11/2026) Lettura delle risposte in due fasi. Fase 1: ogni risposta
+  si giudica da sola, senza l'altra versione accanto, in due file da 20
+  (`lettura_singole_2026-11-24_parte1.xlsx` e `_parte2.xlsx`): in ogni
+  file ogni domanda compare una volta sola, con 10 risposte V0 e 10 V1
+  mescolate, e la seconda parte si legge in un altro momento; la chiave
+  sta in un file separato. Fase 2: il confronto tra le due risposte, A e
+  B in ordine casuale (`lettura_a_mano_2026-11-24.xlsx`), solo dopo la
+  fase 1. Il file da 40 righe `lettura_singole_2026-11-24.xlsx` resta ma
+  non si usa: le due copie di una domanda vi stavano troppo vicine. I
+  giudizi si uniscono con `unisci_giudizi.py`. Tutto in
+  `dati-grezzi/prova/19e/`.
+- (24/11/2026) "In parte" non conta come giusta per il beneficio.
+- (24/11/2026) Per il danno, una presa che passa da "sì" in V0 a "in
+  parte" o "no" in V1 è un peggioramento; il danno si conta solo sulle
+  prese con "sì" in V0.
+- (24/11/2026) "Dichiara di non trovare: in parte" vale come "sì" per la
+  soglia dei 6 sui casi "vicino" in V0.
+- (24/11/2026) Con un disaccordo tra i lettori vale la colonna
+  "concordato", compilata dopo il confronto; finché ci sono disaccordi
+  senza giudizio concordato, `unisci_giudizi.py` dà i conteggi per
+  lettore ma non l'esito della regola.
 
 ## Parcheggio
 
