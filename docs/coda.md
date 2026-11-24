@@ -636,6 +636,66 @@ il 23/11/2026):
      privati, le due ricerche finalizzate (2021 e 2024) che tornano
      candidate a ogni scansione, il GAL MontagnAppennino da ricognire a
      parte.
+   - (24/11/2026) Difetto trovato: `frase_nel_testo`
+     (`src/estrazione/beneficiari.py`) scarta una frase vera quando la
+     pagina ha uno spazio dopo la virgoletta che apre o prima di quella
+     che chiude, e il modello la copia senza. Caso: la categoria C del
+     bando dei giornali ("“ Attività … cancelleria ”"). Lo stesso spazio
+     c'è sulla pagina degli incentivi ai datori di lavoro privati ('Il
+     bando resta aperto solo per " Persone…'). Da correggere come
+     compito a sé, provando la modifica su tutte le pagine e le
+     estrazioni salvate per contare quante frasi scartate in passato
+     recupererebbe. Per la categoria C la correzione a mano è preparata in
+     `correggi_da_testo` (frase copiata dalla pagina con gli spazi).
+   - (24/11/2026) Dati non presi dall'estrazione del 24/11 e non
+     corretti: dotazione del partenariato sulle malattie rare ERDERA
+     (300 mila euro più 30 mila per le associazioni di pazienti); termini
+     interni della Regione nei due partenariati (modulo 10 giorni prima
+     della scadenza della pre-proposal, lettera di interesse 30 giorni
+     prima per THCS). Anche la dotazione dei giornali resta vuota: la
+     pagina dà tre quote (200, 200 e 50 mila euro) e nessun totale.
+   - (24/11/2026) I 24 falliti di `scansioni`: 17 sono indirizzi tagliati
+     alla prima lettera accentata (per esempio "…avviso-di-mobilit"), già
+     trattati nella forma completa (salvati o scartati); 2 falliti per
+     dotazione non convertibile (corsi di lingua e cultura italiana per il
+     terzo settore, pesca e acquacoltura indennizzi), bandi veri persi per
+     un difetto di lettura dell'importo; gli altri 5 sono 404 (4 della
+     Regione, uno di Incentivi Italia). Proposta: marcare i 17 con un
+     motivo che dica che l'indirizzo completo è già trattato.
+   - (24/11/2026) Un bando per i datori di lavoro (`incentivi-4939`,
+     contributi a sostegno dell'occupazione dei tirocinanti under 35, dal
+     catalogo Incentivi Italia) è registrato con il solo tipo "cittadini e
+     famiglie": il tipo viene dalla voce "Cittadino" del catalogo.
+   - (24/11/2026) Da decidere: se `data/db/comune.sqlite` deve restare
+     tracciato da git, visto che i CSV sono la fonte di verità. Oggi
+     l'app online lo legge dal repository (`connetti`, `SQLITE_PATH` in
+     `src/config.py`) e non lo ricrea dai CSV all'avvio; è la voce già
+     in coda "`data/db/comune.sqlite` sotto git" e il punto 10 della
+     revisione del 12/11/2026, ancora aperto. L'estrazione del 24/11 lo ha
+     modificato insieme ai CSV.
+   - (24/11/2026) Toscana Art Bonus per comuni e unioni: rivolto ai comuni
+     interessati dai Progetti di Paesaggio approvati o avviati e dagli
+     studi di fattibilità elencati sulla pagina, non a tutti; l'elenco di
+     quei comuni non è in archivio (vedi "Profilo dei comuni").
+   - (24/11/2026) Correzioni a mano applicate con `correggi_da_testo`,
+     con le frasi di prova dei testi salvati in
+     `dati-grezzi/manuali/2026-11-24/`: proroga di alta formazione e
+     ricerca-azione al 24/11/2026; sospensione degli incentivi ai datori
+     di lavoro privati dall'8 luglio 2026 per le lettere a-e
+     dell'articolo 5; categoria C e testo dei beneficiari del bando dei
+     giornali. Le correzioni non sono protette da una riestrazione
+     futura: se uno di questi bandi si riestrae, vanno rifatte o
+     ricontrollate (dettaglio in `fatto.md`, "Fatti il 24 novembre
+     2026").
+   - (24/11/2026) La dotazione del bando dei giornali resta vuota: la
+     pagina dà tre quote (200 mila, 200 mila, 50 mila euro) e nessun
+     totale, e la somma non è un dato della fonte. Serve un campo di testo
+     per le dotazioni in più quote: da decidere con il passo 2b.
+   - (24/11/2026) Deciso da chi mantiene il progetto: la demo online
+     legge `data/db/comune.sqlite` committato e non lo ricrea dai CSV,
+     per questo resta sotto git (risponde alla riga "Da decidere" qui
+     sopra; resta aperta la voce "`data/db/comune.sqlite` sotto git", che
+     chiede di ricrearlo all'avvio prima di toglierlo).
 - (era la voce 4 dei Prossimi passi, → D) **Pratiche (progetti seguiti)**: per un beneficiario preciso, una
    scheda strutturata (attività con forma giuridica, ATECO, sede,
    dimensione; bandi seguiti con stato; scadenze; documenti; note), ogni
@@ -3347,6 +3407,60 @@ Cosa c'è oggi (24/11/2026), da una ricerca nei campi di testo di
   "costituite o costituende" (raggruppamenti di soggetti), "start-up
   innovative" (`incentivi-7933`, dove i beneficiari sono gli incubatori).
 
+## Profilo dei comuni (24/11/2026)
+
+Voce nuova, fuori dal Parcheggio, idea di chi mantiene il progetto del
+24/11/2026.
+
+- Molti bandi rimandano a elenchi esterni da cui dipende l'accesso:
+  comuni montani, Toscana diffusa, aree interne, territorio del GAL,
+  Progetti di Paesaggio (caso: Toscana Art Bonus, riga del 24/11/2026 in
+  "Letture dei siti e stato dei requisiti").
+- Per ogni comune seguito una scheda con le sue appartenenze. Ogni voce
+  ha valore, atto da cui viene, indirizzo e data dell'ultimo controllo;
+  senza fonte resta vuota.
+- Serve a rispondere a "il mio comune rientra?".
+- Aggiornamento: a ogni scansione il codice confronta l'impronta della
+  pagina di ciascun elenco e segnala se è cambiata, e segnala se un bando
+  nuovo cita un atto più recente di quello in scheda; la lettura a mano
+  si fa solo quando qualcosa cambia.
+- Primo passo, a mano: i tre comuni pilota e l'Unione, con ogni dato
+  verificato sull'atto ufficiale.
+- Lo stesso vale per elenchi di soggetti non pubblici, se compaiono:
+  fonte dichiarata e verificabile, valutati caso per caso.
+- Collegata a "Documenti richiamati dal bando" del Parcheggio, dove la
+  Toscana diffusa era già il primo documento da caricare.
+
+### Primo contenuto verificato (24/11/2026)
+
+Solo documento: nessuna tabella e nessun codice. Letto da chi mantiene il
+progetto.
+
+- Fonte: allegato A della deliberazione del Consiglio regionale della
+  Toscana n. 10 del 12 marzo 2025, letto sul sito della Regione il
+  24/11/2026. URL: da incollare.
+- Abetone Cutigliano (codice 47023): totalmente montano; aree interne
+  classe F Ultraperiferico; Toscana diffusa (TD).
+- Sambuca Pistoiese (codice 47018): totalmente montano; aree interne
+  classe D Intermedio; Toscana diffusa (TD).
+- San Marcello Piteglio (codice 47024): totalmente montano; aree interne
+  classe D Intermedio; Toscana diffusa (TD).
+- Composizione dell'Unione di Comuni Montani Appennino Pistoiese:
+  confermata sulla pagina della Regione il 24/11/2026. Elenco: da
+  incollare. URL: da incollare. Riga aperta.
+- Da verificare, senza valore scritto: l'elenco nazionale dei comuni
+  montani (visto solo su una bozza di febbraio, non sull'atto finale) e
+  tutte le altre appartenenze indicate dalla ricerca del 24/11/2026.
+- Regola: una riga entra nel profilo solo dopo la lettura dell'atto
+  ufficiale, con atto, indirizzo e data di lettura.
+- Esempio da tenere: la categoria A del bando dei giornali
+  (`contributi-per-distribuzione-e-commercio-al-dettaglio-f747b7`) è
+  riservata ai punti vendita con sede nella Toscana diffusa; i tre comuni
+  pilota sono TD, quindi un punto vendita dei tre comuni può fare
+  domanda.
+- La ricerca per esteso sta fuori dal repository, in
+  `dati-grezzi/ricerche/2026-11-24/`.
+
 ## Parcheggio
 
 Idee che non interrompono il lavoro in corso (nuova, 21/11/2026). Regola:
@@ -3437,6 +3551,9 @@ compito chiuso.
   risposta negli atti regionali richiamati. La Toscana diffusa compare in
   almeno tre bandi (parcheggi, educazione musicale, apistici): è il primo
   documento richiamato da caricare.
+  (24/11/2026) Collegata alla voce "Profilo dei comuni (24/11/2026)",
+  fuori dal Parcheggio: le appartenenze dei comuni agli elenchi
+  richiamati (Toscana diffusa compresa) stanno lì, con atto e data.
 - **Domanda ripulita con un buco** (23/11/2026). La domanda ripulita dal
   titolo del bando lascia un buco nella frase (resta "al" seguito dai due
   punti o dal punto di domanda). Osservazione del revisore esterno; non è

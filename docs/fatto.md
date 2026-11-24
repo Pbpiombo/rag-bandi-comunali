@@ -764,3 +764,21 @@ voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
   database ricreato dai CSV con `crea_da_csv`, conteggi uguali e
   nessuno scarto. L'elenco "politiche per la montagna, bandi aperti"
   ha zero voci al 24/11/2026.
+- (24/11/2026) Correzioni a mano applicate con
+  `scripts/manutenzione/correggi_da_testo.py`, esteso lo stesso giorno
+  (campi `scadenza`, `scadenza_nota`, `riferimento_atto`,
+  `verificato_il`, `beneficiari`, `dotazione` di `bandi`; righe nuove di
+  `beneficiari_bando` con la loro frase), con le frasi di prova cercate
+  nei testi salvati in `dati-grezzi/manuali/2026-11-24/` (dalle pagine
+  salvate il 23 e il 24/11): proroga di alta formazione e ricerca-azione
+  al 24/11/2026 (decreto dirigenziale 25474 del 19/11/2026); sospensione
+  degli incentivi ai datori di lavoro privati dall'8 luglio 2026 per le
+  lettere a-e dell'articolo 5, aperto solo per la lettera f (decreto
+  n. 742/2026 di Arti), per intero nella nota sulla scadenza e in una
+  riga nei beneficiari; categoria C (i distributori, fino a 180 euro per
+  Comune servito) e testo dei beneficiari senza puntini del bando dei
+  giornali. In `bandi.csv` tre righe cambiate, solo nei campi corretti;
+  in `beneficiari_bando.csv` una riga aggiunta. Copia di sicurezza prima
+  dell'applicazione:
+  `dati-grezzi/backup/comune-2026-11-24-prima-di-correggi-da-testo.sqlite`.
+  Le correzioni non sono protette da una riestrazione futura.
