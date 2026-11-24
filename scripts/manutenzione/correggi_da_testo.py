@@ -22,6 +22,12 @@ aggiunge solo se il bando e' in archivio, se non c'e' gia' una riga con
 la stessa chiave (id_bando, tipo, frase), se ha origine 'manuale' e se la
 sua frase e tutte le altre frasi di prova si trovano nel testo salvato.
 
+Un periodo di sospensione si aggiunge allo stesso modo (sospensioni_bando,
+chiave id_bando e numero); la sua riapertura e' una correzione di
+riaperto_il e riapertura_frase, e riapertura_frase e' anch'essa una frase
+di prova (FRASI_NEI_CAMPI). Una frase di prova vuota fa saltare la
+modifica.
+
 Con --prova, per ogni correzione si stampano anche le frasi di prova, una
 per una, con "trovata: si'" o "trovata: no".
 
@@ -58,10 +64,34 @@ CAMPI = {
         ),
     ),
     "beneficiari_bando": (("id_bando", "tipo"), ("soggetto", "origine")),
+    # La riapertura di una sospensione: riaperto_il con la sua frase
+    "sospensioni_bando": (("id_bando", "numero"), ("riaperto_il", "riapertura_frase")),
 }
+
+# Tabella -> i campi corretti che sono frasi di prova: si cercano nel testo
+# insieme alle frasi della correzione, e non possono essere vuoti
+FRASI_NEI_CAMPI = {"sospensioni_bando": ("riapertura_frase",)}
 
 # Tabella -> (campi della chiave, campi ammessi in una riga nuova)
 AGGIUNGIBILI = {
+    # Un periodo di sospensione; la sua frase e' quella della decorrenza
+    "sospensioni_bando": (
+        ("id_bando", "numero"),
+        (
+            "id_bando",
+            "numero",
+            "ambito",
+            "sospeso_dal",
+            "sospesi",
+            "resta_aperto",
+            "atto",
+            "frase",
+            "riaperto_il",
+            "riapertura_frase",
+            "verificato_il",
+            "origine",
+        ),
+    ),
     "beneficiari_bando": (
         ("id_bando", "tipo", "frase"),
         (
@@ -224,6 +254,39 @@ FRASI_SOSPENSIONE_INCENTIVI = (
     "under 30 disoccupati, di cui all'articolo 5 lettera d) del bando",
     "donne disoccupate, di cui all'articolo 5 lettera e) del bando",
     "saranno istruite soltanto le domande presentate entro l'8 luglio 2026",
+)
+
+# Il periodo di sospensione dall'8/07/2026, in sospensioni_bando (decisione
+# del 24/11/2026). Le categorie si scrivono con le parole della pagina
+# (righe 123-125 e 127 del testo salvato) e ciascuna e' anche una frase di
+# prova: se una non si trova, la riga non si scrive. Il periodo precedente
+# (sospensione della lettera e dal 24/07/2024, riapertura dopo il
+# 23/10/2024, righe 150-154) e' in coda: la data di riapertura e' da
+# interpretare.
+CATEGORIE_SOSPESE_INCENTIVI = (
+    "over 30 disoccupati licenziati dal primo gennaio 2021",
+    "over 30 disoccupati svantaggiati",
+    "over 55 disoccupati",
+    "under 30 disoccupati",
+    "donne disoccupate",
+)
+CATEGORIA_APERTA_INCENTIVI = (
+    "Persone con disabilità, iscritte negli appositi elenchi del collocamento mirato"
+)
+SOSPESI_INCENTIVI = (
+    f"{CATEGORIE_SOSPESE_INCENTIVI[0]}, {CATEGORIE_SOSPESE_INCENTIVI[1]}, "
+    f"{CATEGORIE_SOSPESE_INCENTIVI[2]} (articolo 5 lettere a, b e c), "
+    f"{CATEGORIE_SOSPESE_INCENTIVI[3]} (articolo 5 lettera d), "
+    f"{CATEGORIE_SOSPESE_INCENTIVI[4]} (articolo 5 lettera e)"
+)
+RESTA_APERTO_INCENTIVI = (
+    f"solo per {CATEGORIA_APERTA_INCENTIVI[0].lower()}"
+    f"{CATEGORIA_APERTA_INCENTIVI[1:]} (articolo 5 lettera f)"
+)
+# Riga 126 del testo salvato, la prima frase
+FRASE_DECORRENZA_INCENTIVI = (
+    "La sospensione decorre dal 8 luglio 2026, data di pubblicazione del "
+    "decreto n. 742/2026 di Arti sul Burt."
 )
 
 BENEFICIARI_GIORNALI = (
@@ -393,6 +456,34 @@ CORREZIONI_24_11 = [
         ),
         testo=MANUALI_24_11 / f"{GIORNALI}.txt",
     ),
+    # Il periodo di sospensione dall'8/07/2026 come dato strutturato: lo
+    # stato del bando lo dice prima delle finestre. scadenza_nota e
+    # beneficiari restano come sono (la pulizia e' un passo a parte).
+    # verificato_il: la data in cui la pagina e' stata salvata, come nella
+    # correzione della riga di bandi qui sopra.
+    Aggiunta(
+        tabella="sospensioni_bando",
+        riga={
+            "id_bando": INCENTIVI,
+            "numero": 1,
+            "ambito": "in_parte",
+            "sospeso_dal": "2026-07-08",
+            "sospesi": SOSPESI_INCENTIVI,
+            "resta_aperto": RESTA_APERTO_INCENTIVI,
+            "atto": "decreto n. 742/2026 di Arti",
+            "frase": FRASE_DECORRENZA_INCENTIVI,
+            "verificato_il": "2026-11-23",
+            "origine": "manuale",
+        },
+        frasi=(
+            *FRASI_SOSPENSIONE_INCENTIVI,
+            *CATEGORIE_SOSPESE_INCENTIVI,
+            CATEGORIA_APERTA_INCENTIVI,
+            "articolo 5 lettera f",
+            "decreto n. 742/2026 di Arti",
+        ),
+        testo=MANUALI_24_11 / f"{INCENTIVI}.txt",
+    ),
 ]
 
 CORREZIONI = [*CORREZIONI_19_11, *CORREZIONI_24_11]
@@ -416,10 +507,26 @@ def _controlla_aggiunta(aggiunta: Aggiunta) -> None:
 
 
 def frasi_di_prova(modifica: Correzione | Aggiunta) -> tuple:
-    """Le frasi da cercare nel testo: per un'aggiunta anche la sua frase."""
+    """Le frasi da cercare nel testo.
+
+    Per un'aggiunta anche la sua frase (e la frase della riapertura, se
+    c'e'); per una correzione anche i campi di FRASI_NEI_CAMPI.
+    """
     if isinstance(modifica, Aggiunta):
-        return (modifica.riga["frase"], *modifica.frasi)
-    return modifica.frasi
+        proprie = (modifica.riga.get("frase"),)
+        if modifica.riga.get("riapertura_frase") is not None:
+            proprie += (modifica.riga["riapertura_frase"],)
+        return (*proprie, *modifica.frasi)
+    campi = FRASI_NEI_CAMPI.get(modifica.tabella, ())
+    return (
+        *(modifica.corretti[c] for c in campi if c in modifica.corretti),
+        *modifica.frasi,
+    )
+
+
+def frase_vuota(modifica: Correzione | Aggiunta) -> bool:
+    """Una delle frasi di prova e' vuota o mancante: la modifica si rifiuta."""
+    return any(not (f or "").strip() for f in frasi_di_prova(modifica))
 
 
 def correggi(
@@ -448,9 +555,11 @@ def correggi(
     if diversi:
         return f"SALTATO: in archivio {diversi}, attesi {correzione.attesi}"
 
+    if frase_vuota(correzione):
+        return "SALTATO: una frase di prova e' vuota"
     if testo is None:
         return f"SALTATO: testo non trovato ({correzione.testo})"
-    mancanti = [f for f in correzione.frasi if not frase_nel_testo(f, testo)]
+    mancanti = [f for f in frasi_di_prova(correzione) if not frase_nel_testo(f, testo)]
     if mancanti:
         return f"SALTATO: frasi non trovate nel testo: {mancanti}"
 
@@ -493,6 +602,8 @@ def aggiungi(
             return "gia' aggiunta"
         return "SALTATO: c'e' gia' una riga con la stessa chiave, diversa"
 
+    if frase_vuota(aggiunta):
+        return "SALTATO: una frase di prova e' vuota"
     if testo is None:
         return f"SALTATO: testo non trovato ({aggiunta.testo})"
     mancanti = [f for f in frasi_di_prova(aggiunta) if not frase_nel_testo(f, testo)]
@@ -549,7 +660,7 @@ def dettaglio_frasi(modifica: Correzione | Aggiunta) -> list[str]:
     if testo is None:
         return [f"    testo non trovato: {modifica.testo}"]
     return [
-        f"    trovata: {'si' if frase_nel_testo(f, testo) else 'NO'}: «{f}»"
+        f"    trovata: {'si' if frase_nel_testo(f or '', testo) else 'NO'}: «{f}»"
         for f in frasi_di_prova(modifica)
     ]
 

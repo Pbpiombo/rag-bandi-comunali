@@ -90,6 +90,9 @@ GRUPPO_PROSSIMA = "Chiusi ora, con una prossima finestra:"
 # un blocco a parte. Quelli piu' vecchi restano in archivio e si trovano
 # per nome (dettaglio_bando), ma non nelle liste.
 GRUPPO_STORICO = "Scaduti, solo come storico: non più aperti:"
+# I bandi sospesi del tutto alla data: non sono tra gli aperti e non si
+# contano; gli elenchi li mostrano in coda, con la sospensione in testa
+GRUPPO_SOSPESI = "Sospesi del tutto, ora non si presentano domande:"
 NESSUNO_APERTO_TEMA = "Nessun bando aperto su questo tema alla data del {oggi}."
 
 # Le pagine in archivio che non sono bandi (natura 'non_bando') restano
@@ -404,12 +407,73 @@ def fasi_successive(scadenze: list, oggi: str) -> str | None:
     return "fase successiva, solo per chi ha superato la precedente: " + "; ".join(fasi)
 
 
+def sospensioni_di(conn: sqlite3.Connection, id_bando: str) -> list:
+    """Le righe di sospensioni_bando di un bando, in ordine di numero."""
+    return conn.execute(
+        "SELECT * FROM sospensioni_bando WHERE id_bando = ? ORDER BY numero",
+        (id_bando,),
+    ).fetchall()
+
+
+def sospensioni_attive(sospensioni: list, oggi: str) -> list:
+    """Le sospensioni in corso alla data oggi (ISO).
+
+    Un periodo vale dal giorno sospeso_dal fino al giorno prima di
+    riaperto_il: una sospensione con la data futura non vale ancora, e il
+    giorno della riapertura il bando non e' piu' sospeso.
+    """
+    return [
+        s
+        for s in sospensioni
+        if s["sospeso_dal"] <= oggi
+        and (not s["riaperto_il"] or oggi < s["riaperto_il"])
+    ]
+
+
+def sospeso_del_tutto(sospensioni: list, oggi: str) -> bool:
+    """Alla data oggi non si presentano domande: una sospensione totale in corso."""
+    return any(s["ambito"] == "tutto" for s in sospensioni_attive(sospensioni, oggi))
+
+
+def testo_sospensione(s) -> str:
+    """Una sospensione in corso: da quando, per chi, cosa resta aperto."""
+    if s["ambito"] == "tutto":
+        return (
+            f"SOSPESO dal {s['sospeso_dal']} ({s['atto']}): per tutti, non si "
+            "presentano domande fino alla riapertura"
+        )
+    return (
+        f"SOSPESO IN PARTE dal {s['sospeso_dal']} ({s['atto']}): sospeso per "
+        f"{s['sospesi']}; resta aperto {s['resta_aperto']}"
+    )
+
+
+def con_sospensione(stato: str, sospensioni: list, oggi: str) -> str:
+    """Lo stato calcolato dalla scadenza, preceduto dalle sospensioni in corso.
+
+    Senza sospensioni in corso lo stato resta com'e'. Con una sospensione
+    la si dice prima di ogni "aperto": le finestre e la scadenza vengono
+    dopo, come calendario sospeso (totale) o della parte non sospesa.
+    """
+    attive = sospensioni_attive(sospensioni, oggi)
+    if not attive:
+        return stato
+    prefisso = (
+        "calendario del bando, sospeso: "
+        if sospeso_del_tutto(sospensioni, oggi)
+        else "per la parte non sospesa: "
+    )
+    testi = "; ".join(testo_sospensione(s) for s in attive)
+    return f"{testi} | {prefisso}{stato}"
+
+
 def formatta_bando(
     riga,
     oggi: str,
     nota: str | None = None,
     scadenze: list = (),
     chiusura_sportello: str | None = None,
+    sospensioni: list = (),
 ) -> str:
     """Una riga di bando in forma leggibile.
 
@@ -417,25 +481,28 @@ def formatta_bando(
     dopo i beneficiari. scadenze: le righe di scadenze_bando, per i bandi
     con piu' date. chiusura_sportello: per gli elenchi delle scadenze, la
     data di chiusura di uno sportello, che prende il posto dello stato.
+    sospensioni: le righe di sospensioni_bando; quelle in corso vanno
+    prima dello stato (con_sospensione).
     """
     pezzi = [f"«{riga['titolo']}» ({riga['ente']})"]
 
     stato_date = stato_finestre(riga, scadenze, oggi)
     if chiusura_sportello:
         quando = tra_quanto(_fra(chiusura_sportello, oggi))
-        pezzi.append(
+        stato = (
             f"a sportello, chiude il {chiusura_sportello} ({quando}), "
             "salvo esaurimento delle risorse"
         )
     elif stato_date:
-        pezzi.append(stato_date)
+        stato = stato_date
     elif riga["a_sportello"]:
-        pezzi.append(stato_sportello(riga, oggi))
+        stato = stato_sportello(riga, oggi)
     elif riga["scadenza"]:
         quando = tra_quanto(_fra(riga["scadenza"], oggi))
-        pezzi.append(f"scade il {riga['scadenza']} ({quando})")
+        stato = f"scade il {riga['scadenza']} ({quando})"
     else:
-        pezzi.append(SENZA_SCADENZA)
+        stato = SENZA_SCADENZA
+    pezzi.append(con_sospensione(stato, sospensioni, oggi))
 
     fasi = fasi_successive(scadenze, oggi)
     if fasi:
@@ -549,6 +616,7 @@ def _elenco(
                 nota_per_ente(conn, r, tipo),
                 scadenze_di(conn, r["id"]),
                 chiusura_sportello=chiusure.get(r["id"]),
+                sospensioni=sospensioni_di(conn, r["id"]),
             ),
         )
         for r in righe
@@ -626,16 +694,29 @@ def da_approfondire(con_problema: list, oggi: str) -> list[Approfondimento]:
     ]
 
 
-def dividi(conn: sqlite3.Connection, righe: list, oggi: str) -> tuple[list, list]:
-    """I bandi chiari, e quelli con un problema con il loro problema."""
-    chiari, con_problema = [], []
+def dividi(conn: sqlite3.Connection, righe: list, oggi: str) -> tuple[list, list, list]:
+    """I bandi chiari, quelli con un problema con il loro problema, i sospesi.
+
+    Un bando sospeso del tutto alla data va nella terza lista, prima di
+    guardarne i problemi: non e' tra gli aperti e non si conta. Uno sospeso
+    in parte resta tra i chiari, con la sospensione nella sua riga.
+    """
+    chiari, con_problema, sospesi = [], [], []
     for r in righe:
+        if sospeso_del_tutto(sospensioni_di(conn, r["id"]), oggi):
+            sospesi.append(r)
+            continue
         p = problema(conn, r, oggi)
         if p:
             con_problema.append((r, p))
         else:
             chiari.append(r)
-    return chiari, con_problema
+    return chiari, con_problema, sospesi
+
+
+def coda_sospesi(sospesi: list, elenco) -> str:
+    """Il blocco dei sospesi del tutto, in coda a un elenco; vuoto se non ce ne sono."""
+    return f"\n{GRUPPO_SOSPESI}\n{elenco(sospesi)}" if sospesi else ""
 
 
 def gruppi_aperti(conn: sqlite3.Connection, righe: list, oggi: str) -> tuple:
@@ -723,10 +804,10 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
         """,
         (*parametri, oggi),
     ).fetchall()
-    righe, con_problema = dividi(conn, tutte, oggi)
+    righe, con_problema, sospesi = dividi(conn, tutte, oggi)
     approfondire = da_approfondire(con_problema, oggi)
 
-    if not righe:
+    if not righe and not sospesi:
         totale = conn.execute(
             f"SELECT COUNT(*) FROM bandi WHERE {filtro} AND {SOLO_BANDI}", parametri
         ).fetchone()[0]
@@ -749,15 +830,15 @@ def bandi_aperti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risulta
         else nessuno_aperto(nomi["tutti"], oggi, gruppi)
     )
     numerate = RigheBandi()
-    testo = testo_gruppi(
-        intestazione,
-        gruppi,
-        lambda gruppo: _elenco(conn, gruppo, oggi, tipo, numerate),
-    )
+
+    def elenco(gruppo):
+        return _elenco(conn, gruppo, oggi, tipo, numerate)
+
+    testo = testo_gruppi(intestazione, gruppi, elenco) + coda_sospesi(sospesi, elenco)
 
     return Risultato(
         testo,
-        fonti=fonti_dei_gruppi(righe, gruppi),
+        fonti=fonti_dei_gruppi(righe, gruppi) + [fonte_bando(r) for r in sospesi],
         voci=numerate.voci,
         da_approfondire=approfondire,
     )
@@ -798,7 +879,8 @@ def bandi_in_scadenza(
         if scadenza and scadenza <= limite:
             in_scadenza.append((scadenza, r))
     ordinate = [r for _, r in sorted(in_scadenza, key=lambda coppia: coppia[0])]
-    righe, con_problema = dividi(conn, ordinate, oggi.isoformat())
+    # Un bando sospeso del tutto non ha una scadenza vicina: non si elenca
+    righe, con_problema, _ = dividi(conn, ordinate, oggi.isoformat())
     approfondire = da_approfondire(con_problema, oggi.isoformat())
 
     if not righe:
@@ -884,7 +966,11 @@ def bandi_scaduti_per_ente(conn: sqlite3.Connection, codice_ente: str) -> Risult
             r,
             f"{stato_storico(r)} | "
             + formatta_bando(
-                r, oggi, nota_per_ente(conn, r, tipo), scadenze_di(conn, r["id"])
+                r,
+                oggi,
+                nota_per_ente(conn, r, tipo),
+                scadenze_di(conn, r["id"]),
+                sospensioni=sospensioni_di(conn, r["id"]),
             ),
         )
         for r in storici
@@ -963,10 +1049,13 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
     # lo storico non si confonde con le opportunita' di oggi. La
     # numerazione prosegue. Gli scaduti piu' vecchi non entrano.
     giorno = date.fromisoformat(oggi)
-    aperti, storici, con_problema = [], [], []
+    aperti, sospesi, storici, con_problema = [], [], [], []
     for r in righe:
         scadenze = scadenze_di(conn, r["id"])
         if not scaduto(r, scadenze, oggi):
+            if sospeso_del_tutto(sospensioni_di(conn, r["id"]), oggi):
+                sospesi.append((r, scadenze))
+                continue
             p = problema(conn, r, oggi)
             if p:
                 con_problema.append((r, p))
@@ -983,21 +1072,27 @@ def bandi_per_tema(conn: sqlite3.Connection, tema: str) -> Risultato:
             + numerate.numera(
                 r,
                 f"{etichetta_tipi(r, beneficiari_di(conn, r['id']))} "
-                f"{formatta_bando(r, oggi, scadenze=scadenze)}",
+                + formatta_bando(
+                    r,
+                    oggi,
+                    scadenze=scadenze,
+                    sospensioni=sospensioni_di(conn, r["id"]),
+                ),
             )
             for r, scadenze in gruppo
         )
 
     testo = intestazione
     testo += elenco(aperti) if aperti else NESSUNO_APERTO_TEMA.format(oggi=oggi)
+    testo += coda_sospesi(sospesi, elenco)
     if storici:
         testo += f"\n{GRUPPO_STORICO}\n{elenco(storici)}"
 
     return Risultato(
         testo,
-        fonti=[fonte_bando(r) for r, _ in [*aperti, *storici]],
+        fonti=[fonte_bando(r) for r, _ in [*aperti, *sospesi, *storici]],
         voci=numerate.voci,
-        trovato=bool(aperti or storici),
+        trovato=bool(aperti or sospesi or storici),
         da_approfondire=da_approfondire(con_problema, oggi),
     )
 
@@ -1022,7 +1117,7 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
         """,
         (tipo, oggi),
     ).fetchall()
-    righe, con_problema = dividi(conn, tutte, oggi)
+    righe, con_problema, sospesi = dividi(conn, tutte, oggi)
     # Un bando senza beneficiari entra nella query per ogni tipo: non si sa
     # se ammette questo, quindi non va in "Da approfondire" (correzione C3,
     # docs/piano-correzioni-lotto1.md). Resta negli elenchi per ente e per tema.
@@ -1048,7 +1143,7 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
     )
 
     nome = NOMI_TIPI[tipo]
-    if not righe:
+    if not righe and not sospesi:
         return Risultato(
             f"Nessun bando aperto per {nome} alla data del {oggi}.{avvertenza}",
             trovato=False,
@@ -1067,6 +1162,7 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
                     oggi,
                     ammissione(beneficiari_di(conn, r["id"]), tipo),
                     scadenze_di(conn, r["id"]),
+                    sospensioni=sospensioni_di(conn, r["id"]),
                 ),
             )
             for r in gruppo
@@ -1080,8 +1176,10 @@ def bandi_per_beneficiario(conn: sqlite3.Connection, tipo: str) -> Risultato:
         else nessuno_aperto(nome, oggi, gruppi)
     )
     return Risultato(
-        testo_gruppi(intestazione, gruppi, elenco) + avvertenza,
-        fonti=fonti_dei_gruppi(righe, gruppi),
+        testo_gruppi(intestazione, gruppi, elenco)
+        + coda_sospesi(sospesi, elenco)
+        + avvertenza,
+        fonti=fonti_dei_gruppi(righe, gruppi) + [fonte_bando(r) for r in sospesi],
         voci=numerate.voci,
         da_approfondire=approfondire,
     )
@@ -1311,7 +1409,9 @@ def _riga_breve(conn: sqlite3.Connection, riga, oggi: str) -> str:
         if scaduto(riga, scadenze, oggi)
         else ""
     )
-    return stato + formatta_bando(riga, oggi, scadenze=scadenze)
+    return stato + formatta_bando(
+        riga, oggi, scadenze=scadenze, sospensioni=sospensioni_di(conn, riga["id"])
+    )
 
 
 def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
@@ -1409,7 +1509,9 @@ def _dettaglio(conn: sqlite3.Connection, riga, oggi: str) -> str:
     )
     pezzi = [
         *stato,
-        formatta_bando(riga, oggi, scadenze=scadenze),
+        formatta_bando(
+            riga, oggi, scadenze=scadenze, sospensioni=sospensioni_di(conn, riga["id"])
+        ),
         "beneficiari ammessi: "
         + descrivi_beneficiari(riga, beneficiari_di(conn, riga["id"])),
     ]

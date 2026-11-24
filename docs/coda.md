@@ -3320,6 +3320,112 @@ decidere insieme al passo 2b.
 - Fino ad allora la ricognizione lo segnala con la nota "possibile
   sospensione" (`src/estrazione/sospensione.py`).
 
+### Campo strutturato della sospensione (24/11/2026)
+
+- (24/11/2026) Fatto, senza modello (dettaglio in `fatto.md`, 24/11/2026):
+  tabella `sospensioni_bando`, una riga per periodo di sospensione, con
+  `ambito` ('tutto' / 'in_parte'), `sospeso_dal`, `sospesi` (per chi),
+  `resta_aperto` (cosa resta aperto), `atto`, `frase`, `riaperto_il` e
+  `riapertura_frase`, `verificato_il`, `origine` 'manuale'. Un periodo
+  vale da `sospeso_dal` al giorno prima di `riaperto_il`. Si scrive solo
+  con `correggi_da_testo`, con tutte le frasi trovate nel testo salvato;
+  l'estrazione non la scrive.
+- (24/11/2026) Perché una tabella e non quattro colonne in `bandi.csv`:
+  il testo salvato del bando degli incentivi ha già tre eventi, non uno.
+  Sospensione della lettera e dal 24/07/2024 (decreto Arti 622 del
+  19/07/2024, righe 152-154), riapertura per la lettera e dopo il
+  23/10/2024 (decreto Arti 841 del 14/10/2024, righe 150-151), e
+  sospensione delle lettere a-e dall'8/07/2026 (decreto n. 742/2026,
+  righe 122-128). Con le colonne la riapertura non ha posto, e passare
+  dopo alla tabella vorrebbe dire due cambi di schema, due impronte e due
+  ricreazioni del database. Costo della tabella: `crea_da_csv` accetta
+  vuote le tabelle di `TABELLE_DOPO_LA_COPIA` (oggi solo
+  `sospensioni_bando`), perché la copia congelata
+  `2026-11-24_e26e2e30` non ha il CSV e non si modifica.
+- (24/11/2026) In coda: il periodo 2024 degli incentivi (sospensione e
+  riapertura della lettera e). La data di riapertura è da interpretare:
+  le domande si presentano "successivamente al 23 ottobre 2024", per
+  assunzioni dal 25 luglio 2024. Da decidere se `riaperto_il` è il 23 o
+  il 24/10/2024 prima di scrivere la riga.
+- (24/11/2026) In coda: pulizia di `scadenza_nota` e `beneficiari` degli
+  incentivi. Dopo il campo strutturato la sospensione si legge tre volte
+  nella riga (in testa, nella nota, nei beneficiari). Decisione del
+  24/11/2026: restano come sono in questo passo; la pulizia è un passo a
+  parte, dopo aver visto l'uscita dell'app.
+- (24/11/2026) In coda: `diagnosi_attese` riceve le sospensioni nella
+  frase dello stato (`stato_bando`), ma la categoria resta APERTO o
+  A_SPORTELLO anche per un bando sospeso del tutto: allinearla vuol dire
+  una categoria nuova, non solo passare le sospensioni.
+- (24/11/2026) Limite: il ramo "sospeso del tutto" (fuori dagli aperti,
+  dai conteggi e da "in scadenza", in coda agli elenchi sotto "Sospesi
+  del tutto, ora non si presentano domande:") è provato solo con dati
+  finti (`tests/test_sospensioni.py`). Nell'archivio l'unico caso vero è
+  una sospensione parziale.
+- (24/11/2026) Limite: la ricognizione, che segnala "possibile
+  sospensione", legge solo le pagine della Regione dei bandi aperti (o
+  scaduti da poco). Catalogo Incentivi Italia e altre fonti non sono
+  coperti. Il 23/11/2026 (`ricognizione-4.csv`) l'unica nota vera era
+  quella degli incentivi. La ricognizione rilegge anche le pagine dei
+  bandi sospesi del tutto (è così che si scopre una riapertura), con un
+  test che lo controlla; la nota resta un avviso e non scrive il campo.
+- (24/11/2026) Da fare, chiamando il modello (da lanciare a mano): due
+  domande vere prima e dopo, a data fissata 2026-11-24. (1) "Ho
+  un'azienda agricola e vorrei assumere un disoccupato di 57 anni: c'è
+  un incentivo della Regione?" (2) "Voglio assumere una persona con
+  disabilità iscritta al collocamento mirato: posso chiedere l'incentivo
+  regionale per le assunzioni?" Regola di chiusura, decisa prima delle
+  risposte: dopo la modifica la 1 dice che per quel caso il bando è
+  sospeso, senza presentarlo come aperto; la 2 dice che per quel caso
+  resta aperto. Se la 1 dice ancora "aperto" senza la sospensione, il
+  passo non è chiuso e si apre un lavoro sul prompt (`ISTRUZIONI` non
+  toccate in questo passo).
+
+### Esito delle domande vere (24/11/2026)
+
+Lanciate da chi mantiene il progetto il 24/11/2026, con
+`domande_sospensione.py`. Script e risposte sono in
+`dati-grezzi/prova/sospensione/2026-11-24/` (`risposte_prima.json`,
+`risposte_dopo.json`).
+
+- (24/11/2026) Regola rispettata. Dopo la modifica la risposta alla
+  domanda sul disoccupato di 57 anni dice che per quella categoria (over
+  55 disoccupati) il bando è sospeso; quella sulla persona con disabilità
+  dice che resta aperto. Costo 0,235 $ per quattro risposte (0,2355 $
+  nei due file).
+- (24/11/2026) Limite: anche "prima" la risposta dava la sospensione,
+  perché la correzione a mano del 24/11 l'aveva già scritta in
+  `scadenza_nota` e `beneficiari`. La prova quindi non mostra un
+  miglioramento delle risposte dovuto al campo strutturato. Il campo vale
+  per tre cose: l'ordine garantito dal codice, il filtro dei sospesi del
+  tutto, e il fatto che una riestrazione non lo cancella. Nessuna delle
+  tre è misurata dalle due domande.
+
+Voci nuove, viste nelle risposte vere. Ciascuna è stata vista su quattro
+risposte e non è ancora misurata.
+
+- (24/11/2026) Verificatore, dato giusto nel ruolo sbagliato. Nella
+  risposta "dopo" alla seconda domanda la finestra successiva è scritta
+  "dal 2027-01-11 al 2027-01-10 (anno 2028)" invece che al 2028-01-10.
+  L'esito è VERDE perché 2027-01-10 compare nella fonte, come fine
+  dell'altra finestra. Vista su quattro risposte, non ancora misurata.
+- (24/11/2026) Verificatore, falsi allarmi. Un numero scritto
+  dall'utente nella domanda (57) è segnato come non trovato; "1° gennaio
+  2021" non è riconosciuto come "primo gennaio 2021". Esito ROSSO su due
+  risposte corrette. Visti su quattro risposte, non ancora misurati.
+- (24/11/2026) Citazioni: il `riferimento_atto` lungo degli incentivi
+  (sette decreti più la sospensione) è ripetuto per intero a ogni frase,
+  4 o 5 volte per risposta nei due file. Da decidere una forma breve dopo
+  la prima citazione. Visto su quattro risposte, non ancora misurato.
+- (24/11/2026) Date in formato AAAA-MM-GG nelle risposte "dopo", prese
+  dal testo dello stato ("sospeso in parte dal 2026-07-08"). Da valutare
+  il formato "8 luglio 2026" nel testo passato al modello, tenendo conto
+  di come il verificatore riconosce le date. Visto su quattro risposte,
+  non ancora misurato.
+- (24/11/2026) Proposta: lo stato "sospeso" o "sospeso in parte"
+  scritto dal codice accanto ai bandi sotto "Bandi citati", preso dal
+  database come titolo e indirizzo, senza passare dal modello. Vista su
+  quattro risposte, non ancora misurata.
+
 ## Cosa entra in archivio (24/11/2026)
 
 Decisione di chi mantiene il progetto del 24/11/2026. Voce nuova,
@@ -3500,9 +3606,19 @@ Prima della chiamata, in quest'ordine:
 2. campo "sospeso" nello stato del bando: il caso degli incentivi ai
    datori di lavoro mostra "finestra aperta" prima della nota di
    sospensione ("Sospensioni e chiusure anticipate (24/11/2026)");
+   (24/11/2026) fatta: tabella `sospensioni_bando`, sospensione prima di
+   ogni "aperto", domande vere con la regola rispettata ("Campo
+   strutturato della sospensione (24/11/2026)", "Esito delle domande
+   vere");
 3. controllo del passo 20;
 4. incrocio delle due ricerche sui bandi con l'archivio, solo come elenco
    di fonti mancanti.
+
+(24/11/2026) Candidati a salire prima della chiamata, da decidere al
+prossimo giro, non ora: le citazioni con l'atto lungo ripetuto a ogni
+frase e i falsi allarmi del verificatore (numero scritto dall'utente,
+"1°" e "primo"). Visti nelle domande vere sulla sospensione ("Esito delle
+domande vere", in "Sospensioni e chiusure anticipate (24/11/2026)").
 
 Dopo la chiamata:
 - dotazione in più quote (passo 2b);

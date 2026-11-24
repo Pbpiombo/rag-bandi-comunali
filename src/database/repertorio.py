@@ -259,7 +259,8 @@ def _stato_bandi(conn, codice_ente: str) -> str:
     # beneficiari non indicati, sportello probabilmente esaurito) non sono
     # tra gli aperti. Si contano a parte, solo i recenti: gli stessi che la
     # sezione "Da approfondire" dell'app puo' mostrare.
-    righe, con_problema = dividi(conn, tutte, oggi)
+    # I sospesi del tutto non sono tra gli aperti: si contano a parte
+    righe, con_problema, sospesi = dividi(conn, tutte, oggi)
     da_vedere = sum(recente(r, oggi) for r, _ in con_problema)
     # Aperti di sicuro: con scadenza futura o a sportello, e per i bandi a
     # finestre con una finestra aperta; a parte quelli tra due finestre
@@ -278,4 +279,6 @@ def _stato_bandi(conn, codice_ente: str) -> str:
         testo += f", più {da_vedere} da approfondire"
     if prossima:
         testo += f", più {len(prossima)} chiusi ora, con una prossima finestra"
+    if sospesi:
+        testo += f", più {len(sospesi)} sospesi del tutto"
     return testo

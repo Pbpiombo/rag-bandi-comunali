@@ -803,3 +803,48 @@ voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
   `acquire_write`, dati identici alla copia del 19d. Regola: ogni script
   di misura apre una copia del Chroma, mai l'originale. Dettaglio in
   `coda.md`, "Passo 19e, rimedio 1", "Codice".
+- (24/11/2026) Sospensione come dato strutturato, senza modello: tabella
+  `sospensioni_bando` (una riga per periodo, ambito 'tutto' / 'in_parte',
+  `sospesi`, `resta_aperto`, atto, frase, riapertura), in
+  `TABELLE_DA_CSV` e in `TABELLE_DOPO_LA_COPIA` (`crea_da_csv` la
+  accetta assente nelle copie congelate più vecchie). Schema scelto
+  perché il testo salvato degli incentivi ha già tre eventi
+  (sospensione 2024 della lettera e, riapertura 2024, sospensione 2026
+  delle lettere a-e). Lo stato del bando dice le sospensioni in corso
+  prima di ogni "aperto" (`con_sospensione` in
+  `src/database/interrogazioni_bandi.py`, usata da `formatta_bando` e da
+  `stato_bando`, quindi anche dall'etichetta dei frammenti). Un bando
+  sospeso del tutto esce dagli aperti e dai conteggi (terza lista di
+  `dividi`, in coda agli elenchi) e da "in scadenza"; uno sospeso in
+  parte resta tra gli aperti con l'avviso. Riga del periodo 2026 degli
+  incentivi scritta con `correggi_da_testo` (`Aggiunta`), con 17 frasi di
+  prova trovate nel testo salvato, ciascuna delle cinque categorie
+  sospese e quella che resta aperta comprese; `correggi_da_testo`
+  rifiuta una frase vuota e cerca anche la frase della riapertura.
+  Controlli a data fissata 2026-11-24 contro il commit `3dd9ee5`:
+  `formatta_bando` e `stato_bando` cambiati per 1 bando su 116; delle 39
+  interrogazioni cambiano solo le 7 che contengono gli incentivi (6 per
+  beneficiario, il tema "sociale"), una riga ciascuna, con intestazioni,
+  gruppi e conteggi uguali; con la tabella vuota tutto identico.
+  `comune.sqlite` ricreato dai CSV (conteggi uguali,
+  `sospensioni_bando` 1 riga); la copia congelata si carica con la
+  tabella vuota; `testo_ricerca` aggiornato. 23 test nuovi in
+  `tests/test_sospensioni.py`. Restano in coda (`coda.md`,
+  "Sospensioni e chiusure anticipate"): periodo 2024, pulizia di nota e
+  beneficiari, categoria di `diagnosi_attese`, domande vere con la
+  regola di chiusura; il ramo "sospeso del tutto" è provato solo con
+  dati finti; la ricognizione copre solo le pagine della Regione.
+- (24/11/2026) Domande vere sulla sospensione, prima e dopo, lanciate da
+  chi mantiene il progetto (disoccupato di 57 anni in un'azienda
+  agricola; persona con disabilità iscritta al collocamento mirato).
+  Regola di chiusura rispettata: dopo la modifica la prima risposta dice
+  che per quella categoria il bando è sospeso, la seconda che resta
+  aperto. Costo 0,235 $ per quattro risposte. Limite: anche "prima" le
+  risposte davano la sospensione, perché la correzione a mano del 24/11
+  l'aveva già scritta in `scadenza_nota` e `beneficiari`. La prova non
+  misura quindi il valore del campo strutturato (ordine garantito dal
+  codice, filtro dei sospesi del tutto, resistenza a una riestrazione).
+  Script e risposte in `dati-grezzi/prova/sospensione/2026-11-24/`. Voci
+  nuove viste nelle risposte (verificatore, citazioni ripetute, formato
+  delle date, stato accanto ai "Bandi citati") in `coda.md`, "Esito
+  delle domande vere".

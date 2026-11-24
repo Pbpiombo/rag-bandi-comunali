@@ -241,6 +241,36 @@ CREATE TABLE IF NOT EXISTS scadenze_bando (
     CHECK (apertura IS NULL OR apertura <= scadenza)
 );
 
+-- Le sospensioni di un bando, una riga per periodo. Lo stato si calcola
+-- dalla scadenza, che una sospensione non cambia: qui sta il dato che la
+-- dice. ambito 'tutto': non si presentano domande; 'in_parte': sospeso per
+-- alcune categorie (sospesi), aperto per altre (resta_aperto). Un periodo
+-- vale dal giorno sospeso_dal fino al giorno prima di riaperto_il; senza
+-- riaperto_il e' in corso. La riapertura riempie riaperto_il e
+-- riapertura_frase sulla stessa riga. Si scrive solo a mano, con le frasi
+-- di prova trovate nel testo salvato (scripts/manutenzione/
+-- correggi_da_testo.py): l'estrazione non la scrive.
+CREATE TABLE IF NOT EXISTS sospensioni_bando (
+    id_bando          TEXT NOT NULL REFERENCES bandi(id),
+    numero            INTEGER NOT NULL,
+    ambito            TEXT NOT NULL CHECK (ambito IN ('tutto', 'in_parte')),
+    sospeso_dal       TEXT NOT NULL,
+    sospesi           TEXT,
+    resta_aperto      TEXT,
+    atto              TEXT NOT NULL,
+    frase             TEXT NOT NULL CHECK (frase <> ''),
+    riaperto_il       TEXT,
+    riapertura_frase  TEXT CHECK (riapertura_frase <> ''),
+    verificato_il     TEXT NOT NULL,
+    origine           TEXT NOT NULL DEFAULT 'manuale'
+                      CHECK (origine IN ('manuale')),
+    PRIMARY KEY (id_bando, numero),
+    CHECK (ambito = 'tutto' OR (sospesi IS NOT NULL AND resta_aperto IS NOT NULL)),
+    CHECK (ambito = 'in_parte' OR resta_aperto IS NULL),
+    CHECK ((riaperto_il IS NULL) = (riapertura_frase IS NULL)),
+    CHECK (riaperto_il IS NULL OR riaperto_il > sospeso_dal)
+);
+
 -- Le pagine gia' esaminate. La chiave e' l'URL in forma canonica, unico
 -- tra tutte le fonti; lo slug resta solo come informazione leggibile.
 CREATE TABLE IF NOT EXISTS scansioni (
@@ -354,6 +384,20 @@ TABELLE_DA_CSV = {
         "frase",
         "origine",
     ],
+    "sospensioni_bando": [
+        "id_bando",
+        "numero",
+        "ambito",
+        "sospeso_dal",
+        "sospesi",
+        "resta_aperto",
+        "atto",
+        "frase",
+        "riaperto_il",
+        "riapertura_frase",
+        "verificato_il",
+        "origine",
+    ],
     "scansioni": [
         "url",
         "codice_fonte",
@@ -374,6 +418,13 @@ TABELLE_DA_CSV = {
 # documenti_bandi: il registro dei PDF degli avvisi scaricati, una riga per
 # impronta del file (passo 19, scripts/ingestione/registra_avvisi.py).
 CSV_FUORI_DATABASE = ("testo_ricerca", "documenti_bandi")
+
+# Le tabelle di TABELLE_DA_CSV nate dopo la prima copia congelata
+# (dati-grezzi/archivi/2026-11-24_e26e2e30/), che non le contiene: una copia
+# non si modifica mai. crea_da_csv le accetta assenti e le lascia vuote;
+# per tutte le altre un CSV mancante resta un errore. sospensioni_bando:
+# dal 24/11/2026.
+TABELLE_DOPO_LA_COPIA = ("sospensioni_bando",)
 
 
 class ErroreArchivio(Exception):
@@ -498,7 +549,8 @@ def crea_da_csv(destinazione: Path, cartella: Path) -> dict[str, dict[str, int]]
     """Un database nuovo in destinazione, dai CSV di cartella.
 
     Per le misure su un archivio congelato (passo 0 della roadmap). Si
-    rifiuta se manca un CSV di TABELLE_DA_CSV, se destinazione esiste gia'
+    rifiuta se manca un CSV di TABELLE_DA_CSV (salvo quelli di
+    TABELLE_DOPO_LA_COPIA, che restano tabelle vuote), se destinazione esiste gia'
     o se sta in data/db: il database dell'app non si tocca mai. La
     connessione si chiude prima di uscire. Restituisce, per tabella, le
     righe caricate e scartate.
@@ -507,7 +559,11 @@ def crea_da_csv(destinazione: Path, cartella: Path) -> dict[str, dict[str, int]]
     cartella = Path(cartella)
     if not cartella.is_dir():
         raise ErroreArchivio(f"cartella dei CSV non trovata: {cartella}")
-    mancanti = [t for t in TABELLE_DA_CSV if not (cartella / f"{t}.csv").is_file()]
+    mancanti = [
+        t
+        for t in TABELLE_DA_CSV
+        if t not in TABELLE_DOPO_LA_COPIA and not (cartella / f"{t}.csv").is_file()
+    ]
     if mancanti:
         raise ErroreArchivio(f"in {cartella} mancano i CSV di: {', '.join(mancanti)}")
     vietate = {SQLITE_PATH.resolve().parent, (DATA_DIR / "db").resolve()}

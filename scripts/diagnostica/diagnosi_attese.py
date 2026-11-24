@@ -76,7 +76,12 @@ from scripts.diagnostica.prova_insieme import (
     scartate,
 )
 from src.config import DATI_GREZZI_DIR, SQLITE_PATH
-from src.database.interrogazioni_bandi import data_di_oggi, scadenze_di, scaduto
+from src.database.interrogazioni_bandi import (
+    data_di_oggi,
+    scadenze_di,
+    scaduto,
+    sospensioni_di,
+)
 from src.database.schema import ErroreArchivio, crea_da_csv
 from src.database.stato_documenti import stato_bando
 
@@ -278,7 +283,10 @@ def stato_alla_data(conn: sqlite3.Connection, riga, oggi: str) -> tuple[str, str
     poi a sportello o aperto. La frase è quella di stato_bando.
     """
     scadenze = scadenze_di(conn, riga["id"])
-    frase = stato_bando(riga, scadenze, oggi)
+    # La frase porta le sospensioni in corso, come nell'app; lo stato no:
+    # un bando sospeso del tutto resta APERTO o A_SPORTELLO (docs/coda.md,
+    # voce del 24/11/2026 sulle sospensioni)
+    frase = stato_bando(riga, scadenze, oggi, sospensioni_di(conn, riga["id"]))
     if scaduto(riga, scadenze, oggi):
         return SCADUTO, frase
     if riga["a_sportello"]:

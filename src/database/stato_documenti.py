@@ -22,7 +22,9 @@ from langchain_core.documents import Document
 
 from src.database.interrogazioni_bandi import (
     SENZA_SCADENZA,
+    con_sospensione,
     scadenze_di,
+    sospensioni_di,
     stato_finestre,
     stato_sportello,
     tra_quanto,
@@ -30,13 +32,19 @@ from src.database.interrogazioni_bandi import (
 from src.normalizzazione import atti_con_data
 
 
-def stato_bando(riga, scadenze: list, oggi: str) -> str:
+def stato_bando(riga, scadenze: list, oggi: str, sospensioni: list = ()) -> str:
     """Lo stato di un bando alla data `oggi` (ISO), in una frase.
 
-    Un bando con più date segue le sue finestre; uno con la scadenza
-    passata è scaduto, anche se a sportello; uno sportello aperto invita a
-    verificare le risorse.
+    Le sospensioni in corso vanno prima di tutto (con_sospensione, come
+    in formatta_bando). Poi: un bando con più date segue le sue finestre;
+    uno con la scadenza passata è scaduto, anche se a sportello; uno
+    sportello aperto invita a verificare le risorse.
     """
+    return con_sospensione(_stato_da_scadenza(riga, scadenze, oggi), sospensioni, oggi)
+
+
+def _stato_da_scadenza(riga, scadenze: list, oggi: str) -> str:
+    """Lo stato calcolato dalla scadenza e dalle finestre, senza sospensioni."""
     finestre = stato_finestre(riga, scadenze, oggi)
     if finestre:
         return finestre
@@ -93,8 +101,10 @@ def con_stato_bando(
             continue
         if riga["id"] not in stati:
             scadenze = scadenze_di(conn, riga["id"])
+            sospensioni = sospensioni_di(conn, riga["id"])
             stati[riga["id"]] = (
-                f"{stato_bando(riga, scadenze, oggi)} (alla data del {oggi})"
+                f"{stato_bando(riga, scadenze, oggi, sospensioni)} "
+                f"(alla data del {oggi})"
             )
         metadati = {**documento.metadata, "stato_bando": stati[riga["id"]]}
         risultato.append(
