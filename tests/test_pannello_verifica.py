@@ -196,7 +196,7 @@ def test_il_pannello_conta_e_mostra_una_volta_le_citazioni_ripetute():
     grezzi = [e.valore for e in verifica(risposta, [], dati_parcheggi())]
     assert sorted(grezzi) == ["18191"] * 3 + ["2026-11-30"] * 3
     [messaggio] = [e.value for e in pagina.success]
-    assert messaggio == "Dati verificati nella fonte citata: 2."
+    assert messaggio == "2 dati presenti nella fonte citata."
     righe = [e.value for e in pagina.markdown]
     assert any("**2026-11-30**" in r and "×3" in r for r in righe)
     assert any("**18191**" in r and "×3" in r for r in righe)

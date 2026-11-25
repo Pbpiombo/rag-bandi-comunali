@@ -73,20 +73,33 @@ _DATA_ISO = re.compile(r"(?<!\d)(?P<a>\d{4})-(?P<m>\d{2})-(?P<g>\d{2})(?!\d)")
 _DATA_NUMERICA = re.compile(
     r"(?<![\d/.-])(?P<g>\d{1,2})(?P<sep>[/.-])(?P<m>\d{1,2})(?P=sep)(?P<a>\d{4})(?!\d)"
 )
+# Il giorno: in cifre, anche "1°", o "primo" ("primo gennaio 2021", come
+# scrivono le pagine; caso 2 del 24/11/2026)
+_GIORNO = r"(?:\d{1,2}|\bprimo)"
 _DATA_LETTERE = re.compile(
-    rf"(?<!\d)(?P<g>\d{{1,2}})\s*[°º]?\s+(?P<mese>{_MESI})\s+(?P<a>\d{{4}})(?!\d)",
+    rf"(?<!\d)(?P<g>{_GIORNO})\s*[°º]?\s+(?P<mese>{_MESI})\s+(?P<a>\d{{4}})(?!\d)",
     re.IGNORECASE,
 )
 _GIORNO_MESE_LETTERE = re.compile(
-    rf"(?<!\d)(?P<g>\d{{1,2}})\s*[°º]?\s+(?P<mese>{_MESI})\b", re.IGNORECASE
+    rf"(?<!\d)(?P<g>{_GIORNO})\s*[°º]?\s+(?P<mese>{_MESI})\b", re.IGNORECASE
 )
 _GIORNO_MESE_NUMERICO = re.compile(r"(?<![\d/.])(?P<g>\d{1,2})/(?P<m>\d{1,2})(?![/\d])")
 
 _PERIODO = re.compile(
     r"(?<!\d)(?P<da>(?:19|20)\d{2})\s*(?P<sep>[-–/])\s*(?P<a>(?:19|20)\d{2})(?!\d)"
 )
+# Orari: "ore 12", "ore 9.30", "ore 12:00", e con la virgola "ore 10,00"
+# (lotto 2, P21). Senza "ore" solo dopo "alle" o "dalle" e con i minuti:
+# "fino alle 16,00 del 18 dicembre"; non "alle 16 imprese", non "dalle
+# 10,50 euro". Dopo "alle" e "dalle" solo virgola e punto: con i due punti
+# vale _ORARIO, che registra come letterale anche un orario impossibile
+# ("alle 25:61")
 _ORARIO_ORE = re.compile(
-    r"\bore\s+(?P<h>\d{1,2})(?:[.:](?P<min>\d{2}))?(?!\d)", re.IGNORECASE
+    r"\bore\s+(?P<h>\d{1,2})(?:[.:,](?P<min>\d{2}))?(?!\d)", re.IGNORECASE
+)
+_ORARIO_ALLE = re.compile(
+    r"\b(?:alle|dalle)\s+(?P<h>\d{1,2})[.,](?P<min>\d{2})(?!\d|\s*(?:€|euro\b))",
+    re.IGNORECASE,
 )
 _ORARIO = re.compile(r"(?<![\d.:])(?P<h>\d{1,2}):(?P<min>\d{2})(?![\d:])")
 
@@ -140,6 +153,38 @@ _CODICI = (
     re.compile(r"\b[A-Z]\d{2}[A-Z]\d{10,12}\b", re.IGNORECASE),  # CUP
     re.compile(r"\b\d{8}-\d\b"),
     *_CODICI_PUNTATI,
+)
+# Un codice ATECO a due livelli dopo la parola "ATECO": "codice ATECO
+# 56.10" e' un codice, non le quantita' 56 e 10 (lotto 1, L02). Senza la
+# parola resta un numero, perche' non si distingue da un decimale
+_ATECO_DUE_LIVELLI = re.compile(
+    r"\bateco(?:\s+primario)?\s+(?P<codice>\d{2}\.\d{1,2})(?!\d|\.\d)", re.IGNORECASE
+)
+
+# Numeri in lettere: "quaranta", "cinquantasette", "centoventi", "duemila".
+# Nelle fonti contano solo davanti a un'unita' ("quaranta anni", "cinquantuno
+# per cento"): senza, "una", "sei", "otto" sono anche altre parole
+_UNITA_IN_LETTERE = {
+    "uno": 1, "un": 1, "una": 1, "due": 2, "tre": 3, "quattro": 4,
+    "cinque": 5, "sei": 6, "sette": 7, "otto": 8, "nove": 9,
+}  # fmt: skip
+_DIECI_IN_LETTERE = {
+    "dieci": 10, "undici": 11, "dodici": 12, "tredici": 13, "quattordici": 14,
+    "quindici": 15, "sedici": 16, "diciassette": 17, "diciotto": 18,
+    "diciannove": 19,
+}  # fmt: skip
+_DECINE_IN_LETTERE = {
+    "venti": 20, "trenta": 30, "quaranta": 40, "cinquanta": 50, "sessanta": 60,
+    "settanta": 70, "ottanta": 80, "novanta": 90,
+}  # fmt: skip
+_UNITA_DI_MISURA = (
+    r"anni|anno|mesi|mese|giorni|settimane|ore|minuti|posti|dipendenti|"
+    r"abitanti|addetti|persone|lavoratori|soci|alveari|capi|ettari|metri|"
+    r"chilometri|euro"
+)
+_PAROLA_NUMERO = re.compile(
+    rf"\b(?P<parola>[a-zàèéìòù]+)\s+(?:(?P<cento>per\s*cento\b)|(?:{_UNITA_DI_MISURA})\b)",
+    re.IGNORECASE,
 )
 
 # Trattini tipografici che valgono "-": U+2010 trattino, U+2011 trattino
@@ -201,14 +246,157 @@ def _mese(nome: str) -> int:
     return MESI.index(nome.lower()) + 1
 
 
+def _giorno(scritto: str) -> int:
+    """Il giorno del mese: "1", "15" o "primo"."""
+    return 1 if scritto.lower() == "primo" else int(scritto)
+
+
 def _data_da(trovato: re.Match) -> str | None:
     """La data in ISO da una corrispondenza di uno dei tre schemi."""
     mese = _mese(trovato["mese"]) if "mese" in trovato.re.groupindex else None
     return _iso(
         int(trovato["a"]),
         mese or int(trovato["m"]),
-        int(trovato["g"]),
+        _giorno(trovato["g"]),
     )
+
+
+def _sotto_mille(parola: str) -> int | None:
+    """Un numero in lettere da 1 a 999, o None."""
+    if not parola:
+        return None
+    if parola in _UNITA_IN_LETTERE:
+        return _UNITA_IN_LETTERE[parola]
+    if parola in _DIECI_IN_LETTERE:
+        return _DIECI_IN_LETTERE[parola]
+    if "cento" in parola:
+        prima, _, dopo = parola.partition("cento")
+        centinaia = _UNITA_IN_LETTERE.get(prima) if prima else 1
+        if centinaia is None or prima in ("un", "una", "uno"):
+            return None
+        # "centotto", "centottanta": la "o" di "otto" e "ottanta" si elide
+        resto = 0
+        if dopo:
+            resto = _sotto_cento(dopo)
+            if resto is None and dopo[0] == "t":
+                resto = _sotto_cento(f"o{dopo}")
+            if resto is None:
+                return None
+        return centinaia * 100 + resto
+    return _sotto_cento(parola)
+
+
+def _sotto_cento(parola: str) -> int | None:
+    """Un numero in lettere da 1 a 99, o None: "ventuno", "trentotto"."""
+    if parola in _UNITA_IN_LETTERE and parola not in ("un", "una"):
+        return _UNITA_IN_LETTERE[parola]
+    if parola in _DIECI_IN_LETTERE:
+        return _DIECI_IN_LETTERE[parola]
+    for nome, decina in _DECINE_IN_LETTERE.items():
+        if parola == nome:
+            return decina
+        # "ventisei", "ventuno" e "ventotto" (vocale elisa davanti a uno e otto)
+        for radice in (nome, nome[:-1]):
+            if parola.startswith(radice):
+                unita = parola[len(radice) :]
+                elisa = radice != nome
+                if unita in ("uno", "otto") and elisa:
+                    return decina + _UNITA_IN_LETTERE[unita]
+                if (
+                    not elisa
+                    and unita in _UNITA_IN_LETTERE
+                    and unita
+                    not in (
+                        "un",
+                        "una",
+                        "uno",
+                        "otto",
+                    )
+                ):
+                    return decina + _UNITA_IN_LETTERE[unita]
+    return None
+
+
+def numero_in_lettere(parola: str) -> int | None:
+    """Un numero scritto in lettere, o None se la parola non e' un numero.
+
+    "centoventi" -> 120, "cinquantasette" -> 57, "duemila" -> 2000,
+    "milleduecento" -> 1200, "ventitré" -> 23. Una parola sola, senza spazi.
+    """
+    p = parola.lower().replace("tré", "tre")
+    if not re.fullmatch(r"[a-z]+", p):
+        return None
+    if p.startswith("mille"):
+        resto = p[len("mille") :]
+        if not resto:
+            return 1000
+        n = _sotto_mille(resto)
+        return 1000 + n if n is not None else None
+    if "mila" in p:
+        prima, _, dopo = p.partition("mila")
+        migliaia = _sotto_mille(prima)
+        resto = _sotto_mille(dopo) if dopo else 0
+        if migliaia is None or migliaia < 2 or resto is None:
+            return None
+        return migliaia * 1000 + resto
+    return _sotto_mille(p)
+
+
+def numeri_in_lettere(
+    testo: str, solo_con_unita: bool = True
+) -> list[tuple[int, bool]]:
+    """I numeri scritti in lettere in un testo, come coppie (valore, per cento).
+
+    Con solo_con_unita (le fonti) solo davanti a un'unita' ("quaranta anni",
+    "cinquantuno per cento"); senza (la domanda dell'utente) ogni parola che
+    e' un numero.
+    """
+    if solo_con_unita:
+        return [
+            (n, bool(m["cento"]))
+            for m in _PAROLA_NUMERO.finditer(testo)
+            if (n := numero_in_lettere(m["parola"])) is not None
+        ]
+    return [
+        (n, False)
+        for parola in re.findall(r"[a-zàèéìòù]+", testo, re.IGNORECASE)
+        if (n := numero_in_lettere(parola)) is not None
+    ]
+
+
+# Un intervallo di date: "dal 2027-01-11 al 2028-01-10", "dalle ore 10,00
+# del 18 novembre 2026 fino alle 16,00 del 18 dicembre 2026", "tra il 1°
+# marzo e il 30 aprile 2026". Le due date sono complete, con l'anno
+_DATA_INTERA = (
+    r"\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4}"
+    rf"|{_GIORNO}\s*[°º]?\s+(?:{_MESI})\s+\d{{4}}"
+)
+_ORA_DEL = (
+    r"(?:(?:le\s+)?(?:ore\s+)?\d{1,2}[:.,]\d{2}\s+del(?:l['’])?\s*"
+    r"|(?:le\s+)?ore\s+\d{1,2}\s+del(?:l['’])?\s*)?"
+)
+_INTERVALLO = re.compile(
+    r"\b(?:dal(?:l['’])?|dalle|da|tra\s+il|fra\s+il|tra\s+l['’]|fra\s+l['’])\s*"
+    rf"{_ORA_DEL}(?P<x>{_DATA_INTERA})"
+    r"[^.;\n()]{0,60}?"
+    r"\b(?:fino\s+)?(?:al(?:l['’])?|alle|e\s+il|e\s+l['’]|a)\s*"
+    rf"{_ORA_DEL}(?P<y>{_DATA_INTERA})",
+    re.IGNORECASE,
+)
+
+
+def intervalli(testo: str) -> list[tuple[int, str, str, str]]:
+    """Gli intervalli di date del testo: (posizione, testo, inizio ISO, fine ISO).
+
+    Solo quelli con due date che esistono. La posizione e' quella della
+    prima data.
+    """
+    trovati = []
+    for m in _INTERVALLO.finditer(uniforma_trattini(testo)):
+        x, y = data(m["x"]), data(m["y"])
+        if x and y:
+            trovati.append((m.start("x"), m.group(0), x, y))
+    return trovati
 
 
 def data(testo: str) -> str | None:
@@ -242,7 +430,7 @@ def giorno_mese(testo: str) -> str | None:
     pulito = testo.strip()
     trovato = _GIORNO_MESE_LETTERE.fullmatch(pulito)
     if trovato:
-        return _mm_gg(_mese(trovato["mese"]), int(trovato["g"]))
+        return _mm_gg(_mese(trovato["mese"]), _giorno(trovato["g"]))
     trovato = _GIORNO_MESE_NUMERICO.fullmatch(pulito)
     if trovato:
         return _mm_gg(int(trovato["m"]), int(trovato["g"]))
@@ -259,7 +447,7 @@ def _hh_mm(ore: str, minuti: str | None) -> str | None:
 def orario(testo: str) -> str | None:
     """Un orario nella forma HH:MM: "12:00", "ore 12", "ore 9.30"."""
     pulito = testo.strip()
-    for schema in (_ORARIO_ORE, _ORARIO):
+    for schema in (_ORARIO_ORE, _ORARIO_ALLE, _ORARIO):
         trovato = schema.fullmatch(pulito)
         if trovato:
             return _hh_mm(trovato["h"], trovato["min"])
@@ -377,7 +565,7 @@ def valori(testo: str) -> Valori:
                 trovati.letterali.add(letterale(m.group(0)))
 
     for m in libere(_GIORNO_MESE_LETTERE):
-        mm_gg = _mm_gg(_mese(m["mese"]), int(m["g"]))
+        mm_gg = _mm_gg(_mese(m["mese"]), _giorno(m["g"]))
         if mm_gg:
             trovati.giorni_mese.add(mm_gg)
         else:
@@ -396,7 +584,7 @@ def valori(testo: str) -> Valori:
         if m["sep"] == "/":
             trovati.riferimenti.add(f"{m['da']}/{m['a']}")
 
-    for schema in (_ORARIO_ORE, _ORARIO):
+    for schema in (_ORARIO_ORE, _ORARIO_ALLE, _ORARIO):
         for m in libere(schema):
             hh_mm = _hh_mm(m["h"], m["min"])
             if hh_mm:
@@ -410,6 +598,9 @@ def valori(testo: str) -> Valori:
     # Non occupa il testo: il numero e la data restano un numero e una data
     for numero_atto, iso in atti_con_data(testo):
         trovati.riferimenti.add(f"{numero_atto}/{iso[:4]}")
+
+    for m in libere(_ATECO_DUE_LIVELLI):
+        trovati.codici.add(m["codice"])
 
     for schema in _CODICI:
         for m in libere(schema):
@@ -433,5 +624,9 @@ def valori(testo: str) -> Valori:
         trovati.numeri.add(_con_moltiplicatore(m["cifre"], m["molt"]))
         if not m["molt"] and _ANNO.fullmatch(m["cifre"]):
             trovati.anni.add(int(m["cifre"]))
+
+    # Le parole non sono cifre: non si sovrappongono alle letture precedenti
+    for n, per_cento in numeri_in_lettere(testo):
+        (trovati.percentuali if per_cento else trovati.numeri).add(Decimal(n))
 
     return trovati

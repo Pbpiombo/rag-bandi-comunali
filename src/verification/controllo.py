@@ -10,6 +10,7 @@ il 3 novembre con il 13 novembre; e "31/07/2027" si conferma con
 
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 
 from langchain_core.documents import Document
 
@@ -23,7 +24,9 @@ from src.normalizzazione import (
     data,
     date_degli_atti,
     giorno_mese,
+    intervalli,
     letterale,
+    numeri_in_lettere,
     numero,
     orario,
     periodo,
@@ -101,7 +104,8 @@ SCHEMI = {
     "importo": [
         rf"\b(\d[\d.]*(?:,\d+)?\s*(?:{_MOLTIPLICATORE}))\b",
         r"\b([\d.]+,\d{1,2})\s*€",
-        r"€\s*([\d.]+(?:,\d{1,2})?)",
+        # "€ 322,00" e "€. 34,00": il punto dopo il simbolo non e' l'importo
+        r"€\.?\s*(\d[\d.]*(?:,\d{1,2})?)",
         r"\b([\d.]+,\d{2})\s*euro\b",
     ],
     "percentuale": [
@@ -110,7 +114,7 @@ SCHEMI = {
     "data": [
         r"\b(\d{4}-\d{2}-\d{2})\b",
         r"\b(\d{1,2}:\d{2})\b",
-        rf"\b(\d{{1,2}}\s*[°º]?\s+(?:{_MESI})(?:\s+\d{{4}})?)\b",
+        rf"\b((?:\d{{1,2}}\s*[°º]?|primo)\s+(?:{_MESI})(?:\s+\d{{4}})?)\b",
         r"\b(\d{1,2}/\d{1,2}/\d{4})\b",
         r"\b(\d{1,2}-\d{1,2}-\d{4})\b",
         r"\b(\d{1,2}\.\d{1,2}\.\d{4})\b",
@@ -124,6 +128,8 @@ SCHEMI = {
         # maiuscole: "a 12.5" non e' un codice
         r"(?<![\w.])((?-i:[A-U])\s?\d{2}(?:\.\d{1,2}){1,2})(?!\d|\.\d)",
         r"(?<![\w.])(\d{2}\.\d{2}\.\d{1,2})(?!\d|\.\d)",
+        # A due livelli solo dopo la parola: "codice ATECO 56.10"
+        r"\bateco(?:\s+primario)?\s+(\d{2}\.\d{1,2})(?!\d|\.\d)",
     ],
     "riferimento": [
         r"\bn\.?\s*(\d+/\d{4})\b",
@@ -138,7 +144,9 @@ SCHEMI = {
         r"(?<![\d.,/-])(19\d{2}|20\d{2})(?![\d.,/-])",
     ],
     "orario": [
-        r"\bore\s+(\d{1,2}(?:[:.]\d{2})?)",
+        # Anche con la virgola, "ore 10,00": non un orario 10 e una quantita' 00
+        r"\bore\s+(\d{1,2}(?:[:.,]\d{2})?)",
+        r"\b(?:alle|dalle)\s+(\d{1,2}[.,]\d{2})(?!\d|\s*(?:€|euro\b))",
     ],
     "quantita": [
         # Migliaia e decimali sono un valore solo: "Euro 50.000,00" e' 50000,
@@ -159,7 +167,9 @@ class Esito:
     valore: str
     frammenti: list[str]
     # verificato | non_trovato | non_citato | citazione_generica (un dato
-    # di un solo bando citato con il blocco [Dn] invece che con [Dn.k])
+    # di un solo bando citato con il blocco [Dn] invece che con [Dn.k]) |
+    # dalla_domanda (una quantita' scritta dall'utente nella domanda e non
+    # nella fonte: ne' verificata ne' allarme)
     stato: str
     dettaglio: str = ""
     contesto: str = ""
@@ -311,7 +321,18 @@ def presente(dato: Dato, fonte: Valori) -> bool:
 
     if tipo in ("importo", "quantita"):
         n = numero(valore)
-        return n is not None and (n in fonte.numeri or n in fonte.percentuali)
+        if n is None:
+            return False
+        # Una quantita' con la forma di un anno ("dal 2021," con la virgola,
+        # che lo schema degli anni non prende) vale anche tra gli anni della
+        # fonte, dove sta se la fonte lo scrive in una data ("dal primo
+        # gennaio 2021")
+        anno = tipo == "quantita" and re.fullmatch(r"(?:19|20)\d{2}", valore)
+        return (
+            n in fonte.numeri
+            or n in fonte.percentuali
+            or bool(anno and int(valore) in fonte.anni)
+        )
 
     if tipo == "percentuale":
         n = numero(valore)
@@ -371,6 +392,55 @@ def frammenti_citati(posizione: int, citazioni: list[tuple[int, str]]) -> list[s
 
     etichette = [etichetta for pos, etichetta in successive if pos <= prima + 200]
     return list(dict.fromkeys(etichette))
+
+
+# L'inizio di un punto d'elenco: "- ", "* ", "• ", "1. ", "2) "
+PUNTO_ELENCO = re.compile(r"[ \t]*(?:[-*•]|\d+[.)])\s")
+
+
+def citazioni_del_dato(
+    risposta: str, posizione: int, citazioni: list[tuple[int, str]]
+) -> list[str]:
+    """I frammenti a cui si riferisce un dato: quelli citati dopo, salvo in un elenco.
+
+    In un punto d'elenco che ha gia' la sua citazione, un dato scritto dopo
+    di essa appartiene a quel punto: se la citazione successiva sta oltre
+    l'a capo, e' quella del punto dopo, e vale la citazione del proprio
+    punto. "- «EU-Blending» (fonte: [D1.8]): settori ai sensi della delibera
+    704/2025.⏎- «Obbligazioni» (fonte: [D1.9])": il 704 va con D1.8 (9
+    falsi allarmi nelle risposte salvate, 25/11/2026). Vale anche quando la
+    citazione dopo contiene il dato: un dato del punto di Sport non si
+    conferma con la riga di Cultura del punto seguente (caso 4).
+    """
+    etichette = frammenti_citati(posizione, citazioni)
+    if not etichette:
+        return etichette
+    successiva = min(p for p, _ in citazioni if p > posizione)
+    if "\n" not in risposta[posizione:successiva]:
+        return etichette
+    inizio = risposta.rfind("\n", 0, posizione) + 1
+    if not PUNTO_ELENCO.match(risposta, inizio):
+        return etichette
+    precedenti = [e for p, e in citazioni if inizio <= p < posizione]
+    return [precedenti[-1]] if precedenti else etichette
+
+
+def valori_della_domanda(domanda: str | None) -> Valori | None:
+    """I valori della domanda, con i numeri in lettere ("centoventi alveari").
+
+    Dalla domanda contano solo le quantita' (verifica), quindi solo i numeri
+    da 10 in su: "una", "sei" o "otto" in una domanda sono quasi sempre
+    altre parole, e le quantita' a una cifra non si estraggono.
+    """
+    if not domanda:
+        return None
+    trovati = valori(domanda)
+    trovati.numeri |= {
+        Decimal(n)
+        for n, _ in numeri_in_lettere(domanda, solo_con_unita=False)
+        if n >= 10
+    }
+    return trovati
 
 
 def contesto_di(testo: str, posizione: int, ampiezza: int = 40) -> str:
@@ -471,6 +541,7 @@ def verifica(
     risposta: str,
     documenti: list[Document],
     esiti_dati: list | None = None,
+    domanda: str | None = None,
 ) -> list[Esito]:
     """Controlla che ogni dato della risposta esista nella fonte citata.
 
@@ -487,12 +558,30 @@ def verifica(
     frammento anche nei metadati dell'atto. Nelle citazioni a Dn.k e a un
     frammento si controllano anche i numeri di decreto o delibera scritti
     nella citazione.
+
+    Un dato in un punto d'elenco, dopo la citazione del suo punto, va con
+    quella (citazioni_del_dato). Con la domanda, una quantita' non trovata
+    nella fonte ma scritta dall'utente ("un disoccupato di 57 anni") ha
+    l'esito dalla_domanda, ne' verificato ne' allarme; date, importi e
+    percentuali della domanda restano al controllo normale. Gli intervalli
+    di date "dal X al Y" sono un dato anche come coppia: la fine prima
+    dell'inizio e' non trovata anche senza fonte, e gli estremi presenti
+    nella fonte citata ma non nella stessa finestra pure (_verifica_intervalli).
     """
     # "2026‑11‑13" con il trattino U+2011 e' una data come "2026-11-13"; la
     # lunghezza non cambia, quindi le posizioni restano quelle della risposta
     risposta = uniforma_trattini(risposta)
     testi, testi_atti, voci_di = fonti_di(documenti, esiti_dati)
     valori_di = {etichetta: valori(testo) for etichetta, testo in testi.items()}
+    della_domanda = valori_della_domanda(domanda)
+
+    def dalla_domanda(dato: Dato) -> bool:
+        """Una quantita' che l'utente ha scritto nella domanda."""
+        return (
+            della_domanda is not None
+            and dato.tipo == "quantita"
+            and presente(dato, della_domanda)
+        )
 
     def ha(dato: Dato, etichetta: str) -> bool:
         """La fonte con quell'etichetta contiene il dato."""
@@ -510,13 +599,12 @@ def verifica(
 
     for dato in trova_dati(mascherata):
         tipo, valore, posizione = dato.tipo, dato.valore, dato.posizione
-        etichette = frammenti_citati(posizione, citazioni)
+        etichette = citazioni_del_dato(risposta, posizione, citazioni)
         contesto = contesto_di(risposta, posizione)
 
         if not etichette:
-            esiti.append(
-                (posizione, Esito(tipo, valore, [], "non_citato", contesto=contesto))
-            )
+            stato = "dalla_domanda" if dalla_domanda(dato) else "non_citato"
+            esiti.append((posizione, Esito(tipo, valore, [], stato, contesto=contesto)))
             continue
 
         dentro = [e for e in etichette if e in testi and ha(dato, e)]
@@ -527,6 +615,20 @@ def verifica(
                     posizione,
                     _esito_trovato(
                         tipo, valore, dentro, voci_di, bandi_con(dato), contesto
+                    ),
+                )
+            )
+        elif dalla_domanda(dato):
+            esiti.append(
+                (
+                    posizione,
+                    Esito(
+                        tipo,
+                        valore,
+                        etichette,
+                        "dalla_domanda",
+                        "il numero è nella domanda",
+                        contesto,
                     ),
                 )
             )
@@ -561,7 +663,73 @@ def verifica(
             )
 
     esiti.extend(_verifica_atti(risposta, testi_atti))
+    esiti.extend(
+        _verifica_intervalli(risposta, mascherata, citazioni, testi, valori_di)
+    )
     return [e for _, e in sorted(esiti, key=lambda coppia: coppia[0])]
+
+
+def _verifica_intervalli(
+    risposta: str,
+    mascherata: str,
+    citazioni: list[tuple[int, str]],
+    testi: dict[str, str],
+    valori_di: dict[str, Valori],
+) -> list[tuple[int, Esito]]:
+    """Gli intervalli di date della risposta controllati come coppia.
+
+    Le due date si verificano gia' una per una; qui il ruolo. "dal
+    2027-01-11 al 2027-01-10" e' sbagliato senza bisogno della fonte: la
+    fine viene prima dell'inizio. Con X e Y entrambi nelle fonti citate, la
+    coppia deve essere un intervallo di una di esse: 2027-01-10 fine di una
+    finestra non conferma "dal 2027-01-11 al 2027-01-10" (caso 3 del
+    24/11/2026). Un intervallo giusto non aggiunge esiti.
+    """
+    esiti = []
+    coppie_di: dict[str, set] = {}
+    for posizione, scritto, inizio, fine in intervalli(mascherata):
+        etichette = citazioni_del_dato(risposta, posizione, citazioni)
+        contesto = contesto_di(risposta, posizione)
+        valore = " ".join(scritto.split())
+        if fine < inizio:
+            esiti.append(
+                (
+                    posizione,
+                    Esito(
+                        "intervallo",
+                        valore,
+                        etichette,
+                        "non_trovato",
+                        "la fine viene prima dell'inizio",
+                        contesto,
+                    ),
+                )
+            )
+            continue
+        citate = [e for e in etichette if e in testi]
+        estremi = any(inizio in valori_di[e].date for e in citate) and any(
+            fine in valori_di[e].date for e in citate
+        )
+        if not estremi:
+            continue
+        for e in citate:
+            if e not in coppie_di:
+                coppie_di[e] = {(x, y) for _, _, x, y in intervalli(testi[e])}
+        if not any((inizio, fine) in coppie_di[e] for e in citate):
+            esiti.append(
+                (
+                    posizione,
+                    Esito(
+                        "intervallo",
+                        valore,
+                        citate,
+                        "non_trovato",
+                        "estremi presenti, ma non della stessa finestra",
+                        contesto,
+                    ),
+                )
+            )
+    return esiti
 
 
 def _esito_data_atto(
@@ -726,8 +894,10 @@ def giudizio(esiti: list[Esito]) -> tuple[str, str]:
     - "nessuno": nessun dato da verificare.
 
     Gli anni non bastano per il verde: compaiono nei titoli e nelle date
-    di riferimento, e confermarli non dice nulla sulla risposta.
+    di riferimento, e confermarli non dice nulla sulla risposta. I dati
+    della domanda (dalla_domanda) non contano: ne' verificati ne' allarmi.
     """
+    esiti = [e for e in esiti if e.stato != "dalla_domanda"]
     if not esiti:
         return "nessuno", "Nessun dato numerico da verificare in questa risposta."
 
@@ -737,27 +907,41 @@ def giudizio(esiti: list[Esito]) -> tuple[str, str]:
     generici = conteggio.get("citazione_generica", 0)
     verificati = sum(e.stato == "verificato" and e.tipo != "anno" for e in esiti)
 
+    # Il verificatore dice se un dato compare nella fonte citata, non se la
+    # risposta e' giusta o completa: i testi per l'utente dicono "presenti",
+    # non "verificati" (25/11/2026)
     if non_trovati:
-        return "rosso", (
-            f"{non_trovati} dato/i citato/i NON trovato/i nella fonte indicata. "
-            "Verificare manualmente prima di riutilizzare la risposta."
+        frase = (
+            "1 dato citato non è stato trovato nella fonte indicata."
+            if non_trovati == 1
+            else f"{non_trovati} dati citati non sono stati trovati nella fonte "
+            "indicata."
         )
+        return "rosso", f"{frase} {CONTROLLARE_A_MANO}"
 
     if verificati and not non_citati and not generici:
-        return "verde", f"Dati verificati nella fonte citata: {verificati}."
+        return "verde", f"{dati_presenti(verificati)}."
 
-    problemi = [] if verificati else ["nessun dato verificato oltre agli anni"]
+    problemi = (
+        [] if verificati else ["nessun dato presente nella fonte oltre agli anni"]
+    )
     if non_citati:
         problemi.append(f"{non_citati} dato/i senza fonte")
     if generici:
         problemi.append(f"{generici} citato/i con il blocco invece che con il bando")
-    primo = f"dati verificati: {verificati}; " if verificati else ""
+    primo = f"dati presenti nella fonte citata: {verificati}; " if verificati else ""
     testo = primo + ", ".join(problemi)
-    return "arancione", (
-        testo[0].upper()
-        + testo[1:]
-        + ". Verificare manualmente prima di riutilizzare la risposta."
-    )
+    return "arancione", f"{testo[0].upper()}{testo[1:]}. {CONTROLLARE_A_MANO}"
+
+
+CONTROLLARE_A_MANO = "Controllare a mano prima di riutilizzare la risposta."
+
+
+def dati_presenti(n: int) -> str:
+    """ "1 dato presente nella fonte citata", "N dati presenti nella fonte citata"."""
+    if n == 1:
+        return "1 dato presente nella fonte citata"
+    return f"{n} dati presenti nella fonte citata"
 
 
 def riassumi(esiti: list[Esito]) -> dict:

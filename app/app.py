@@ -21,7 +21,7 @@ from src.database.modelli import bandi_citati, collegamenti_bandi, con_etichette
 from src.database.repertorio import stato_archivio
 from src.database.schema import connetti
 from src.pgstore import RecuperoPostgres
-from src.verification.controllo import giudizio, verifica
+from src.verification.controllo import dati_presenti, giudizio, verifica
 
 st.set_page_config(
     page_title="Assistente territoriale",
@@ -34,7 +34,19 @@ SIMBOLI = {
     "non_trovato": "✗",
     "non_citato": "?",
     "citazione_generica": "≈",
+    "dalla_domanda": "ℹ",
 }
+
+# Il dato scritto dall'utente nella domanda: nota neutra, senza colore
+NOTA_DOMANDA = (
+    "Numeri scritti nella domanda: non si cercano nelle fonti e non contano "
+    "nella verifica."
+)
+# Cosa promette il pannello, sempre sotto la verifica (25/11/2026)
+PROMESSA_VERIFICA = (
+    "Il controllo riguarda numeri, date, importi e atti: dice se compaiono "
+    "nella fonte citata, non se la risposta è completa."
+)
 
 ESEMPI = [
     "Quali bandi sono aperti per il Comune?",
@@ -126,6 +138,7 @@ def mostra_verifica(esito: dict) -> None:
         esito["risposta"],
         esito["documenti"],
         esito.get("esiti_dati"),
+        domanda=esito.get("domanda"),
     )
     collegamenti = collegamenti_bandi(esito.get("esiti_dati"))
     # Una riga e un conteggio per ogni dato con le sue fonti, anche se la
@@ -136,8 +149,11 @@ def mostra_verifica(esito: dict) -> None:
     esiti = [e for e, _ in gruppi]
 
     livello, messaggio = giudizio(esiti)
+    della_domanda = [e for e in esiti if e.stato == "dalla_domanda"]
     if livello == "nessuno":
         st.caption(messaggio)
+        mostra_dati_della_domanda(della_domanda, collegamenti, volte)
+        st.caption(PROMESSA_VERIFICA)
         return
 
     # Il verde solo se tutto cio' che si poteva verificare e' verificato
@@ -149,19 +165,35 @@ def mostra_verifica(esito: dict) -> None:
         e for e in esiti if not (e.tipo == "anno" and e.stato == "verificato")
     ]
 
-    problematici = [e for e in da_mostrare if e.stato != "verificato"]
+    problematici = [
+        e for e in da_mostrare if e.stato not in ("verificato", "dalla_domanda")
+    ]
     verificati = [e for e in da_mostrare if e.stato == "verificato"]
 
     for e in problematici:
         st.markdown(riga_esito(e, collegamenti, volte[id(e)]))
         # Per una citazione generica il dettaglio indica il bando giusto
         if e.dettaglio:
-            st.caption(f"    {con_collegamenti(e.dettaglio, collegamenti)}")
+            spiegazione = spiega_dettaglio(e, esito.get("documenti") or [])
+            st.caption(f"    {con_collegamenti(spiegazione, collegamenti)}")
+
+    mostra_dati_della_domanda(della_domanda, collegamenti, volte)
 
     if verificati:
-        with st.expander(f"{len(verificati)} dati verificati", expanded=False):
+        with st.expander(dati_presenti(len(verificati)), expanded=False):
             for e in verificati:
                 st.markdown(riga_esito(e, collegamenti, volte[id(e)]))
+
+    st.caption(PROMESSA_VERIFICA)
+
+
+def mostra_dati_della_domanda(esiti: list, collegamenti: dict, volte: dict) -> None:
+    """I numeri scritti dall'utente nella domanda: una nota, senza colore."""
+    if not esiti:
+        return
+    st.caption(NOTA_DOMANDA)
+    for e in esiti:
+        st.markdown(riga_esito(e, collegamenti, volte[id(e)]))
 
 
 def raggruppa_esiti(esiti: list) -> list[tuple]:
@@ -204,10 +236,64 @@ def riga_esito(e, collegamenti: dict, volte: int = 1) -> str:
         riga += f" → fonti {con_collegamenti(', '.join(e.frammenti), collegamenti)}"
     if volte > 1:
         riga += f"  ×{volte}"
-    if e.stato == "verificato":
+    if e.stato in ("verificato", "dalla_domanda"):
         return riga
     colore = "red" if e.stato == "non_trovato" else "orange"
     return f":{colore}[{riga}]"
+
+
+def _documento_di(etichetta: str, documenti: list) -> str | None:
+    """Il documento da cui viene un frammento: il file, o l'atto."""
+    if not etichetta.isdigit() or not 0 < int(etichetta) <= len(documenti):
+        return None
+    meta = documenti[int(etichetta) - 1].metadata
+    return meta.get("fonte") or meta.get("riferimento_atto") or None
+
+
+def spiega_dettaglio(e, documenti: list) -> str:
+    """La frase per l'utente sotto un dato non trovato o con un problema.
+
+    Il dettaglio del verificatore resta com'e' (lo usano i file della
+    prova); qui si dice dove sta il dato: in nessuna fonte, nella riga di
+    un altro bando, in un altro documento, in un altro punto dello stesso
+    documento, in un altro blocco di dati. Resta comunque rosso: la
+    risposta lo attribuisce alla fonte sbagliata.
+    """
+    dettaglio = e.dettaglio
+    if dettaglio == "non presente in nessuna fonte recuperata":
+        return "Non trovato in nessuna fonte recuperata."
+    altrove = re.fullmatch(r"presente invece in \[(.*)\]", dettaglio)
+    if not altrove:
+        return dettaglio[:1].upper() + dettaglio[1:].rstrip(".") + "."
+
+    etichette = re.findall(r"'([^']+)'", altrove.group(1))
+    bandi = [x for x in etichette if ETICHETTA_BANDO.fullmatch(x)]
+    blocchi = [x for x in etichette if re.fullmatch(r"D\d+", x)]
+    frammenti = [x for x in etichette if x.isdigit()]
+    citati = {_documento_di(x, documenti) for x in e.frammenti} - {None}
+    stesso = [x for x in frammenti if _documento_di(x, documenti) in citati]
+    altri = [x for x in frammenti if x not in stesso]
+
+    def elenco(xs: list[str], parentesi: bool = False) -> str:
+        return ", ".join(f"[{x}]" if parentesi else x for x in xs)
+
+    if stesso and not (bandi or blocchi or altri):
+        return (
+            "Non trovato nel punto citato: è in un altro punto dello stesso "
+            f"documento, {elenco(stesso, True)}."
+        )
+    parti = []
+    if bandi:
+        parti.append(f"è invece nella riga di un altro bando, {elenco(bandi)}")
+    if blocchi:
+        parti.append(f"è invece in un altro blocco di dati, {elenco(blocchi)}")
+    if altri:
+        parti.append(f"è invece in un altro documento, {elenco(altri, True)}")
+    if stesso:
+        parti.append(
+            f"è in un altro punto dello stesso documento, {elenco(stesso, True)}"
+        )
+    return "Non trovato nella fonte citata: " + "; ".join(parti) + "."
 
 
 def testo_per_collegamento(testo: str) -> str:

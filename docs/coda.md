@@ -3292,6 +3292,28 @@ mancati ("Passo 19d", punto 13, voce 14).
   riscrivono la pagina da immagine si valutano solo se questi falliscono
   o per gli avvisi scansionati, e sempre con un controllo: ogni numero
   della tabella ricostruita deve comparire nel testo estratto da pypdf.
+- (25/11/2026) Proposta: un solo taglio a livelli invece di più tagli
+  indipendenti. Si taglia al livello più piccolo (comma, riga di
+  tabella) e ogni pezzo conosce il genitore (articolo o tabella) e il
+  titolo della sezione. Dallo stesso indice si ricavano tre cose: il
+  pezzo piccolo per la ricerca, il genitore entro un tetto per il
+  contesto passato al modello, il titolo per la verifica e per la
+  categoria del dato ("Verificatore per categoria (25/11/2026)"). Il
+  vicino diventa il fratello sotto lo stesso genitore: è la V3 che il
+  24/11 non si è potuta misurare ("Passo 19e, rimedio 1").
+- (25/11/2026) Verifica a cascata sullo stesso indice: prima il pezzo
+  citato, poi il genitore. Allargare il testo di confronto rende il
+  controllo più permissivo, quindi il genitore non trasforma un rosso in
+  verde: dà un terzo esito, "trovato in un altro punto dello stesso
+  articolo".
+- (25/11/2026) Etichette scritte sul pezzo al momento del taglio, ciascuna
+  con la sua origine: posizione, bando, unità di struttura, categoria.
+  Posizione e bando sono certe e ci sono già. L'unità di struttura
+  (articolo, comma, riga di tabella) manca. La categoria (scadenze,
+  importi, requisiti, beneficiari, atti) è un'interpretazione: può avere
+  più valori, e dove la regola non è sicura resta vuota. Per il
+  verificatore vale la categoria ricavata dal titolo con una regola;
+  quella scritta da un modello solo come ripiego dichiarato.
 
 ## Bandi a più finestre: la prossima finestra aperta (24/11/2026)
 
@@ -3408,10 +3430,15 @@ risposte e non è ancora misurata.
   "dal 2027-01-11 al 2027-01-10 (anno 2028)" invece che al 2028-01-10.
   L'esito è VERDE perché 2027-01-10 compare nella fonte, come fine
   dell'altra finestra. Vista su quattro risposte, non ancora misurata.
+  (25/11/2026) misurata e corretta: ora rosso, "Verificatore per
+  categoria (25/11/2026)".
 - (24/11/2026) Verificatore, falsi allarmi. Un numero scritto
   dall'utente nella domanda (57) è segnato come non trovato; "1° gennaio
   2021" non è riconosciuto come "primo gennaio 2021". Esito ROSSO su due
   risposte corrette. Visti su quattro risposte, non ancora misurati.
+  (25/11/2026) misurati e corretti: il 57 è un "dato della domanda",
+  "1° gennaio 2021" è presente; "Verificatore per categoria
+  (25/11/2026)".
 - (24/11/2026) Citazioni: il `riferimento_atto` lungo degli incentivi
   (sette decreti più la sospensione) è ripetuto per intero a ogni frase,
   4 o 5 volte per risposta nei due file. Da decidere una forma breve dopo
@@ -3626,6 +3653,7 @@ domande vere", in "Sospensioni e chiusure anticipate (24/11/2026)").
 25/11/2026. Prima della chiamata, in quest'ordine:
 1. citazioni ripetute (fatto, "Citazioni ripetute (25/11/2026)");
 2. falsi allarmi del verificatore;
+   (25/11/2026) fatto: "Verificatore per categoria (25/11/2026)";
 3. errore tecnico mostrato all'utente;
 4. "sospeso" accanto ai bandi citati;
 5. poi la ventina di risposte vere, il controllo del passo 20,
@@ -3885,6 +3913,156 @@ frase, 4 o 5 volte per risposta.
 - Script, misure e uscite fuori dal repository, in
   `dati-grezzi/prova/citazioni/` (`misura_citazioni.py`,
   `differenze_verifica.py`, `chiusura_funzione_vera.py`).
+
+## Verificatore per categoria (25/11/2026)
+
+Nasce da un caso reale ("Esito delle domande vere", 24/11/2026): nella
+risposta "dopo" alla domanda sulla persona con disabilità la finestra
+successiva è scritta "dal 2027-01-11 al 2027-01-10 (anno 2028)" invece
+che al 2028-01-10, con esito VERDE, perché 2027-01-10 compare nella
+fonte come fine dell'altra finestra. Il dato è vero, il ruolo è
+sbagliato: il controllo di presenza non lo può vedere.
+
+- (25/11/2026) Proposta di chi mantiene il progetto: passare dal
+  controllo di presenza al controllo per categoria. Ogni dato si cerca
+  nella parte della fonte che parla di quella cosa: scadenze, importi,
+  requisiti, beneficiari, atti.
+- (25/11/2026) Da dove si parte: dai casi in cui il ruolo si riconosce
+  con certezza. Gli intervalli di date "dal X al Y", dove la fine prima
+  dell'inizio è un errore senza bisogno della fonte, e dove la coppia
+  deve corrispondere a una finestra della fonte, non solo i due estremi
+  presi uno per uno. I tipi distinti già separati dall'archivio: nella
+  riga di un bando scadenze, finestre, importi minimi e massimi,
+  percentuale e dotazione sono scritti dal codice con frasi fisse, e il
+  loro ruolo è certo.
+- (25/11/2026) Limite: capire la categoria del dato nella risposta
+  richiede di leggere la frase. Le parole vicine bastano solo nei casi
+  chiari ("scade il", "dal … al …"); "dal" da solo vale anche per un
+  evento ("verificatisi a partire dal 14/03/2025"), una sospensione o un
+  requisito ("licenziati dal 1° gennaio 2021").
+- (25/11/2026) Legame con il "Taglio dei documenti secondo la struttura
+  del bando": per i frammenti dei documenti la categoria della fonte
+  viene dal titolo della sezione o dell'articolo a cui il pezzo
+  appartiene, che il taglio a livelli darebbe per ogni pezzo. Finché il
+  taglio non c'è, il controllo per categoria vale solo per le righe dei
+  bandi.
+- (25/11/2026) Misura senza modello su 226 risposte salvate (40 del
+  19e, 182 dei lotti 1-3, 4 della sospensione con le fonti ricostruite
+  dal database): 14 intervalli di date con i due estremi nella fonte; 1
+  con la fine prima dell'inizio, ed è il caso reale; nessun altro
+  intervallo che non corrisponda come coppia a una finestra della fonte.
+  183 date dopo "scade il / scadenza / fino al / entro il" citate con la
+  riga di un bando: nessuna è un altro campo della riga. Script e uscite
+  fuori dal repository, in `dati-grezzi/prova/verificatore/`.
+- (25/11/2026) Censimento degli allarmi sulle 226 risposte, senza
+  modello: 31 "non trovato", classificati a mano uno per uno. Famiglia A,
+  numero scritto nella domanda: 6 (57 due volte, 26, 120 tre volte; la
+  domanda degli alveari scrive "centoventi" in lettere). B, variante di
+  scrittura della stessa data o dello stesso numero: 8 ("1° gennaio" e
+  "primo gennaio", "quaranta", "€. 34,00", orari con la virgola, "punto
+  7" contro il titolo di sezione "7."). C, famiglia nuova: 9. D,
+  calcolato dal modello: 0, la famiglia non esiste nei dati. E, davvero
+  assente: 8 (codice ATECO 56 o 56.10 dalla conoscenza del modello).
+  Tre allarmi su quattro erano falsi (23 su 31). Elenco e classificazione
+  in `dati-grezzi/prova/verificatore/` (`allarmi_2026-11-25.csv`,
+  `classificazione_a_mano_2026-11-25.csv`).
+- (25/11/2026) Famiglia nuova: dato abbinato alla citazione del punto
+  successivo. In un elenco, "- «EU-Blending» (fonte: [D1.8]): … delibera
+  704/2025.⏎- «Obbligazioni» (fonte: [D1.9])": il 704 sta dopo la
+  citazione del suo punto, e il verificatore lo cercava nella citazione
+  che lo segue, quella del punto dopo. Dei 12 "presente invece in", 9
+  erano questa famiglia e 3 coincidenze; nessuno un errore vero del
+  modello.
+- (25/11/2026) Misure sui ruoli. Intervalli di date: 14 con i due
+  estremi nella fonte citata, 1 allarme vero (il caso reale, fine prima
+  dell'inizio), nessun falso. Regola larga, ruolo della data dalle parole
+  vicine: 34 allarmi, 34 falsi su 34 (orari, "a partire dal" di un evento
+  nel titolo, fine di un intervallo letta come apertura, apertura solo
+  nella nota, "scaduto dal", "sospeso dal", "licenziati dal"): non
+  implementata. Ruoli di scadenze e importi dalle frasi fisse delle righe
+  dei bandi: 0 effetti su 302 dati (183 scadenze, 119 importi e
+  percentuali), rinviati.
+- (25/11/2026) Corretto, in `src/verification/controllo.py`,
+  `src/normalizzazione.py` e `app/app.py`:
+  1. un dato in un punto d'elenco va con la citazione del suo punto, anche
+     se la citazione dopo lo contiene (`citazioni_del_dato`);
+  2. varianti di scrittura: "primo" nelle date; numeri in lettere solo
+     davanti a un'unità ("quaranta anni", "cinquantuno per cento"); "€."
+     prima dell'importo; orari con la virgola dopo "ore", e dopo "alle" e
+     "dalle" con virgola o punto; ATECO a due livelli dopo la parola
+     "ATECO" letto come un codice solo;
+  3. la domanda al verificatore (parametro `domanda`, passato dall'app):
+     una quantità non trovata nella fonte ma scritta nella domanda, anche
+     in lettere, ha l'esito `dalla_domanda`, né presente né allarme; date,
+     importi e percentuali della domanda restano al controllo normale;
+  4. intervalli "dal X al Y": fine prima dell'inizio rossa anche senza
+     fonte; estremi nella fonte citata ma non della stessa finestra
+     rossi, con il dettaglio "estremi presenti, ma non della stessa
+     finestra";
+  5. una quantità con la forma di un anno (1900-2099) si accetta anche
+     tra gli anni della fonte (seconda fermata, sotto).
+  50 test nuovi in `tests/test_verifica_ruoli.py`, con le righe vere dei
+  bandi; ognuno fatto fallire una volta senza la modifica, salvo le
+  protezioni che valgono prima e dopo (il caso 4 nella frase, come nella
+  demo del 24/11; la riga che non è un punto d'elenco; "1°"; "ore 9.30";
+  il 57 senza domanda; la finestra giusta).
+- (25/11/2026) Regola di chiusura, riesecuzione sulle 226 risposte (222
+  più le 4 della sospensione con le fonti ricostruite), verificatore
+  dell'ultimo commit contro quello nuovo; le registrazioni dei lotti non
+  si riscrivono:
+  - allarmi rossi: 31 prima (8 veri, 23 falsi), 8 dopo (7 veri, 1
+    falso). Restano: 6 della famiglia E (l'ATECO 56.10 da quattro
+    allarmi a due, dichiarato), il caso 3 ora rosso, "punto 7" ancora
+    rosso, dichiarato. Spariti 26 righe, cioè 24 al netto dell'ATECO,
+    ciascuno elencato con famiglia e motivo; nati 3, il caso 3 e i due
+    "56.10";
+  - casi reali: 1 e 2 spariti, 3 rosso, 4 rosso (test);
+  - risposte con esito ROSSO: 22 prima, 6 dopo (4 della famiglia E, 1
+    "punto 7", 1 il caso 3); 11 passano da rosso a verde, 6 da rosso ad
+    arancione per i "non citato" che avevano già;
+  - "non citato": 29 prima, 27 dopo; i 2 tolti sono quantità della
+    domanda (57, 120), ora "dato della domanda";
+  - esiti "dato della domanda": 8.
+  Previsione rifatta dopo il controllo sugli alveari (A 6, E 8):
+  spariscono 24 al netto, nasce 1; misurato uguale.
+- (25/11/2026) Due fermate. Prima: lo schema nuovo degli orari dopo
+  "alle" con i due punti prendeva "alle 25:61", che un test esistente
+  vuole letterale; corretto restringendo lo schema a virgola e punto,
+  senza toccare il test. Seconda: con "primo gennaio 2021" ora data, il
+  2021 della fonte è passato dai numeri agli anni, e "dal 2021," (con la
+  virgola, quindi una quantità) è diventato un falso allarme; corretto
+  accettando una quantità con la forma di un anno anche tra gli anni,
+  solo nel confronto in `presente`. Lo schema degli anni non è cambiato.
+- (25/11/2026) Nuova linea di base: da oggi i numeri del verificatore non
+  sono confrontabili con quelli registrati prima del 25/11/2026. Per i
+  confronti futuri (taglio a livelli, ordine c-LR nell'app) vale la
+  riesecuzione di oggi sulle 226 risposte, in
+  `dati-grezzi/prova/verificatore/` (`chiusura.py`,
+  `chiusura_uscita_2026-11-25.txt`).
+- (25/11/2026) Cosa promette il verificatore: dice se numeri, date,
+  importi e atti della risposta compaiono nella fonte citata; non dice se
+  la risposta è completa o se risponde alla domanda. Testi per l'utente
+  cambiati di conseguenza: "1 dato citato non è stato trovato nella fonte
+  indicata." / "N dati citati non sono stati trovati nella fonte
+  indicata." più "Controllare a mano prima di riutilizzare la risposta.";
+  verde "N dati presenti nella fonte citata."; sotto la verifica, sempre,
+  "Il controllo riguarda numeri, date, importi e atti: dice se compaiono
+  nella fonte citata, non se la risposta è completa."; il dato della
+  domanda come nota senza colore. La parola "verificati" non compare più
+  nei testi per l'utente (anche nel messaggio arancione). Sotto un rosso,
+  dove sta il dato: in nessuna fonte, in un altro bando, in un altro
+  documento, in un altro punto dello stesso documento (sempre rosso).
+  Test esistenti toccati, solo le asserzioni su queste frasi:
+  `tests/test_verifica.py` (tre) e `tests/test_pannello_verifica.py`
+  (una).
+- (25/11/2026) In coda. Verifica per unità della risposta, punto d'elenco
+  o frase, come forma generale: ogni dato si confronta con le citazioni
+  della sua unità, non con la più vicina in caratteri; l'abbinamento al
+  punto d'elenco di oggi ne è il caso più semplice. Ogni script che salva
+  risposte vere salva anche documenti ed esiti, come i lotti: le 4 della
+  sospensione si sono misurate solo ricostruendo le fonti dal database.
+  "Punto 7" e gli altri casi strutturali (il numero di una sezione nel
+  titolo del pezzo) rimandati al taglio a livelli.
 
 ## Parcheggio
 

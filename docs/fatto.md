@@ -869,3 +869,30 @@ voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
   difetto è concentrato sui bandi con una catena di atti lunga. 16 test
   nuovi in `tests/test_citazioni.py`. Dettaglio e voci rimaste in
   `coda.md`, "Citazioni ripetute (25/11/2026)".
+- (25/11/2026) Falsi allarmi del verificatore e dato giusto nel ruolo
+  sbagliato. Censimento senza modello su 226 risposte salvate (40 del
+  19e, 182 dei lotti 1-3, 4 della sospensione con le fonti ricostruite
+  dal database): 31 "non trovato", classificati a mano; famiglia A
+  (numero della domanda) 6, B (variante di scrittura) 8, C (dato
+  abbinato alla citazione del punto successivo, famiglia nuova) 9, D
+  (calcolato) 0, E (davvero assente) 8: tre allarmi su quattro erano
+  falsi. Corretti: abbinamento al proprio punto d'elenco; varianti
+  ("primo" nelle date, numeri in lettere davanti a un'unità, "€.",
+  orari con la virgola, ATECO a due livelli); la domanda al
+  verificatore con l'esito "dato della domanda" per le sole quantità;
+  intervalli di date (fine prima dell'inizio; estremi non della stessa
+  finestra); quantità con la forma di un anno accettata anche tra gli
+  anni. Regola di chiusura sulle 226: allarmi rossi da 31 (8 veri) a 8
+  (7 veri; resta falso "punto 7", dichiarato); risposte con esito ROSSO
+  da 22 a 6; "non citato" da 29 a 27; casi reali 1 e 2 spariti, 3 rosso,
+  4 rosso nel test. Misure sui ruoli: intervalli 14 controllati e 1
+  allarme vero; regola larga dalle parole vicine 34 falsi su 34, non
+  implementata; ruoli di scadenze e importi 0 effetti su 302 dati,
+  rinviati. Due fermate, corrette con il rimedio più stretto (schema
+  degli orari dopo "alle"; il 2021 di "primo gennaio 2021"). Testi per
+  l'utente: "presenti nella fonte citata" invece di "verificati", e una
+  riga fissa su cosa promette il controllo. Nuova linea di base del
+  verificatore: la riesecuzione del 25/11/2026 in
+  `dati-grezzi/prova/verificatore/`. 50 test nuovi in
+  `tests/test_verifica_ruoli.py`. Dettaglio e voci rimaste in `coda.md`,
+  "Verificatore per categoria (25/11/2026)".

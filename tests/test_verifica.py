@@ -602,14 +602,16 @@ def test_giudizio_non_e_verde_con_zero_verificati():
     """Il difetto della revisione: verde con "0 dati verificati"."""
     livello, messaggio = giudizio([esito("importo", "non_citato")] * 3)
     assert livello == "arancione"
-    assert messaggio.startswith("Nessun dato verificato oltre agli anni, 3 dato/i")
+    assert messaggio.startswith(
+        "Nessun dato presente nella fonte oltre agli anni, 3 dato/i"
+    )
 
 
 def test_giudizio_conta_i_verificati_senza_gli_anni():
     livello, messaggio = giudizio(
         [esito("importo", "verificato"), esito("anno", "verificato")]
     )
-    assert (livello, messaggio) == ("verde", "Dati verificati nella fonte citata: 1.")
+    assert (livello, messaggio) == ("verde", "1 dato presente nella fonte citata.")
 
 
 def test_giudizio_arancione_dice_cosa_manca():
@@ -617,8 +619,8 @@ def test_giudizio_arancione_dice_cosa_manca():
         [esito("importo", "verificato"), esito("importo", "non_citato")]
     )
     assert messaggio == (
-        "Dati verificati: 1; 1 dato/i senza fonte. "
-        "Verificare manualmente prima di riutilizzare la risposta."
+        "Dati presenti nella fonte citata: 1; 1 dato/i senza fonte. "
+        "Controllare a mano prima di riutilizzare la risposta."
     )
 
 
