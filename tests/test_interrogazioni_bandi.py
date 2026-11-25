@@ -1837,3 +1837,78 @@ def test_candidati_poi_titoli_simili_senza_ripetere(db):
     )
     assert len(righe) == 3
     assert "(id: sport)" not in r.testo
+
+
+# --- tappa 6a: ripiego anche quando i bandi trovati sono tutti scaduti ---
+
+NEVE_SCADUTO = "Bando Neve 2025"
+RISALITA = "Contributi agli impianti di risalita"
+RISALITA_INTERVENTO = "acquisto di mezzi battipista e impianti per la neve programmata"
+
+
+def _neve_scaduto_e_risalita_aperto(db):
+    bando(db, "neve-2025", COMUNI, titolo=NEVE_SCADUTO, scadenza="2026-10-01")
+    bando(db, "risalita", COMUNI, titolo=RISALITA)
+    interventi(db, "risalita", RISALITA_INTERVENTO)
+
+
+def test_solo_scaduti_aggiunge_i_candidati_non_scaduti(db, monkeypatch):
+    monkeypatch.setattr(ib, "RIPIEGO_ANCHE_CON_SCADUTI", True)
+    _neve_scaduto_e_risalita_aperto(db)
+
+    r = ib.dettaglio_bando(db, "neve")
+
+    righe = r.testo.splitlines()
+    # Lo scaduto resta com'era, mostrato come scaduto
+    assert righe[0].startswith("[#1] stato: scaduto il 2026-10-01, non più aperto")
+    assert righe[-2] == (
+        "I bandi trovati per 'neve' sono tutti scaduti. Candidati tra i bandi "
+        "non scaduti, con tutte le parole cercate nel loro testo (1): nessuno è "
+        "stato scelto."
+    )
+    assert righe[-1].startswith(
+        f"- [#2] trovato per 'neve' negli interventi | «{RISALITA}»"
+    )
+    assert [v.url for v in r.voci] == [BASE + "neve-2025", BASE + "risalita"]
+    # Il bando trovato per nome resta lo scaduto: il candidato non e' scelto
+    assert r.trovato
+
+
+def test_solo_scaduti_con_l_interruttore_spento_come_prima(db, monkeypatch):
+    monkeypatch.setattr(ib, "RIPIEGO_ANCHE_CON_SCADUTI", False)
+    _neve_scaduto_e_risalita_aperto(db)
+
+    r = ib.dettaglio_bando(db, "neve")
+
+    assert "Candidati" not in r.testo
+    assert [v.url for v in r.voci] == [BASE + "neve-2025"]
+
+
+def test_solo_scaduti_senza_candidati_il_risultato_non_cambia(db, monkeypatch):
+    # Il caso "caldaia": trovato solo nel testo di un avviso scaduto, nessun
+    # bando non scaduto la nomina. Il risultato onesto e' lo scaduto da solo
+    bando(
+        db, "garanzia", COMUNI, titolo="Avviso fondo di garanzia", scadenza="2021-12-31"
+    )
+    interventi(db, "garanzia", "sostituzione della caldaia con una pompa di calore")
+    bando(db, "risalita", COMUNI, titolo=RISALITA)
+    interventi(db, "risalita", RISALITA_INTERVENTO)
+
+    monkeypatch.setattr(ib, "RIPIEGO_ANCHE_CON_SCADUTI", False)
+    prima = ib.dettaglio_bando(db, "caldaia")
+    monkeypatch.setattr(ib, "RIPIEGO_ANCHE_CON_SCADUTI", True)
+    dopo = ib.dettaglio_bando(db, "caldaia")
+
+    assert dopo == prima
+    assert "stato: scaduto il 2021-12-31" in dopo.testo
+
+
+def test_un_trovato_non_scaduto_non_aggiunge_candidati(db, monkeypatch):
+    monkeypatch.setattr(ib, "RIPIEGO_ANCHE_CON_SCADUTI", True)
+    _neve_scaduto_e_risalita_aperto(db)
+    bando(db, "neve-2026", COMUNI, titolo="Bando Neve 2026")
+
+    r = ib.dettaglio_bando(db, "neve")
+
+    assert "Candidati" not in r.testo
+    assert [v.url for v in r.voci] == [BASE + "neve-2025", BASE + "neve-2026"]

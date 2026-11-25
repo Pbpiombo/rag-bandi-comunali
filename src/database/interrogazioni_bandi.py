@@ -14,6 +14,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import date
 
+from src.config import RIPIEGO_ANCHE_CON_SCADUTI
 from src.database.modelli import Approfondimento, Risultato, VoceBando
 from src.estrazione.beneficiari import (
     PER_REQUISITO,
@@ -1580,7 +1581,9 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
     Oltre: l'elenco breve, senza sceglierne uno (trovato=False). Nessuno:
     i candidati del testo unito dei bandi non scaduti, con il motivo
     (candidati_testo_unito, trovato=False); se non ce ne sono, i titoli piu'
-    simili, mai l'elenco completo.
+    simili, mai l'elenco completo. Se i bandi trovati sono tutti scaduti, in
+    fondo anche i candidati del testo unito tra i non scaduti
+    (_con_candidati_aperti).
     """
     trovati = trova_bandi(conn, id_bando)
     nel_testo = False
@@ -1622,11 +1625,12 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
         righe = [numerate.numera(r, _dettaglio(conn, r, oggi)) for r in trovati]
         if nel_testo or quanti > 1:
             righe.insert(0, testa + (tutti if quanti > 1 else ""))
-        return Risultato(
+        risultato = Risultato(
             "\n".join(righe),
             fonti=list(dict.fromkeys(fonte_bando(r) for r in trovati)),
             voci=numerate.voci,
         )
+        return _con_candidati_aperti(conn, id_bando, trovati, risultato, numerate, oggi)
 
     mostrati = trovati[:MAX_CORRISPONDENZE]
     intestazione = (
@@ -1641,11 +1645,72 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
             f"E altri {quanti - MAX_CORRISPONDENZE}: il testo cercato è troppo "
             "generico."
         )
-    return Risultato(
+    risultato = Risultato(
         "\n".join(righe),
         fonti=list(dict.fromkeys(fonte_bando(r) for r in mostrati)),
         trovato=False,
         voci=numerate.voci,
+    )
+    return _con_candidati_aperti(conn, id_bando, trovati, risultato, numerate, oggi)
+
+
+def _con_candidati_aperti(
+    conn: sqlite3.Connection,
+    cercato: str,
+    trovati: list,
+    risultato: Risultato,
+    numerate: RigheBandi,
+    oggi: str,
+) -> Risultato:
+    """Il risultato con i candidati non scaduti, se i trovati sono tutti scaduti.
+
+    Tappa 6a del piano del 19e (docs/piano-19e.md, 25/11/2026): "caldaia"
+    trovava solo un avviso scaduto nel 2021 e la ricerca si fermava li'. Se
+    tutti i bandi trovati sono scaduti, si cercano anche i candidati del
+    testo unito tra i non scaduti (candidati_testo_unito): gli scaduti
+    restano come sono, mostrati come scaduti; i candidati si aggiungono in
+    un blocco a parte, numerati di seguito e mai scelti. Senza candidati il
+    risultato non cambia. Interruttore RIPIEGO_ANCHE_CON_SCADUTI.
+    """
+    if not RIPIEGO_ANCHE_CON_SCADUTI:
+        return risultato
+    if not all(
+        r["natura"] == "bando" and scaduto(r, scadenze_di(conn, r["id"]), oggi)
+        for r in trovati
+    ):
+        return risultato
+    candidati = candidati_testo_unito(conn, cercato, oggi)
+    if not candidati:
+        return risultato
+
+    mostrati = candidati[:MAX_CORRISPONDENZE]
+    righe = [
+        (
+            f"I bandi trovati per '{cercato}' sono tutti scaduti. Candidati tra i "
+            "bandi non scaduti, con tutte le parole cercate nel loro testo "
+            f"({len(candidati)}): nessuno è stato scelto."
+        ),
+        *(
+            "- "
+            + numerate.numera(
+                r, f"trovato per {motivo} | " + _riga_breve(conn, r, oggi)
+            )
+            for r, motivo in mostrati
+        ),
+    ]
+    if len(candidati) > MAX_CORRISPONDENZE:
+        righe.append(
+            f"E altri {len(candidati) - MAX_CORRISPONDENZE}: il testo cercato è "
+            "troppo generico."
+        )
+    return Risultato(
+        risultato.testo + "\n" + "\n".join(righe),
+        fonti=list(
+            dict.fromkeys([*risultato.fonti, *(fonte_bando(r) for r, _ in mostrati)])
+        ),
+        trovato=risultato.trovato,
+        voci=numerate.voci,
+        da_approfondire=risultato.da_approfondire,
     )
 
 

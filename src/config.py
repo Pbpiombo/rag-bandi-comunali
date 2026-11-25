@@ -63,5 +63,11 @@ SPOSTAMENTI_VICINI: tuple[int, ...] = ()
 # (docs/coda.md, "Citazioni ripetute (25/11/2026)"). False: testo come prima.
 ACCORCIA_CITAZIONI = True
 
+# Ripiego anche quando dettaglio_bando trova solo bandi scaduti (tappa 6a,
+# docs/piano-19e.md, 25/11/2026): si aggiungono i candidati del testo unito
+# tra i non scaduti, mai scelti; gli scaduti restano mostrati come scaduti.
+# Senza candidati il risultato non cambia. False: come prima.
+RIPIEGO_ANCHE_CON_SCADUTI = True
+
 # Ente selezionato all'apertura dell'app e usato dagli script da riga di comando.
 ENTE_PREDEFINITO = "90060100477"
