@@ -3416,6 +3416,8 @@ risposte e non è ancora misurata.
   (sette decreti più la sospensione) è ripetuto per intero a ogni frase,
   4 o 5 volte per risposta nei due file. Da decidere una forma breve dopo
   la prima citazione. Visto su quattro risposte, non ancora misurato.
+  (25/11/2026) fatta nel testo mostrato: "Citazioni ripetute
+  (25/11/2026)".
 - (24/11/2026) Date in formato AAAA-MM-GG nelle risposte "dopo", prese
   dal testo dello stato ("sospeso in parte dal 2026-07-08"). Da valutare
   il formato "8 luglio 2026" nel testo passato al modello, tenendo conto
@@ -3620,6 +3622,18 @@ frase e i falsi allarmi del verificatore (numero scritto dall'utente,
 "1°" e "primo"). Visti nelle domande vere sulla sospensione ("Esito delle
 domande vere", in "Sospensioni e chiusure anticipate (24/11/2026)").
 
+(25/11/2026) Ordine deciso in chat da chi mantiene il progetto il
+25/11/2026. Prima della chiamata, in quest'ordine:
+1. citazioni ripetute (fatto, "Citazioni ripetute (25/11/2026)");
+2. falsi allarmi del verificatore;
+3. errore tecnico mostrato all'utente;
+4. "sospeso" accanto ai bandi citati;
+5. poi la ventina di risposte vere, il controllo del passo 20,
+   l'incrocio delle ricerche.
+
+Dopo la chiamata, in aggiunta all'elenco qui sotto: date in formato
+italiano e urgenza delle scadenze vicine.
+
 Dopo la chiamata:
 - dotazione in più quote (passo 2b);
 - profilo dei comuni come tabella ("Profilo dei comuni (24/11/2026)");
@@ -3812,6 +3826,65 @@ leggere le risposte. File di lavoro fuori dal repository, in
   confrontati tabella per tabella con la copia del 19d, sono identici. Lo
   script ora lavora su una copia. **Regola da ricordare: ogni script di
   misura apre una copia del Chroma, mai l'originale.**
+
+## Citazioni ripetute (25/11/2026)
+
+Difetto visto nelle domande vere sulla sospensione ("Esito delle domande
+vere", 24/11/2026): il `riferimento_atto` degli incentivi ai datori di
+lavoro (sette decreti più la sospensione) ripetuto per intero a ogni
+frase, 4 o 5 volte per risposta.
+
+- (25/11/2026) Fatto: `accorcia_citazioni` in `src/citazioni.py`,
+  chiamata solo da `mostra_risposta` in `app/app.py`, con l'interruttore
+  `ACCORCIA_CITAZIONI` in `src/config.py`. La prima citazione di ogni
+  etichetta resta intera; le successive con la stessa descrizione
+  diventano "(fonte: [L])", o "(fonte: [L], pag. N)" se cambia solo la
+  pagina. Restano come sono: più etichette nella stessa parentesi,
+  descrizioni diverse per la stessa etichetta, "fonte: profilo
+  dell'ente", citazioni senza descrizione o non riconosciute dagli schemi
+  del verificatore. ISTRUZIONI non cambia. 16 test nuovi in
+  `tests/test_citazioni.py`.
+- (25/11/2026) Regola di chiusura, con la funzione vera, su 226 risposte
+  salvate (40 del passo 19e, 4 della sospensione, 182 delle 26
+  registrazioni dei lotti 1-3; il lotto 4 non è stato aperto):
+  1. stesse etichette nello stesso ordine: 226 su 226;
+  2. descrizione lunga una volta sola per etichetta: 226 su 226, con le
+     due eccezioni dichiarate; 15 risposte le toccano (13 con più
+     etichette nella stessa parentesi, 2 con descrizioni diverse per la
+     stessa etichetta);
+  3. testo fuori dalle citazioni identico: 226 su 226;
+  4. funzione spenta, testo identico a oggi: 226 su 226;
+  5. bandi citati identici: 182 su 182;
+  6. verificatore e bandi citati ricevono il testo intero: prova con
+     AppTest sull'app intera, fatta fallire una volta passando loro il
+     testo accorciato.
+- (25/11/2026) Il numero onesto: risparmio 46-52% nelle risposte sugli
+  incentivi; su 226 risposte media 7,5%, mediana 2,9%. Il difetto è
+  concentrato sui bandi con una catena di atti lunga; nella risposta
+  tipica le citazioni occupano circa un quinto del testo (media 20,5%,
+  mediana 19,6%) e questo accorciamento ne toglie poco.
+- (25/11/2026) Perché il verificatore riceve sempre il testo intero: sul
+  testo accorciato perderebbe 348 controlli di atti e 321 di date scritti
+  nelle citazioni ripetute, e cambierebbe i raggruppamenti delle fonti in
+  2 risposte (lotto 1 P10, lotto 3 C17), perché le distanze tra le
+  citazioni si accorciano.
+- (25/11/2026) Nota: rieseguito sulle fonti salvate, il verificatore dà
+  l'esito salvato in 217 risposte su 222 (le 4 della sospensione non
+  hanno le fonti). Le 5 differenze sono nelle prime due registrazioni del
+  lotto 1 del 14/11 (`2026-11-14_114121`, `2026-11-14_140416`); non
+  controllate riga per riga.
+- (25/11/2026) Da decidere dopo la lettura delle risposte vere per il
+  consulente: citazioni ridotte alla sola etichetta ed elenco "Fonti
+  citate" sotto la risposta, scritto dal codice con i dati del database.
+  Chiude anche il vuoto della colonna Fonti, dove l'atto di un bando non
+  è collegato alla sua etichetta (le fonti del blocco Dn sono didascalie
+  senza etichetta).
+- (25/11/2026) Più avanti: permettere "(fonte: [L])" nelle ripetizioni
+  dentro ISTRUZIONI (oggi "Usi sempre questa forma esatta, anche quando
+  ripeti un dato già citato"), con regressione contro la baseline.
+- Script, misure e uscite fuori dal repository, in
+  `dati-grezzi/prova/citazioni/` (`misura_citazioni.py`,
+  `differenze_verifica.py`, `chiusura_funzione_vera.py`).
 
 ## Parcheggio
 

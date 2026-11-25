@@ -14,7 +14,8 @@ if str(RADICE) not in sys.path:
 import streamlit as st
 
 from src.chains.rag import costruisci_catena, impronta_istruzioni
-from src.config import ENTE_PREDEFINITO, MODEL_NAME
+from src.citazioni import accorcia_citazioni
+from src.config import ACCORCIA_CITAZIONI, ENTE_PREDEFINITO, MODEL_NAME
 from src.database.enti import elenco_enti
 from src.database.modelli import bandi_citati, collegamenti_bandi, con_etichette
 from src.database.repertorio import stato_archivio
@@ -236,9 +237,12 @@ def mostra_risposta(esito: dict) -> None:
     Una risposta troncata non deve sembrare completa: avviso sopra e riga
     in fondo, che resta anche se il testo si copia (correzione D1,
     docs/piano-correzioni-lotto1.md). Il testo salvato e verificato resta
-    quello del modello: la riga la aggiunge solo l'app.
+    quello del modello: la riga la aggiunge solo l'app. Le citazioni
+    ripetute si accorciano solo qui (src/citazioni.py): verificatore e
+    bandi citati ricevono esito["risposta"] intero.
     """
     risposta = esito["risposta"]
+    risposta = accorcia_citazioni(risposta) if ACCORCIA_CITAZIONI else risposta
     if esito.get("stop_reason_risposta") == "max_tokens":
         st.warning(AVVISO_INTERROTTA)
         risposta = f"{risposta.rstrip()}\n\n{RIGA_INTERROTTA}"

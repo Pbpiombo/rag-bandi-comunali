@@ -848,3 +848,24 @@ voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
   nuove viste nelle risposte (verificatore, citazioni ripetute, formato
   delle date, stato accanto ai "Bandi citati") in `coda.md`, "Esito
   delle domande vere".
+
+## Fatti il 25 novembre 2026
+
+- (25/11/2026) Citazioni ripetute accorciate nel testo mostrato:
+  `accorcia_citazioni` in `src/citazioni.py`, chiamata solo da
+  `mostra_risposta`, interruttore `ACCORCIA_CITAZIONI` in
+  `src/config.py`. La prima citazione di ogni etichetta resta intera, le
+  successive diventano "(fonte: [L])"; ISTRUZIONI non cambia, e
+  verificatore e bandi citati ricevono sempre il testo intero (sul testo
+  accorciato il verificatore perderebbe 348 controlli di atti e 321 di
+  date, e cambierebbe i raggruppamenti in 2 risposte). Regola di
+  chiusura su 226 risposte salvate: etichette nello stesso ordine 226 su
+  226; descrizione lunga una volta sola per etichetta 226 su 226, con le
+  due eccezioni dichiarate (15 risposte); testo fuori dalle citazioni
+  identico 226 su 226; funzione spenta identica a oggi 226 su 226; bandi
+  citati identici 182 su 182; verificatore e bandi citati con il testo
+  intero, prova con AppTest fatta fallire una volta. Risparmio 46-52%
+  nelle risposte sugli incentivi, media 7,5% e mediana 2,9% su 226: il
+  difetto è concentrato sui bandi con una catena di atti lunga. 16 test
+  nuovi in `tests/test_citazioni.py`. Dettaglio e voci rimaste in
+  `coda.md`, "Citazioni ripetute (25/11/2026)".

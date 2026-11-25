@@ -57,5 +57,11 @@ SOGLIA_CHUNK = 150
 # chunk_num): oggi Chroma si', Postgres no (query rimandata al passo 19e).
 SPOSTAMENTI_VICINI: tuple[int, ...] = ()
 
+# Citazioni ripetute accorciate alla sola etichetta (src/citazioni.py).
+# Agisce solo sul testo mostrato; verificatore e bandi citati ricevono
+# sempre il testo intero. Misurato il 25/11/2026 su 226 risposte salvate
+# (docs/coda.md, "Citazioni ripetute (25/11/2026)"). False: testo come prima.
+ACCORCIA_CITAZIONI = True
+
 # Ente selezionato all'apertura dell'app e usato dagli script da riga di comando.
 ENTE_PREDEFINITO = "90060100477"
