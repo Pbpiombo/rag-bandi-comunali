@@ -3314,6 +3314,45 @@ mancati ("Passo 19d", punto 13, voce 14).
   più valori, e dove la regola non è sicura resta vuota. Per il
   verificatore vale la categoria ricavata dal titolo con una regola;
   quella scritta da un modello solo come ripiego dichiarato.
+- (25/11/2026) Esito della parte E dell'"Inventario delle scritture
+  (25/11/2026)", sui 25 PDF del registro letti con pypdf. Schemi dei
+  titoli: "Art. N" in 6 PDF (in 2 il titolo sta sulla riga dopo), "N.
+  Titolo" o "N TITOLO" in 16 (in 11 avvisi con un livello "N.M" sotto),
+  nessuno in 3. Regola scritta prima di guardare: catena 1, 2, 3, … di almeno 3
+  titoli senza buchi; righe dello stesso schema fuori dalla catena al
+  più il 20%; testo prima del primo titolo al più il 15%. Con la regola:
+  13 sì, 10 no, 2 non servono. Letti a mano i titoli di ogni catena:
+  - affidabile con regole semplici: 16 PDF (25205, 18191, 24161, i 4
+    allegati 14025, DM 75, gli avvisi e le due convenzioni di Cultura e
+    Sport Missione Comune, il regolamento del fondo sport, 13512, 9506
+    allegato 1, testo coordinato SRA16-ACA16). Quattro di questi la
+    regola li respingeva per il "rumore": sono commi ed elenchi numerati,
+    che la catena già scarta; uno (DM 75) per il 18% di testo prima
+    dell'articolo 1, che sono i "VISTO" del decreto. Servono tre accorgimenti: gli "Art."
+    prima dei numeri, lo stesso stile del titolo 1 (maiuscolo o no),
+    titoli di al più 14 parole; senza, la catena prendeva i commi (22706,
+    DM 75) e le righe della tabella dei punteggi (14025);
+  - non affidabile: 4. Elenco dei codici ATECO (allegato 4 di 9505 e
+    9506, una tabella di 236 pagine); allegato 1B di 9505 (elenco tecnico
+    con note numerate); presentazione del voucher (diapositive, 83% del
+    testo fuori); 22706 (articoli giusti, ma il 26% del testo, le
+    definizioni, sta prima dell'articolo 1 senza numero);
+  - non serve: 5 (le due proroghe di una pagina, l'avviso del fondo
+    strade di 3 pagine, gli allegati 5 di 9505 e 9506 di 2 pagine, che la
+    regola dava per buoni a torto: la catena erano commi).
+  Dimensioni delle unità nei 16 affidabili: media da 1.200 a 6.800
+  caratteri, massimo fino a 25.000 (13512, 9506, testo coordinato): in
+  quei tre il livello "N.M" (24-37 titoli) serve per stare sotto un
+  tetto. Testo fuori da ogni unità: dallo 0,4% al 18% (indice e
+  premesse). Script e uscite in `dati-grezzi/prova/inventario/`
+  (`struttura.py`, `struttura_uscita_2026-11-25.txt`).
+- (25/11/2026) Passo successivo già previsto, invariato: la prova di un
+  lettore che riconosce le tabelle sui 25 PDF (punto del 24/11 qui
+  sopra). Indizio economico, non una misura: pypdf in modalità layout,
+  pagina con almeno 3 righe con due salti di 5 o più spazi. 334 pagine su
+  633; tolte le 236 dell'elenco dei codici, 98 su 397. L'indizio è
+  rozzo: l'avviso di Sport Missione Comune ne ha 16 su 17, quello di
+  Cultura, con la stessa struttura, 3 su 18.
 
 ## Bandi a più finestre: la prossima finestra aperta (24/11/2026)
 
@@ -3658,6 +3697,16 @@ domande vere", in "Sospensioni e chiusure anticipate (24/11/2026)").
 4. "sospeso" accanto ai bandi citati;
 5. poi la ventina di risposte vere, il controllo del passo 20,
    l'incrocio delle ricerche.
+
+(25/11/2026) Ordine aggiornato, prima della chiamata:
+1. citazioni ripetute (fatto);
+2. verificatore (fatto);
+3. inventario delle scritture ("Inventario delle scritture
+   (25/11/2026)": misura fatta, correzioni da decidere);
+4. errore tecnico mostrato all'utente;
+5. "sospeso" accanto ai bandi citati;
+6. poi le risposte vere, il controllo del passo 20, l'incrocio delle
+   ricerche.
 
 Dopo la chiamata, in aggiunta all'elenco qui sotto: date in formato
 italiano e urgenza delle scadenze vicine.
@@ -4063,6 +4112,131 @@ sbagliato: il controllo di presenza non lo può vedere.
   sospensione si sono misurate solo ricostruendo le fonti dal database.
   "Punto 7" e gli altri casi strutturali (il numero di una sezione nel
   titolo del pezzo) rimandati al taglio a livelli.
+- (25/11/2026) Limite noto: più un numero è corto, meno vale averlo
+  trovato nella fonte. Casi visti: il 57 trovato in un'altra riga; il 56
+  trovato in "fra 56 giorni", lo stato del bando calcolato dal codice,
+  che fa parte del testo di confronto di ogni frammento. Misura sulle 226
+  risposte ("Inventario delle scritture (25/11/2026)", parte F): 147
+  numeri di una o due cifre con esito presente (86 quantità, 57
+  percentuali, 4 importi); 134 hanno nella fonte la stessa parola vicina
+  (l'unità dopo o la parola prima); i 13 senza, letti a mano, non sono
+  coincidenze (3 righe di tabella, 4 altre scritture come "quaranta
+  anni" o "€. 34,00", 2 "/00" di "cinquemilioni/00" letti come il numero
+  0, 3 numeri d'atto o di titolo presenti davvero, 1 "under 35"). In
+  media il 4% dei numeri da 10 a 99 compare nella fonte citata (mediana
+  1%, massimo 23%): è la probabilità che un numero di due cifre sbagliato
+  passi lo stesso. Le quantità di una cifra la risposta non le controlla.
+  Una coincidenza vera non si può escludere da qui: la stima vale per un
+  errore a caso, non per un errore vicino al valore giusto.
+- (25/11/2026) Ritocchi al pannello della verifica, da fare con il
+  prossimo compito sull'app: le date di un intervallo rosso non compaiono
+  tra i dati presenti; messaggio arancione al singolare e al plurale;
+  etichette dei tipi in parole per l'utente.
+
+## Inventario delle scritture (25/11/2026)
+
+Nasce dai casi del 25/11/2026 ("Verificatore per categoria"): scritture
+che il verificatore non riconosceva ("primo gennaio 2021", "alle 16,00",
+un codice ATECO letto come due numeri, "del 12 marzo 2025, n. 10").
+Invece di aspettare la prossima, si è guardato come sono scritte le cose
+in tutto il materiale salvato. Solo misura: il codice non cambia.
+
+- (25/11/2026) Materiale, senza modello, senza rete, senza Postgres, il
+  Chroma solo in copia: 163 pagine delle scansioni (1.011.364 caratteri;
+  7 pagine salvate due volte contate una); 25 PDF del registro, letti con
+  pypdf e puliti come al caricamento (2.184.183 caratteri, di cui
+  1.097.982 dell'elenco dei codici ATECO); 7 testi copiati a mano,
+  domande frequenti comprese (67.446); 1.322 righe delle colonne di testo
+  dei CSV di `data/processed` (444.035). Esclusi: gli elenchi delle
+  scansioni, i testi delle ricognizioni, le 13 pagine dei bandi salvate
+  con i PDF, la copia `.bak` e `scansione.log`.
+- (25/11/2026) Ogni forma è letta da due lati, sul solo testo della
+  forma: come la fonte (`valori`, `date_degli_atti`, `intervalli`) e come
+  la risposta (`trova_dati`). "Non riconosciuta": letta male, a metà o per
+  niente in almeno metà delle occorrenze, da almeno uno dei due lati.
+
+| Parte | Forme trovate | Non riconosciute | Occorrenze toccate |
+| --- | --- | --- | --- |
+| A. Date, orari, importi, percentuali | 38 | 7 | 187 su 6.730 |
+| B. Intervalli di date | 110 intervalli | 4 scritture | 41 intervalli su 110 |
+| C. Codici | 16 | 4 | 3.472 su 12.702 (3.455 nell'elenco ATECO) |
+| D. Riferimenti normativi | 36 | 11 | 1.057 su 4.894 |
+| E. Titoli nei 25 PDF | 6 schemi | 4 PDF non affidabili | 16 PDF affidabili, 5 non servono |
+| F. Soglie | 592 numeri dopo un confronto | solo conteggio | 147 numeri corti, 0 coincidenze |
+
+- (25/11/2026) A. Riconosciute tutte le forme frequenti: date in cifre,
+  in lettere, con "1°" e "primo", ISO; orari con "ore" e con "alle";
+  importi con € o "euro" prima o dopo, "mila", "milioni", "€."; per
+  cento. Non riconosciute: numeri in lettere davanti a una parola che
+  il codice non conosce come unità (143: "due tranche", "tre linee");
+  orari con i secondi (16: "ore 23:59:59" letto 23:59 più il numero 59,
+  "23.59.59" letto come un codice); date spezzate dall'estrazione del PDF
+  (23: "06-⏎02-1996", "21 maggio 202 7"); periodi con il secondo anno a
+  due cifre (3: "a.s. 2025-26"); mese abbreviato (1: "10 SET 2026"); anno
+  a due cifre (1). Mai trovate: "h 12" (le 5 "h" sono "Allegato 1H" e
+  "48 h" di validità), "EUR", migliaia con spazio o apostrofo, k€ e M€,
+  giorno in lettere. "21/27" e "LR 32/02" letti come letterali, come
+  previsto.
+- (25/11/2026) B. Su 4.314 date, l'espressione davanti dice il ruolo con
+  certezza solo con l'orario: "fino alle ore … del" (20 su 20 scadenza
+  della domanda), "a partire dalle ore … del" (12 su 12 apertura),
+  "entro e non oltre le ore … del" (14 su 16 scadenza), "dalle ore …
+  del" (11 su 12 apertura); e "del" dopo un numero d'atto (20 su 20).
+  Senza orario no: "entro il" 8 su 20 scadenza della domanda (gli altri:
+  stipula del mutuo, liquidazione, progetto definitivo, registrazione a
+  un evento); "dal" 7 su 20 apertura; "a partire dal" 12 su 20 (gli altri
+  requisiti ed eventi: "licenziamento a partire dal", "verificatisi a
+  partire dal"); "a decorrere dal" 1 su 8; "tra il" quasi sempre il
+  periodo di un evento (8 su 12, predazioni). Campioni letti a mano in
+  `campioni_parte_b.txt`. Scadenze relative ("entro 30 giorni dalla
+  pubblicazione"): 165, in 41 bandi; 7 di questi senza una data preceduta
+  da una parola di scadenza (3 sono gruppi di PDF il cui termine può stare
+  solo sulla pagina del bando, da controllare). Nell'archivio 11 bandi su
+  116 senza scadenza in data, tutti a sportello. Intervalli: 41 su 110
+  non letti come coppia da `intervalli`: primo estremo senza anno (20,
+  "dal 1 febbraio al 31 maggio 2025"), inciso tra parentesi tra le due
+  date (8, "dal 7 novembre (giorno successivo alla pubblicazione…) fino
+  al"), secondo estremo dopo "ed entro il" (5), trattino tra due date
+  (3), altro (5). Restano senza il controllo della coppia, non danno
+  falsi allarmi.
+- (25/11/2026) C. ATECO a tre livelli (9.183, quasi tutti nell'elenco) e
+  con la lettera di sezione ("I 55.1") letti come un codice; a due
+  livelli senza la parola "ATECO" letti come un decimale (3.455
+  nell'elenco, 12 fuori); "sezione B" e "codici 38, 39, 41" (divisioni a
+  due cifre in un elenco) non letti come codici. "ATECO 56" senza punto:
+  mai nel materiale. CUP con la forma piena: 1. NACE solo come parola (8),
+  CPV, CIG e codice ISTAT mai. Codici degli interventi ("SRA29",
+  "SRD01"): 81, la fonte ne legge il numero (29), la risposta no.
+  Identificativi che possono essere di persone, non riportati: nessun
+  codice fiscale alfanumerico; 7 numeri di 11 cifre (partita Iva o codice
+  fiscale di un ente) in 5 documenti, 2 PDF e 3 testi copiati a mano.
+- (25/11/2026) D. Riconosciuti: "art. N", "articolo N", "art. N, comma
+  M", "L.R. N/aaaa", "DGR N/aaaa", "D.Lgs. N/aaaa", "Reg. (UE) n.
+  651/2014", e gli atti "n. N del data" (fonte 349 su 349). Non
+  riconosciuti: atto con la data prima del numero (594: "legge 7 agosto
+  1990, n. 241", "D.Lgs. 6 settembre 2011, n. 159", "del 12 marzo 2025, n.
+  10"), letto come una data più un numero da entrambi i lati; "n. N del
+  data" senza il nome dell'atto (120) e "BURT n. N del data" (58), atti
+  per la fonte, data più numero per la risposta; nel lato della risposta
+  anche qualifiche che `SCHEMA_ATTO_TESTO` non conosce ("DELIBERA G.R. n.
+  990 del …", "delibera giunta regionale 409 del …", "decreto Arti 1189
+  del …", "decreto legislativo 385 del …", "n. n."): 158 occorrenze in
+  forme altrimenti riconosciute; "punto 6.1" e "paragrafo 2.1" (168)
+  letti "punto 6" e "par 2", il sottopunto si perde; "artt. 46 e 47" (74)
+  letti come numeri; "Reg. (UE) 2016/679" con il numero sotto le 4 cifre
+  (77) letto come due numeri; "n. 61/R" (30) letto come il numero 61.
+  "Allegato A" (1.558), "lettera f)" (77), "comma 2" da solo (61): non
+  sono valori, il codice non li legge.
+- (25/11/2026) F. Numeri dopo un confronto ("almeno", "fino a",
+  "massimo di", "inferiore a", "under", "over"…): 592 in 182 documenti.
+  A che cosa: euro 25%, termini in giorni, mesi o anni 24%, età 13%,
+  percentuali 9%, punti 4%, abitanti 3%, persone o progetti 3%, superfici
+  2%, dipendenti 1%, altro 16%. Numeri corti: vedi "Limite noto" in
+  "Verificatore per categoria (25/11/2026)".
+- (25/11/2026) Script, uscite e occorrenze fuori dal repository, in
+  `dati-grezzi/prova/inventario/` (`materiale.py`, `inventario.py`,
+  `struttura.py`, `numeri_corti.py`, `inventario_uscita_completa_2026-11-25.txt`,
+  `forme.json`, `occorrenze/`).
 
 ## Parcheggio
 
