@@ -85,6 +85,8 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
   l'approvazione esplicita (vedi "Mai").
 - Prima di approvare un file prodotto (rapporto, CSV, foglio), se ne
   leggono alcune righe vere, non solo il riepilogo o il conteggio.
+- Nei file del repository i percorsi verso dati-grezzi si scrivono relativi
+  (`..\dati-grezzi\...`), mai assoluti.
 
 ## Documenti
 
@@ -129,6 +131,9 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
   ogni caso si annota nel registro delle richieste. Un rifiuto tecnico
   del sito è un limite: non si aggira, si riporta. Dove non c'è un
   limite esplicito, le pagine pubbliche si leggono, con poche richieste.
+- I contesti per frammento scritti da un modello servono solo a cercare: non
+  si citano, non si mostrano e non arrivano al verificatore, che lavora sul
+  testo pulito del frammento.
 
 ## Mai
 
@@ -139,7 +144,12 @@ bandi e scansioni siano esportati nei CSV (`aggiorna_csv` in `schema.py`).
   19e. Il 19d è chiuso sotto soglia (23/11/2026): gli avvisi vanno online
   solo insieme al filtro per bando e al "non lo trovo", dopo la rimisura
   su Postgres prevista nel 19e e con il via esplicito di chi mantiene il
-  progetto. Fino ad allora stanno solo nel Chroma locale.
+  progetto. Fino ad allora stanno solo nel Chroma locale. Con il motore in
+  memoria (un solo motore, due archivi: `docs/piano-19e.md`, "Decisioni del
+  25/11/2026") la rimisura è l'identità degli ordini: l'app online deve dare,
+  sulle serie del 19d, gli stessi primi 10 frammenti nello stesso ordine
+  dell'app in locale. Se cambia il motore (taglio a livelli, ricerca fatta da
+  Postgres), serve una rimisura nuova con una regola scritta prima.
 - Modificare i CSV in `data/processed/` a mano senza dirlo: sono dati
   verificati.
 - Leggere domande, rapporti o giudizi di un lotto dell'insieme di prova non
