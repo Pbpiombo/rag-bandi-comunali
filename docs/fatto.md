@@ -953,3 +953,44 @@ voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
   stesso valore attribuito alla fonte resta rosso. 226 risposte salvate:
   nessun cambiamento. 6 test nuovi in `tests/test_verifica_ruoli.py`,
   con la riga vera del bando Pmi fino a 50 mila euro.
+- (25/11/2026) Tappa 6a del piano del 19e (`docs/piano-19e.md`): in
+  `dettaglio_bando`, quando i bandi trovati (per titolo o nel testo)
+  sono tutti scaduti, si cercano anche i candidati del testo unito tra i
+  non scaduti; gli scaduti restano mostrati come scaduti, i candidati si
+  aggiungono in un blocco a parte, numerati di seguito e mai scelti
+  (`_con_candidati_aperti`). Senza candidati il risultato non cambia.
+  Interruttore `RIPIEGO_ANCHE_CON_SCADUTI` in `src/config.py`, lasciato
+  acceso. Caso "solo scaduti" elencato prima della modifica: 62 dei 116
+  titoli, 4 dei 12 parametri salvati ("neve" tre volte, "bando neve"),
+  1 delle 36 parole ("fotovoltaico"), 2 delle 40 parole distinte della
+  strada C ("fotovoltaico", "caldaia"); in nessuno il ripiego trova un
+  candidato non scaduto. Misura prima e dopo: 116, 12, 36 e 40 su 40
+  identici; per "caldaia" lo scaduto del 2021 resta solo, mostrato come
+  scaduto. 4 test nuovi in `tests/test_interrogazioni_bandi.py`; quello
+  sul blocco dei candidati fallisce senza la modifica, gli altri tre
+  sono guardie (interruttore spento, nessun candidato, un trovato non
+  scaduto). Script e uscite in `../dati-grezzi/prova/tappa-6a/`.
+
+## Spostato dalla roadmap il 25 novembre 2026
+
+Testo tolto da `docs/roadmap.md` il 25/11/2026, parola per parola,
+quando l'ordine è stato sostituito da quello di `docs/piano-19e.md`; i
+rimandi interni sono quelli della roadmap.
+
+**(era la riga "Ordine di esecuzione" della roadmap, sezione "Ordine dei
+passi"; fonte: `git show HEAD:docs/roadmap.md`)**
+
+I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
+1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
+A, attese con polarità); 19 (19a, 19b, 19c fatti; 19d chiuso il
+23/11/2026, sotto soglia, `docs/coda.md`, "Passo 19d", punto 13, voci
+19-21; poi 19e e 22, in un ordine che si decide ora); tra le prime cose a
+19d chiuso, la scansione regolare delle fonti, fatta una sola volta il
+13/11/2026, prima della videochiamata di dicembre (`coda.md`, "Disegno
+dell'app (22/11/2026)", aggiunte del 23/11); 20 (prima
+della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
+baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
+Il passo 23 (copertura dell'archivio) si fa dopo il 19d.
+Il passo 21 si fa prima di dare il link della demo a chiunque oltre al
+consulente pilota, in qualunque punto della sequenza. Perché la nuova
+baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).

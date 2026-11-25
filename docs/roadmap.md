@@ -2,7 +2,7 @@
 
 I documenti scritti prima del 18/11/2026 citano sezioni di questa roadmap che oggi stanno in docs/coda.md con il loro numero originale (Difetti del 14/11, Dopo la demo, Prossimi passi, In coda, priorità del consulente pilota, indicazioni del revisore tecnico) e in docs/fatto.md.
 
-Stato al 23 novembre 2026. Da aggiornare alla fine di ogni passo.
+Stato al 25 novembre 2026. Da aggiornare alla fine di ogni passo.
 
 Qui stanno solo stato, principi, ordine dei passi e decisioni prese. Il
 lavoro chiuso è in `docs/fatto.md`; le voci in attesa, con il loro numero
@@ -15,6 +15,13 @@ originale, in `docs/coda.md`.
   avvisi; gli avvisi vanno in produzione solo con il filtro per bando e
   con il "non lo trovo"; il numero da citare è 77 su 98 (78,6%), B, k=10,
   metà di controllo.
+- **Il 19e è in corso dal 25/11/2026**, secondo `docs/piano-19e.md`,
+  intero e senza perimetro ridotto (decisioni del 25/11/2026 nel piano).
+  Fatta la tappa 6a. Obiettivo: un'app che il consulente pilota possa
+  provare tra gennaio e febbraio 2027, con buone fonti e buona qualità di
+  risposta. La chiamata della prima settimana di dicembre serve a
+  raccogliere informazioni (cosa chiede, da quali fonti), non a mostrare
+  una demo finita.
 - Baseline: la regressione finale del 16/11/2026 (commit `715b411`), 55
   domande in 4 lotti. La baseline del 16/11/2026 non corrisponde più
   all'archivio dopo il passo 2a (18/11/2026). Resta l'unico riferimento
@@ -60,20 +67,20 @@ tecnico (18/11/2026)".
 
 ## Ordine dei passi
 
-I numeri dei passi non cambiano. **Ordine di esecuzione:** 0 (fatto);
-1 (etichette, fatto); 2a (fatto); 17 (fatto); 1 (resto: "chi atteso", domande
-A, attese con polarità); 19 (19a, 19b, 19c fatti; 19d chiuso il
-23/11/2026, sotto soglia, `docs/coda.md`, "Passo 19d", punto 13, voci
-19-21; poi 19e e 22, in un ordine che si decide ora); tra le prime cose a
-19d chiuso, la scansione regolare delle fonti, fatta una sola volta il
-13/11/2026, prima della videochiamata di dicembre (`coda.md`, "Disegno
-dell'app (22/11/2026)", aggiunte del 23/11); 20 (prima
-della videochiamata della prima settimana di dicembre); 2b; 4; 3; nuova
-baseline; 5; 18; 8; 9; poi le fonti (C) in sequenza, non in parallelo.
-Il passo 23 (copertura dell'archivio) si fa dopo il 19d.
-Il passo 21 si fa prima di dare il link della demo a chiunque oltre al
-consulente pilota, in qualunque punto della sequenza. Perché la nuova
-baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
+I numeri dei passi non cambiano. **Ordine di esecuzione** (25/11/2026; il
+precedente, del 23/11, è in `docs/fatto.md`, "Spostato dalla roadmap il
+25 novembre 2026"): 0, 1 (etichette), 2a, 17, 19a-19d (fatti); resto del
+19e secondo `docs/piano-19e.md` (tappa 6a, fatta il 25/11; prova di
+memoria su Streamlit e torch solo per processore; rilascio 2 in cinque
+fermate; tappe 6b e 7); 20; 25 (insieme di domande nuovo); 24 (taglio a
+livelli); le altre fonti (C, in sequenza, non in parallelo, con la
+scansione regolare e il passo 23); 22; 21. Il passo 21 si fa comunque
+prima di dare il link della demo a chiunque oltre al consulente pilota.
+Restano da collocare, nell'ordine relativo di prima: 1 (resto: "chi
+atteso", domande A, attese con polarità), 2b, 4, 3, nuova baseline, 5,
+18, 8, 9; la loro posizione si decide dopo la chiamata con il consulente
+pilota. Perché la nuova baseline viene dopo il passo 19: "Decisioni
+prese" (19/11/2026).
 
 ### A. Misure e dati, senza modello salvo dove indicato
 
@@ -141,6 +148,21 @@ Passi nuovi della sezione A:
     4. scelta guidata;
     5. domande semplici scritte al caricamento.
     Dettaglio e altre voci del 19e in `coda.md`, "Passo 19d", punto 7.
+    (25/11/2026) Resto del 19e: piano a tappe e decisioni in
+    `docs/piano-19e.md`. I rimedi 2, 3, 4 e 5 vengono dopo le tappe del
+    piano.
+24. **Taglio dei documenti a livelli** (nuovo, 25/11/2026): taglio
+    secondo la struttura del bando (articolo, comma, tabella), un solo
+    indice da cui si ricavano il pezzo per la ricerca, il genitore per il
+    contesto e il titolo per la verifica. Sostituisce i frammenti vicini
+    e richiede di rigenerare i contesti. Dopo il 19e e il passo 25.
+    Dettaglio in `coda.md`, "Taglio dei documenti secondo la struttura
+    del bando (22/11/2026)".
+25. **Insieme di domande nuovo** (nuovo, 25/11/2026): domande scritte da
+    persone, con la risposta attesa, per misurare le sostituzioni delle
+    soluzioni provvisorie del 19e e le strade per le parole comuni. Voci
+    vicine: il passo 5 e la nuova baseline. Motivo in `coda.md`, "Ricerca
+    per nome e parole comuni (25/11/2026)", collo di bottiglia.
 
 ### B. Correzioni del flusso, con il modello
 
@@ -234,6 +256,8 @@ Ordine previsto: PDF, valutazione, fascicolo.
     segnalazioni stanno nel database, mai in un file del repository, con
     l'avviso a non scrivere dati personali. Dettaglio in `coda.md`,
     "Disegno dell'app (22/11/2026)".
+    (25/11/2026) Viene dopo il 19e, non più prima della videochiamata:
+    la chiamata serve a raccogliere informazioni.
 21. **Limite di 3 domande per sessione e tetto giornaliero
     complessivo** (`coda.md`, "Sezione riservata", parte sul limite).
     Prima di dare il link della demo a chiunque oltre al consulente
@@ -315,3 +339,12 @@ Ordine previsto: PDF, valutazione, fascicolo.
   attuale, in tre passi; la seconda è l'area privata, scritta come
   direzione e non come passi numerati. Dettaglio in `coda.md`, "Disegno
   dell'app (22/11/2026)", aggiunte del 23/11.
+- **19e intero, senza scadenza** (25/11/2026): la chiamata di dicembre
+  raccoglie informazioni; l'app da far provare al consulente pilota è
+  per gennaio-febbraio 2027. Motore online: un solo motore, due archivi
+  (Postgres come archivio, ricerca in memoria con lo stesso codice del
+  locale), provvisorio fino al taglio a livelli o a qualche migliaio di
+  frammenti. Contesti scritti dal modello su Postgres, solo per cercare.
+  Filtro solo con un bando trovato per nome. Nessun avviso e nessun
+  contesto nuovo prima del taglio a livelli. Elenco completo in
+  `docs/piano-19e.md`, "Decisioni del 25/11/2026".

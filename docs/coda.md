@@ -3713,6 +3713,14 @@ domande vere", in "Sospensioni e chiusure anticipate (24/11/2026)").
 (25/11/2026) Restano, prima della chiamata: la ventina di risposte vere,
 il controllo del passo 20, l'incrocio delle ricerche.
 
+(25/11/2026) Superati, per decisione di chi mantiene il progetto: gli
+ordini "prima della chiamata" qui sopra e il perimetro ridotto di
+`docs/piano-19e.md` (sezione 4, domanda 7). La chiamata serve a
+raccogliere informazioni, non a mostrare una demo finita; il 19e si fa
+intero, senza scadenza, poi il passo 20 e il resto dell'ordine della
+roadmap. Ordine e decisioni in `docs/piano-19e.md`, "Decisioni del
+25/11/2026".
+
 Dopo la chiamata, in aggiunta all'elenco qui sotto: date in formato
 italiano e urgenza delle scadenze vicine.
 
@@ -4501,6 +4509,67 @@ Misure senza modello; script e uscite in
   ammissibili".
 - (25/11/2026) Ordine prima della chiamata, aggiornato: parole comuni
   per trovare un bando, poi il passo 20, poi l'incrocio delle ricerche.
+- (25/11/2026) Ordine aggiornato, supera la riga "Ordine prima della
+  chiamata, aggiornato" qui sopra. La strada C dipende dagli avvisi
+  online (le parole delle arnie stanno negli allegati A1 e A5, che oggi
+  sono solo nel Chroma locale), quindi confluisce nel resto del 19e.
+  Ordine: resto del 19e, poi il passo 20, poi l'incrocio delle ricerche.
+  Se alla chiamata il 19e non è finito, il caso delle arnie si mostra
+  come limite dichiarato, con la causa misurata: le parole ci sono negli
+  allegati del bando, che non sono ancora nell'app online. Piano in
+  `docs/piano-19e.md`.
+- (25/11/2026) Decisione sulla strada C: al posto della tabella
+  `parole_bando` fatta in casa, ricerca lessicale con uno stemmer
+  italiano raggruppata per bando (testo pieno di Postgres con
+  configurazione italiana, o il BM25 che il recupero ibrido usa già sui
+  frammenti). Motivi: plurali e derivati gestiti bene; ordina i
+  candidati invece di tagliarli; cresce con l'archivio. La tabella
+  `parole_bando` (voce "Strada C nell'app online" qui sopra) resta
+  descritta come alternativa scartata. Come si fa, con i limiti
+  trovati leggendo registro e codice: `docs/piano-19e.md`, tappa 6b.
+- (25/11/2026) Nota di metodo sulla misura della strada C: la soglia
+  "almeno 2 occorrenze nel bando" è stata scelta dopo aver visto i
+  risultati sulle stesse parole, quindi l'esito (10 coppie, 8
+  pertinenti, nella voce "Strada C, misura senza modello" qui sopra)
+  vale come indicazione e non come misura. Un motivo in più per
+  ordinare i candidati e non tagliarli.
+- (25/11/2026) Decisione su "caldaia": quando la ricerca nel testo trova
+  solo bandi scaduti, il ripiego tra i non scaduti deve entrare lo
+  stesso. Si fa dentro il 19e, con misura sui tre insiemi (le 36 parole
+  comuni, i 116 titoli usati come testo cercato, i 12 parametri salvati
+  di `dettaglio_bando`).
+- (25/11/2026) La strada A scende di priorità: i codici ATECO sono nei
+  dati strutturati di 2 bandi aperti su 51.
+- (25/11/2026) Strada B: lo script `genera_parole.py` resta fuori dal
+  repository e non si lancia finché le strade C e A non sono misurate;
+  il modello e l'opzione di ripiego su un altro modello sono da
+  verificare prima.
+- (25/11/2026) In coda, dopo la chiamata: prova di DSPy su un solo pezzo
+  (la scelta del router o l'estrazione dei requisiti dalla domanda), in
+  una cartella a parte, con misura prima e dopo e un insieme di prova
+  separato. Non sulla catena principale finché non c'è il nuovo insieme
+  di domande con la risposta attesa.
+- (25/11/2026) Tappa 6a fatta (vedi `fatto.md`): ripiego tra i non
+  scaduti anche quando i bandi trovati sono tutti scaduti, interruttore
+  `RIPIEGO_ANCHE_CON_SCADUTI` acceso. Sui dati di oggi non cambia
+  nessuna risposta: nei 69 casi "solo scaduti" dei quattro insiemi
+  nessun bando non scaduto ha tutte le parole cercate. Serve quando ne
+  arriverà uno (per esempio la nuova edizione di un bando neve).
+- (25/11/2026) Correzione di un dato della voce "Strada C, misura senza
+  modello" qui sopra: le "46 parole" sono 40 distinte, perché 6 delle
+  10 aggiunte (arnie, miele, alveari, telecamere, videosorveglianza,
+  pulmino) erano già tra le 36 (letto da `strada_c.py`, che toglie i
+  doppioni).
+- (25/11/2026) Scoperta sulla "caldaia": la parola non compare
+  nell'«Avviso fondo di garanzia energie rinnovabili». `dettaglio_bando`
+  lo trova perché "caldaia" e "calda" (in "acqua calda sanitaria", negli
+  interventi) hanno le stesse 5 lettere iniziali e lunghezze entro 2
+  lettere: è lo stesso limite noto di "prestito" e "prestatori". La
+  frase "oggi `dettaglio_bando` la trova già, nel testo dei beneficiari"
+  della voce sulla strada C va letta così: un falso risultato, negli
+  interventi. Da tenere presente nella 6b: uno stemmer dovrebbe
+  separare "caldaia" da "calda" (da verificare con lo stemmer scelto);
+  la regola delle 5 lettere no.
 
 ## Parcheggio
 
