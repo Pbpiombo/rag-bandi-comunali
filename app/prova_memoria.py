@@ -118,13 +118,50 @@ def _memoria_windows() -> tuple[int, int]:
     return int(contatori.WorkingSetSize), int(contatori.PeakWorkingSetSize)
 
 
+def parti_del_contenitore(testo_stat: str, usata: int) -> dict:
+    """Le parti della memoria del contenitore, da memory.stat, in MB.
+
+    La memoria del contenitore (memory.current) conta anche la cache dei
+    file letti e scritti, per esempio i pacchetti appena installati: il
+    sistema la libera quando serve, quindi da sola non dice quanto spazio
+    resta. Qui si separa:
+    - anon: memoria dei processi non legata a file (non si libera senza
+      chiudere i processi);
+    - file: la cache dei file (in gran parte si libera);
+    - senza cache inattiva: memory.current meno inactive_file, la misura
+      che usano anche i sistemi di orchestrazione per decidere quando un
+      contenitore è troppo pieno.
+    Chiavi del cgroup v2 (anon, file, inactive_file) o, in mancanza, del v1
+    (total_rss, total_cache, total_inactive_file).
+    """
+    voci = {}
+    for riga in testo_stat.splitlines():
+        nome, _, numero = riga.partition(" ")
+        if numero.strip().isdigit():
+            voci[nome] = int(numero)
+    anon = voci.get("anon", voci.get("total_rss"))
+    cache = voci.get("file", voci.get("total_cache"))
+    inattiva = voci.get("inactive_file", voci.get("total_inactive_file"))
+    parti = {}
+    if anon is not None:
+        parti["contenitore anon"] = anon / MB
+    if cache is not None:
+        parti["contenitore file (cache)"] = cache / MB
+    if inattiva is not None:
+        parti["contenitore senza cache inattiva"] = max(usata - inattiva, 0) / MB
+    return parti
+
+
 def memoria() -> dict:
     """Memoria del processo e, se leggibile, del contenitore, in MB.
 
     processo: VmRSS di /proc/self/status (working set su Windows).
     massimo: VmHWM di /proc/self/status (picco del working set su Windows).
-    contenitore: memoria del cgroup (tutti i processi del contenitore),
-    con il limite, se il sistema li espone.
+    processo anon e processo file: RssAnon e RssFile, le due parti di VmRSS
+    (la seconda sono i file mappati, per esempio le librerie di torch).
+    contenitore: memoria del cgroup (tutti i processi del contenitore, più
+    la cache dei file), con il limite e le parti di memory.stat
+    (parti_del_contenitore), se il sistema li espone.
     """
     if sys.platform == "win32":
         attuale, massimo = _memoria_windows()
@@ -133,7 +170,7 @@ def memoria() -> dict:
     try:
         for riga in Path("/proc/self/status").read_text().splitlines():
             nome, _, resto = riga.partition(":")
-            if nome in ("VmRSS", "VmHWM"):
+            if nome in ("VmRSS", "VmHWM", "RssAnon", "RssFile"):
                 valori[nome] = int(resto.split()[0]) * 1024
     except OSError:
         pass
@@ -145,12 +182,21 @@ def memoria() -> dict:
         "processo": valori.get("VmRSS", 0) / MB,
         "massimo": valori["VmHWM"] / MB,
     }
+    if "RssAnon" in valori:
+        risultato["processo anon"] = valori["RssAnon"] / MB
+    if "RssFile" in valori:
+        risultato["processo file"] = valori["RssFile"] / MB
     # cgroup v2, poi v1
-    for usata, limite in (
-        ("/sys/fs/cgroup/memory.current", "/sys/fs/cgroup/memory.max"),
+    for usata, limite, stat in (
+        (
+            "/sys/fs/cgroup/memory.current",
+            "/sys/fs/cgroup/memory.max",
+            "/sys/fs/cgroup/memory.stat",
+        ),
         (
             "/sys/fs/cgroup/memory/memory.usage_in_bytes",
             "/sys/fs/cgroup/memory/memory.limit_in_bytes",
+            "/sys/fs/cgroup/memory/memory.stat",
         ),
     ):
         valore = _leggi_intero(usata)
@@ -159,6 +205,10 @@ def memoria() -> dict:
             tetto = _leggi_intero(limite)
             if tetto is not None and tetto < 2**60:
                 risultato["limite contenitore"] = tetto / MB
+            try:
+                risultato.update(parti_del_contenitore(Path(stat).read_text(), valore))
+            except OSError:
+                pass
             break
     return risultato
 
@@ -316,12 +366,22 @@ def leggi_da_postgres(url: str) -> dict:
     }
 
 
-def leggi_da_chroma(cartella: str) -> dict:
-    """Frammenti dalla copia del Chroma, senza gli avvisi (metadato id_bando).
+def e_frammento_di_avviso(meta: dict | None) -> bool:
+    """Vero per un frammento di un avviso caricato da carica_avvisi.
 
-    Senza gli avvisi l'insieme somiglia a quello della tabella online. I byte
-    sono una stima: testo in UTF-8, metadati in JSON, vettori a 4 byte per
-    numero.
+    Il segno è il metadato sha256 (l'impronta del PDF), che solo gli avvisi
+    hanno. Non basta id_bando: ingest_tutti lo dà anche a un documento di
+    sempre ("mercati-rionali-2026", 117 frammenti), che sta anche online.
+    """
+    return bool((meta or {}).get("sha256"))
+
+
+def leggi_da_chroma(cartella: str) -> dict:
+    """Frammenti dalla copia del Chroma, senza gli avvisi (e_frammento_di_avviso).
+
+    Senza gli avvisi l'insieme è quello della tabella online (i documenti di
+    sempre). I byte sono una stima: testo in UTF-8, metadati in JSON,
+    vettori a 4 byte per numero.
     """
     import chromadb
 
@@ -331,9 +391,7 @@ def leggi_da_chroma(cartella: str) -> dict:
     dati = collezione.get(include=["documents", "metadatas", "embeddings"])
     tempo = time.perf_counter() - inizio
     tenuti = [
-        i
-        for i, meta in enumerate(dati["metadatas"])
-        if not (meta or {}).get("id_bando")
+        i for i, meta in enumerate(dati["metadatas"]) if not e_frammento_di_avviso(meta)
     ]
     ids = [dati["ids"][i] for i in tenuti]
     testi = [dati["documents"][i] for i in tenuti]
@@ -607,6 +665,14 @@ def riepilogo(stato: dict, esiti: list[dict]) -> str:
     if len(esiti) == len(PASSI):
         righe += ["", "Regola scritta prima (docs/prova-memoria.md, sezione 2):"]
         righe += esito_regola(esiti)
+        righe += [
+            "",
+            (
+                "Criterio per il quarto caso, scritto dopo la versione 1"
+                " (docs/prova-memoria.md, sezione 11; non sostituisce la regola):"
+            ),
+        ]
+        righe += esito_criterio(esiti)
     return "\n".join(righe)
 
 
@@ -644,6 +710,66 @@ def esito_regola(esiti: list[dict]) -> list[str]:
         tutte = tutte and passa
         righe.append(
             f"  {nome}: {valore:.{cifre}f} {unita}, soglia {soglia} {unita},"
+            f" {'passa' if passa else 'non passa'}"
+        )
+    righe.append(f"  esito: {'passa' if tutte else 'non passa'}")
+    return righe
+
+
+# Criterio per il quarto caso della sezione 2 (la regola non passa ma l'app
+# regge), deciso da chi mantiene il progetto dopo aver visto la versione 1 e
+# prima della versione 2: docs/prova-memoria.md, sezione 11. 2048 MB sono
+# due terzi dei 3072 MB letti dal contenitore nella versione 1; la soglia è
+# fissa, anche se il limite letto cambia.
+SOGLIA_CRITERIO_MB = 2048
+
+
+def esito_criterio(esiti: list[dict]) -> list[str]:
+    """Il criterio scritto dopo la versione 1, separato dalla regola.
+
+    Tre condizioni: massimo dall'avvio dopo il passo 7 sotto 2048 MB, i 7
+    passi fatti senza riavvio, mediana del riordino sotto 10 s. Un riavvio
+    dell'app azzera la pagina: se il riepilogo ha 7 passi, durante questa
+    misura l'app non si è riavviata. Un riavvio prima di questa misura non
+    si vede qui e va annotato a mano.
+    """
+    memoria_finale = esiti[-1]["memoria"]
+    limite = memoria_finale.get("limite contenitore")
+    righe = [
+        "  limite letto dal contenitore: "
+        + (f"{limite:.1f} MB" if limite else "non leggibile")
+        + (
+            f" (diverso dai 3072 della versione 1: la soglia resta"
+            f" {SOGLIA_CRITERIO_MB} MB)"
+            if limite and round(limite) != 3072
+            else ""
+        )
+    ]
+    massimo = memoria_finale.get("massimo")
+    mediana = esiti[5].get("riordino mediana")
+    tutte = True
+    if massimo is None or massimo <= 0:
+        tutte = False
+        righe.append(
+            "  massimo dall'avvio, dopo il passo 7: non leggibile"
+            f" (soglia {SOGLIA_CRITERIO_MB} MB)"
+        )
+    else:
+        passa = massimo < SOGLIA_CRITERIO_MB
+        tutte = passa
+        righe.append(
+            f"  massimo dall'avvio, dopo il passo 7: {massimo:.1f} MB,"
+            f" soglia {SOGLIA_CRITERIO_MB} MB, {'passa' if passa else 'non passa'}"
+        )
+    righe.append("  7 passi nella stessa sessione, senza riavvio durante la misura: sì")
+    if mediana is None or mediana <= 0:
+        tutte = False
+        righe.append("  mediana del riordino (passo 6): non leggibile (soglia 10 s)")
+    else:
+        passa = mediana < 10
+        tutte = tutte and passa
+        righe.append(
+            f"  mediana del riordino (passo 6): {mediana:.3f} s, soglia 10 s,"
             f" {'passa' if passa else 'non passa'}"
         )
     righe.append(f"  esito: {'passa' if tutte else 'non passa'}")

@@ -71,6 +71,9 @@ e la pagina legge solo da Postgres. Se la cartella è il Chroma vero
 (`data/db/chroma`), la pagina si ferma. Dal Chroma si tolgono gli avvisi
 (metadato `id_bando`), perché oggi online non ci sono; i byte sono una
 stima (testo in UTF-8, metadati in JSON, 4 byte per numero del vettore).
+Corretto il 25/11/2026: il segno degli avvisi è il metadato `sha256`, non
+`id_bando`, che ha anche un documento di sempre (sezione 10, "199 contro
+316").
 
 ## 2. Regola scritta prima di misurare
 
@@ -237,6 +240,38 @@ Il 15/11 `pip --dry-run` per Linux e Python 3.14 risolveva torch 2.15.0
 da PyPI, quindi una ruota `cp314` della 2.15.0 esiste; quella `+cpu`
 non l'ho vista.
 
+**Versione 2 applicata (25/11/2026, dopo la versione 1).** Chi mantiene
+il progetto ha verificato la ruota sulla pagina ufficiale dell'indice di
+PyTorch. In `requirements.txt` c'è una sola riga nuova, subito dopo
+`sentence-transformers==6.0.1`:
+
+```
+torch @ https://download-r2.pytorch.org/whl/cpu/torch-2.15.0%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl#sha256=f089c94912c955269a20e5fee6b6a371209b610849c9ece26e908a748d87a723 ; sys_platform == "linux"
+```
+
+Resta la 2.15.0 della versione 1: cambia solo la build. Sul PC la riga
+si salta: `pip install --dry-run --no-index -r requirements.txt` dà
+"Ignoring torch: markers 'sys_platform == "linux"' don't match your
+environment", non ha niente da installare, e torch resta 2.14.0+cpu.
+
+Rischi, da guardare nel registro dell'installazione:
+- **L'impronta nel frammento dell'indirizzo** (`#sha256=…`). `pip` la
+  controlla. Per `uv` mi aspetto lo stesso, ma non l'ho verificato sulla
+  sua documentazione (niente rete in questo giro). Se `uv` la rifiutasse,
+  l'installazione fallisce in modo visibile nel registro, non in
+  silenzio: in quel caso si toglie il frammento e si riprova.
+- **Il dominio** `download-r2.pytorch.org` è quello indicato dalla pagina
+  dell'indice; se un giorno l'indirizzo cambiasse, l'installazione
+  fallirebbe, e la riga va aggiornata.
+- **Legata a Python 3.14 su x86_64**: se si cambia la versione di Python
+  dell'app, la riga va cambiata insieme.
+
+**Allineare il PC è possibile, non fatto.** Sulla stessa pagina c'è anche
+la ruota per Windows (`win_amd64`) della 2.15.0+cpu, per Python 3.13 e
+per 3.14 (verificato da chi mantiene il progetto). Il PC potrebbe quindi
+avere la stessa versione e la stessa build dell'app online; resterebbero
+diversi il sistema e il processore. È un compito a parte.
+
 ## 4. Passi a mano su Streamlit Community Cloud
 
 Tutti i file vanno in `..\dati-grezzi\prova\memoria\` (fuori dal
@@ -277,6 +312,48 @@ Poi mi dici che i file ci sono: scrivo la tabella (memoria per passo,
 tempi, byte, esito della regola per le due versioni) e la proposta per
 `requirements.txt` di `main`.
 
+**Passi a mano per la versione 2 (aggiornati il 25/11/2026, dopo la
+versione 1).** Sostituiscono i passi 6 e 7 qui sopra. La riga di torch è
+già in `requirements.txt` (sezione 3, "Versione 2 applicata").
+
+1. **Commit e push** del ramo `prova-memoria` con `requirements.txt`,
+   `app/prova_memoria.py`, questo documento e i test.
+2. **Reboot app, sempre.** Streamlit, dopo un push, può accorgersi da
+   solo che `requirements.txt` è cambiato (non verificato, sezione 6,
+   punto 8), ma con `uv pip install` sull'ambiente esistente i pacchetti
+   `nvidia-*` già installati resterebbero lì: `uv pip install` aggiunge e
+   cambia, non toglie quello che nessuno chiede più. Il "Reboot app" dal
+   pannello ("Manage app", menu con i tre puntini) riparte da capo.
+3. **Come si capisce se ha reinstallato.** Nel registro ("Manage app")
+   compare un blocco nuovo con l'ora dopo il push o il reboot:
+   "📦 Processing dependencies...", "Using uv pip install.", "Resolved …
+   packages", "Installed … packages". Se il blocco nuovo non c'è,
+   l'ambiente non è stato rifatto: di nuovo "Reboot app".
+4. **Cosa controllare nel registro.**
+   - nessuna riga con `nvidia-` (né "Downloading nvidia-…" né
+     "+ nvidia-…");
+   - la riga di torch è `+ torch==2.15.0+cpu (from https://download-r2.pytorch.org/…)`
+     o simile: deve esserci `+cpu`;
+   - nessun errore sull'impronta (`hash`, `sha256`) o sull'indirizzo.
+   Se l'installazione fallisce, si copia il registro e ci si ferma: la
+   versione 2 non si misura.
+5. **Cosa controllare nella pagina, prima di premere i pulsanti.** Dopo il
+   passo 1: "pacchetti nvidia installati 0". Se sono più di 0 l'ambiente
+   non è stato rifatto: "Delete app" e "Create app" con le stesse
+   impostazioni (ramo `prova-memoria`, `app/prova_memoria.py`, Python 3.14,
+   secrets), poi di nuovo il registro. Dopo il passo 2, in testa al
+   riepilogo: "torch: 2.15.0+cpu" e "CUDA nella build di torch: nessuna".
+6. **Misura.** Una sola scheda, pulsanti da 1 a 7 in ordine, aspettando la
+   fine di ognuno; si annota se l'app si riavvia.
+7. **Cosa salvare**, in `..\dati-grezzi\prova\memoria\`:
+   - `log_installazione_v2.txt`: il registro dall'inizio fino a quando
+     l'app parte, con in testa il tempo di installazione e se compaiono
+     pacchetti `nvidia-`;
+   - `riepilogo_v2.txt`: il riepilogo della pagina (pulsante di copia del
+     riquadro in fondo), anche se un passo non riesce;
+   - facoltativo, `riepilogo_v2_bis.txt` dopo un altro "Reboot app".
+8. **Fine**: come il passo 8 sopra. Poi mi dici che i file ci sono.
+
 **Facoltativo: utente di sola lettura su Supabase.** La pagina apre già
 la transazione in sola lettura. Un utente di Postgres con il solo
 `SELECT` su `chunk` è una protezione in più; la tabella ha la sicurezza
@@ -295,6 +372,9 @@ riordino. I riepiloghi `v1`, `v2` e del PC si confrontano così:
    tabella. Se le righe e le impronte non coincidono, gli archivi
    differiscono e il confronto si fa solo sulle impronte comuni. Questo è
    già un dato utile per l'identità della fermata 5.
+   Corretto il 25/11/2026: i 199 venivano da una regola di esclusione
+   sbagliata; senza avvisi il Chroma ha 316 frammenti, come la tabella
+   online (sezione 10, "199 contro 316").
 2. **Stesso ordine?** Sulle impronte comuni, l'ordine del riordinatore
    online deve essere lo stesso del PC.
 3. **Quanto differiscono i punteggi?** Scarto massimo, per il prodotto
@@ -328,6 +408,10 @@ Non verificate in rete in questo giro:
    riuscito senza `HF_TOKEN`.
 4. Il minimo di 690 MB di memoria e come si applica il limite (cosa
    succede quando lo si supera: riavvio, messaggio, app ferma).
+   **Chiusa in parte dalla versione 1 completa (25/11/2026):** il limite
+   letto dal contenitore è 3072 MB e l'app ha retto a 1887 MB di massimo
+   senza riavviarsi (sezione 10). Cosa succede oltre il limite resta da
+   vedere.
 5. Se Streamlit Cloud installa con `uv` o con `pip`, e come tratta
    `--extra-index-url`. Con `uv` l'indice di PyTorch potrebbe avere la
    precedenza anche per pacchetti che ospita a sua volta (per esempio
@@ -349,6 +433,9 @@ Non verificate in rete in questo giro:
     contenitore. Se non lo sono, la pagina ricade su `resource` per il
     massimo, e senza `VmRSS` la memoria del processo risulta 0: il
     riepilogo dice allora "non leggibile" e la misura va rivista.
+    **Chiusa dalla versione 1 completa (25/11/2026):** si leggono sia
+    `/proc/self/status` sia i file del cgroup v2 (`memory.current`,
+    `memory.max`). Come leggere la riga "contenitore": sezione 10.
 
 ## 7. Prova in locale (25/11/2026)
 
@@ -458,3 +545,138 @@ nuovo i passi da 1 a 7 (sezione 4, passo 4), copiando il riepilogo in
 `riepilogo_v1.txt` anche se un passo non riesce. Poi la versione 2,
 secondo la proposta per `uv` della sezione 3, dopo la verifica del nome
 della ruota.
+
+## 10. Versione 1 completa, 25/11/2026
+
+Riepilogo in `..\dati-grezzi\prova\memoria\riepilogo_v1.txt`, registro
+dell'installazione in `log_installazione_v1.txt`, nella stessa cartella
+(un riepilogo parziale di prima della correzione del passo 4 è in
+`riepilogo_v1_parziale.txt`). Python 3.14.10, torch 2.15.0+cu132 (la
+build di PyPI, con 15 pacchetti `nvidia-*`), installazione con `uv`;
+processore AMD EPYC 7B13, 16 processori visti, 8 thread di torch.
+
+| passo | processo (MB) | aumento | massimo dall'avvio | contenitore |
+|---|---|---|---|---|
+| 1. avvio | 91,0 | | 92,6 | 3064,2 |
+| 2. modello di embedding | 1289,2 | +1198,2 | 1333,1 | 3026,5 |
+| 3. riordinatore | 1333,5 | +44,2 | 1421,3 | 2993,3 |
+| 4. tabella | 1344,7 | +11,2 | 1421,3 | 3008,2 |
+| 5. indice lessicale | 1346,0 | +1,3 | 1421,3 | 3009,6 |
+| 6. riordino, 30 coppie × 10 | 1718,2 | +372,2 | 1887,0 | 2892,8 |
+| 7. 20 riordini di fila | 1727,4 | +9,2 | 1887,0 | 2901,3 |
+
+Limite del contenitore letto dalla pagina: 3072 MB, uguale in tutti i
+passi. Tabella: 316 righe, 1.046.890 byte (id 2528, testo 352.682,
+metadati 205.040, vettori 486.640), lettura in 4,3 s. Riordino di 30
+coppie: mediana 2,862 s, massimo 3,091; nei 20 di fila mediana 2,780,
+massimo 3,305; punteggi identici tra le ripetizioni. Riordinatore
+scaricato senza `HF_TOKEN` in 2,7 s. L'app non si è riavviata.
+
+Esito della regola scritta prima (sezione 2): **non passa**. Memoria
+dopo il passo 7 1727,4 MB contro 540, massimo 1887,0 contro 690; il
+riordino passa (2,862 s contro 10). La regola non si tocca.
+
+**Cosa dicono.**
+
+- Le soglie di 540 e 690 MB poggiavano sul minimo della documentazione di
+  Streamlit, mai misurato. Il limite letto dal contenitore è 3072 MB: il
+  processo ha usato al massimo il 61% del limite.
+- Caricare il riordinatore aggiunge circa 44 MB, ma usarlo ne aggiunge
+  circa 370 a regime (passo 6) e porta il massimo a 1887 MB: sono le
+  memorie di lavoro di torch per un lotto di 30 coppie, che restano al
+  processo dopo il primo riordino.
+- Tabella e indice lessicale aggiungono circa 12 MB in tutto (11,2 + 1,3):
+  tenere i 316 frammenti in memoria costa poco.
+- Tra il passo 6 e il 7 quasi nessuna crescita (+9,2 MB) e il massimo non
+  cambia: 20 riordini di fila non accumulano memoria.
+- Il peso resta il modello di embedding con torch: +1198 MB al passo 2.
+
+**La riga "contenitore".** La pagina la legge da
+`/sys/fs/cgroup/memory.current` (cgroup v2; il file `cpu.max` letto al
+passo 1 conferma la versione), con il limite da `memory.max`. È la
+memoria addebitata a tutto il contenitore, che comprende la **cache dei
+file**: le pagine dei file letti o scritti di recente, che il sistema
+tiene in memoria finché c'è posto e libera quando serve. Al passo 1 vale
+3064 MB con il processo a 91: quasi tutto il resto è, con ogni
+probabilità, la cache dei pacchetti appena scaricati e installati da `uv`
+(il registro scarica circa 2,1 GB compressi di sole librerie
+`nvidia-*`, più 514 MB di torch). Poi scende mentre il processo cresce di 1,6 GB: il sistema
+libera la cache per far posto. Il numero è quindi **fuorviante**: sembra
+un contenitore pieno al 99,7% fin dall'avvio, mentre dice solo che la
+cache ha riempito lo spazio libero. Il contenitore si ferma per la
+memoria che non si può liberare, non per la cache.
+
+Correzione nella pagina (25/11/2026): accanto a "contenitore" la pagina
+riporta, da `memory.stat`, la parte anonima (`anon`, la memoria dei
+processi che non si libera), la cache dei file (`file`) e la memoria
+senza la cache inattiva (`memory.current` meno `inactive_file`, la misura
+che usano anche i sistemi di orchestrazione dei contenitori). Del
+processo riporta anche le due parti di `VmRSS`: `RssAnon` e `RssFile`
+(i file mappati, per esempio le librerie di torch). La regola e il
+criterio non usano questi numeri: servono a leggere i riepiloghi.
+
+**199 contro 316.** Nella prova in locale la tabella aveva 199 righe
+"senza avvisi"; online 316. Il numero giusto per "tutto tranne gli
+avvisi" è **316**: nel Chroma locale ci sono 1187 frammenti, 871 degli
+avvisi e 316 dei documenti di sempre (`docs/fatto.md`, stato del 19c),
+e online ci sono solo i documenti di sempre. La causa era la regola di
+esclusione della pagina, che toglieva ogni frammento con `id_bando`.
+Ma `scripts/ingestione/ingest_tutti.py` dà `id_bando` anche a un
+documento di sempre (`mercati-rionali-2026`, 117 frammenti), che quindi
+spariva dal conto locale: 871 + 117 = 988 esclusi, 199 tenuti. Conteggio
+sui metadati di una copia del Chroma (25/11/2026): 871 frammenti con
+`id_bando` e `sha256`, 117 con `id_bando` senza `sha256`, 199 senza
+nessuno dei due. Solo gli avvisi hanno `sha256` (l'impronta del PDF,
+scritta da `carica_avvisi`). Correzione: la pagina riconosce un avviso da
+`sha256` (`e_frammento_di_avviso`), con un test che fallisce con la regola
+vecchia. Rilanciata in locale, la pagina legge 316 righe ed esclude 871
+avvisi.
+
+Questo conto servirà al **controllo di allineamento della fermata 5**:
+l'app online e quella in locale devono lavorare sullo stesso insieme, e
+"tutto tranne gli avvisi" sono 316 frammenti (testo 352.682 byte, uguale
+in locale e online). Un filtro sugli avvisi basato su `id_bando` darebbe
+un insieme diverso.
+
+**Confronto dei punteggi (sezione 5).**
+
+- Con il riepilogo del PC di prima della correzione
+  (`riepilogo_pc_2026-11-25.txt`, 199 righe): 17 impronte in comune su
+  30, perché mancavano i 117 frammenti dei mercati rionali. Sulle 17 lo
+  stesso ordine del riordinatore.
+- Con la prova in locale dopo la correzione (25/11/2026, 316 righe,
+  Python 3.13.12, torch 2.14.0+cpu, riepilogo nella cartella temporanea
+  della sessione, non salvato): **30 impronte in comune su 30, nello
+  stesso ordine**, primi 10 compresi. Scarto massimo del prodotto scalare:
+  0 alla sesta cifra decimale; scarto massimo del punteggio del
+  riordinatore: 0,000001. Con 6 cifre stampate non si vede di più.
+- Quindi tra PC (Windows, Intel, Python 3.13, torch 2.14.0+cpu) e online
+  (Linux, AMD, Python 3.14, torch 2.15.0+cu132) l'ordine dei 30 è
+  identico. La versione 2 cambia solo la build di torch: il confronto si
+  ripete sul suo riepilogo.
+
+## 11. Criterio per il quarto caso, scritto dopo la versione 1
+
+**Scritto il 25/11/2026 dopo aver visto i numeri della versione 1 e
+prima della versione 2**, da chi mantiene il progetto. Non sostituisce la
+regola della sezione 2, che resta com'è e continua a non passare: è il
+criterio con cui si decide il quarto caso ("la regola non passa, ma l'app
+arriva in fondo ai 7 passi senza riavviarsi").
+
+Si va avanti con il motore in memoria se, nella versione scelta dei
+requisiti:
+
+- il massimo dall'avvio dopo il passo 7 resta **sotto 2048 MB**, due terzi
+  del limite di 3072 MB letto dal contenitore nella versione 1;
+- l'app arriva in fondo ai 7 passi **senza riavviarsi**;
+- il riordino di 30 coppie sta **sotto 10 secondi di mediana** (passo 6).
+
+La soglia di 2048 MB è fissa: se il limite letto cambia, si annota, ma la
+soglia resta. La pagina stampa il criterio in un blocco separato dopo la
+regola, con il limite letto dal contenitore. Sul riavvio la pagina può
+dire solo che i 7 passi sono nella stessa sessione (un riavvio azzera la
+pagina); un riavvio prima della misura va annotato a mano.
+
+Con i numeri della versione 1 il criterio sarebbe soddisfatto (1887,0 MB,
+nessun riavvio, 2,862 s), ma con 161 MB di margine; la versione 2 dice
+se torch per processore ne dà di più.
