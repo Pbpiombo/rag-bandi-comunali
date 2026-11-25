@@ -51,6 +51,18 @@ Se la lettura da Postgres non riesce, la pagina mostra solo il tipo
 dell'errore: il messaggio di una connessione può contenere l'indirizzo
 del database.
 
+Dal 25/11/2026, dopo la prima prova online (sezione 9): un errore in
+qualsiasi passo si mostra con il solo tipo, i passi già fatti restano
+visibili e il riepilogo parziale, con l'errore in fondo, si può copiare
+comunque. In testa il riepilogo dice in che ambiente è stato preso:
+versione di Python, versione di torch e se torch vede una scheda
+grafica. Prima del passo 2 torch non si importa (il suo import è
+misurato lì): la versione viene dai metadati del pacchetto, che non
+sempre portano il suffisso della build (sul PC "2.14.0" contro
+"2.14.0+cpu"). Dopo il passo 2 il riepilogo usa `torch.__version__` e
+aggiunge la versione CUDA della build ("nessuna" per quella per
+processore).
+
 **Opzione per la prova in locale.** Se la variabile d'ambiente
 `PROVA_MEMORIA_CHROMA` indica la cartella di una copia del Chroma, la
 pagina mostra un interruttore per leggere i frammenti da lì al posto
@@ -172,6 +184,59 @@ milionesimi (posizioni 22 e 23 del riepilogo del PC), quindi un'inversione
 nelle ultime posizioni dei 30 è possibile. Tra i primi 10 lo scarto
 minimo sul PC è di 0,0004. Come si controlla è scritto nella sezione 5.
 
+Altre due differenze tra PC e online, annotate il 25/11/2026 dopo la
+prima prova online: la **versione di Python** (`.venv` del PC 3.13.12,
+online 3.14.10, sia la demo sia l'app di prova) e la **versione di
+torch** (PC 2.14.0+cpu, online 2.15.0 dall'indice PyPI, non fissata in
+`requirements.txt`: decisione del 15/11/2026 in
+`docs/piano-correzioni-lotto1.md`, "Confronto delle versioni prima del
+push"). Python di per sé non fa i conti del riordinatore, ma le ruote di
+torch e numpy sono compilate per ciascuna versione di Python: anche
+queste possono cambiare le ultime cifre. Il confronto della sezione 5 le
+copre insieme alle altre.
+
+**Versione 2 per uv e Python 3.14 (proposta del 25/11/2026, non
+applicata).** La prima prova online (sezione 9) ha mostrato che Streamlit
+Cloud installa con `uv` e che l'app gira con Python 3.14.10. Le due righe
+sopra, così come sono, con `uv` non sono sicure:
+
+- `uv`, con la sua strategia di base (`first-index`), cerca ogni pacchetto
+  prima negli indici di `--extra-index-url` e si ferma al primo indice che
+  lo ha, senza guardare PyPI. L'indice `whl/cpu` di PyTorch ospita anche
+  pacchetti non suoi (per esempio `numpy`, `pillow`, `sympy`,
+  `networkx`, `jinja2`, `filelock`, `fsspec`): se lì non c'è
+  `numpy==2.5.3`, l'installazione fallisce; i pacchetti non fissati
+  prenderebbero la versione di quell'indice, non quella di PyPI. Con
+  `pip` gli indici si mescolano e il problema non c'è.
+- `torch==2.14.0+cpu` porterebbe online una versione mai provata lì
+  (contro la decisione del 15/11) e diversa dalla 2.15.0 della prova
+  della versione 1: il confronto tra versione 1 e versione 2 misurerebbe
+  insieme due cambi, la build e la versione.
+
+Proposta: al posto delle due righe, una sola riga con l'indirizzo
+diretto della ruota, limitata a Linux, accanto a
+`sentence-transformers==6.0.1`:
+
+```
+torch @ https://download.pytorch.org/whl/cpu/torch-2.15.0%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl ; sys_platform == "linux"
+```
+
+Senza `--extra-index-url`, quindi gli altri pacchetti restano su PyPI. La
+versione resta 2.15.0, quella che gira online oggi: tra versione 1 e
+versione 2 cambia solo la build. Il segno `sys_platform == "linux"` lascia
+il PC com'è (su Windows la riga si salta e vale il torch del `.venv`).
+La ruota vale solo per Python 3.14 su x86_64: se si cambia la versione di
+Python dell'app, la riga va cambiata insieme.
+
+Da verificare prima di applicarla (non fatto: in questo giro niente
+rete): che il file esista con questo nome esatto nell'indice
+`https://download.pytorch.org/whl/torch/` (l'etichetta della piattaforma,
+qui `manylinux_2_28_x86_64`, può essere diversa), e che la ruota per
+Python 3.14 ci sia anche per 2.14.0, se si preferisse la versione del PC.
+Il 15/11 `pip --dry-run` per Linux e Python 3.14 risolveva torch 2.15.0
+da PyPI, quindi una ruota `cp314` della 2.15.0 esiste; quella `+cpu`
+non l'ho vista.
+
 ## 4. Passi a mano su Streamlit Community Cloud
 
 Tutti i file vanno in `..\dati-grezzi\prova\memoria\` (fuori dal
@@ -182,8 +247,9 @@ locale (sezione 7).
    e questo documento; `requirements.txt` resta la versione 1.
 2. **Nuova app**: "Create app", stesso repository, ramo `prova-memoria`,
    file principale `app/prova_memoria.py`, un indirizzo diverso da quello
-   della demo. Nelle impostazioni avanzate, la versione di Python del PC
-   (3.13) e i secrets: solo `DATABASE_URL`, più `HF_TOKEN` se lo si vuole
+   della demo. Nelle impostazioni avanzate, la versione di Python della
+   demo pubblica (3.14; il PC ha 3.13, sezione 3) e i secrets: solo
+   `DATABASE_URL`, più `HF_TOKEN` se lo si vuole
    usare. Nessuna chiave di Anthropic. Se c'è, visibilità ristretta.
 3. **Registro dell'installazione, versione 1.** Da "Manage app", copiare
    il registro dall'inizio fino a quando l'app parte e salvarlo come
@@ -249,6 +315,8 @@ Non verificate in rete in questo giro:
 1. Se Streamlit Community Cloud permette una seconda app dallo stesso
    repository su un altro ramo. Credo di sì (ogni app è repository, ramo
    e file), ma non l'ho verificato.
+   **Chiusa dalla prima prova online (25/11/2026):** sì, l'app di prova
+   gira dal ramo `prova-memoria` accanto alla demo.
 2. Quali secrets servono: per la pagina solo `DATABASE_URL` (più
    `HF_TOKEN` facoltativo). La pagina legge prima la variabile d'ambiente,
    poi `st.secrets`; non so se Streamlit Cloud espone i secrets anche come
@@ -256,6 +324,8 @@ Non verificate in rete in questo giro:
 3. Se il riordinatore si scarica senza `HF_TOKEN`. È un modello pubblico
    e credo di sì, con limiti di frequenza più bassi per chi non si
    identifica. Il tempo di scaricamento del passo 3 lo dirà.
+   **Chiusa dalla prima prova online (25/11/2026):** sì, il passo 3 è
+   riuscito senza `HF_TOKEN`.
 4. Il minimo di 690 MB di memoria e come si applica il limite (cosa
    succede quando lo si supera: riavvio, messaggio, app ferma).
 5. Se Streamlit Cloud installa con `uv` o con `pip`, e come tratta
@@ -265,8 +335,11 @@ Non verificate in rete in questo giro:
    Se succede, la riga di torch si può sostituire con l'indirizzo diretto
    della ruota per la versione di Python scelta. Da guardare nel registro
    del passo 6.
-6. Se la ruota `torch==2.14.0+cpu` esiste per Linux x86_64 e Python 3.13
-   nell'indice `whl/cpu`.
+   **Chiusa in parte dalla prima prova online (25/11/2026):** installa con
+   `uv`. Come tratta `--extra-index-url` resta da vedere; per non
+   dipenderne, la proposta della sezione 3 usa l'indirizzo diretto.
+6. Se la ruota `torch==2.14.0+cpu` esiste per Linux x86_64 e Python 3.14
+   nell'indice `whl/cpu` (e la `2.15.0+cpu`, sezione 3, proposta per uv).
 7. Quali versioni di Python si possono scegliere e se si scelgono solo
    alla creazione dell'app.
 8. Se un push che cambia `requirements.txt` fa reinstallare l'app da
@@ -311,3 +384,77 @@ Due giri hanno dato gli stessi 30 punteggi fino alla sesta cifra.
   riporta thread e quota. Se il tempo è vicino alla soglia, fissare i
   thread alla quota nel motore della fermata 1 è una correzione a costo
   zero sui punteggi (da confermare con il confronto della sezione 5).
+
+## 9. Prima prova online, 25/11/2026
+
+Versione 1 dei requisiti, app di prova sul ramo `prova-memoria`. Numeri
+riportati da chi mantiene il progetto; il riepilogo copiato non c'è,
+perché la pagina si è fermata al passo 4 prima della correzione sotto.
+
+**Ambiente.** Installazione con `uv`; Python 3.14.10; torch 2.15.0 con le
+librerie `nvidia-*` (la build di PyPI, non quella per processore).
+
+| passo | memoria del processo | massimo dall'avvio |
+|---|---|---|
+| 1. avvio | 93,7 MB | 95,5 MB |
+| 2. modello di embedding | 1295,8 MB | 1340,0 MB |
+| 3. riordinatore (scaricato senza `HF_TOKEN`) | 1337,7 MB | 1426,0 MB |
+| 4. tabella da Postgres | `TypeError`, vedi sotto | |
+
+L'app non si è riavviata.
+
+**Cosa dicono.**
+
+- La regola della sezione 2 non passa già al passo 2: 1295,8 MB a regime
+  contro la soglia di 540, e 1340,0 MB di massimo contro 690. I passi
+  dopo possono solo aggiungere. Resta da misurare il riordino (passo 6),
+  ma l'esito della versione 1 non può più cambiare.
+- L'app regge a circa 1,4 GB senza riavviarsi: il limite vero del
+  contenitore è sopra i 690 MB. Il 690 resta la soglia della regola,
+  che non si cambia dopo aver visto i numeri; per decidere conta il caso
+  "la regola non passa, ma l'app arriva in fondo" della sezione 2, se
+  l'app arriva davvero in fondo ai 7 passi.
+- Il riordinatore aggiunge circa 40 MB a regime (1337,7 − 1295,8 = 41,9)
+  e circa 86 MB di massimo (1426,0 − 1340,0). Sul PC ne aggiungeva circa
+  150 (sezione 7).
+- Il peso è nel modello di embedding con torch: dal passo 1 al passo 2
+  il processo cresce di circa 1200 MB. Il modello in sé pesa meno della
+  metà (`model.safetensors` 470.641.600 byte, letto il 25/11/2026 nella
+  cache del PC); il resto è torch, che nella build di PyPI
+  carica anche le sue librerie per la scheda grafica. È l'ipotesi che la
+  versione 2 (torch per processore) mette alla prova.
+- Su Linux il passo 2 pesa più che sul PC (1295,8 MB contro 1195,7 di
+  working set su Windows): il contrario di quanto la sezione 7 si
+  aspettava. È coerente con l'ipotesi sopra: il torch del PC è già quello
+  per processore.
+
+**L'errore del passo 4 e la causa.** `TypeError` nella riga
+`np.vstack([np.asarray(r[3], dtype=np.float32) for r in righe])` di
+`leggi_da_postgres`; il messaggio è oscurato da Streamlit. Causa,
+riprodotta in locale senza Postgres: con `pgvector` 0.5.0 (la versione di
+`requirements.txt`) il loader che `register_vector` registra restituisce
+un oggetto `pgvector.Vector`, non un array numpy come le versioni
+precedenti, e `np.asarray` su un `Vector` dà `TypeError: float() argument
+must be a string or a real number, not 'Vector'`. Il codice dell'app non
+se n'era accorto perché `src/pgstore.py` scrive i vettori ma non li
+rilegge: legge solo la distanza calcolata da Postgres.
+
+Correzione del 25/11/2026: `a_vettore` in `app/prova_memoria.py`
+converte ogni valore in un vettore numpy, qualunque forma abbia (oggetto
+`Vector`; byte nel formato binario di pgvector; testo `[...]`; lista,
+tupla o array). Una forma non riconosciuta dà un errore con il tipo
+Python e la lunghezza del valore, mai il contenuto. Test con valori finti
+in `tests/test_prova_memoria.py`, che sta solo su questo ramo.
+
+**Cose da verificare che la prova ha chiuso** (sezione 6): Streamlit
+Cloud installa con `uv` (punto 5, in parte); il riordinatore si scarica
+senza `HF_TOKEN` (punto 3); una seconda app dallo stesso repository su un
+altro ramo si può creare (punto 1). Anche il punto 10 è chiuso per la
+memoria del processo: `VmRSS` e `VmHWM` si leggono (valori diversi da
+zero). Per i file del cgroup serve il riepilogo copiato.
+
+**Prossimo passo.** Push della correzione sul ramo, "Reboot app" e di
+nuovo i passi da 1 a 7 (sezione 4, passo 4), copiando il riepilogo in
+`riepilogo_v1.txt` anche se un passo non riesce. Poi la versione 2,
+secondo la proposta per `uv` della sezione 3, dopo la verifica del nome
+della ruota.

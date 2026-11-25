@@ -212,6 +212,65 @@ def url_database() -> str | None:
         return None
 
 
+def _non_riconosciuto(valore) -> ErrorePagina:
+    """Errore per un vettore illeggibile: tipo e lunghezza, mai il contenuto."""
+    try:
+        lunghezza = str(len(valore))
+    except TypeError:
+        lunghezza = "non definita"
+    return ErrorePagina(
+        f"vettore in forma non riconosciuta (tipo {type(valore).__name__},"
+        f" lunghezza {lunghezza})"
+    )
+
+
+def a_vettore(valore) -> np.ndarray:
+    """Un valore della colonna embedding come vettore numpy float32 a una dimensione.
+
+    Forme accettate, secondo come arriva dal driver:
+    - oggetto pgvector.Vector: è quello che restituisce il loader di
+      pgvector 0.5 (register_vector), sia in testo sia in binario;
+    - bytes, bytearray o memoryview nel formato binario di pgvector, se il
+      loader non è registrato: due interi a 16 bit big-endian (dimensione,
+      zero) e poi i numeri in float32 big-endian;
+    - testo "[1,2,3]", la forma testuale di pgvector;
+    - lista, tupla o array numpy, come restituivano le versioni precedenti.
+    """
+    try:
+        from pgvector import Vector as tipo_pgvector
+    except ImportError:
+        tipo_pgvector = None
+    if tipo_pgvector is not None and isinstance(valore, tipo_pgvector):
+        return np.array(valore.to_numpy(), dtype=np.float32)
+    if isinstance(valore, bytes | bytearray | memoryview):
+        dati = bytes(valore)
+        if len(dati) < 4:
+            raise _non_riconosciuto(valore)
+        dimensione = int.from_bytes(dati[0:2], "big")
+        zero = int.from_bytes(dati[2:4], "big")
+        if zero != 0 or len(dati) != 4 + 4 * dimensione:
+            raise _non_riconosciuto(valore)
+        return np.frombuffer(dati, dtype=">f4", offset=4).astype(np.float32)
+    if isinstance(valore, str):
+        testo = valore.strip()
+        if not (testo.startswith("[") and testo.endswith("]")):
+            raise _non_riconosciuto(valore)
+        try:
+            numeri = [float(x) for x in testo[1:-1].split(",") if x.strip()]
+        except ValueError:
+            raise _non_riconosciuto(valore) from None
+        return np.array(numeri, dtype=np.float32)
+    if isinstance(valore, list | tuple | np.ndarray):
+        try:
+            vettore = np.asarray(valore, dtype=np.float32)
+        except (TypeError, ValueError):
+            raise _non_riconosciuto(valore) from None
+        if vettore.ndim != 1:
+            raise _non_riconosciuto(valore)
+        return vettore
+    raise _non_riconosciuto(valore)
+
+
 def leggi_da_postgres(url: str) -> dict:
     """Tutta la tabella chunk in sola lettura, vettori in forma binaria.
 
@@ -247,7 +306,7 @@ def leggi_da_postgres(url: str) -> dict:
         "ids": [str(r[0]) for r in righe],
         "testi": [r[1] for r in righe],
         "metadati": [r[2] or {} for r in righe],
-        "vettori": np.vstack([np.asarray(r[3], dtype=np.float32) for r in righe]),
+        "vettori": np.vstack([a_vettore(r[3]) for r in righe]),
         "byte": dict(
             zip(("id", "testo", "metadati", "vettori"), per_colonna, strict=True)
         ),
@@ -484,11 +543,47 @@ def _numero(valore) -> str:
     return str(valore)
 
 
+def ambiente() -> list[str]:
+    """Python, torch e scheda grafica, per sapere dove è preso il riepilogo.
+
+    L'import di torch è misurato nel passo 2, quindi prima di quel passo
+    torch non si importa: la versione viene dai metadati del pacchetto, che
+    non sempre portano il suffisso della build (su Windows "2.14.0" contro
+    "2.14.0+cpu" di torch.__version__). Dopo il passo 2 si usano
+    torch.__version__, la versione CUDA della build (nessuna per la build
+    per processore) e se torch vede una scheda grafica.
+    """
+    righe = [f"python: {platform.python_version()}"]
+    torch = sys.modules.get("torch")
+    if torch is None:
+        try:
+            versione = metadati_pacchetti.version("torch")
+        except metadati_pacchetti.PackageNotFoundError:
+            versione = "non installato"
+        righe += [
+            f"torch: {versione} (dai metadati, prima del passo 2)",
+            "scheda grafica vista da torch: non letta (torch non ancora importato)",
+        ]
+    else:
+        righe += [
+            f"torch: {torch.__version__}",
+            f"CUDA nella build di torch: {torch.version.cuda or 'nessuna'}",
+            "scheda grafica vista da torch: "
+            + ("sì" if torch.cuda.is_available() else "no"),
+        ]
+    return righe
+
+
 def riepilogo(stato: dict, esiti: list[dict]) -> str:
-    """Testo semplice da copiare, con la regola scritta prima."""
+    """Testo semplice da copiare, con la regola scritta prima.
+
+    Si può copiare anche a metà: i passi fatti, e l'errore del passo che
+    non è riuscito, se c'è.
+    """
     righe = [
         "Prova di memoria (docs/prova-memoria.md)",
         f"data: {stato['inizio']}",
+        *ambiente(),
         f"fonte dei frammenti: {stato['fonte']}",
         f"domanda fissa: {DOMANDA}",
     ]
@@ -507,6 +602,8 @@ def riepilogo(stato: dict, esiti: list[dict]) -> str:
                 righe.append(f"  {chiave}: {interno}")
             else:
                 righe.append(f"  {chiave}: {_numero(valore)}")
+    if stato.get("errore"):
+        righe += ["", stato["errore"]["testo"]]
     if len(esiti) == len(PASSI):
         righe += ["", "Regola scritta prima (docs/prova-memoria.md, sezione 2):"]
         righe += esito_regola(esiti)
@@ -555,75 +652,109 @@ def esito_regola(esiti: list[dict]) -> list[str]:
 
 # --- Pagina ---------------------------------------------------------------
 
-st.set_page_config(page_title="Prova di memoria", page_icon=":material/memory:")
-st.title("Prova di memoria")
-st.caption(
-    "Pagina di prova del ramo prova-memoria: niente modello di linguaggio, "
-    "sola lettura sulla tabella dei frammenti. Una sola scheda aperta: "
-    "un'altra scheda raddoppia i modelli in memoria."
-)
 
-if "stato" not in st.session_state:
-    st.session_state.stato = {
-        "inizio": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
-    }
-    st.session_state.esiti = []
-stato = st.session_state.stato
-esiti = st.session_state.esiti
+def esegui_passo(numero: int, funzione, stato: dict, esiti: list[dict]) -> None:
+    """Esegue un passo; se non riesce, annota l'errore senza il messaggio.
 
-cartella_chroma = os.getenv("PROVA_MEMORIA_CHROMA")
-usa_chroma = False
-if cartella_chroma:
-    usa_chroma = st.toggle(
-        "Leggi i frammenti dalla copia del Chroma (solo per la prova in locale)",
-        value=True,
-        disabled=bool(esiti),
+    Un errore qualsiasi (non solo ErrorePagina) si ferma qui: i passi già
+    fatti restano e il riepilogo parziale si può copiare. Di un errore
+    imprevisto si annota solo il tipo, perché il messaggio può contenere
+    dati dei secrets (l'indirizzo del database); ErrorePagina ha già un
+    messaggio senza segreti.
+    """
+    try:
+        esiti.append(funzione(stato))
+    except ErrorePagina as errore:
+        stato["errore"] = {
+            "passo": numero,
+            "testo": f"Passo {numero} non riuscito: {errore}",
+        }
+    except Exception as errore:  # noqa: BLE001 - si mostra solo il tipo, di proposito
+        stato["errore"] = {
+            "passo": numero,
+            "testo": f"Passo {numero} non riuscito: {type(errore).__name__}",
+        }
+    else:
+        stato.pop("errore", None)
+
+
+def pagina() -> None:
+    st.set_page_config(page_title="Prova di memoria", page_icon=":material/memory:")
+    st.title("Prova di memoria")
+    st.caption(
+        "Pagina di prova del ramo prova-memoria: niente modello di linguaggio, "
+        "sola lettura sulla tabella dei frammenti. Una sola scheda aperta: "
+        "un'altra scheda raddoppia i modelli in memoria."
     )
-if usa_chroma:
-    copia = Path(cartella_chroma).resolve()
-    if copia == CARTELLA_CHROMA_VERA or CARTELLA_CHROMA_VERA in copia.parents:
-        st.error("La cartella indicata è il Chroma vero: serve una copia.")
-        st.stop()
-    stato["fonte"] = "chroma"
-    stato["cartella_chroma"] = str(copia)
-else:
-    stato["fonte"] = "postgres"
-    url = url_database()
-    if not url:
-        st.error("Manca DATABASE_URL nei secrets.")
-        st.stop()
-    stato["url"] = url
-st.write(f"Fonte dei frammenti: **{stato['fonte']}**")
 
-for numero, (titolo, funzione) in enumerate(PASSI, 1):
-    with st.container(border=True):
-        fatto = numero <= len(esiti)
-        if st.button(
-            f"{numero}. {titolo}",
-            key=f"passo_{numero}",
-            disabled=numero != len(esiti) + 1,
-        ):
-            with st.spinner("In corso..."):
-                try:
-                    esiti.append(funzione(stato))
-                except ErrorePagina as errore:
-                    st.error(f"Passo {numero} non riuscito: {errore}")
-                    st.stop()
-            st.rerun()
-        if fatto:
-            esito = esiti[numero - 1]
-            mem = esito["memoria"]
-            st.write(
-                f"Memoria del processo: **{mem['processo']:.1f} MB** "
-                f"(massimo {mem['massimo']:.1f} MB)"
-            )
-            altro = {k: v for k, v in esito.items() if k not in ("memoria", "impronte")}
-            if "contenitore" in mem:
-                altro["contenitore"] = {
-                    k: v for k, v in mem.items() if k not in ("processo", "massimo")
+    if "stato" not in st.session_state:
+        st.session_state.stato = {
+            "inizio": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
+        }
+        st.session_state.esiti = []
+    stato = st.session_state.stato
+    esiti = st.session_state.esiti
+
+    cartella_chroma = os.getenv("PROVA_MEMORIA_CHROMA")
+    usa_chroma = False
+    if cartella_chroma:
+        usa_chroma = st.toggle(
+            "Leggi i frammenti dalla copia del Chroma (solo per la prova in locale)",
+            value=True,
+            disabled=bool(esiti),
+        )
+    if usa_chroma:
+        copia = Path(cartella_chroma).resolve()
+        if copia == CARTELLA_CHROMA_VERA or CARTELLA_CHROMA_VERA in copia.parents:
+            st.error("La cartella indicata è il Chroma vero: serve una copia.")
+            st.stop()
+        stato["fonte"] = "chroma"
+        stato["cartella_chroma"] = str(copia)
+    else:
+        stato["fonte"] = "postgres"
+        url = url_database()
+        if not url:
+            st.error("Manca DATABASE_URL nei secrets.")
+            st.stop()
+        stato["url"] = url
+    st.write(f"Fonte dei frammenti: **{stato['fonte']}**")
+
+    for numero, (titolo, funzione) in enumerate(PASSI, 1):
+        with st.container(border=True):
+            fatto = numero <= len(esiti)
+            if st.button(
+                f"{numero}. {titolo}",
+                key=f"passo_{numero}",
+                disabled=numero != len(esiti) + 1,
+            ):
+                with st.spinner("In corso..."):
+                    esegui_passo(numero, funzione, stato, esiti)
+                st.rerun()
+            errore = stato.get("errore")
+            if errore and errore["passo"] == numero:
+                st.error(errore["testo"])
+            if fatto:
+                esito = esiti[numero - 1]
+                mem = esito["memoria"]
+                st.write(
+                    f"Memoria del processo: **{mem['processo']:.1f} MB** "
+                    f"(massimo {mem['massimo']:.1f} MB)"
+                )
+                altro = {
+                    k: v for k, v in esito.items() if k not in ("memoria", "impronte")
                 }
-            st.json(altro, expanded=False)
+                if "contenitore" in mem:
+                    altro["contenitore"] = {
+                        k: v for k, v in mem.items() if k not in ("processo", "massimo")
+                    }
+                st.json(altro, expanded=False)
 
-if esiti:
-    st.subheader("Riepilogo da copiare")
-    st.code(riepilogo(stato, esiti), language=None)
+    if esiti or stato.get("errore"):
+        st.subheader("Riepilogo da copiare")
+        st.code(riepilogo(stato, esiti), language=None)
+
+
+# Streamlit esegue la pagina come __main__; un test che la importa trova
+# solo le funzioni.
+if __name__ == "__main__":
+    pagina()
