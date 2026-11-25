@@ -680,3 +680,144 @@ pagina); un riavvio prima della misura va annotato a mano.
 Con i numeri della versione 1 il criterio sarebbe soddisfatto (1887,0 MB,
 nessun riavvio, 2,862 s), ma con 161 MB di margine; la versione 2 dice
 se torch per processore ne dà di più.
+
+## 12. Versione 2 e confronto, 25/11/2026
+
+Riepilogo in `..\dati-grezzi\prova\memoria\riepilogo_v2.txt`, registro
+dell'installazione in `log_installazione_v2.txt`, nella stessa cartella.
+Python 3.14.10, torch 2.15.0+cpu ("CUDA nella build di torch: nessuna"),
+installazione con `uv` dopo "Reboot app"; stessa macchina della versione 1
+(AMD EPYC 7B13, 16 processori visti, 8 thread di torch).
+
+**Versione 2, passo per passo** (MB; "senza cache inattiva" è la memoria
+del contenitore meno `inactive_file`, sezione 10):
+
+| passo | processo | aumento | massimo dall'avvio | processo anon | contenitore senza cache inattiva |
+|---|---|---|---|---|---|
+| 1. avvio | 95,5 | | 95,5 | 73,0 | 309,3 |
+| 2. modello di embedding | 933,2 | +837,7 | 977,0 | 770,2 | 1084,3 |
+| 3. riordinatore | 975,6 | +42,4 | 1063,5 | 807,7 | 1128,0 |
+| 4. tabella | 986,9 | +11,3 | 1063,5 | 811,8 | 1134,6 |
+| 5. indice lessicale | 988,2 | +1,4 | 1063,5 | 813,2 | 1135,8 |
+| 6. riordino, 30 coppie × 10 | 1375,9 | +387,7 | 1523,6 | 996,0 | 1356,1 |
+| 7. 20 riordini di fila | 1228,8 | −147,2 | 1523,6 | 848,8 | 1207,8 |
+
+Limite del contenitore: 3072 MB in tutti i passi. Tabella: 316 righe,
+1.046.890 byte, lettura in 4,2 s (come nella versione 1). L'app non si è
+riavviata.
+
+La riga "contenitore" ora si legge: al passo 1 vale 2249,3 MB, di cui
+1974,5 di cache dei file e 98,7 di memoria anonima. È la conferma della
+spiegazione della sezione 10: il numero alto era cache.
+
+**Confronto con la versione 1.**
+
+| | versione 1 (torch di PyPI) | versione 2 (torch per processore) | differenza |
+|---|---|---|---|
+| processo dopo l'embedding (passo 2) | 1289,2 MB | 933,2 MB | −356,0 MB |
+| massimo dall'avvio dopo il passo 7 | 1887,0 MB | 1523,6 MB | −363,4 MB |
+| processo dopo il passo 7 | 1727,4 MB | 1228,8 MB | −498,6 MB |
+| riordino di 30 coppie (passo 6), mediana / massimo | 2,862 / 3,091 s | 2,539 / 3,374 s | |
+| 20 riordini di fila (passo 7), mediana / massimo | 2,780 / 3,305 s | 2,538 / 2,668 s | |
+| import di torch e sentence-transformers | 26,7 s | 17,1 s | |
+| scaricamento di torch (registro) | 514,2 MiB | 199,8 MiB | |
+| preparazione dei pacchetti (registro, "Prepared") | 153 pacchetti in 44,68 s | 134 pacchetti in 6,40 s | |
+| pacchetti `nvidia-*` installati | 15 | 0 | |
+
+I tempi del riordino sono della stessa grandezza nelle due versioni (una
+misura per versione, quindi le differenze di pochi decimi non dicono
+molto). Nella versione 2 il processo scende di 147 MB dal passo 6 al 7
+(la parte anonima passa da 996,0 a 848,8 MB): torch restituisce parte
+della memoria di lavoro; il massimo resta quello del passo 6.
+
+**Esiti.**
+
+- Regola scritta prima (sezione 2): **non passa in entrambe le versioni**.
+  Versione 2: 1228,8 MB dopo il passo 7 contro 540, massimo 1523,6 contro
+  690, riordino 2,539 s contro 10 (passa).
+- Criterio per il quarto caso (sezione 11): **passa nella versione 2**,
+  con 524,4 MB di margine sotto i 2048 (1523,6 MB di massimo), nessun
+  riavvio, riordino a 2,539 s. Nella versione 1 il margine era di 161 MB.
+
+**Confronto dei 30 punteggi tra versione 1 e versione 2**, fatto sui due
+riepiloghi: 30 impronte in comune su 30, **stesso ordine**; scarto
+massimo del prodotto scalare 0 e del punteggio del riordinatore 0, alla
+sesta cifra decimale stampata. Le 30 righe delle impronte sono identiche
+carattere per carattere. Alla precisione del riepilogo, la build di torch
+non cambia né l'ordine né i punteggi. Con la prova in locale (sezione 10)
+le 30 coincidevano già nello stesso ordine, con scarto massimo 0,000001.
+
+**Cose da verificare che la prova chiude** (sezioni 3 e 6):
+
+- `uv` accetta l'indirizzo diretto della ruota: il registro riporta
+  `+ torch==2.15.0+cpu (from https://download-r2.pytorch.org/whl/cpu/torch-2.15.0%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl#sha256=…)`.
+- L'impronta `sha256` nel frammento dell'indirizzo è accettata: nessun
+  errore nel registro e torch installato.
+- Dopo "Reboot app" l'ambiente si rifà da capo: il registro riparte da
+  "Starting up repository" e "Cloning", installa 134 pacchetti, nessuno
+  `nvidia-`, e il passo 1 conta 0 pacchetti `nvidia-*`. Resta aperto se un
+  push che cambia `requirements.txt` reinstalla da solo (sezione 6, punto
+  8): il registro del push della versione 2 non c'è.
+- Nel registro c'è anche un avviso: Streamlit trova due file di requisiti
+  (`requirements.txt` e `pyproject.toml`) e usa `requirements.txt`. Oggi
+  va bene; se `pyproject.toml` un giorno elencasse dipendenze, la scelta
+  andrebbe ricontrollata. Alle 15:27:19 il registro mostra un
+  aggiornamento del codice dal repository ("Updated app") senza nuova
+  installazione; il riepilogo ha comunque i 7 passi nella stessa sessione.
+
+**Lezione di metodo.** Le soglie di 540 e 690 MB venivano dal minimo
+scritto nella documentazione di Streamlit, mai misurato; il limite letto
+dal contenitore è 3072 MB.
+
+**Limiti della prova.**
+
+- Una domanda sola ("Entro quale data devono essere sostenute le spese?"),
+  con 30 coppie per riordino.
+- Una sessione sola, una scheda: nessuna misura con più utenti insieme.
+- La pagina e non l'app vera: la catena, LangChain, Anthropic, SQLite e le
+  sessioni dell'app non ci sono; la stima è di circa 150 MB in più
+  (sezione 2), mai misurata.
+- Una misura per versione: nessuna ripetizione dopo un altro "Reboot app".
+
+**Decisione di chi mantiene il progetto (25/11/2026).** Si va avanti con
+il motore in memoria e con i requisiti della versione 2. La riga di torch
+per processore va portata su `main` come compito a parte, con una
+verifica della demo dopo il riavvio. L'app vera va misurata alla
+fermata 5.
+
+**Il ramo.** `prova-memoria` non si unisce a `main`. L'app di prova si
+cancella dal pannello di Streamlit.
+
+**A cosa serve questo spazio** (deciso da chi mantiene il progetto il
+25/11/2026). Streamlit Community Cloud è l'ambiente dei test e della
+demo, non quello definitivo: quando l'app sarà aperta a più utenti
+passerà a uno spazio a pagamento. Quindi:
+
+- le soglie e il criterio di questo documento valgono per questo spazio e
+  non sono requisiti del prodotto;
+- non si ottimizza oltre per i limiti gratuiti: lotti più piccoli e
+  riordinatore più leggero restano possibilità, da usare solo se un test
+  si blocca;
+- al cambio di spazio la misura si rifà con questa stessa pagina
+  (`app/prova_memoria.py`, su questo ramo);
+- la soglia "qualche migliaio di frammenti" per il motore in memoria
+  (`docs/piano-19e.md`, sezione 8; `docs/roadmap.md`) dipende dalla
+  memoria disponibile e andrà rivista allora.
+
+**Promemoria per i compiti su `main`** (cose emerse dalla prova che
+riguardano il codice vero):
+
+1. Gli avvisi si riconoscono da `sha256`, non da `id_bando`:
+   `src/recupero_documenti.py` (i frammenti vicini) e il commento di
+   `SPOSTAMENTI_VICINI` in `src/config.py` usano `id_bando`, che ha anche
+   il documento di sempre `mercati-rionali-2026` (sezione 10, "199 contro
+   316").
+2. La lettura dei vettori da Postgres con `register_vector` di `pgvector`
+   0.5.0 restituisce un oggetto `pgvector.Vector`, non un array numpy
+   (sezione 9): il motore della fermata 1 deve convertirlo, come fa
+   `a_vettore` nella pagina.
+3. Se serve margine di memoria, la prima mossa è il riordino in lotti più
+   piccoli: il primo riordino di 30 coppie aggiunge circa 370-390 MB e
+   fissa il massimo (passo 6 in entrambe le versioni). Solo se un test si
+   blocca: in questo spazio non si ottimizza oltre ("A cosa serve questo
+   spazio", sopra).
