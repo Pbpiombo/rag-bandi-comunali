@@ -1644,3 +1644,196 @@ def test_storico_bando_a_domanda_annuale_con_nota_e_condizione(db):
     assert "non più aperto" not in riga
     assert f"nota: {nota}" in riga
     assert f"ammesso se {condizione}" in riga
+
+
+# --- falsi risultati della ricerca per nome (25/11/2026) ---
+# Titoli e frasi veri dei bandi in archivio. Un bando dato come trovato
+# vuole parole intere e lunghezze vicine; i titoli simili, che sono un
+# suggerimento, il confronto largo di prima.
+
+CAPITALE = (
+    "Sportello credito d’imposta per investimenti degli incubatori e "
+    "acceleratori certificati nel capitale delle start-up"
+)
+GASOLIO = (
+    "Credito d'imposta a favore imprese di autotrasporto - ristoro per "
+    "acquisto gasolio 2026"
+)
+RIFIUTI = (
+    "Contributi per realizzazione e potenziamento di impianti di trattamento "
+    "dei rifiuti per il loro recupero"
+)
+VETERINARIE = (
+    "aver compiuto i 65 anni di età alla data delle spese per le prestazioni "
+    "veterinarie, essere residente in Regione Toscana"
+)
+CASE_RIFUGIO = (
+    "debitamente certificati dai servizi sociali territoriali o dai Centri "
+    "antiviolenza o dalle Case rifugio esistenti sul territorio regionale"
+)
+PRESTATORI = (
+    "espressione di professionisti/e prestatori/trici d’opera intellettuale "
+    "iscritte nell’elenco"
+)
+
+
+def test_api_non_si_trova_dentro_capitale(db):
+    bando(db, "incubatori", titolo=CAPITALE)
+
+    assert not ib.dettaglio_bando(db, "api").trovato
+
+
+def test_ristorante_non_trova_ristoro(db):
+    bando(db, "gasolio", titolo=GASOLIO)
+
+    assert not ib.dettaglio_bando(db, "ristorante").trovato
+
+
+def test_trattore_non_trova_trattamento(db):
+    bando(db, "rifiuti", titolo=RIFIUTI)
+
+    assert not ib.dettaglio_bando(db, "trattore").trovato
+
+
+def test_prestito_non_trova_prestazioni(db):
+    bando(db, "animali", [("cittadini_famiglie", VETERINARIE, "proprietari")])
+
+    assert not ib.dettaglio_bando(db, "prestito").trovato
+
+
+def test_strade_trova_ancora_stradali(db):
+    # Con la differenza di lunghezza al piu' 1 si perdeva "fondo strade"
+    bando(db, "strade", COMUNI, titolo=STRADE)
+
+    assert ib.dettaglio_bando(db, "fondo strade").trovato
+
+
+def test_limite_noto_rifugio_omonimo_delle_case_rifugio(db):
+    # Limite noto: la parola e' la stessa, serve il significato
+    bando(db, "donne", [("cittadini_famiglie", CASE_RIFUGIO, "donne")])
+
+    assert ib.dettaglio_bando(db, "rifugio").trovato
+
+
+def test_limite_noto_prestito_simile_a_prestatori(db):
+    # Limite noto: stesse 5 lettere iniziali, 2 lettere di differenza
+    bando(db, "conciliazione", [("professionista_autonomo", PRESTATORI, "liberi")])
+
+    assert ib.dettaglio_bando(db, "prestito").trovato
+
+
+def test_campo_sportivo_suggerisce_il_bando_sport(db):
+    bando(db, "sport", titolo="Bando Sport Missione Comune 2026")
+    bando(
+        db,
+        "net-zero",
+        titolo="Contratti di sviluppo - Nuovo sportello “Net Zero e "
+        "Rinnovabili e Batterie” (PNRR)",
+    )
+
+    r = ib.dettaglio_bando(db, "campo sportivo")
+
+    assert not r.trovato
+    assert r.testo.startswith(
+        "Nessun bando corrisponde a 'campo sportivo'. Titoli più simili in "
+        "archivio, dal più vicino: «Bando Sport Missione Comune 2026» (id: sport)"
+    )
+
+
+# --- ripiego del testo unito: candidati con il motivo (25/11/2026) ---
+
+SPORT_BENEFICIARI = (
+    "Le risorse possono essere utilizzate da Comuni, Unioni di Comuni, Comuni "
+    "in forma associata. L’importo massimo di mutuo agevolabile per ciascuna "
+    "istanza e complessivo è: 2 milioni di euro per i piccoli Comuni"
+)
+SPORT_INTERVENTO = (
+    "costruzione, ampliamento, attrezzatura, miglioramento, ristrutturazione, "
+    "efficientamento energetico, completamento e messa a norma di impianti "
+    "sportivi"
+)
+C12 = "impianti sportivi mutuo agevolato"
+
+
+def _sport(db, **campi):
+    bando(
+        db,
+        "sport",
+        COMUNI,
+        titolo="Bando Sport Missione Comune 2026",
+        **campi,
+    )
+    # La colonna beneficiari: il parametro omonimo di bando() sono le righe
+    db.execute(
+        "UPDATE bandi SET beneficiari = ? WHERE id = 'sport'", (SPORT_BENEFICIARI,)
+    )
+    interventi(db, "sport", SPORT_INTERVENTO)
+
+
+def test_c12_porta_a_sport_missione_comune_come_candidato(db):
+    _sport(db)
+    bando(db, "gasolio", titolo=GASOLIO)
+
+    r = ib.dettaglio_bando(db, C12)
+
+    righe = r.testo.splitlines()
+    assert righe[0] == (
+        f"Nessun titolo corrisponde a '{C12}'. Candidati tra i bandi non "
+        "scaduti, con tutte le parole cercate nel loro testo (1): nessuno è "
+        "stato scelto."
+    )
+    assert righe[1].startswith(
+        "- [#1] trovato per 'mutuo', 'agevolato' (nel bando 'agevolabile') nei "
+        "beneficiari; 'impianti', 'sportivi' negli interventi | «Bando Sport "
+        "Missione Comune 2026»"
+    )
+    assert len(righe) == 2
+    assert [v.url for v in r.voci] == [BASE + "sport"]
+    # Un candidato non e' un bando trovato per nome
+    assert not r.trovato
+
+
+def test_il_ripiego_non_propone_bandi_scaduti(db):
+    _sport(db, scadenza="2026-10-01")
+
+    r = ib.dettaglio_bando(db, C12)
+
+    assert r.testo.startswith(f"Nessun bando corrisponde a '{C12}'")
+    assert r.voci == []
+
+
+def test_pulmino_nessun_risultato_e_nessun_candidato(db):
+    _sport(db)
+    bando(db, "gasolio", titolo=GASOLIO)
+    bando(db, "incubatori", titolo=CAPITALE)
+
+    r = ib.dettaglio_bando(db, "pulmino")
+
+    assert not r.trovato
+    assert r.voci == []
+    assert r.testo == (
+        "Nessun bando corrisponde a 'pulmino', e nessun titolo in archivio è simile."
+    )
+
+
+def test_candidati_poi_titoli_simili_senza_ripetere(db):
+    # Le due liste insieme: prima i candidati, che hanno tutte le parole;
+    # poi i titoli simili che non sono gia' tra i candidati. Il Bando Sport
+    # e' candidato ("sport" nel titolo, "mutuo" nei beneficiari) e anche
+    # titolo simile: compare una volta sola
+    _sport(db)
+    bando(db, "inverno", titolo="Impianti sport invernali")
+
+    r = ib.dettaglio_bando(db, "sport mutuo")
+
+    righe = r.testo.splitlines()
+    assert righe[1].startswith(
+        "- [#1] trovato per 'sport' nel titolo; 'mutuo' nei beneficiari | "
+        "«Bando Sport Missione Comune 2026»"
+    )
+    assert righe[2] == (
+        "Altri titoli simili in archivio, che non contengono tutte le parole "
+        "cercate: «Impianti sport invernali» (id: inverno)."
+    )
+    assert len(righe) == 3
+    assert "(id: sport)" not in r.testo

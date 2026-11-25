@@ -1250,6 +1250,12 @@ PAROLE_VUOTE = frozenset(
 # Due parole lunghe almeno tanto si considerano simili se iniziano con le
 # stesse PREFISSO_SIMILE lettere: "parcheggio" e "parcheggi"
 PREFISSO_SIMILE = 5
+# ... e se le loro lunghezze differiscono al piu' di DIFFERENZA_SIMILE
+# lettere: "strade" e "stradali" si', "ristorante" e "ristoro" no (25/11/2026,
+# docs/coda.md, "Ricerca per nome: falsi risultati"). Con 1 si perdeva
+# "fondo strade". Limiti noti, che una regola sulle lettere non separa:
+# "prestito" e "prestatori" (2 lettere), "rifugio" nelle "Case rifugio"
+DIFFERENZA_SIMILE = 2
 # Corrispondenza parziale: un solo titolo a cui manca una sola parola
 # cercata, purche' ne contenga almeno due (con meno parole cercate, una
 # mancante e' troppo)
@@ -1271,17 +1277,28 @@ def _parole(testo: str) -> list[str]:
     ]
 
 
-def _simili(a: str, b: str) -> bool:
+def _simili_largo(a: str, b: str) -> bool:
+    """Stesso inizio di PREFISSO_SIMILE lettere, a qualunque lunghezza.
+
+    Vale solo per i titoli simili, che si presentano come suggerimento e
+    non come bando trovato: "sportivo" e "sport" (Bando Sport Missione
+    Comune per "campo sportivo").
+    """
     if a == b:
         return True
     corta = min(len(a), len(b))
     return corta >= PREFISSO_SIMILE and a[:PREFISSO_SIMILE] == b[:PREFISSO_SIMILE]
 
 
-def _quota_parole(cercate: list[str], titolo: str) -> float:
+def _simili(a: str, b: str) -> bool:
+    """Parole simili per un bando dato come trovato: anche la lunghezza vicina."""
+    return _simili_largo(a, b) and abs(len(a) - len(b)) <= DIFFERENZA_SIMILE
+
+
+def _quota_parole(cercate: list[str], titolo: str, simili=_simili) -> float:
     """La quota delle parole cercate che ha una parola simile nel titolo."""
     nel_titolo = _parole(titolo)
-    presenti = sum(any(_simili(p, t) for t in nel_titolo) for p in cercate)
+    presenti = sum(any(simili(p, t) for t in nel_titolo) for p in cercate)
     return presenti / len(cercate)
 
 
@@ -1289,7 +1306,8 @@ def trova_bandi(conn: sqlite3.Connection, cercato: str) -> list:
     """I bandi che corrispondono al testo cercato, in tre passi.
 
     1. identificativo esatto: vince sempre;
-    2. il testo compare nel titolo (senza maiuscole e accenti);
+    2. il testo compare nel titolo come parole intere (senza maiuscole e
+       accenti): "api" non si trova dentro "capitale";
     3. tutte le parole del testo hanno una parola simile nel titolo, in
        qualunque ordine.
     Ci si ferma al primo passo che trova qualcosa.
@@ -1301,7 +1319,8 @@ def trova_bandi(conn: sqlite3.Connection, cercato: str) -> list:
     tutti = conn.execute("SELECT * FROM bandi ORDER BY titolo, id").fetchall()
     testo = _normale(cercato).strip()
     if testo:
-        nel_titolo = [r for r in tutti if testo in _normale(r["titolo"])]
+        intero = re.compile(rf"(?<![a-z0-9]){re.escape(testo)}(?![a-z0-9])")
+        nel_titolo = [r for r in tutti if intero.search(_normale(r["titolo"]))]
         if nel_titolo:
             return nel_titolo
 
@@ -1377,7 +1396,7 @@ def titoli_simili(conn: sqlite3.Connection, cercato: str) -> list:
     if not parole:
         return []
     tutti = conn.execute("SELECT id, titolo FROM bandi ORDER BY titolo, id")
-    punteggi = [(_quota_parole(parole, r["titolo"]), r) for r in tutti]
+    punteggi = [(_quota_parole(parole, r["titolo"], _simili_largo), r) for r in tutti]
     vicini = [(q, r) for q, r in punteggi if q >= SOGLIA_SIMILI]
     vicini.sort(key=lambda coppia: -coppia[0])
     return [r for _, r in vicini[:MAX_SIMILI]]
@@ -1396,6 +1415,142 @@ def _nessun_bando(conn: sqlite3.Connection, cercato: str) -> Risultato:
         f"Nessun bando corrisponde a '{cercato}'. Titoli più simili in "
         f"archivio, dal più vicino: {elenco}.",
         trovato=False,
+    )
+
+
+# Ripiego del testo unito (25/11/2026): quando nessuna strada trova un
+# bando, si cercano tutte le parole nel testo unito dei bandi non scaduti
+# (titolo, beneficiari, interventi). Il risultato sono candidati con il
+# motivo, mai un bando trovato per nome: la domanda puo' descrivere il bando
+# con parole sue ("un campo sportivo con un mutuo agevolato").
+CAMPI_TESTO_UNITO = ("titolo", "beneficiari", "interventi")
+# Come si legge ogni campo nel motivo
+NEL_CAMPO = {
+    "titolo": "nel titolo",
+    "beneficiari": "nei beneficiari",
+    "interventi": "negli interventi",
+}
+
+
+def testi_per_campo(conn: sqlite3.Connection, oggi: str) -> dict[str, dict]:
+    """Per ogni bando non scaduto (natura bando), i suoi testi per campo.
+
+    beneficiari: la frase dei beneficiari del bando e, per ogni riga di
+    beneficiari_bando, soggetto, frase e condizioni; interventi: le
+    descrizioni. Le chiavi seguono l'ordine dei titoli.
+    """
+    testi: dict[str, dict] = {}
+    for r in conn.execute(
+        "SELECT * FROM bandi WHERE natura = 'bando' ORDER BY titolo, id"
+    ):
+        if scaduto(r, scadenze_di(conn, r["id"]), oggi):
+            continue
+        testi[r["id"]] = {
+            "riga": r,
+            "titolo": [r["titolo"]],
+            "beneficiari": [r["beneficiari"] or ""],
+            "interventi": [],
+        }
+    for r in conn.execute(
+        "SELECT id_bando, coalesce(soggetto, '') || ' ' || frase || ' ' || "
+        "coalesce(condizioni, '') AS testo FROM beneficiari_bando"
+    ):
+        if r["id_bando"] in testi:
+            testi[r["id_bando"]]["beneficiari"].append(r["testo"])
+    for r in conn.execute("SELECT id_bando, descrizione FROM interventi_bando"):
+        if r["id_bando"] in testi:
+            testi[r["id_bando"]]["interventi"].append(r["descrizione"])
+    return testi
+
+
+def candidati_testo_unito(
+    conn: sqlite3.Connection, cercato: str, oggi: str
+) -> list[tuple]:
+    """I bandi non scaduti che hanno tutte le parole cercate, e il motivo.
+
+    Ogni parola si cerca nei campi in ordine (titolo, beneficiari,
+    interventi) e vale il primo che la contiene. Il motivo dice in quale
+    campo sta ogni parola, e la parola del bando quando e' scritta in
+    un'altra forma: "'mutuo', 'agevolato' (nel bando 'agevolabile') nei
+    beneficiari; 'impianti', 'sportivi' negli interventi".
+    """
+    parole = _parole(cercato)
+    if not parole:
+        return []
+    candidati = []
+    for testi in testi_per_campo(conn, oggi).values():
+        campi = {c: _parole(" ".join(testi[c])) for c in CAMPI_TESTO_UNITO}
+        dove: dict[str, list[str]] = {}
+        for p in parole:
+            trovata = next(
+                (
+                    (c, t)
+                    for c in CAMPI_TESTO_UNITO
+                    for t in sorted(campi[c], key=lambda t: t != p)
+                    if _simili(p, t)
+                ),
+                None,
+            )
+            if trovata is None:
+                break
+            campo, nel_bando = trovata
+            scritta = f"'{_forma_scritta(cercato, p)}'"
+            if nel_bando != p:
+                scritta += f" (nel bando '{nel_bando}')"
+            dove.setdefault(campo, []).append(scritta)
+        else:
+            motivo = "; ".join(
+                ", ".join(dove[c]) + f" {NEL_CAMPO[c]}"
+                for c in CAMPI_TESTO_UNITO
+                if c in dove
+            )
+            candidati.append((testi["riga"], motivo))
+    return candidati
+
+
+def _candidati(
+    conn: sqlite3.Connection, cercato: str, candidati: list[tuple], oggi: str
+) -> Risultato:
+    """I candidati del testo unito, con il motivo: nessuno e' scelto.
+
+    Dopo, i titoli simili che non sono gia' tra i candidati: sono un
+    suggerimento piu' debole (non contengono tutte le parole).
+    """
+    numerate = RigheBandi()
+    mostrati = candidati[:MAX_CORRISPONDENZE]
+    righe = [
+        (
+            f"Nessun titolo corrisponde a '{cercato}'. Candidati tra i bandi non "
+            f"scaduti, con tutte le parole cercate nel loro testo ({len(candidati)}): "
+            "nessuno è stato scelto."
+        ),
+        *(
+            "- "
+            + numerate.numera(
+                r, f"trovato per {motivo} | " + _riga_breve(conn, r, oggi)
+            )
+            for r, motivo in mostrati
+        ),
+    ]
+    if len(candidati) > MAX_CORRISPONDENZE:
+        righe.append(
+            f"E altri {len(candidati) - MAX_CORRISPONDENZE}: il testo cercato è "
+            "troppo generico."
+        )
+    gia = {r["id"] for r, _ in candidati}
+    simili = [r for r in titoli_simili(conn, cercato) if r["id"] not in gia]
+    if simili:
+        righe.append(
+            "Altri titoli simili in archivio, che non contengono tutte le "
+            "parole cercate: "
+            + "; ".join(f"«{r['titolo']}» (id: {r['id']})" for r in simili)
+            + "."
+        )
+    return Risultato(
+        "\n".join(righe),
+        fonti=list(dict.fromkeys(fonte_bando(r) for r, _ in mostrati)),
+        trovato=False,
+        voci=numerate.voci,
     )
 
 
@@ -1422,8 +1577,10 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
     testa. Poi il solo titolo a cui manca una parola
     (corrispondenza_parziale), con la parola mancante in testa. Un bando: il
     suo dettaglio. Fino a MAX_DETTAGLI: il dettaglio di ciascuno, numerato.
-    Oltre: l'elenco breve, senza sceglierne uno (trovato=False). Nessuno: i
-    titoli piu' simili, mai l'elenco completo.
+    Oltre: l'elenco breve, senza sceglierne uno (trovato=False). Nessuno:
+    i candidati del testo unito dei bandi non scaduti, con il motivo
+    (candidati_testo_unito, trovato=False); se non ce ne sono, i titoli piu'
+    simili, mai l'elenco completo.
     """
     trovati = trova_bandi(conn, id_bando)
     nel_testo = False
@@ -1435,6 +1592,9 @@ def dettaglio_bando(conn: sqlite3.Connection, id_bando: str) -> Risultato:
     if not trovati:
         parziale = corrispondenza_parziale(conn, id_bando)
         if parziale is None:
+            candidati = candidati_testo_unito(conn, id_bando, oggi)
+            if candidati:
+                return _candidati(conn, id_bando, candidati, oggi)
             return _nessun_bando(conn, id_bando)
         riga, manca = parziale
         testa = (

@@ -588,3 +588,76 @@ def test_la_promessa_della_verifica_compare_sempre():
         "Il controllo riguarda numeri, date, importi e atti: dice se compaiono "
         "nella fonte citata, non se la risposta è completa."
     )
+
+
+# --- importi, percentuali e date della domanda, con la guardia (25/11/2026)
+# Il valore della domanda e' una nota solo se la risposta lo scrive come
+# dato dell'utente: possessivo, nome, "di" o "da". Attribuito alla fonte,
+# resta rosso.
+
+# Riga vera del bando, dal database del 2026-11-25
+PMI_50_MILA = VoceBando(
+    "«Bando 2026 Pmi: sovvenzioni per abbattere interessi e commissioni di "
+    "garanzia su finanziamenti fino 50 mila euro» (Regione Toscana) | a "
+    "sportello, verificare la disponibilità delle risorse (data di "
+    "pubblicazione non indicata) | beneficiari: concessi alle Pmi localizzate "
+    "in Toscana dai soggetti finanziatori individuati dalla Regione Toscana | "
+    "atto: decreto dirigenziale 9505 del 30 aprile 2026",
+    "Portale bandi Regione Toscana, decreto dirigenziale 9505 del 30 aprile "
+    "2026 (dati estratti il 2026-11-11)",
+)
+# La domanda vera della demo del 25/11/2026 e la frase citata della risposta
+DOMANDA_BAR = (
+    "Ho un bar con due dipendenti e chiedo un prestito di 30 mila euro per "
+    "rifare il bancone: il bando sui 50 mila mi aiuta con gli interessi?"
+)
+
+
+def test_caso_del_bar_importo_dell_utente_non_e_rosso():
+    risposta = (
+        "Sì: il suo prestito di 30 mila euro rientra nella soglia (fonte: "
+        "[D1.1], Bando 2026 Pmi)."
+    )
+    esiti = vc.verifica(risposta, [], blocco(PMI_50_MILA), domanda=DOMANDA_BAR)
+    assert esito_di(esiti, "30 mila").stato == "dalla_domanda"
+
+
+def test_importo_della_domanda_attribuito_alla_fonte_resta_rosso():
+    domanda = "Il bando sui 40 mila mi aiuta con gli interessi?"
+    risposta = "Il bando vale fino a 40 mila euro (fonte: [D1.1], Bando 2026 Pmi)."
+    esiti = vc.verifica(risposta, [], blocco(PMI_50_MILA), domanda=domanda)
+    assert esito_di(esiti, "40 mila").stato == "non_trovato"
+
+
+def test_percentuale_dell_utente_e_una_nota():
+    domanda = "Il Comune mi copre già il 20% della spesa: posso chiedere anche questo?"
+    risposta = (
+        "La sua quota di 20% coperta dal Comune non cambia la soglia del "
+        "finanziamento (fonte: [D1.1], Bando 2026 Pmi)."
+    )
+    esiti = vc.verifica(risposta, [], blocco(PMI_50_MILA), domanda=domanda)
+    assert esito_di(esiti, "20").stato == "dalla_domanda"
+
+
+def test_percentuale_della_domanda_attribuita_alla_fonte_resta_rossa():
+    domanda = "Il bando copre il 20% degli interessi?"
+    risposta = "Sì, copre il 20% degli interessi (fonte: [D1.1], Bando 2026 Pmi)."
+    esiti = vc.verifica(risposta, [], blocco(PMI_50_MILA), domanda=domanda)
+    assert esito_di(esiti, "20").stato == "non_trovato"
+
+
+def test_data_dell_utente_e_una_nota():
+    domanda = "Ho aperto il bar il 15/03/2026: posso chiedere il contributo?"
+    risposta = (
+        "La sua attività da 15/03/2026 è una Pmi localizzata in Toscana (fonte: "
+        "[D1.1], Bando 2026 Pmi)."
+    )
+    esiti = vc.verifica(risposta, [], blocco(PMI_50_MILA), domanda=domanda)
+    assert esito_di(esiti, "15/03/2026").stato == "dalla_domanda"
+
+
+def test_data_della_domanda_attribuita_alla_fonte_resta_rossa():
+    domanda = "Il bando chiude il 15/03/2026?"
+    risposta = "Sì, chiude il 15/03/2026 (fonte: [D1.1], Bando 2026 Pmi)."
+    esiti = vc.verifica(risposta, [], blocco(PMI_50_MILA), domanda=domanda)
+    assert esito_di(esiti, "15/03/2026").stato == "non_trovato"

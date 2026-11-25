@@ -920,3 +920,36 @@ voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
   ("numero", "intervallo di date", …). Verificatore e ISTRUZIONI non
   cambiano. 33 test nuovi in `tests/test_pagina_app.py`, con AppTest e
   catene finte; nessun test esistente toccato.
+- (25/11/2026) Falsi risultati della ricerca per nome, in
+  `src/database/interrogazioni_bandi.py`: nel passo del titolo il testo
+  cercato vale solo come parole intere ("api" non si trova più dentro
+  "capitale"); due parole sono simili, per un bando dato come trovato,
+  solo se le lunghezze differiscono al più di 2 lettere
+  (`DIFFERENZA_SIMILE`; con 1 si perdeva "fondo strade"). I titoli
+  simili, che sono un suggerimento, usano il confronto di prima
+  (`_simili_largo`), perché "campo sportivo" continui a suggerire il
+  Bando Sport Missione Comune. Spariti ristorante verso "ristoro
+  gasolio", trattore verso "trattamento rifiuti", prestito verso
+  "prestazioni veterinarie", api verso "capitale"; 116 titoli e 12
+  parametri salvati identici. Limiti noti con un test ciascuno:
+  "rifugio" e le "Case rifugio", "prestito" e "prestatori". 8 test
+  nuovi in `tests/test_interrogazioni_bandi.py`. Dettaglio in
+  `coda.md`, "Ricerca per nome e parole comuni (25/11/2026)".
+- (25/11/2026) Ripiego di `dettaglio_bando` sul testo unito dei bandi
+  non scaduti (titolo, beneficiari, interventi), quando nessuna strada
+  trova un bando: candidati con `trovato=False` e il motivo per
+  ciascuno, con la parola del bando quando è scritta in un'altra forma;
+  dopo, i titoli simili non già tra i candidati
+  (`candidati_testo_unito`, `testi_per_campo`, `_candidati`). C12
+  ("impianti sportivi mutuo agevolato") porta a Sport Missione Comune;
+  nessun altro risultato cambia sui tre insiemi; "pulmino" resta senza
+  risultati. Router, repertorio e ISTRUZIONI non cambiano. 4 test nuovi
+  in `tests/test_interrogazioni_bandi.py`.
+- (25/11/2026) Importo della domanda nel verificatore, in
+  `src/verification/controllo.py`: "dalla_domanda" vale anche per
+  importi, percentuali e date, solo quando la risposta li scrive come
+  dati dell'utente (possessivo, nome, "di" o "da": `dell_utente`). Il
+  caso del bar ("il suo prestito di 30 mila euro") non è più rosso; lo
+  stesso valore attribuito alla fonte resta rosso. 226 risposte salvate:
+  nessun cambiamento. 6 test nuovi in `tests/test_verifica_ruoli.py`,
+  con la riga vera del bando Pmi fino a 50 mila euro.

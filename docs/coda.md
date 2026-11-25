@@ -4249,6 +4249,259 @@ in tutto il materiale salvato. Solo misura: il codice non cambia.
   `struttura.py`, `numeri_corti.py`, `inventario_uscita_completa_2026-11-25.txt`,
   `forme.json`, `occorrenze/`).
 
+## Risposte vere sulla demo (25/11/2026)
+
+- (25/11/2026) Lettura di 20 risposte vere sulla demo: 13 buone, 5
+  oneste ma generiche, 1 con esito giusto e strada sbagliata, 1
+  sbagliata. Nessun dato inventato, nessun bando scaduto dato per aperto.
+- (25/11/2026) I tre difetti principali:
+  1. manca la profondità sulle spese ammissibili, perché gli avvisi non
+     sono online: conferma la priorità del 19e;
+  2. la ricerca per nome che non trova e si ferma: l'utente descrive il
+     bando con parole sue ("il bando per chi fa il miele") e l'app lo
+     prende per un titolo;
+  3. l'importo della domanda segnato in rosso ("30 mila" del prestito
+     dell'utente, non trovato nella fonte citata): lo stato
+     "dalla_domanda", limitato alle quantità il 25/11/2026, è risultato
+     troppo stretto alla prima risposta vera.
+- (25/11/2026) Correzione di una ipotesi fatta in chat: l'ordinamento
+  "per cosa" (passo 4) non risulta il difetto principale, perché il
+  bando giusto viene trovato quasi sempre.
+- (25/11/2026) Difetti minori:
+  1. "Bandi che non ho potuto valutare" con un bando estraneo alla
+     domanda;
+  2. la frase "Se a chiedere fosse il Comune" in una risposta a
+     un'impresa;
+  3. il dato dell'utente sugli abitanti scartato a favore di quello
+     dell'ente;
+  4. l'urgenza segnalata solo a volte;
+  5. le date nel formato tecnico;
+  6. il pannello della verifica con i pezzi di frase tagliati.
+- (25/11/2026) Decisione di chi mantiene il progetto: l'app offre tutte
+  e due le strade, la domanda complessa diretta e il percorso a passi;
+  con la domanda diretta, se è incerta sul bando, mostra i candidati e
+  chiede quale. La scheda del passo 22 deve essere raggiungibile
+  dall'elenco e dalla domanda diretta.
+- (25/11/2026) Le risposte da mostrare al consulente pilota come esempi:
+  l'edicola, Sport Missione Comune in forma associata, il circolo e lo
+  SPID, il disoccupato di 57 anni, la domanda del consulente pilota
+  sulle rievocazioni.
+
+## Ricerca per nome e parole comuni (25/11/2026)
+
+Nasce dal secondo difetto della demo ("Risposte vere sulla demo",
+sopra): l'utente descrive il bando con parole sue ("il bando per chi fa
+il miele") e l'app lo cerca come un titolo, non lo trova e si ferma.
+Misure senza modello; script e uscite in
+`dati-grezzi/prova/risposte-vere/2026-11-25/` e
+`dati-grezzi/prova/parole-ricerca/`.
+
+- (25/11/2026) Falsi risultati della ricerca per nome, trovati e
+  corretti (fatto, vedi `fatto.md`). Il passo del titolo confrontava il
+  testo cercato anche dentro le parole, e due parole con le stesse 5
+  lettere iniziali valevano simili a qualunque lunghezza. Prima e dopo,
+  sulle 36 parole comuni dell'insieme di misura:
+
+  | parola | prima | dopo |
+  |---|---|---|
+  | api | apistiche e "capitale" (incubatori) | nessuno |
+  | ristorante | "ristoro per acquisto gasolio" | nessuno |
+  | trattore | "trattamento dei rifiuti" (scaduto) | nessuno |
+  | prestito | "prestazioni veterinarie" e due "prestatori" | i due "prestatori" (limite noto) |
+
+  Restano uguali i veri: apicoltura, edicola, albergo, strada, impianti
+  sportivi, assunzione. I 116 titoli usati come testo cercato e i 12
+  parametri salvati di `dettaglio_bando`: identici.
+- (25/11/2026) Soglia scelta: parole intere nel passo del titolo, e
+  prefisso comune solo se le lunghezze differiscono al più di 2
+  lettere (`DIFFERENZA_SIMILE`). Con 1 si perdeva "fondo strade" nelle
+  4 risposte salvate (strade e stradali differiscono di 2 lettere).
+  Una regola più stretta (la parola più corta senza la vocale finale
+  all'inizio della più lunga) toglieva anche "prestatori" ma perdeva
+  "apicoltura" (apicoltori): scartata.
+- (25/11/2026) Limiti noti, che una regola sulle lettere non separa,
+  documentati da un test ciascuno: "rifugio" trova le "Case rifugio"
+  (stessa parola, altro significato); "prestito" trova "prestatori"
+  (stesse 5 lettere, 2 di differenza). Serve il significato.
+- (25/11/2026) Regola stretta per i bandi dati come trovati, larga per
+  i titoli simili. Motivo: un bando trovato è un'affermazione, un
+  titolo simile è un suggerimento dichiarato come tale. L'ha fatta
+  emergere "campo sportivo": con la regola stretta anche nei simili
+  spariva il Bando Sport Missione Comune ("sportivo" e "sport", 3
+  lettere) e saliva primo "Nuovo sportello Net Zero". Limite noto:
+  tra i titoli simili "sportivo" assomiglia ancora a "sportello" (Net
+  Zero resta nell'elenco, dopo il Bando Sport).
+- (25/11/2026) Ripiego sul testo unito del bando (fatto): quando nessuna
+  strada trova un bando, si cercano tutte le parole nel titolo, nei
+  beneficiari (la frase del bando e le righe di `beneficiari_bando`) e
+  negli interventi dei bandi non scaduti. Il risultato sono candidati,
+  con `trovato=False` e il motivo per ciascuno ("trovato per 'mutuo',
+  'agevolato' (nel bando 'agevolabile') nei beneficiari; 'impianti',
+  'sportivi' negli interventi"), mai un bando trovato per nome. In
+  coda, i titoli simili che non sono già tra i candidati. Misura: tra i
+  tre insiemi cambia solo C12 ("impianti sportivi mutuo agevolato"),
+  che porta a Sport Missione Comune; nessun candidato nuovo tra le
+  altre parole comuni; "pulmino" resta senza risultati.
+- (25/11/2026) Tappa 3, parole comuni per trovare un bando: decisione di
+  chi mantiene il progetto, niente elenco di corrispondenze tenuto a
+  mano, perché non regge quando i bandi aumentano. Ordine delle strade,
+  dalla più solida: C, testo completo del bando (pagina salvata e
+  avvisi); A, note esplicative ATECO dell'Istat; B, parole scritte da
+  un modello al caricamento, solo per ciò che resta scoperto. Motivo
+  dell'ordine: una parola presa dal testo del bando ha una fonte
+  (file e pagina), una parola scritta da un modello no. Il progetto si
+  conferma dopo la ricerca (sotto).
+- (25/11/2026) Strada C, misura senza modello. Testo completo per 42
+  bandi non scaduti su 51 (pagina salvata per 37, avvisi per 13; i 9
+  senza testo vengono tutti dal catalogo Incentivi Italia). Il
+  confronto di `dettaglio_bando` sul testo completo fa troppo rumore
+  ("giornali" trova "giorni" in 34 bandi, "trattore" trova "trattato"
+  in 13): sul testo completo serve la stessa parola, o la stessa con
+  la vocale finale diversa (arnia e arnie; "ch" e "gh" come "c" e "g":
+  biblioteca e biblioteche), e mai una parola che non distingue i
+  bandi ("banda" non trova "bando"). Con questa regola, sulle 46
+  parole (le 36 più arnie, miele, alveari, telecamere,
+  videosorveglianza, pulmino, costumi, insegnante, caldaia, bagni): 71
+  coppie parola-bando, 30 pertinenti, 38 no, 3 dipende da chi chiede.
+  Dove entrerebbe davvero, cioè come ripiego per le parole che oggi non
+  trovano niente: 20 coppie, 8 pertinenti; con "almeno 2 occorrenze nel
+  bando" 10 coppie, 8 pertinenti, nessuna pertinente persa, 2 no ("API"
+  come sigla nel bando sui dati, "trattore stradale" in una tabella).
+  Arnie, miele, alveari portano al bando per le aziende apistiche
+  (negli allegati A1 e A5 del decreto 14025); "banda" all'educazione
+  musicale di base; "biblioteca" a Cultura Missione Comune; "costumi"
+  alla rievocazione storica. "Caldaia" è nel bando Pmi 50 mila
+  (allegato 1B, solo nel registro), ma oggi `dettaglio_bando` la trova
+  già, nel testo dei beneficiari, nell'«Avviso fondo di garanzia energie
+  rinnovabili», scaduto nel 2021: il ripiego non entra. La ricerca nel
+  testo di oggi non esclude gli scaduti; da decidere se debba farlo.
+  Restano scoperti palestra e campo sportivo (il bando Sport scrive
+  "impianto sportivo"), telecamere, pulmino.
+- (25/11/2026) Parole citate per escluderle: una regola sulle parole
+  vicine ("esclus", "non ammiss"… nei 200 caratteri prima) ha preso
+  l'unico caso con tutte le occorrenze escluse ("frigo bar" tra le
+  spese escluse), ma non si può dire con una regola in generale: le
+  esclusioni stanno spesso in una sezione intitolata "spese non
+  ammissibili" con l'elenco righe più sotto, fuori da qualunque
+  finestra, e "ad eccezione di" rovescia il senso. Si potrà dire con il
+  titolo della sezione, che darà il taglio a livelli.
+- (25/11/2026) Strada C nell'app online, senza copiare il testo delle
+  pagine nel repository pubblico: una tabella di parole per bando,
+  `parole_bando` (id_bando, parola normalizzata, fonte: pagina o
+  avviso, file, pagina del PDF, occorrenze), costruita al caricamento.
+  Dimensioni oggi: 34.283 righe su 42 bandi (5,4 MB in CSV), 16.131 con
+  almeno 2 occorrenze (2,6 MB). A mille bandi sarebbero circa 400.000
+  righe: non un CSV del repository, ma una tabella costruita dal
+  caricamento in Postgres. Le parole vengono dagli avvisi: va decisa
+  con il 19e (vedi "Mai" in CLAUDE.md). Nel blocco dei dati il motivo
+  si leggerebbe "trovato perché nell'avviso compare 'arnie' (allegato
+  A1, pag. 4)".
+- (25/11/2026) Strada A, senza rete. L'elenco ATECO tra i PDF è
+  l'allegato 4 dei decreti 9505 e 9506 del 30/04/2026 (236 pagine):
+  solo codici e titoli, ATECO 2025 e 2022 a confronto, con
+  l'ammissibilità al bando; non le note esplicative. Ci sono
+  "Apicoltura", "Stampa di giornali", "Bar e altri esercizi simili
+  senza cucina", "Attività di servizi di ristorazione"; non ci sono
+  "miele", "arnie", "ristorante", "edicola", "agriturismo". Codici ATECO
+  nei dati strutturati: 2 bandi aperti su 51 (giornali, turismo); la
+  parola "ATECO" nel testo completo: 8. Versioni citate dai bandi:
+  2007 (4 bandi) e 2025 (3); la 2022 compare solo nell'allegato 4,
+  come colonna di corrispondenza (da verificare che sia
+  l'aggiornamento 2022 della 2007). Le note Istat della ricerca sono
+  del 2025: per i bandi che citano la 2007 serve una tabella di
+  raccordo. Le note non si scaricano in questo giro.
+- (25/11/2026) Strada B, solo disegno: script
+  `dati-grezzi/prova/parole-ricerca/genera_parole.py` (`--stima`,
+  `--solo N`, ripresa per impronta, `--finto`, `--foglio`), provato solo
+  con il modello finto. Al modello titolo, beneficiari e interventi;
+  regole: solo parole e modi di dire, da 5 a 12, nessun numero, data,
+  importo, sigla o nome di ente, niente parole di qualunque bando, niente
+  parole del titolo, mai cose escluse; controlli meccanici sulla
+  risposta. Uscita: un CSV con id_bando, parole, origine "modello",
+  modello, data, impronta dell'ingresso, rigenerato solo quando
+  l'ingresso del bando cambia; in `data/processed` solo dopo il foglio
+  di controllo a mano (una riga per bando, colonna "c'entrano? sì / no
+  / togliere questa"); tabella accettata vuota nelle copie più vecchie.
+  Uso solo nel ripiego, dopo R1, e solo per cercare; motivo nel blocco:
+  "trovato per le parole di ricerca (scritte da un modello, non dal
+  bando)". Contro il rumore: un'espressione nelle parole di più del 5%
+  dei bandi è segnata nel foglio, soglia da tarare dopo la generazione.
+  Filtro suggerito dalla ricerca (Doc2Query--): tenere un'espressione
+  solo se, cercata sull'archivio, ritrova il proprio bando tra i primi;
+  si farebbe con la ricerca per significato che c'è già, al
+  caricamento. Costo stimato per 113 bandi: circa 1,6 dollari con
+  claude-opus-5-5 (tetto 4,8 con il massimo di token), 0,8 con
+  claude-sonnet-5-5.
+- (25/11/2026) Cosa dice la ricerca fatta in parallelo (Studio esterno,
+  25/11/2026, non verificato a mano): le parole comuni spesso sono già
+  nel testo completo e negli allegati, non nel titolo; l'unico
+  vocabolario pubblico che collega parole comuni e codici sono le note
+  esplicative ATECO 2025 dell'Istat (voce dell'apicoltura: "produzione
+  di miele, cera di api, propoli"); le parole generate senza filtro
+  introducono rumore. Limiti dichiarati dalla ricerca stessa: le prove
+  sui portali non sono state eseguite (incentivi.gov.it ha bloccato
+  l'accesso, il portale toscano ha ignorato il parametro di ricerca);
+  le misure pubblicate sono solo in inglese o su testi tradotti a
+  macchina. La misura della strada C, sopra, conferma il primo punto
+  sui nostri bandi: arnie, miele e alveari sono negli allegati del
+  bando apistico.
+- (25/11/2026) In coda, dopo la chiamata: requisiti dell'utente ("ho 26
+  anni" e simili). Sono requisiti, non parole da cercare. Parte 1: il
+  modello li estrae dalla domanda libera, il codice li confronta con i
+  campi dei bandi, l'app mostra cosa ha capito e l'utente corregge;
+  niente filtro obbligatorio, niente salvato. I campi li decidono i
+  bandi (i requisiti più ricorrenti), ognuno con la frase del bando; un
+  solo elenco di campi per bandi, domanda e profilo. Un campo vuoto non
+  esclude un bando ("requisito da verificare"). Collegato a "Età
+  dell'impresa e chi deve ancora costituirla (24/11/2026)".
+- (25/11/2026) In coda, parte 2, privata: profilo generale sempre attivo
+  (tipo di soggetto, sede, forma giuridica, anno di costituzione,
+  dimensione, settore) più una scheda per ogni progetto, legata ai
+  bandi scelti, con i campi che quel bando chiede, aggiunti via via.
+  Niente si salva senza conferma dell'utente; ogni dato salvato ha data
+  e origine. La scheda mostra cosa manca. Dati nel database con
+  accesso, mai nel repository; informativa, consenso e cancellazione
+  da verificare sulle fonti ufficiali prima di aprire a utenti veri.
+- (25/11/2026) Importo della domanda nel verificatore (fatto): lo stato
+  "dalla_domanda" vale anche per importi, percentuali e date, con la
+  guardia: solo quando la risposta scrive il valore come dato
+  dell'utente, possessivo più nome più "di" o "da" subito prima ("il
+  suo prestito di 30 mila"). Rischio misurato prima: senza la guardia,
+  il valore della domanda attribuito alla fonte ("il bando vale fino a
+  50 mila (fonte: [D1])" con la fonte che dice 40.000) perdeva
+  l'allarme. Sulle 226 risposte salvate: nessun cambiamento, perché
+  nessuna domanda salvata contiene un importo, una percentuale o una
+  data che la risposta ripete; la chiusura poggia sui 6 test nuovi, un
+  caso per verso. Limite: le date si scrivono di solito con "del" o
+  "dal" ("la sua iscrizione del 3 marzo"), che la guardia non prende;
+  allargarla alle preposizioni articolate va misurato con risposte
+  vere che lo contengano.
+- (25/11/2026) Soluzioni provvisorie dichiarate e cosa le sostituirà: i
+  frammenti vicini, dal taglio a livelli; le citazioni accorciate,
+  dall'elenco "Fonti citate" scritto dal codice; le correzioni a mano
+  sui bandi, dalla protezione dalle riestrazioni. Stima per sostituirle
+  tutte: tre o quattro settimane dopo la chiamata, con l'avvertenza che
+  il 19d aveva richiesto il triplo del previsto.
+- (25/11/2026) Collo di bottiglia dichiarato: l'insieme di domande
+  scritte da persone con la risposta attesa. Senza quello le
+  sostituzioni si costruiscono ma non si misurano; vale anche per le
+  strade A, B e C (le 36 parole sono scelte da chi sviluppa, non da chi
+  chiede).
+- (25/11/2026) In coda: la frase "in archivio non c'è un bando con quel
+  nome" della regola "BANDO CERCATO PER NOME" in `ISTRUZIONI`, da
+  cambiare con una regressione contro la baseline (la domanda sul
+  pulmino non nominava un bando); l'istruzione del router "per il suo
+  oggetto", che manda a `dettaglio_bando` anche domande che non
+  nominano un bando, da cambiare con la stessa regola.
+- (25/11/2026) Regola decisa da chi mantiene il progetto: a una domanda
+  generica l'app indica i bandi pertinenti in breve e rimanda alla
+  scheda per i dettagli; a una domanda specifica su un bando nominato
+  risponde in modo esauriente. Quando ci sarà la scheda del passo 22,
+  il rimando sostituisce frasi come "non trovo l'elenco delle spese
+  ammissibili".
+- (25/11/2026) Ordine prima della chiamata, aggiornato: parole comuni
+  per trovare un bando, poi il passo 20, poi l'incrocio delle ricerche.
+
 ## Parcheggio
 
 Idee che non interrompono il lavoro in corso (nuova, 21/11/2026). Regola:

@@ -169,7 +169,8 @@ class Esito:
     # verificato | non_trovato | non_citato | citazione_generica (un dato
     # di un solo bando citato con il blocco [Dn] invece che con [Dn.k]) |
     # dalla_domanda (una quantita' scritta dall'utente nella domanda e non
-    # nella fonte: ne' verificata ne' allarme)
+    # nella fonte, o un importo, una percentuale o una data scritti nella
+    # risposta come dati dell'utente: ne' verificati ne' allarme)
     stato: str
     dettaglio: str = ""
     contesto: str = ""
@@ -425,12 +426,32 @@ def citazioni_del_dato(
     return [precedenti[-1]] if precedenti else etichette
 
 
+# Importi, percentuali e date della domanda (25/11/2026): non trovati nella
+# fonte, sono dati dell'utente solo se la risposta li scrive come tali,
+# possessivo piu' nome piu' "di" o "da" subito prima del valore ("il suo
+# prestito di 30 mila"). Senza la guardia, il valore della domanda
+# attribuito alla fonte ("il bando vale fino a 50 mila (fonte: [D1])",
+# quando la fonte dice 40.000) perdeva l'allarme.
+TIPI_DELL_UTENTE = ("importo", "percentuale", "data")
+DATO_DELL_UTENTE = re.compile(
+    r"\b(?:suo|sua|suoi|sue|vostro|vostra|vostri|vostre)\s+[^\W\d_]+\s+"
+    r"(?:di|da)\s+$",
+    re.IGNORECASE,
+)
+
+
+def dell_utente(risposta: str, posizione: int) -> bool:
+    """Il valore a posizione e' scritto come dato dell'utente."""
+    return bool(DATO_DELL_UTENTE.search(risposta, 0, posizione))
+
+
 def valori_della_domanda(domanda: str | None) -> Valori | None:
     """I valori della domanda, con i numeri in lettere ("centoventi alveari").
 
-    Dalla domanda contano solo le quantita' (verifica), quindi solo i numeri
-    da 10 in su: "una", "sei" o "otto" in una domanda sono quasi sempre
-    altre parole, e le quantita' a una cifra non si estraggono.
+    I numeri in lettere valgono per le quantita' (verifica), quindi solo da
+    10 in su: "una", "sei" o "otto" in una domanda sono quasi sempre altre
+    parole, e le quantita' a una cifra non si estraggono. Importi,
+    percentuali e date contano solo con la guardia di dell_utente.
     """
     if not domanda:
         return None
@@ -563,7 +584,9 @@ def verifica(
     quella (citazioni_del_dato). Con la domanda, una quantita' non trovata
     nella fonte ma scritta dall'utente ("un disoccupato di 57 anni") ha
     l'esito dalla_domanda, ne' verificato ne' allarme; date, importi e
-    percentuali della domanda restano al controllo normale. Gli intervalli
+    percentuali della domanda solo se la risposta li scrive come dati
+    dell'utente ("il suo prestito di 30 mila"), altrimenti restano al
+    controllo normale. Gli intervalli
     di date "dal X al Y" sono un dato anche come coppia: la fine prima
     dell'inizio e' non trovata anche senza fonte, e gli estremi presenti
     nella fonte citata ma non nella stessa finestra pure (_verifica_intervalli).
@@ -576,12 +599,16 @@ def verifica(
     della_domanda = valori_della_domanda(domanda)
 
     def dalla_domanda(dato: Dato) -> bool:
-        """Una quantita' che l'utente ha scritto nella domanda."""
-        return (
-            della_domanda is not None
-            and dato.tipo == "quantita"
-            and presente(dato, della_domanda)
-        )
+        """Un valore che l'utente ha scritto nella domanda.
+
+        Una quantita' sempre; un importo, una percentuale o una data solo se
+        la risposta lo scrive come dato dell'utente (dell_utente).
+        """
+        if della_domanda is None or not presente(dato, della_domanda):
+            return False
+        if dato.tipo == "quantita":
+            return True
+        return dato.tipo in TIPI_DELL_UTENTE and dell_utente(risposta, dato.posizione)
 
     def ha(dato: Dato, etichetta: str) -> bool:
         """La fonte con quell'etichetta contiene il dato."""
