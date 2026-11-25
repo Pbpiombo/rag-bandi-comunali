@@ -324,7 +324,7 @@ dall'estrazione conservata, senza una nuova chiamata, con la sua
 `scadenza_nota`. Nota in roadmap, passo 4.
 
 L'estrazione è conservata fuori dal repository, in
-`C:\Users\Matteo_Papucci\Desktop\programmazione\dati-grezzi\estrazioni\`:
+`..\dati-grezzi\estrazioni\`:
 `2026-11-12_premi-imboschimenti.json` (leggibile), `.pkl` (l'oggetto
 `Estrazione`), `.testo.txt` (il testo della pagina su cui validarla).
 
@@ -715,7 +715,7 @@ File già scaricato, **fuori dal repository**, con il documento dei
 metadati:
 
 ```
-C:\Users\Matteo_Papucci\Desktop\programmazione\dati-grezzi\incentivi-italia\2026-11-12\
+..\dati-grezzi\incentivi-italia\2026-11-12\
 ```
 
 Letto il 13/11/2026 per la misura (sotto), con script fuori dal
