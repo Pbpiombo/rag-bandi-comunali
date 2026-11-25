@@ -3704,9 +3704,14 @@ domande vere", in "Sospensioni e chiusure anticipate (24/11/2026)").
 3. inventario delle scritture ("Inventario delle scritture
    (25/11/2026)": misura fatta, correzioni da decidere);
 4. errore tecnico mostrato all'utente;
+   (25/11/2026) fatto;
 5. "sospeso" accanto ai bandi citati;
+   (25/11/2026) fatto;
 6. poi le risposte vere, il controllo del passo 20, l'incrocio delle
    ricerche.
+
+(25/11/2026) Restano, prima della chiamata: la ventina di risposte vere,
+il controllo del passo 20, l'incrocio delle ricerche.
 
 Dopo la chiamata, in aggiunta all'elenco qui sotto: date in formato
 italiano e urgenza delle scadenze vicine.
@@ -4132,6 +4137,12 @@ sbagliato: il controllo di presenza non lo può vedere.
   prossimo compito sull'app: le date di un intervallo rosso non compaiono
   tra i dati presenti; messaggio arancione al singolare e al plurale;
   etichette dei tipi in parole per l'utente.
+  (25/11/2026) Fatti, solo in `app/app.py` (vedi `fatto.md`, "Fatti il
+  25 novembre 2026"). Le forme "dato/i" e "citato/i" nascono in
+  `giudizio` del verificatore e lì restano: le accorda il pannello. Il
+  tipo "letterale" ("21/27") non ha un'etichetta nell'elenco deciso e
+  resta col suo nome; un importo come "5.000 euro" il verificatore lo
+  legge come quantità, e il pannello lo mostra come "numero".
 
 ## Inventario delle scritture (25/11/2026)
 

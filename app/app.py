@@ -1,8 +1,10 @@
 """Interfaccia Streamlit per il sistema RAG territoriale."""
 
+import logging
 import os
 import re
 import sys
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 # Streamlit esegue questo file direttamente, quindi la radice del progetto
@@ -11,17 +13,59 @@ RADICE = Path(__file__).resolve().parents[1]
 if str(RADICE) not in sys.path:
     sys.path.insert(0, str(RADICE))
 
+import anthropic
+import psycopg
 import streamlit as st
 
 from src.chains.rag import costruisci_catena, impronta_istruzioni
 from src.citazioni import accorcia_citazioni
 from src.config import ACCORCIA_CITAZIONI, ENTE_PREDEFINITO, MODEL_NAME
 from src.database.enti import elenco_enti
+from src.database.interrogazioni_bandi import (
+    data_di_oggi,
+    sospensioni_attive,
+    sospensioni_di,
+)
 from src.database.modelli import bandi_citati, collegamenti_bandi, con_etichette
 from src.database.repertorio import stato_archivio
 from src.database.schema import connetti
+from src.normalizzazione import MESI, data, uniforma_trattini
 from src.pgstore import RecuperoPostgres
-from src.verification.controllo import dati_presenti, giudizio, verifica
+from src.verification.controllo import contesto_di, dati_presenti, giudizio, verifica
+
+LOG = logging.getLogger("app")
+
+# Gli errori del servizio del modello e del database dei documenti: l'utente
+# vede una riga sola, senza dettagli (demo del 24/11/2026, traceback di un
+# errore di autenticazione). Elenco chiuso: ogni altro errore, compresi
+# quelli di programmazione, continua a emergere.
+ERRORI_SERVIZIO = (
+    anthropic.AuthenticationError,
+    anthropic.RateLimitError,
+    anthropic.APIConnectionError,  # comprende APITimeoutError
+    anthropic.InternalServerError,
+    anthropic.OverloadedError,
+    anthropic.ServiceUnavailableError,
+    psycopg.OperationalError,  # connessione o tempo scaduto di Postgres
+)
+MESSAGGIO_SERVIZIO = (
+    "Il servizio non è disponibile in questo momento. Riprova tra qualche minuto."
+)
+
+# I tipi dei dati come li legge l'utente; i nomi interni non cambiano
+ETICHETTE_TIPI = {
+    "quantita": "numero",
+    "importo": "importo",
+    "data": "data",
+    "atto": "atto",
+    "codice": "codice",
+    "riferimento": "riferimento",
+    "intervallo": "intervallo di date",
+    "periodo": "periodo",
+    "anno": "anno",
+    "orario": "orario",
+    "percentuale": "percentuale",
+}
 
 st.set_page_config(
     page_title="Assistente territoriale",
@@ -141,6 +185,12 @@ def mostra_verifica(esito: dict) -> None:
         domanda=esito.get("domanda"),
     )
     collegamenti = collegamenti_bandi(esito.get("esiti_dati"))
+    # Le due date di un intervallo rosso restano solo nella sua riga rossa:
+    # tra i dati presenti sembrerebbero confermate (25/11/2026). Si tolgono
+    # prima di raggruppare, cosi' la stessa data scritta altrove resta, e il
+    # livello non cambia: con un intervallo rosso e' rosso comunque
+    nascoste = date_degli_intervalli_rossi(esito["risposta"], esiti)
+    esiti = [e for e in esiti if id(e) not in nascoste]
     # Una riga e un conteggio per ogni dato con le sue fonti, anche se la
     # risposta lo cita piu' volte: solo la visualizzazione, il verificatore
     # e i file della prova restano come sono
@@ -149,6 +199,7 @@ def mostra_verifica(esito: dict) -> None:
     esiti = [e for e, _ in gruppi]
 
     livello, messaggio = giudizio(esiti)
+    messaggio = singolare_o_plurale(messaggio)
     della_domanda = [e for e in esiti if e.stato == "dalla_domanda"]
     if livello == "nessuno":
         st.caption(messaggio)
@@ -185,6 +236,50 @@ def mostra_verifica(esito: dict) -> None:
                 st.markdown(riga_esito(e, collegamenti, volte[id(e)]))
 
     st.caption(PROMESSA_VERIFICA)
+
+
+def singolare_o_plurale(messaggio: str) -> str:
+    """Il messaggio del verificatore senza le forme "dato/i" e "citato/i".
+
+    "1 dato/i senza fonte" -> "1 dato senza fonte", "3 dato/i" -> "3 dati".
+    Il verificatore e i suoi test restano come sono: cambia solo il testo
+    mostrato.
+    """
+
+    def accorda(m: re.Match) -> str:
+        n, parola = m.group(1), m.group(2)
+        return f"{n} {parola}o" if n == "1" else f"{n} {parola}i"
+
+    return re.sub(r"\b(\d+) (dat|citat)o/i\b", accorda, messaggio)
+
+
+def date_degli_intervalli_rossi(risposta: str, esiti: list) -> set[int]:
+    """Gli id delle date presenti che stanno dentro un intervallo rosso.
+
+    Gli esiti non portano la posizione: la si ritrova nella risposta, come
+    la legge il verificatore (trattini uniformati), dove valore e contesto
+    coincidono con quelli dell'esito. Una stessa data scritta altrove nella
+    risposta resta tra i dati presenti.
+    """
+    testo = uniforma_trattini(risposta)
+    tratti = []
+    for e in esiti:
+        if e.tipo == "intervallo" and e.stato == "non_trovato":
+            schema = r"\s+".join(re.escape(p) for p in e.valore.split())
+            tratti += [(m.start(), m.end()) for m in re.finditer(schema, testo)]
+    if not tratti:
+        return set()
+    nascoste = set()
+    for e in esiti:
+        if e.tipo != "data" or e.stato != "verificato" or not data(e.valore):
+            continue
+        for m in re.finditer(re.escape(e.valore), testo):
+            p = m.start()
+            if contesto_di(testo, p) == e.contesto and any(
+                i <= p < f for i, f in tratti
+            ):
+                nascoste.add(id(e))
+    return nascoste
 
 
 def mostra_dati_della_domanda(esiti: list, collegamenti: dict, volte: dict) -> None:
@@ -229,7 +324,7 @@ def riga_esito(e, collegamenti: dict, volte: int = 1) -> str:
     colore in anticipo. Le etichette dei bandi nelle fonti no: sono i
     collegamenti.
     """
-    riga = f"{SIMBOLI[e.stato]}  **{e.valore}**  ({e.tipo})"
+    riga = f"{SIMBOLI[e.stato]}  **{e.valore}**  ({ETICHETTE_TIPI.get(e.tipo, e.tipo)})"
     if e.contesto:
         riga += f"  ·  _{testo_per_collegamento(e.contesto)}_"
     if e.frammenti:
@@ -311,10 +406,49 @@ def mostra_bandi_citati(esito: dict) -> None:
     if not citati:
         return
 
+    # Lo stato "sospeso" dal database, alla data di oggi: compare anche se
+    # la risposta non nomina la sospensione (25/11/2026)
+    oggi = data_di_oggi().isoformat()
+    conn = connetti()
+    try:
+        stati = {voce.url: stato_sospensione(conn, voce.url, oggi) for voce in citati}
+    finally:
+        conn.close()
+
     st.markdown("#### Bandi citati")
     for voce in citati:
         titolo = testo_per_collegamento(voce.titolo or voce.url)
-        st.markdown(f"- [{titolo}](<{voce.url}>)")
+        stato = f" · {stati[voce.url]}" if stati[voce.url] else ""
+        st.markdown(f"- [{titolo}](<{voce.url}>){stato}")
+
+
+def dal_in_italiano(iso: str) -> str:
+    """'dall'8 luglio 2026', 'dal 1° luglio 2026', 'dal 15 luglio 2026'."""
+    giorno = date.fromisoformat(iso)
+    numero = "1°" if giorno.day == 1 else str(giorno.day)
+    preposizione = "dall'" if giorno.day in (8, 11) else "dal "
+    return f"{preposizione}{numero} {MESI[giorno.month - 1]} {giorno.year}"
+
+
+def stato_sospensione(conn, url: str, oggi: str) -> str | None:
+    """ "sospeso dal …" o "sospeso in parte dal …" per un bando sospeso oggi.
+
+    Il bando si trova per url, l'indirizzo della sua pagina; le sospensioni
+    in corso sono quelle di sospensioni_attive (dal giorno sospeso_dal al
+    giorno prima della riapertura). Con una sospensione totale in corso il
+    bando e' sospeso; altrimenti in parte. La data e' la prima sospensione
+    in corso di quel genere. None per un bando non sospeso o non in archivio.
+    """
+    riga = conn.execute("SELECT id FROM bandi WHERE url = ?", (url,)).fetchone()
+    if riga is None:
+        return None
+    attive = sospensioni_attive(sospensioni_di(conn, riga["id"]), oggi)
+    if not attive:
+        return None
+    totali = [s["sospeso_dal"] for s in attive if s["ambito"] == "tutto"]
+    if totali:
+        return f"sospeso {dal_in_italiano(min(totali))}"
+    return f"sospeso in parte {dal_in_italiano(min(s['sospeso_dal'] for s in attive))}"
 
 
 def mostra_risposta(esito: dict) -> None:
@@ -500,10 +634,19 @@ def main() -> None:
         st.warning("Scrivi una domanda.")
         return
 
-    catena = carica_catena(codice_ente)
-
-    with st.spinner("Ricerca e generazione in corso..."):
-        esito = catena.invoke(domanda.strip())
+    try:
+        catena = carica_catena(codice_ente)
+        with st.spinner("Ricerca e generazione in corso..."):
+            esito = catena.invoke(domanda.strip())
+    except ERRORI_SERVIZIO as errore:
+        # Nel log il tipo e il momento, non il testo dell'errore ne' la domanda
+        LOG.error(
+            "Servizio non disponibile: %s alle %s",
+            type(errore).__name__,
+            datetime.now(UTC).isoformat(timespec="seconds"),
+        )
+        st.error(MESSAGGIO_SERVIZIO)
+        return
 
     decisione = esito["decisione"]
     nomi = [i.get("nome") for i in decisione.get("interrogazioni", [])]

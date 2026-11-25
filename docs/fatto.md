@@ -896,3 +896,27 @@ voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
   `dati-grezzi/prova/verificatore/`. 50 test nuovi in
   `tests/test_verifica_ruoli.py`. Dettaglio e voci rimaste in `coda.md`,
   "Verificatore per categoria (25/11/2026)".
+- (25/11/2026) Errore tecnico mostrato all'utente (demo del 24/11, un
+  traceback di trenta righe per un errore di autenticazione): in
+  `main()` di `app/app.py` un errore del servizio del modello o del
+  database dei documenti mostra solo "Il servizio non è disponibile in
+  questo momento. Riprova tra qualche minuto.". Elenco chiuso
+  `ERRORI_SERVIZIO`: da `anthropic` AuthenticationError, RateLimitError,
+  APIConnectionError (con APITimeoutError), InternalServerError,
+  OverloadedError, ServiceUnavailableError; da `psycopg`
+  OperationalError. Ogni altro errore continua a emergere. Nel log il
+  tipo e il momento, non il testo dell'errore né la domanda.
+- (25/11/2026) "Sospeso" accanto ai bandi citati: sotto "Bandi citati"
+  lo stato dal database alla data di oggi, "sospeso in parte dall'8
+  luglio 2026" o "sospeso dall'8 luglio 2026", anche se la risposta non
+  nomina la sospensione (`stato_sospensione` in `app/app.py`, con
+  `sospensioni_di`, `sospensioni_attive` e `data_di_oggi`). Il bando si
+  trova per url; con una sospensione totale in corso vale quella.
+- (25/11/2026) Ritocchi al pannello della verifica, solo nel testo
+  mostrato: le date di un intervallo rosso restano solo nella sua riga
+  (tolte prima del raggruppamento, così la stessa data scritta altrove
+  resta tra i presenti e il conteggio segue le righe); "1 dato senza
+  fonte" e "N dati senza fonte", e così "citato/i"; i tipi in parole
+  ("numero", "intervallo di date", …). Verificatore e ISTRUZIONI non
+  cambiano. 33 test nuovi in `tests/test_pagina_app.py`, con AppTest e
+  catene finte; nessun test esistente toccato.
