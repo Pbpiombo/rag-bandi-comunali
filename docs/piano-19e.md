@@ -628,6 +628,12 @@ rilascio 2 della sezione 6. Ordine complessivo del resto del 19e:
    "prima" sull'app di oggi, lanciata da chi mantiene il progetto (circa
    0,04 $ a domanda, dal costo vero di V0 e V1 del 24/11: circa 0,80 $).
    Arresto: domande salvate, risposte non lette fino alla fermata 5.
+   In corso dal 27/11/2026: foglio da riempire e script della
+   registrazione pronti, tutte e venti le domande scritte a mano (la
+   proposta della sezione 10, non le 14 del foglio delle candidate).
+   "Prima" con la catena dell'app collegata a Postgres, data fissata al
+   25/11/2026; dettaglio in `coda.md`, "Venti domande sulle spese
+   (27/11/2026)".
 3. **Fermata 1: motore della misura in `src/`.** BM25 e prodotto
    scalare esatto in memoria, contesto davanti al testo nella ricerca per
    parole, riordinatore osiria L12 su 30 candidati, k=10; letto dal
@@ -666,6 +672,13 @@ rilascio 2 della sezione 6. Ordine complessivo del resto del 19e:
    riportato senza soglia (è la prima misura del difetto 1, non una
    decisione). Arresto: dopo il caricamento, con tutti i numeri. Poi il
    README (correzione c).
+   (27/11/2026) Il "dopo" delle venti domande sulle spese si registra con
+   lo script del "prima"
+   (`..\dati-grezzi\prova\19e\domande-spese\registra_risposte.py`), con
+   la catena costruita dalla funzione dell'app (`carica_catena` di
+   `app/app.py`, da aggiungere allo script come `--recupero app`) e la
+   data fissata al 25/11/2026, come il "prima". Chiave e lettura: `coda.md`,
+   "Venti domande sulle spese (27/11/2026)".
 8. **Tappa 6b** e **tappa 7**, come nella sezione 3.
 
 ### Correzione b: le domande delle pagine di domande frequenti

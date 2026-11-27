@@ -4648,6 +4648,110 @@ pagina e test restano sul ramo `prova-memoria`).
   va tenuto presente nella fermata 3. Promemoria 2 e 3 restano per la
   fermata 1 e la fermata 5.
 
+## Venti domande sulle spese (27/11/2026)
+
+Fermata 2 del resto del 19e (`docs/piano-19e.md`, sezione 8, "Correzione
+a"). Le domande misurano il difetto 1 ("Risposte vere sulla demo
+(25/11/2026)"): risposte oneste ma generiche sulle spese ammissibili. Le
+domande restano fuori dal repository; qui vanno solo numero, data e
+impronta del file.
+
+- (27/11/2026) Foglio da riempire:
+  `..\dati-grezzi\prova\19e\domande-spese\domande_spese.xlsx`, scritto da
+  `prepara_foglio.py` nella stessa cartella (copia del Chroma e SQLite in
+  sola lettura, nessun modello). Tre schede: "leggimi" (cosa scrivere e
+  come), "bandi" (i 12 bandi con avvisi caricati come frammenti: id_bando,
+  titolo, ente, chi può chiedere, cosa finanzia, stato al 27/11/2026,
+  campi usati), "domande" (20 righe assegnate, con chi chiede da scegliere
+  tra impresa, comune, associazione e privato, domanda e note vuote).
+  Impronta sha256 del foglio vuoto, con la regola di assegnazione del
+  27/11/2026 qui sotto:
+  `4e96dcf4130fe34c162ebdecec1bfc92dce1402b52301207575468fcb1a98658`
+  (sostituisce `a674a404…10acf`, il foglio con la prima versione della
+  regola). Il file xlsx porta la data in cui è stato scritto: rigenerato
+  dà un'impronta diversa anche senza cambiamenti nelle righe.
+- (27/11/2026) Tutte e venti le domande si scrivono a mano, da chi
+  mantiene il progetto. È la proposta della sezione 10 del piano; la
+  correzione b prevedeva 14 domande dal foglio delle candidate e 6 a mano.
+  Il foglio delle candidate non è stato aperto: le sue domande restano per
+  il passo 25.
+- (27/11/2026) Regola di assegnazione, scritta prima di guardare il
+  contenuto degli avvisi (usa solo il numero di frammenti per bando, un
+  metadato): una domanda per ciascuno dei 12 bandi; una seconda agli 8
+  bandi con più frammenti di avviso, contando una sola volta i bandi della
+  stessa famiglia e senza dare loro la seconda; 12 + 8 = 20. Righe 1-12 il
+  primo giro, 13-20 il secondo, ciascuno in ordine alfabetico di
+  id_bando. Due domande: apicoltura (165 frammenti), risorse genetiche
+  agrarie (157), dati degli enti locali (79), Punti Digitale Facile (61),
+  Cultura Missione Comune (50), Sport Missione Comune (47), educazione
+  musicale (24), parcheggi (17). Una domanda: i due bandi Pmi per gli
+  interessi (126 e 125), rievocazione storica (15), fondo strade (5).
+  Nessun pareggio all'ottavo posto.
+- (27/11/2026) La regola è stata cambiata il 27/11/2026, prima che
+  esistesse una sola domanda, da chi mantiene il progetto. La prima
+  versione ("una seconda agli 8 bandi con più frammenti", senza famiglie)
+  dava due domande a ciascuno dei due bandi Pmi per gli interessi (7057d9
+  e 8cd3ac), quasi gemelli: 4 domande su 20 a una sola famiglia. Le due
+  domande liberate vanno ai bandi successivi per numero di frammenti,
+  educazione musicale e parcheggi. I due bandi Pmi restano distinti, con
+  una domanda ciascuno, e non si uniscono, perché distinguerli è una
+  difficoltà nota del filtro per bando.
+- (27/11/2026) Cosa c'è nella scheda "bandi" e cosa volutamente no. Chi
+  può chiedere: `bandi.beneficiari`, o la sua prima frase (Cultura e Sport
+  Missione Comune: la seconda frase ha i massimali del mutuo), o i
+  soggetti di `beneficiari_bando` (apicoltura, Pmi fino a 50 mila,
+  parcheggi), o `bandi.territorio` (fondo strade). Cosa finanzia: gli
+  interventi di genere "intervento" di `interventi_bando`, mai quelli di
+  genere "spesa" (che sono proprio le spese ammissibili: tre per Cultura e
+  per Sport, sette per le risorse genetiche); senza interventi, il titolo.
+  Stato: `stato_bando` con scadenze e sospensioni. Non ci sono spese
+  ammissibili, percentuali, massimali né testo degli avvisi. Limiti
+  dichiarati: il titolo di un bando Pmi contiene "fino 50 mila euro";
+  l'apicoltura ha tra gli interventi "acquisto di attrezzature e sistemi
+  di gestione"; per la rievocazione storica il titolo dice poco. Restano
+  come sono, per decisione di chi mantiene il progetto (27/11/2026): sono
+  cose che un utente vede nell'app prima di chiedere.
+- (27/11/2026) Strada scelta per il "prima", approvata da chi mantiene il
+  progetto: la catena dell'app in locale collegata a Postgres come la
+  demo, lanciata da chi mantiene il progetto con `registra_risposte.py`
+  (stessa cartella), sul commit della demo e con la cartella di lavoro
+  pulita. La catena in locale sul Chroma non va bene, perché il Chroma ha
+  gli avvisi. Router chiamato una volta, come nella demo; data fissata al
+  25/11/2026 (tutti i 12 bandi erano aperti), la stessa per il "dopo".
+  Il "dopo" costruirà la catena con la funzione dell'app (fermata 5 del
+  piano). Stima: 0,036-0,043 $ a domanda,
+  0,73-0,87 $ per 20. Lo script salva per ogni domanda risposta,
+  frammenti e metadati, bandi citati, esito del verificatore, testo e
+  decisione del router, dati delle interrogazioni, costo e momento; nel
+  file `meta.json` commit, impronta delle istruzioni e del foglio, modello,
+  data fissata e tetto. Provato solo con modello, router e recupero finti,
+  e con la rete bloccata: 20 su 20 registrate; con un tetto di 0,01 $ si
+  ferma prima della prima domanda; rifiuta un foglio con un'impronta
+  diversa, il "prima" senza Postgres e una cartella di lavoro con
+  modifiche.
+- (27/11/2026) Chiave delle risposte (dove sta la risposta nell'avviso,
+  file e pagina, o "non c'è"), decisa da chi mantiene il progetto: si
+  prepara dopo il blocco del foglio, mai prima, e prima di leggere
+  qualunque risposta, "prima" o "dopo". Senza modello si fa l'aiuto: per
+  ogni domanda, le pagine candidate dell'avviso del suo bando con la
+  ricerca per parole ristretta a quel bando. Con quell'aiuto due modelli di
+  famiglie diverse preparano la chiave ciascuno per conto proprio; chi
+  mantiene il progetto arbitra solo i disaccordi.
+- (27/11/2026) Regola di lettura, scritta prima che esistano le risposte
+  e approvata così da chi mantiene il progetto.
+  Le due risposte di ogni domanda si leggono insieme, alla cieca: etichette
+  A e B estratte a caso per domanda, senza sapere quale sia il "prima".
+  Due lettori di famiglie diverse e arbitrato sui disaccordi, come il
+  24/11. Ogni risposta prende una sola categoria, con la chiave accanto:
+  "giusta e precisa" (dà quello che la chiave indica, con la fonte),
+  "onesta ma generica" (non sbaglia ma non dà il contenuto, per esempio
+  rimanda all'avviso), "non c'è, detto bene" (la chiave dice che non c'è e
+  la risposta lo dice), "dato sbagliato" (un dato in contrasto con la
+  chiave o senza fonte), "fuori tema". Esito, come nella fermata 5: nessun
+  "dato sbagliato" nuovo nel "dopo"; il numero delle risposte "giuste e
+  precise" prima e dopo si riporta senza soglia. L'esito del verificatore
+  si riporta accanto, non sostituisce la lettura.
+
 ## Parcheggio
 
 Idee che non interrompono il lavoro in corso (nuova, 21/11/2026). Regola:

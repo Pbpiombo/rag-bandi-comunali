@@ -1046,3 +1046,19 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
   origini e recupero identici 22 su 22 (un'esecuzione ha dato un rango
   della ricerca densa diverso in una domanda, che si ripresenta anche
   tra due esecuzioni dello stesso codice).
+- (27/11/2026) Materiale per le venti domande sulle spese (fermata 2 del
+  19e), fuori dal repository in `..\dati-grezzi\prova\19e\domande-spese\`:
+  il foglio `domande_spese.xlsx` da riempire a mano (12 bandi con avvisi,
+  20 righe assegnate con una regola scritta prima di guardare gli avvisi:
+  una domanda per bando, la seconda agli 8 bandi con più frammenti,
+  contando una sola volta i bandi della stessa famiglia e senza dare loro
+  la seconda, cambiata così il 27/11/2026 prima che esistesse una
+  domanda; senza spese ammissibili, percentuali, massimali né testo degli
+  avvisi), lo script che lo scrive e lo script della registrazione
+  "prima" e "dopo" (catena dell'app collegata a Postgres come la demo,
+  data fissata al 25/11/2026, `--stima` e `--tetto-dollari`), provato solo
+  con il modello finto. Decisi da chi mantiene il progetto: la strada del
+  "prima", la chiave delle risposte (due modelli di famiglie diverse,
+  arbitrato sui disaccordi) e la regola di lettura. Impronta del foglio
+  vuoto `4e96dcf4…98658`. Dettaglio in `coda.md`, "Venti
+  domande sulle spese (27/11/2026)".
