@@ -2510,6 +2510,10 @@ il 23/11/2026):
   torch solo CPU e chromadb non necessari (l'app online usa Postgres);
   oggi si installano circa 2,5 GB di librerie CUDA per niente. Da
   provare su Streamlit Cloud.
+  (27/11/2026) Per torch superata: provata nella prova di memoria del
+  25/11/2026 e portata su `main` con la riga di torch per processore
+  ("Prova di memoria su Streamlit (25/11/2026)"). Resta aperta la parte
+  su chromadb.
 - Dopo la demo. Revisione dei test: segnalare quelli che ricopiano il
   codice invece di proteggere un comportamento.
 - (→ passo 2b) Dopo la demo. Simulazione senza modello: quanti bandi per "PMI" o
@@ -4571,6 +4575,79 @@ Misure senza modello; script e uscite in
   separare "caldaia" da "calda" (da verificare con lo stemmer scelto);
   la regola delle 5 lettere no.
 
+## Prova di memoria su Streamlit (25/11/2026)
+
+Dettaglio in `docs/prova-memoria.md` (copiato su `main` il 27/11/2026;
+pagina e test restano sul ramo `prova-memoria`).
+
+- (25/11/2026) Esito in breve. Versione 1 dei requisiti (torch 2.15.0 di
+  PyPI, 15 pacchetti `nvidia-*`): massimo dall'avvio dopo il passo 7
+  1887,0 MB, processo dopo il passo 7 1727,4 MB, riordino di 30 coppie
+  2,862 s di mediana. Versione 2 (torch 2.15.0 per processore, nessun
+  pacchetto `nvidia-*`): 1523,6 MB, 1228,8 MB, 2,539 s. Limite letto dal
+  contenitore 3072 MB in entrambe, nessun riavvio, i 30 punteggi del
+  passo 6 identici e nello stesso ordine.
+- (25/11/2026) La regola scritta prima (sotto 540 MB a regime, sotto
+  690 MB di massimo, riordino sotto 10 s) non passa in nessuna delle due
+  versioni, e non si cambia: le soglie venivano dal minimo di 690 MB
+  della documentazione di Streamlit, mai misurato, mentre il limite letto
+  dal contenitore è 3072 MB.
+- (25/11/2026) Criterio di decisione per il quarto caso ("la regola non
+  passa, ma l'app arriva in fondo"), scritto da chi mantiene il progetto
+  dopo la versione 1 e prima della versione 2: massimo dall'avvio dopo il
+  passo 7 sotto 2048 MB (due terzi di 3072), nessun riavvio, riordino
+  sotto 10 s di mediana. Passa nella versione 2 con 524,4 MB di margine;
+  nella versione 1 il margine era di 161 MB.
+- (25/11/2026) Decisione di chi mantiene il progetto: motore in memoria e
+  requisiti della versione 2. La riga di torch per processore va su
+  `main` come compito a parte, con una verifica della demo dopo il
+  riavvio.
+- (25/11/2026) Streamlit Community Cloud è l'ambiente dei test e della
+  demo, non quello definitivo: quando l'app sarà aperta a più utenti
+  passerà a uno spazio a pagamento. Le soglie e il criterio della prova
+  valgono per questo spazio e non sono requisiti del prodotto; al cambio
+  di spazio la misura si rifà con la stessa pagina.
+- (25/11/2026) Streamlit trova due file di requisiti, `requirements.txt` e
+  `pyproject.toml`, e usa il primo (avviso nel registro
+  dell'installazione). Oggi va bene; se `pyproject.toml` un giorno
+  elencasse dipendenze, la scelta va ricontrollata.
+- (25/11/2026) Per la fermata 5: con `pgvector` 0.5.0 la lettura dei
+  vettori da Postgres (`register_vector`) restituisce un oggetto
+  `pgvector.Vector`, non un array numpy, e va convertito (come fa
+  `a_vettore` nella pagina di prova). E va misurata l'app vera, non solo
+  la pagina: catena, LangChain, Anthropic, SQLite e sessioni nella prova
+  non c'erano (stima di circa 150 MB in più, mai misurata).
+- (27/11/2026) Riportato su `main`: `docs/prova-memoria.md` e la riga di
+  torch della versione 2 in `requirements.txt` (vedi `fatto.md`). Restano
+  da fare, a mano, dopo il push: la verifica della demo dopo il riavvio
+  (nel registro dell'installazione torch con `+cpu` e nessun pacchetto
+  `nvidia-`), la cancellazione dell'app di prova dal pannello e, con
+  l'esito scritto qui, la rimozione del ramo `prova-memoria`, quando lo
+  decide chi mantiene il progetto.
+- (27/11/2026) Su `main` la riga di torch ha un marcatore più stretto di
+  quello del ramo: `sys_platform == "linux" and python_version == "3.14"
+  and platform_machine == "x86_64"` invece del solo `sys_platform ==
+  "linux"`, perché la ruota è solo per Python 3.14 su x86_64 e con il
+  marcatore largo un Linux con un altro Python o su ARM fallirebbe
+  l'installazione. Questa forma **non è stata provata online prima del
+  push su `main`**: la prova di memoria ha usato quella del ramo, e il
+  compito del 27/11 è senza rete. Controllata solo in locale con il
+  parser di `packaging` (vero su Linux 3.14 x86_64; falso su Linux 3.12
+  x86_64, su Linux 3.14 aarch64 e sul PC) e con `pip install --dry-run
+  --no-index`. Da guardare nel registro del primo riavvio della demo:
+  `+ torch==2.15.0+cpu` e nessun pacchetto `nvidia-`. Se il marcatore
+  risultasse falso online, l'installazione non fallisce: torch torna in
+  silenzio quello di PyPI, con le librerie CUDA. Lo stesso succede se si
+  cambia la versione di Python dell'app: la riga va cambiata insieme.
+- (27/11/2026) Promemoria 1 della prova fatto (vedi `fatto.md`): gli
+  avvisi si riconoscono da `sha256` (`e_frammento_di_avviso` in
+  `src/recupero_documenti.py`), non da `id_bando`. Gli script di misura
+  non sono stati toccati: dove distinguono gli avvisi usano già `sha256`.
+  Con i vicini accesi, sulle 22 domande del 24/11, i blocchi dei mercati
+  rionali spariscono in 8 domande e quelli degli avvisi restano uguali:
+  va tenuto presente nella fermata 3. Promemoria 2 e 3 restano per la
+  fermata 1 e la fermata 5.
+
 ## Parcheggio
 
 Idee che non interrompono il lavoro in corso (nuova, 21/11/2026). Regola:
@@ -4685,3 +4762,11 @@ compito chiuso.
   misura registra la durata di ogni domanda ma non l'orario; aggiungere
   l'orario renderebbe applicabile la regola della sospensione del PC
   ("Passo 19d", punto 13, voce 13) in una futura misura dei tempi.
+- **Docker per l'app** (27/11/2026, dalla prova di memoria del
+  25/11/2026). Un'immagine con l'app e le sue dipendenze fissate, torch
+  per processore compreso. Servirà al passaggio a uno spazio a pagamento,
+  quando l'app sarà aperta a più utenti (Streamlit Community Cloud è
+  l'ambiente dei test e della demo, "Prova di memoria su Streamlit
+  (25/11/2026)"); lì la misura di memoria si rifà. Oggi non serve. Diversa
+  dalla voce 11 dei Prossimi passi, Docker per Postgres con pgvector in
+  locale.

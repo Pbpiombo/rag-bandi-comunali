@@ -71,7 +71,8 @@ I numeri dei passi non cambiano. **Ordine di esecuzione** (25/11/2026; il
 precedente, del 23/11, è in `docs/fatto.md`, "Spostato dalla roadmap il
 25 novembre 2026"): 0, 1 (etichette), 2a, 17, 19a-19d (fatti); resto del
 19e secondo `docs/piano-19e.md` (tappa 6a, fatta il 25/11; prova di
-memoria su Streamlit e torch solo per processore; rilascio 2 in cinque
+memoria su Streamlit e torch solo per processore, fatte il 25/11 e il
+27/11, `docs/prova-memoria.md`; rilascio 2 in cinque
 fermate; tappe 6b e 7); 20; 25 (insieme di domande nuovo); 24 (taglio a
 livelli); le altre fonti (C, in sequenza, non in parallelo, con la
 scansione regolare e il passo 23); 22; 21. Il passo 21 si fa comunque

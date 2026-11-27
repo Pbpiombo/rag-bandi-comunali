@@ -458,6 +458,10 @@ prima della chiamata.
    Sceglierei di misurare prima di caricare: avvio dell'app con il
    riordinatore e senza avvisi, a interruttori spenti tranne il modello
    caricato.
+   (27/11/2026) Superata: con la riga di torch per processore in
+   `requirements.txt` le librerie CUDA non si installano più (online,
+   dal primo riavvio dopo il push), e la memoria è stata misurata nella
+   prova del 25/11/2026 (`docs/prova-memoria.md`).
 6. **Licenza e scaricamento del riordinatore** online: nel 19d è stato
    scaricato una volta come eccezione alla rete; online si scarica a ogni
    avvio. Da verificare la licenza del modello osiria prima della tappa
@@ -616,7 +620,9 @@ rilascio 2 della sezione 6. Ordine complessivo del resto del 19e:
 0. **Tappa 6a**: fatta il 25/11/2026 (sezione 9).
 1. **Prova di memoria su Streamlit e torch solo per processore** (sotto).
    Arresto: tabella di memoria, tempi e traffico; proposta della modifica
-   a `requirements.txt`.
+   a `requirements.txt`. Fatta il 25/11/2026 (`docs/prova-memoria.md`):
+   motore in memoria e requisiti della versione 2, riga di torch per
+   processore su `main` il 27/11/2026.
 2. **Le venti domande sulle spese ammissibili**, scritte e messe da
    parte prima di cambiare il motore (correzione b), con la registrazione
    "prima" sull'app di oggi, lanciata da chi mantiene il progetto (circa
@@ -713,6 +719,9 @@ sicurezza della cartella `data\db\chroma` in `..\dati-grezzi\backup\`,
 e fermata per il via di chi mantiene il progetto (fermata 1 qui sopra).
 
 ### Prova di memoria su Streamlit, senza toccare la demo pubblica
+
+Fatta il 25/11/2026: esito, numeri e decisione in `docs/prova-memoria.md`.
+Il progetto qui sotto resta com'era.
 
 Scopo: sapere prima di scrivere il motore se l'app ci sta con due
 modelli (embedding e riordinatore), quanto tempo prende il riordino sul

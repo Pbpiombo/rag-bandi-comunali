@@ -970,6 +970,26 @@ voce 20, lettura a mano dei mancati alla voce 21 (`coda.md`, "Passo
   sul blocco dei candidati fallisce senza la modifica, gli altri tre
   sono guardie (interruttore spento, nessun candidato, un trovato non
   scaduto). Script e uscite in `../dati-grezzi/prova/tappa-6a/`.
+- (25/11/2026) Prova di memoria su Streamlit Community Cloud (prima
+  fermata del resto del 19e, `docs/piano-19e.md`, sezione 8), con la
+  pagina `app/prova_memoria.py` sul ramo `prova-memoria`, che non si
+  unisce a `main`. Due versioni di `requirements.txt`: versione 1, torch
+  2.15.0 di PyPI con 15 pacchetti `nvidia-*`; versione 2, la stessa
+  2.15.0 nella build per processore, nessun pacchetto `nvidia-*`. Massimo
+  dall'avvio dopo il passo 7: 1887,0 MB e 1523,6 MB; processo dopo il
+  passo 7: 1727,4 e 1228,8 MB; riordino di 30 coppie, mediana: 2,862 e
+  2,539 s; limite letto dal contenitore 3072 MB in entrambe; nessun
+  riavvio. La regola scritta prima (540 MB a regime, 690 MB di massimo,
+  10 s) non passa in nessuna delle due: le soglie venivano dal minimo
+  della documentazione di Streamlit, mai misurato. Il criterio per il
+  quarto caso, scritto da chi mantiene il progetto dopo la versione 1 e
+  prima della versione 2 (massimo sotto 2048 MB, nessun riavvio, riordino
+  sotto 10 s), passa nella versione 2 con 524,4 MB di margine (161 MB
+  nella versione 1). I 30 punteggi del passo 6 sono identici nelle due
+  versioni, nello stesso ordine. Decisione di chi mantiene il progetto:
+  motore in memoria e requisiti della versione 2. Dettaglio in
+  `docs/prova-memoria.md`; voci rimaste in `coda.md`, "Prova di memoria
+  su Streamlit (25/11/2026)".
 
 ## Spostato dalla roadmap il 25 novembre 2026
 
@@ -994,3 +1014,35 @@ Il passo 23 (copertura dell'archivio) si fa dopo il 19d.
 Il passo 21 si fa prima di dare il link della demo a chiunque oltre al
 consulente pilota, in qualunque punto della sequenza. Perché la nuova
 baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
+
+## Fatti il 27 novembre 2026
+
+- (27/11/2026) Esito della prova di memoria riportato su `main`:
+  `docs/prova-memoria.md` copiato dal ramo `prova-memoria` (stesso
+  contenuto, più due righe in testa che dicono che pagina e test restano
+  sul ramo e come rilanciare la prova); in `requirements.txt` la riga di
+  torch per processore della versione 2, subito dopo
+  `sentence-transformers==6.0.1`, identica a quella del ramo, valida solo
+  su Linux. Sul PC `pip install --dry-run --no-index -r requirements.txt`
+  salta la riga ("Ignoring torch: markers 'sys_platform == "linux"'
+  don't match your environment") e non ha niente da installare; torch
+  resta 2.14.0+cpu. La verifica della demo dopo il riavvio resta da fare
+  (`coda.md`, "Prova di memoria su Streamlit (25/11/2026)"). Marcatore
+  della riga ristretto a Linux, Python 3.14 e x86_64, non provato online
+  (stessa voce di `coda.md`); nel README due righe sulla versione per
+  processore.
+- (27/11/2026) Avvisi riconosciuti da `sha256` e non da `id_bando`:
+  `e_frammento_di_avviso` in `src/recupero_documenti.py`, usata in
+  `con_vicini` per scegliere chi riceve vicini e chi si unisce in
+  blocchi; commento di `SPOSTAMENTI_VICINI` aggiornato. Il documento di
+  sempre `mercati-rionali-2026` (117 frammenti) ha `id_bando` senza
+  `sha256` e non riceve più vicini. Conteggio su una copia del Chroma:
+  871 frammenti con `id_bando` e `sha256`, 117 solo con `id_bando`, 199
+  con nessuno dei due, 0 solo con `sha256`. In `tests/test_vicini.py`
+  la funzione di supporto `frammento` dà anche `sha256` agli avvisi
+  finti (i corpi dei test non cambiano); 3 test nuovi, di cui due
+  falliscono con la regola vecchia. Controllo di chiusura su una copia
+  del Chroma, vicini spenti, 22 domande del 24/11: contesto, documenti,
+  origini e recupero identici 22 su 22 (un'esecuzione ha dato un rango
+  della ricerca densa diverso in una domanda, che si ripresenta anche
+  tra due esecuzioni dello stesso codice).
