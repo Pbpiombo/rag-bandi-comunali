@@ -16,6 +16,7 @@ from src.chains.rag import etichetta
 from src.recupero_documenti import (
     RecuperoPerDocumento,
     con_vicini,
+    e_frammento_di_avviso,
     unisci_testi,
 )
 from src.retrieval import RecuperoIbrido
@@ -29,6 +30,8 @@ def frammento(fonte, numero, testo=None, pagina=1, bando="bando-a"):
     meta = {"fonte": fonte, "chunk_num": numero, "page": pagina}
     if bando:
         meta["id_bando"] = bando
+        # gli avvisi veri hanno sempre id_bando e sha256 insieme (871 su 871)
+        meta["sha256"] = f"impronta-{fonte}"
     return Document(page_content=testo or f"testo {fonte} {numero}.", metadata=meta)
 
 
@@ -115,6 +118,31 @@ def test_i_frammenti_che_non_sono_avvisi_restano_come_sono():
     assert uscita[0][2] == ["densa #1"]
     assert chiavi(uscita) == [None, [2, 3]]
     assert all(fonte != "relazione.pdf" for fonte, _ in prendi.chiamate)
+
+
+def test_un_avviso_si_riconosce_da_sha256_non_da_id_bando():
+    assert e_frammento_di_avviso({"id_bando": "bando-a", "sha256": "abc"})
+    assert not e_frammento_di_avviso({"id_bando": "mercati-rionali-2026"})
+    assert not e_frammento_di_avviso({"id_bando": "", "sha256": None})
+    assert not e_frammento_di_avviso({})
+
+
+def test_documento_di_sempre_con_id_bando_resta_come_e():
+    # mercati-rionali-2026: id_bando senza sha256, caricato da ingest_tutti e
+    # con tipo_documento "avviso_pubblico", ma non un avviso di carica_avvisi
+    meta = {"id_bando": "mercati-rionali-2026", "tipo_documento": "avviso_pubblico"}
+    mercati = [
+        Document(
+            page_content=f"mercati {n}.",
+            metadata={**meta, "fonte": "m.pdf", "chunk_num": n, "page": 1},
+        )
+        for n in range(1, 5)
+    ]
+    prendi = archivio(*mercati)
+    uscita = con_vicini(risultati(mercati[1], mercati[3]), prendi, (-1, 1))
+    assert [d for d, _, _ in uscita] == [mercati[1], mercati[3]]
+    assert chiavi(uscita) == [None, None]
+    assert prendi.chiamate == []
 
 
 def test_origini_e_punteggio_del_blocco():
@@ -300,3 +328,28 @@ def test_con_il_valore_predefinito_il_contesto_e_quello_senza_vicini(
     ).invoke("Per quanto?")
     assert predefinito["contesto"] == senza["contesto"]
     assert "per tre anni" not in predefinito["contesto"]
+
+
+def test_vicini_spenti_con_avviso_e_documento_di_sempre_il_contesto_non_cambia(
+    db_con_ente, monkeypatch
+):
+    # un avviso e un frammento dei mercati rionali (id_bando senza sha256):
+    # con il valore predefinito il contesto è quello senza vicini
+    a4, a5, a6 = tre_frammenti()
+    m_meta = {"fonte": "m.pdf", "page": 1, "id_bando": "mercati-rionali-2026"}
+    m2 = Document(page_content="Mercati rionali.", metadata={**m_meta, "chunk_num": 2})
+    m3 = Document(
+        page_content="Contributo ai comuni.", metadata={**m_meta, "chunk_num": 3}
+    )
+    documenti = (a4, a5, a6, m2, m3)
+    predefinito = catena(monkeypatch, RecuperoConFrammenti(documenti, [a5, m2])).invoke(
+        "Per quanto?"
+    )
+    senza = catena(
+        monkeypatch,
+        RecuperoConFrammenti(documenti, [a5, m2], con_frammento=False),
+        (),
+    ).invoke("Per quanto?")
+    assert predefinito["contesto"] == senza["contesto"]
+    assert "Mercati rionali." in predefinito["contesto"]
+    assert "Contributo ai comuni." not in predefinito["contesto"]

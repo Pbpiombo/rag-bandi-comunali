@@ -306,6 +306,20 @@ def _blocco(membri: list[Document]) -> Document:
     return Document(page_content=testo, metadata=meta)
 
 
+def e_frammento_di_avviso(metadati: dict) -> bool:
+    """Se il frammento è di un avviso caricato da carica_avvisi.
+
+    Il segno è il metadato `sha256` (l'impronta del PDF), che scrive solo
+    scripts/ingestione/carica_avvisi.py: è l'unico posto che lo interpreta
+    così. Non basta `id_bando`, che ha anche il documento di sempre
+    mercati-rionali-2026 (117 frammenti; nel Chroma del 27/11/2026: 871 con
+    id_bando e sha256, 117 solo con id_bando, 199 con nessuno dei due).
+    "Avviso" qui non è il tipo di documento: i mercati rionali hanno
+    tipo_documento "avviso_pubblico" e non sono avvisi in questo senso.
+    """
+    return bool(metadati.get("sha256"))
+
+
 def con_vicini(risultati: list, prendi, spostamenti: tuple[int, ...]) -> list:
     """I risultati con i frammenti vicini dei frammenti degli avvisi.
 
@@ -314,8 +328,8 @@ def con_vicini(risultati: list, prendi, spostamenti: tuple[int, ...]) -> list:
     file, o recupero che non lo sa dare). spostamenti: per esempio (-1, 1),
     il frammento prima e quello dopo.
 
-    Solo i frammenti con id_bando (gli avvisi) ricevono vicini e si uniscono;
-    gli altri restano come sono. Regole, come nella misura del 24/11/2026
+    Solo i frammenti degli avvisi (e_frammento_di_avviso) ricevono vicini e
+    si uniscono; gli altri restano come sono. Regole, come nella misura del 24/11/2026
     (dati-grezzi/prova/19e/vicini.py): mai vicini di un altro file; un vicino
     già tra i risultati non si ripete; i frammenti contigui dello stesso file
     diventano un blocco solo, in ordine di documento; i blocchi seguono
@@ -328,7 +342,7 @@ def con_vicini(risultati: list, prendi, spostamenti: tuple[int, ...]) -> list:
         scelti.setdefault(chiave_di(documento), (rango, documento))
     dei_risultati = set(scelti)
     for rango, (documento, _, _) in enumerate(risultati):
-        if not documento.metadata.get("id_bando"):
+        if not e_frammento_di_avviso(documento.metadata):
             continue
         fonte, numero = chiave_di(documento)
         for spostamento in spostamenti:
@@ -340,7 +354,7 @@ def con_vicini(risultati: list, prendi, spostamenti: tuple[int, ...]) -> list:
                 scelti[chiave] = (rango, vicino)
 
     def avviso(chiave: tuple) -> bool:
-        return bool(scelti[chiave][1].metadata.get("id_bando"))
+        return e_frammento_di_avviso(scelti[chiave][1].metadata)
 
     blocchi: list[list[tuple]] = []
     for chiave in sorted(c for c in scelti if avviso(c)):
