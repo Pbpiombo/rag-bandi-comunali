@@ -10,6 +10,7 @@ langchain-huggingface==1.2.2
 chromadb==1.5.9
 pypdf==6.18.1
 sentence-transformers==6.0.1
+torch @ https://download-r2.pytorch.org/whl/cpu/torch-2.15.0%2Bcpu-cp314-cp314-manylinux_2_28_x86_64.whl#sha256=f089c94912c955269a20e5fee6b6a371209b610849c9ece26e908a748d87a723 ; sys_platform == "linux" and python_version == "3.14" and platform_machine == "x86_64"
  
 rank-bm25==0.2.2
 streamlit==1.63.0

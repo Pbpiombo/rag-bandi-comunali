@@ -223,6 +223,9 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt   # ruff e pytest, per lo sviluppo
 ```
 
+Su Linux x86_64 con Python 3.14, l'ambiente della demo, torch si installa nella
+versione per processore: niente librerie per schede grafiche su un server che non ne ha.
+
 Crea un file `.env` nella radice:
 
 ```
