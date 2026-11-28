@@ -1084,3 +1084,15 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
   "dopo"). Stima del "prima" con `registra_risposte.py --stima`:
   0,036-0,043 $ a domanda, 0,73-0,87 $ in tutto. Dettaglio in `coda.md`,
   "Venti domande sulle spese (27/11/2026)".
+- (28/11/2026) Correzione della voce qui sopra: "dichiarati 7, 7 e 6" era
+  un errore di conteggio di chi ha preparato il compito, non una
+  dichiarazione di chi mantiene il progetto; vale 8 comune, 7
+  associazione, 5 privato, come nel foglio.
+- (28/11/2026) "Prima" delle venti domande sulle spese registrato da chi
+  mantiene il progetto (fermata 2 del 19e): 20 su 20, cartella
+  `..\dati-grezzi\prova\19e\domande-spese\registrazioni\prima_2026-11-28_115825`,
+  commit `0946db5`, modello `claude-sonnet-5`, data passata 2026-11-25,
+  impronta del foglio quella del blocco; costo 0,976 $ contro una stima di
+  0,73-0,87 $. Letto solo `meta.json`; le risposte si leggono nella
+  fermata 5. Dettaglio in `coda.md`, "Venti domande sulle spese
+  (27/11/2026)".

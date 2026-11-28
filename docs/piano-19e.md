@@ -642,6 +642,8 @@ rilascio 2 della sezione 6. Ordine complessivo del resto del 19e:
    da parte di chi mantiene il progetto (`--versione prima --recupero
    postgres --data 2026-11-25`, tetto 1,50 $; stima 0,73-0,87 $), sul
    commit dei documenti di oggi e con la cartella di lavoro pulita.
+   (28/11/2026) "Prima" registrato: 20 su 20, costo 0,976 $; dettaglio in
+   `coda.md`, "Venti domande sulle spese (27/11/2026)".
 3. **Fermata 1: motore della misura in `src/`.** BM25 e prodotto
    scalare esatto in memoria, contesto davanti al testo nella ricerca per
    parole, riordinatore osiria L12 su 30 candidati, k=10; letto dal
@@ -654,6 +656,12 @@ rilascio 2 della sezione 6. Ordine complessivo del resto del 19e:
    interruttore spento identico al codice di oggi sulle 22 domande del
    24/11); più il test della decisione 2. Arresto: tabella delle
    identità, tempi, ruff e pytest.
+   (28/11/2026) Piano di dettaglio in `docs/piano-fermata-1.md`: prova
+   zero riuscita (lo script di misura di oggi riproduce il 19d sulla metà
+   di controllo, 147 su 147 righe a k=10 e a k=15, in A e in B); fermata in
+   sei sotto-fermate, dalla 1.0 alla 1.5; contesti in un file a parte
+   invece che nel campo del Chroma (strada 2, da decidere); decisioni in
+   attesa nella sezione 10 di quel piano.
 4. **Fermata 2: filtro per bando** (solo bando trovato per nome, con
    frammenti). Regola di chiusura della tappa 2: zero filtri su un bando
    sbagliato, sulle decisioni del router salvate e sul lancio del solo

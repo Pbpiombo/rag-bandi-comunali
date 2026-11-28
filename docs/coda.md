@@ -4799,6 +4799,46 @@ impronta del file.
   giro non si toccano: da valutare dopo la fermata 5 del 19e, con le venti
   risposte come prova e con una regressione contro la baseline
   (`docs/piano-insieme-prova.md`).
+- (28/11/2026) Correzione della voce "Caratteristiche dell'insieme" qui
+  sopra: "dichiarati 7 comune, 7 associazione, 6 privato" era un errore di
+  conteggio di chi ha preparato il compito, non una dichiarazione di chi
+  mantiene il progetto. Vale 8 comune, 7 associazione, 5 privato, come nel
+  foglio.
+- (28/11/2026) "Prima" registrato da chi mantiene il progetto: 20 domande
+  su 20, cartella
+  `..\dati-grezzi\prova\19e\domande-spese\registrazioni\prima_2026-11-28_115825`,
+  costo 0,976 $ (0,9755) contro la stima di 0,73-0,87 $, sotto il tetto di
+  1,50 $. Letto solo `meta.json`; le risposte (file da 01 a 20) non si
+  leggono fino alla fermata 5. Da `meta.json`: commit `0946db5`, senza
+  modifiche non salvate; modello `claude-sonnet-5`; recupero `postgres`;
+  data passata 2026-11-25; ente 90060100477; impronta delle istruzioni
+  `03472bc0`, la stessa che dà il codice di quel commit; impronta del
+  foglio `21a6ae5a…78e58a2`, quella del blocco; dalle 11:58:25 alle
+  12:06:00; nessun fermo. Non torna solo il costo: in media 0,049 $ a
+  domanda contro la stima alta di 0,0434 $ scritta nello stesso file,
+  cioè il 12% sopra la stima alta (0,868 $ per 20). La causa non si cerca
+  ora, perché servirebbe aprire i file delle risposte; per il "dopo" la
+  stima si alza di conseguenza, e il tetto di 1,50 $ lascia margine.
+
+## Insieme di domande nuovo, passo 25 (28/11/2026)
+
+Dal documento di lavoro "insieme di domande nuovo" (28/11/2026), fuori dal
+repository. Voce per il passo 25 della roadmap; vicine: "Insieme di prova:
+dopo" (insieme generato) e "Ricerca per nome e parole comuni
+(25/11/2026)", collo di bottiglia.
+
+- (28/11/2026) Domande scritte da più modelli di famiglie diverse e in
+  vesti diverse.
+- (28/11/2026) Livelli etichettati: diretta, con sinonimi, vaga, presa
+  alla larga, malformata, fuori tema.
+- (28/11/2026) Gergo del mestiere e gergo amministrativo, presi da fonti
+  reali.
+- (28/11/2026) Chi legge l'avviso non scrive la domanda.
+- (28/11/2026) Controllo del codice sulle parole in comune.
+- (28/11/2026) Chiave verificata da una seconda famiglia.
+- (28/11/2026) Metà chiusa con impronta.
+- (28/11/2026) Le domande generate non sostituiscono quelle raccolte da
+  persone.
 
 ## Parcheggio
 
