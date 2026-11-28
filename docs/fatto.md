@@ -1115,3 +1115,12 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
   differenza, nessun giro di correzione, `src/motore.py` non toccato.
   Dettaglio in `piano-fermata-1.md`, sotto-fermata 1.2, e in `coda.md`,
   "Fermata 1 del 19e".
+- (28/11/2026) Fermata 1 del 19e, sotto-fermata 1.3: archivio locale,
+  Chroma più il file dei contesti `data/db/contesti_avvisi.jsonl` (835
+  righe, fuori dal repository), scritto da
+  `scripts/ingestione/esporta_contesti.py` e letto da `ArchivioChroma` con
+  il controllo dell'impronta del testo. I `Frammenti` dal Chroma (in
+  copia) più il file sono uguali in tutto a quelli della 1.2; modalità
+  veloce 49 su 49 in A e in B, scarto dei voti 0,0; Chroma vero non
+  scritto. 14 test nuovi. Dettaglio in `piano-fermata-1.md`, sotto-fermata
+  1.3, e in `coda.md`, "Fermata 1 del 19e".

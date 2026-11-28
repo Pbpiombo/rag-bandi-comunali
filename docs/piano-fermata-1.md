@@ -478,6 +478,62 @@ revisioni fissate.
 - **Punto di arresto**: esito del confronto; righe del file lette a
   campione (CLAUDE.md, "Prima di approvare un file prodotto").
 
+**Secondo riferimento: i voti del riordinatore** (scritto il 28/11/2026,
+prima di guardare qualunque scarto). `identita.json` della 1.2 (sha256
+`ec4025ac…bbcfb`) tiene, oltre agli ordini, i voti del riordinatore dei
+primi 30 e i punteggi dei candidati. Si usa come secondo riferimento nella
+1.3 (modalità veloce), nella 1.4 e alla fermata 5, per vedere uno scarto
+dei punteggi prima che cambi un ordine. Tolleranza:
+- in locale, sullo stesso PC: scarto atteso zero alla sesta cifra decimale
+  del voto;
+- online, con torch e Python diversi: scarto massimo ammesso del voto
+  0,00001, da riportare sempre, anche quando è dentro la tolleranza.
+
+R1 resta la regola di chiusura: un voto fuori tolleranza con gli ordini
+identici non chiude e non riapre niente da solo, ma si riporta e se ne
+cerca la causa; i punteggi servono a trovare la causa di una differenza,
+non a decidere la sotto-fermata.
+
+**Stato (28/11/2026): fatta, in attesa del via.**
+`scripts/ingestione/esporta_contesti.py` (nuovo) ha scritto
+`data/db/contesti_avvisi.jsonl` con `--scrivi`: 835 righe, sha256
+`fbeef032…ddf34047`, una sola impronta delle istruzioni (`a758adc6d26c`),
+nessuno dei 36 contesti scartati; rilanciato, dice "già uguale". Il file è
+escluso da `.gitignore` (controllato con `git check-ignore`). In
+`src/motore.py`: `ArchivioChroma` legge il file (`leggi_righe_contesti`,
+`contesti_validi`): un contesto vale solo se il frammento c'è, è di un
+avviso (`e_frammento_di_avviso`) e l'impronta del testo coincide; le righe
+che non tornano stanno in `scarti` (impronta diversa, non di avviso,
+frammento assente, ripetute) e nel registro; se il file manca,
+`ErroreContesti`. Con `contesti` dati da fuori il file non si legge (come
+nella 1.1 e nella 1.2). `Frammenti.differenze` confronta in modo esatto
+(id nello stesso ordine, testi, metadati con il tipo, matrice nei byte,
+contesti) e dice dove. Test nuovi: 11 in `tests/test_motore.py` (punto 9
+della sezione 7, file mancante, confronto esatto in ciascuno dei cinque
+campi) e 3 in `tests/test_esporta_contesti.py`, ciascuno visto fallire con
+una variante senza il pezzo che protegge (15 varianti).
+
+Script `..\dati-grezzi\prova\19e\fermata-1\archivio\identita_archivio.py`,
+registro `identita_archivio.log`, uscita `identita_archivio.json`, nella
+stessa cartella. Chroma vero copiato nella cartella temporanea della
+sessione e aperto solo in copia.
+- a) `Frammenti` dal Chroma più il file contro quelli della 1.2:
+  `differenze` vuota; 1187 frammenti, matrice `float32(1187, 384)`
+  uguale nei byte, 835 contesti uguali, nessuno dei 36 scartati, 0 righe
+  del file scartate.
+- b) Modalità veloce (49 a mano del controllo) con il motore costruito
+  dall'archivio Chroma: ordini interi uguali al riferimento 49 su 49 in A
+  e 49 su 49 in B. Scarto massimo dei voti contro `identita.json` della
+  1.2: 0,0 in A e 0,0 in B (dentro la tolleranza locale). Mediana del
+  riordino A 6,17 s, B 5,98 s; 739 s in tutto (primo giro: 6,09 e 5,88 s,
+  686 s).
+- La misura è stata fatta due volte: la prima prima di `ruff format` e di
+  due `strict=True` nel confronto (registro
+  `identita_archivio_prima_della_formattazione.log`), la seconda sul
+  codice definitivo, con gli stessi esiti.
+- Impronta dello script di misura `216d67cc8abc` prima e dopo; Chroma
+  vero, impronte dei 6 file uguali prima e dopo.
+
 ### 1.4 Collegamento all'app dietro l'interruttore
 
 - **Cosa cambia**: `src/chains/rag.py` (`recupera_riordinati`; in

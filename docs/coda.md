@@ -4890,6 +4890,30 @@ omonima.
   k=15. Nessuna differenza: zero giri di correzione, `src/motore.py` e i
   test non toccati. Uscita `identita.json` (sha256 `ec4025ac…bbcfb`),
   registri `identita.log` e `identita_veloce.log`.
+- (28/11/2026) Sotto-fermata 1.3, fatta, in attesa del via: archivio
+  locale. `scripts/ingestione/esporta_contesti.py` scrive
+  `data/db/contesti_avvisi.jsonl` (fuori dal repository, riga in
+  `.gitignore`) con i contesti di `contesti_della_misura(..., "tutte")`:
+  835 righe (fonte, chunk_num, `sha256_testo`, contesto, origine
+  "modello", impronta delle istruzioni), nessuno dei 36 scartati, sha256
+  `fbeef032…ddf34047`; senza `--scrivi` confronta, con `--scrivi` non
+  sovrascrive un file diverso. `ArchivioChroma` legge il file: un contesto
+  vale solo se il frammento è di un avviso e l'impronta del testo
+  coincide, le altre righe si contano in `scarti`; file mancante,
+  `ErroreContesti`. `Frammenti.differenze` per il confronto esatto. Misura:
+  Chroma (in copia) più file uguale in tutto ai `Frammenti` della 1.2;
+  modalità veloce 49 su 49 in A e in B, scarto dei voti 0,0. 14 test nuovi
+  (11 in `test_motore.py`, 3 in `test_esporta_contesti.py`).
+- (28/11/2026) Secondo riferimento, i voti del riordinatore di
+  `identita.json` della 1.2: si usa nella 1.4 e alla fermata 5 per vedere
+  uno scarto dei punteggi prima che cambi un ordine. Tolleranza scritta
+  prima di guardare: in locale zero alla sesta cifra; online scarto
+  massimo del voto 0,00001, riportato sempre. R1 resta la regola di
+  chiusura (`piano-fermata-1.md`, sotto-fermata 1.3).
+- (28/11/2026) Da sapere per la 1.4: `ArchivioChroma` accetta ancora
+  `contesti` dati da fuori, e allora non legge il file né lo controlla
+  (serve ai test e agli script della 1.2). L'app dovrà costruirlo senza,
+  così passa dal controllo delle impronte.
 
 ## Parcheggio
 
