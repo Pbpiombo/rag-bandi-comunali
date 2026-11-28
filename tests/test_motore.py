@@ -1,11 +1,13 @@
 """Motore in memoria dell'ordine c-LR (src/motore.py), fermata 1 del 19e.
 
 Test della sezione 7 di docs/piano-fermata-1.md che non chiedono il
-collegamento alla catena (punti 1-5, 7 e la parte del punto 6 sul motore).
+collegamento alla catena (punti 1-5, 7 e la parte del punto 6 sul motore),
+più il punto 9 e il confronto esatto dei Frammenti (sotto-fermata 1.3).
 Nessun modello vero: embeddings finti (vettori fissati per testo) e
 riordinatore finto (voti da un dizionario).
 """
 
+import json
 import sys
 import types
 from types import SimpleNamespace
@@ -342,3 +344,147 @@ def test_modelli_caricati_alle_revisioni_fissate(monkeypatch):
     assert opzioni["local_files_only"] is True
     assert chiamate["embedding"]["model_kwargs"]["revision"] == REVISIONE_EMBEDDING
     assert chiamate["embedding"]["encode_kwargs"] == {"normalize_embeddings": True}
+
+
+# --- 9. file dei contesti (sotto-fermata 1.3) ---
+
+
+def get_con_avviso() -> dict:
+    """Come get() di Chroma: due frammenti di un avviso (con sha256) e uno di sempre."""
+    return {
+        "ids": ["c", "a", "b"],
+        "documents": ["testo di sempre", "primo dell'avviso", "secondo dell'avviso"],
+        "metadatas": [
+            meta("sempre.pdf", 0),
+            meta("avviso.pdf", 1, id_bando="B1", sha256="x"),
+            meta("avviso.pdf", 2, id_bando="B1", sha256="x"),
+        ],
+        "embeddings": [unitario(0, 0, 1), unitario(1, 0, 0), unitario(0, 1, 0)],
+    }
+
+
+def riga_contesto(fonte, n, testo, contesto) -> dict:
+    return {
+        "fonte": fonte,
+        "chunk_num": n,
+        "sha256_testo": mo.impronta_testo(testo),
+        "contesto": contesto,
+        "origine": "modello",
+        "impronta_istruzioni": "a758adc6d26c",
+    }
+
+
+def archivio_con_file(monkeypatch, tmp_path, righe) -> mo.ArchivioChroma:
+    percorso = tmp_path / "contesti_avvisi.jsonl"
+    percorso.write_text(
+        "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in righe),
+        encoding="utf-8",
+    )
+    archivio = mo.ArchivioChroma("non-si-apre", file_contesti=percorso)
+    monkeypatch.setattr(archivio, "_leggi", get_con_avviso)
+    return archivio
+
+
+def test_file_contesti_riga_con_impronta_diversa_scartata_e_contata(
+    monkeypatch, tmp_path
+):
+    archivio = archivio_con_file(
+        monkeypatch,
+        tmp_path,
+        [
+            riga_contesto("avviso.pdf", 1, "primo dell'avviso", "Contesto uno"),
+            # scritto su un testo che il frammento non ha più
+            riga_contesto("avviso.pdf", 2, "secondo, versione vecchia", "Contesto due"),
+        ],
+    )
+    frammenti = archivio.frammenti()
+    assert frammenti.contesti == {("avviso.pdf", 1): "Contesto uno"}
+    assert archivio.scarti.impronta_diversa == [("avviso.pdf", 2)]
+    assert archivio.scarti.totale() == 1
+    assert "impronta del testo diversa 1" in archivio.scarti.rapporto()
+
+
+def test_file_contesti_riga_su_frammento_senza_sha256_rifiutata(monkeypatch, tmp_path):
+    # l'impronta del testo torna, ma il frammento non è di un avviso
+    archivio = archivio_con_file(
+        monkeypatch,
+        tmp_path,
+        [riga_contesto("sempre.pdf", 0, "testo di sempre", "Contesto di sempre")],
+    )
+    frammenti = archivio.frammenti()
+    assert frammenti.contesti == {}
+    assert archivio.scarti.non_di_avviso == [("sempre.pdf", 0)]
+    assert archivio.scarti.totale() == 1
+
+
+def test_file_contesti_frammento_assente_e_righe_ripetute_non_usate(
+    monkeypatch, tmp_path
+):
+    archivio = archivio_con_file(
+        monkeypatch,
+        tmp_path,
+        [
+            riga_contesto("avviso.pdf", 9, "non c'è", "Contesto nove"),
+            riga_contesto("avviso.pdf", 1, "primo dell'avviso", "Uno, prima copia"),
+            riga_contesto("avviso.pdf", 1, "primo dell'avviso", "Uno, seconda copia"),
+            riga_contesto("avviso.pdf", 2, "secondo dell'avviso", "Contesto due"),
+        ],
+    )
+    frammenti = archivio.frammenti()
+    assert frammenti.contesti == {("avviso.pdf", 2): "Contesto due"}
+    assert archivio.scarti.senza_frammento == [("avviso.pdf", 9)]
+    assert archivio.scarti.ripetute == [("avviso.pdf", 1)]
+    assert archivio.scarti.totale() == 2
+
+
+def test_file_contesti_mancante_ferma_l_archivio(monkeypatch, tmp_path):
+    archivio = mo.ArchivioChroma("non-si-apre", file_contesti=tmp_path / "manca.jsonl")
+    monkeypatch.setattr(archivio, "_leggi", get_con_avviso)
+    with pytest.raises(mo.ErroreContesti, match="manca il file dei contesti"):
+        archivio.frammenti()
+
+
+def test_archivio_chroma_legge_il_file_dei_contesti_per_predefinito():
+    assert mo.ArchivioChroma("x").file_contesti == mo.FILE_CONTESTI
+    assert mo.FILE_CONTESTI.name == "contesti_avvisi.jsonl"
+    assert mo.FILE_CONTESTI.parent == mo.CHROMA_DIR.parent
+
+
+# --- confronto esatto di due Frammenti (sotto-fermata 1.3) ---
+
+
+def frammenti_di_prova(**cambi) -> mo.Frammenti:
+    campi = {
+        "ids": ("a", "b"),
+        "testi": ("ta", "tb"),
+        "metadati": (meta("f", 1), meta("f", 2)),
+        "matrice": np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32),
+        "contesti": {("f", 1): "contesto a"},
+    }
+    campi.update(cambi)
+    return mo.Frammenti(**campi)
+
+
+def test_differenze_vuote_tra_frammenti_uguali():
+    assert frammenti_di_prova().differenze(frammenti_di_prova()) == []
+
+
+@pytest.mark.parametrize(
+    ("campo", "cambio"),
+    [
+        ("ids", {"ids": ("a", "c")}),
+        ("testi", {"testi": ("ta", "tb ")}),
+        # stesso valore, tipo diverso: 2 contro 2.0
+        ("metadati", {"metadati": (meta("f", 1), meta("f", 2.0))}),
+        # 0.0 e -0.0 sono uguali per ==, non nei bit
+        (
+            "matrice",
+            {"matrice": np.asarray([[1.0, -0.0], [0.0, 1.0]], dtype=np.float32)},
+        ),
+        ("contesti", {"contesti": {("f", 1): "contesto A"}}),
+    ],
+)
+def test_differenze_trova_ogni_campo(campo, cambio):
+    differenze = frammenti_di_prova().differenze(frammenti_di_prova(**cambio))
+    assert len(differenze) == 1
+    assert differenze[0].startswith(f"{campo}:")

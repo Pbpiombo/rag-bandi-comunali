@@ -1,4 +1,4 @@
-"""Motore in memoria dell'ordine c-LR (fermata 1 del 19e, sotto-fermata 1.1).
+"""Motore in memoria dell'ordine c-LR (fermata 1 del 19e, sotto-fermate 1.1 e 1.3).
 
 Un solo motore, due archivi (docs/piano-fermata-1.md, sezione 3): l'archivio
 dà i `Frammenti` (id, testi, metadati, vettori, contesti), sempre ordinati
@@ -21,11 +21,16 @@ docs/coda.md.
 
 I documenti restituiti hanno il testo pulito e i metadati del frammento,
 mai il contesto: il contesto vive in un dizionario a parte del motore e
-serve solo a cercare e a riordinare (decisione 2 del 25/11/2026).
+serve solo a cercare e a riordinare (decisione 2 del 25/11/2026). In
+locale i contesti vengono da data/db/contesti_avvisi.jsonl (ArchivioChroma,
+sotto-fermata 1.3), scritto da scripts/ingestione/esporta_contesti.py.
 
 Non è collegato all'app: nessuno lo importa (sotto-fermata 1.4).
 """
 
+import hashlib
+import json
+import logging
 import platform
 from dataclasses import dataclass, field
 from importlib import metadata
@@ -36,13 +41,31 @@ from langchain_core.documents import Document
 from rank_bm25 import BM25Okapi
 
 from src.config import (
+    CHROMA_DIR,
     COLLECTION_NAME,
     EMBEDDING_MODEL,
     MODELLO_RIORDINO,
     REVISIONE_EMBEDDING,
     REVISIONE_RIORDINO,
 )
+from src.recupero_documenti import e_frammento_di_avviso
 from src.retrieval import COSTANTE_RRF, RecuperoIbrido, chiave_di, tokenizza
+
+registro = logging.getLogger(__name__)
+
+# Il file dei contesti per frammento, accanto al Chroma e fuori dal
+# repository (decisione 2 del 28/11/2026); lo scrive
+# scripts/ingestione/esporta_contesti.py
+FILE_CONTESTI = CHROMA_DIR.parent / "contesti_avvisi.jsonl"
+# I campi di ogni riga del file
+CAMPI_CONTESTO = (
+    "fonte",
+    "chunk_num",
+    "sha256_testo",
+    "contesto",
+    "origine",
+    "impronta_istruzioni",
+)
 
 # Scarto massimo della norma dei vettori da 1 (TOLLERANZA_NORMA della misura)
 TOLLERANZA_NORMA = 1e-3
@@ -115,6 +138,100 @@ class Frammenti:
             contesti=dict(contesti or {}),
         )
 
+    def differenze(self, altri: "Frammenti", esempi: int = 5) -> list[str]:
+        """Dove questi frammenti e gli altri differiscono; vuota se sono uguali.
+
+        Confronto esatto (sotto-fermata 1.3): id nello stesso ordine, testi,
+        metadati (stesse chiavi, valori uguali e dello stesso tipo), matrice
+        bit per bit (tipo, forma e byte: -0.0 e 0.0 sono diversi, come due
+        NaN con byte diversi), contesti. Per ogni campo diverso, una riga con
+        il numero delle differenze e i primi `esempi`.
+        """
+        uscita = []
+        if self.ids != altri.ids:
+            uscita.append(
+                f"ids: {len(self.ids)} contro {len(altri.ids)}, "
+                f"primi diversi {_diversi(self.ids, altri.ids, esempi)}"
+            )
+            # testi, metadati e righe della matrice non sono allineati
+            return uscita
+        # stessi id, quindi stesse lunghezze (Frammenti le controlla)
+        testi = [
+            i
+            for i, (a, b) in enumerate(zip(self.testi, altri.testi, strict=True))
+            if a != b
+        ]
+        if testi:
+            uscita.append(
+                f"testi: {len(testi)} diversi, {[self.ids[i] for i in testi[:esempi]]}"
+            )
+        metadati = [
+            i
+            for i, (a, b) in enumerate(zip(self.metadati, altri.metadati, strict=True))
+            if not _uguali_esatti(a, b)
+        ]
+        if metadati:
+            uscita.append(
+                f"metadati: {len(metadati)} diversi, "
+                f"{[self.ids[i] for i in metadati[:esempi]]}"
+            )
+        a, b = self.matrice, altri.matrice
+        if a.dtype != b.dtype or a.shape != b.shape:
+            uscita.append(f"matrice: {a.dtype}{a.shape} contro {b.dtype}{b.shape}")
+        elif a.size:
+            righe = np.flatnonzero(np.any(_byte(a) != _byte(b), axis=1))
+            if len(righe):
+                uscita.append(
+                    f"matrice: {len(righe)} righe diverse nei bit, "
+                    f"{[self.ids[i] for i in righe[:esempi]]}"
+                )
+        solo_qui = sorted(set(self.contesti) - set(altri.contesti))
+        solo_li = sorted(set(altri.contesti) - set(self.contesti))
+        diversi = sorted(
+            c
+            for c in set(self.contesti) & set(altri.contesti)
+            if self.contesti[c] != altri.contesti[c]
+        )
+        if solo_qui or solo_li or diversi:
+            uscita.append(
+                f"contesti: {len(self.contesti)} contro {len(altri.contesti)}; "
+                f"solo nei primi {len(solo_qui)} {solo_qui[:esempi]}, "
+                f"solo negli altri {len(solo_li)} {solo_li[:esempi]}, "
+                f"testo diverso {len(diversi)} {diversi[:esempi]}"
+            )
+        return uscita
+
+
+def _byte(matrice: np.ndarray) -> np.ndarray:
+    """I byte di ogni riga della matrice, per il confronto bit per bit."""
+    return np.ascontiguousarray(matrice).reshape(len(matrice), -1).view(np.uint8)
+
+
+def _diversi(a: tuple, b: tuple, esempi: int) -> list:
+    """I primi posti in cui due sequenze di id differiscono, con i due valori."""
+    uscita = []
+    for i in range(max(len(a), len(b))):
+        x = a[i] if i < len(a) else None
+        y = b[i] if i < len(b) else None
+        if x != y:
+            uscita.append((i, x, y))
+            if len(uscita) == esempi:
+                break
+    return uscita
+
+
+def _uguali_esatti(a, b) -> bool:
+    """Uguali e dello stesso tipo, anche dentro liste e dizionari (1 non è 1.0, né True)."""
+    if type(a) is not type(b):
+        return False
+    if isinstance(a, dict):
+        return a.keys() == b.keys() and all(_uguali_esatti(a[c], b[c]) for c in a)
+    if isinstance(a, (list, tuple)):
+        return len(a) == len(b) and all(
+            _uguali_esatti(x, y) for x, y in zip(a, b, strict=True)
+        )
+    return a == b
+
 
 def frammenti_da_get(dati: dict, contesti: Contesti | None = None) -> Frammenti:
     """I Frammenti dal risultato di get() di Chroma (documents, metadatas, embeddings)."""
@@ -123,11 +240,128 @@ def frammenti_da_get(dati: dict, contesti: Contesti | None = None) -> Frammenti:
     )
 
 
+class ErroreContesti(Exception):
+    """Il file dei contesti manca o non si legge: il motore non parte senza."""
+
+
+@dataclass
+class ScartiContesti:
+    """Le righe del file dei contesti che non tornano, per motivo: non si usano.
+
+    Ogni voce è (fonte, chunk_num) della riga.
+    - impronta_diversa: il testo del frammento non è più quello su cui il
+      contesto è stato scritto;
+    - non_di_avviso: il frammento non è di un avviso (e_frammento_di_avviso);
+    - senza_frammento: nessun frammento con quella fonte e quel chunk_num;
+    - ripetute: più righe per lo stesso frammento (nessuna si usa).
+    """
+
+    impronta_diversa: list = field(default_factory=list)
+    non_di_avviso: list = field(default_factory=list)
+    senza_frammento: list = field(default_factory=list)
+    ripetute: list = field(default_factory=list)
+
+    def totale(self) -> int:
+        return (
+            len(self.impronta_diversa)
+            + len(self.non_di_avviso)
+            + len(self.senza_frammento)
+            + len(self.ripetute)
+        )
+
+    def rapporto(self) -> str:
+        return (
+            f"righe scartate {self.totale()}: impronta del testo diversa "
+            f"{len(self.impronta_diversa)}, frammento non di avviso "
+            f"{len(self.non_di_avviso)}, frammento assente "
+            f"{len(self.senza_frammento)}, ripetute {len(self.ripetute)}"
+        )
+
+
+def impronta_testo(testo: str) -> str:
+    """L'impronta del testo pulito di un frammento (sha256 dell'UTF-8).
+
+    È la stessa di `sha256_frammento` dei contesti generati
+    (genera_contesti.FrammentoDaContestualizzare.sha256).
+    """
+    return hashlib.sha256(testo.encode("utf-8")).hexdigest()
+
+
+def leggi_righe_contesti(percorso: Path) -> list[dict]:
+    """Le righe del file dei contesti; errore chiaro se manca o non si legge."""
+    percorso = Path(percorso)
+    if not percorso.is_file():
+        raise ErroreContesti(
+            f"manca il file dei contesti {percorso}: il motore non parte con i "
+            "contesti vuoti. Si scrive con "
+            "python -m scripts.ingestione.esporta_contesti --scrivi"
+        )
+    righe = []
+    for numero, riga in enumerate(percorso.read_text(encoding="utf-8").splitlines(), 1):
+        if not riga.strip():
+            continue
+        try:
+            dato = json.loads(riga)
+        except json.JSONDecodeError as errore:
+            raise ErroreContesti(
+                f"{percorso.name}, riga {numero}: non è JSON"
+            ) from errore
+        mancano = [c for c in CAMPI_CONTESTO if c not in dato]
+        if mancano:
+            raise ErroreContesti(f"{percorso.name}, riga {numero}: mancano {mancano}")
+        righe.append(dato)
+    return righe
+
+
+def contesti_validi(
+    righe: list[dict], testi, metadati
+) -> tuple[Contesti, ScartiContesti]:
+    """I contesti che valgono per i frammenti dati, e le righe scartate.
+
+    Un contesto vale solo se il frammento (fonte, chunk_num) c'è, è di un
+    avviso (e_frammento_di_avviso: ha `sha256`) e l'impronta del suo testo
+    coincide con quella della riga. Le altre righe si contano, non si usano.
+    """
+    per_chiave = {
+        (m.get("fonte") or "", m.get("chunk_num")): (t, m)
+        for t, m in zip(testi, metadati, strict=True)
+    }
+    conte: dict[tuple[str, int], int] = {}
+    for riga in righe:
+        chiave = (riga["fonte"], riga["chunk_num"])
+        conte[chiave] = conte.get(chiave, 0) + 1
+    contesti: Contesti = {}
+    scarti = ScartiContesti()
+    for riga in righe:
+        chiave = (riga["fonte"], riga["chunk_num"])
+        if conte[chiave] > 1:
+            if chiave not in scarti.ripetute:
+                scarti.ripetute.append(chiave)
+            continue
+        if chiave not in per_chiave:
+            scarti.senza_frammento.append(chiave)
+            continue
+        testo, meta = per_chiave[chiave]
+        if not e_frammento_di_avviso(meta):
+            scarti.non_di_avviso.append(chiave)
+            continue
+        if riga["sha256_testo"] != impronta_testo(testo):
+            scarti.impronta_diversa.append(chiave)
+            continue
+        contesti[chiave] = riga["contesto"]
+    return contesti, scarti
+
+
 class ArchivioChroma:
     """L'archivio locale: la collezione di Chroma letta una volta, in ordine di id.
 
-    I contesti si passano da fuori; dalla sotto-fermata 1.3 li legge dal
-    file data/db/contesti_avvisi.jsonl (decisione 2 del 28/11/2026).
+    I contesti vengono dal file data/db/contesti_avvisi.jsonl (decisione 2
+    del 28/11/2026), scritto da scripts/ingestione/esporta_contesti.py: un
+    contesto vale solo se l'impronta del testo coincide con quella del
+    frammento e se il frammento è di un avviso (contesti_validi); le righe
+    che non tornano sono in `scarti` dopo frammenti(), e nel registro. Se il
+    file manca, frammenti() si ferma con ErroreContesti. Con `contesti` dati
+    da fuori (come nella 1.1 e nei test) il file non si legge.
     L'archivio non scrive mai nel Chroma.
     """
 
@@ -136,10 +370,13 @@ class ArchivioChroma:
         cartella: Path,
         collezione: str = COLLECTION_NAME,
         contesti: Contesti | None = None,
+        file_contesti: Path | None = None,
     ) -> None:
         self.cartella = Path(cartella)
         self.collezione = collezione
-        self.contesti = dict(contesti or {})
+        self.contesti = None if contesti is None else dict(contesti)
+        self.file_contesti = Path(file_contesti or FILE_CONTESTI)
+        self.scarti: ScartiContesti | None = None
 
     def _leggi(self) -> dict:
         import chromadb
@@ -155,7 +392,27 @@ class ArchivioChroma:
         return dati
 
     def frammenti(self) -> Frammenti:
-        return frammenti_da_get(self._leggi(), self.contesti)
+        if self.contesti is not None:
+            return frammenti_da_get(self._leggi(), self.contesti)
+        righe = leggi_righe_contesti(self.file_contesti)
+        senza = frammenti_da_get(self._leggi())
+        contesti, self.scarti = contesti_validi(righe, senza.testi, senza.metadati)
+        registro.info(
+            "contesti da %s: %d righe, %d valgono; %s",
+            self.file_contesti.name,
+            len(righe),
+            len(contesti),
+            self.scarti.rapporto(),
+        )
+        if self.scarti.totale():
+            registro.warning("contesti non usati: %s", self.scarti.rapporto())
+        return Frammenti(
+            ids=senza.ids,
+            testi=senza.testi,
+            metadati=senza.metadati,
+            matrice=senza.matrice,
+            contesti=contesti,
+        )
 
 
 # --- ricerca ---
