@@ -25,13 +25,19 @@ serve solo a cercare e a riordinare (decisione 2 del 25/11/2026). In
 locale i contesti vengono da data/db/contesti_avvisi.jsonl (ArchivioChroma,
 sotto-fermata 1.3), scritto da scripts/ingestione/esporta_contesti.py.
 
-Non è collegato all'app: nessuno lo importa (sotto-fermata 1.4).
+Collegato all'app dalla sotto-fermata 1.4, dietro l'interruttore
+ORDINE_C_LR di src/config.py: carica_motore costruisce motore e riordino, e
+lo chiamano solo costruisci_catena (src/chains/rag.py) e carica_recupero
+(app/app.py) a interruttore acceso. Importare questo modulo non carica
+modelli né il file dei contesti: i modelli si importano e si caricano dentro
+carica_embeddings e carica_riordinatore.
 """
 
 import hashlib
 import json
 import logging
 import platform
+import time
 from dataclasses import dataclass, field
 from importlib import metadata
 from pathlib import Path
@@ -360,8 +366,12 @@ class ArchivioChroma:
     contesto vale solo se l'impronta del testo coincide con quella del
     frammento e se il frammento è di un avviso (contesti_validi); le righe
     che non tornano sono in `scarti` dopo frammenti(), e nel registro. Se il
-    file manca, frammenti() si ferma con ErroreContesti. Con `contesti` dati
-    da fuori (come nella 1.1 e nei test) il file non si legge.
+    file manca, frammenti() si ferma con ErroreContesti.
+
+    `contesti` serve solo ai test (tests/test_motore.py, test della 1.1):
+    con i contesti dati da fuori il file non si legge e le impronte non si
+    controllano. Il codice dell'app non lo passa mai: l'archivio dell'app lo
+    costruisce carica_motore, sempre dal file.
     L'archivio non scrive mai nel Chroma.
     """
 
@@ -632,6 +642,34 @@ def carica_riordinatore(solo_locale: bool = False):
         trust_remote_code=False,
         local_files_only=solo_locale,
     )
+
+
+def carica_motore(
+    cartella: Path | None = None,
+    file_contesti: Path | None = None,
+    solo_locale: bool = False,
+) -> tuple[Motore, Riordino]:
+    """Motore su Chroma e riordino, per la catena a interruttore acceso (1.4).
+
+    L'archivio si costruisce sempre dal file dei contesti, con il controllo
+    delle impronte (ArchivioChroma senza `contesti`). Si chiama una volta:
+    l'app lo tiene in cache (carica_recupero), così i due modelli si
+    caricano una volta sola. Nel registro: righe del file scartate, versioni
+    e revisioni, tempi.
+    """
+    inizio = time.perf_counter()
+    archivio = ArchivioChroma(cartella or CHROMA_DIR, file_contesti=file_contesti)
+    frammenti = archivio.frammenti()
+    motore = Motore(frammenti, carica_embeddings(solo_locale))
+    riordino = Riordino(carica_riordinatore(solo_locale))
+    registro.info(
+        "motore c-LR: %d frammenti, %d contesti, caricato in %.1f s; versioni %s",
+        len(frammenti.ids),
+        len(frammenti.contesti),
+        time.perf_counter() - inizio,
+        versioni(),
+    )
+    return motore, riordino
 
 
 def versioni() -> dict[str, str]:

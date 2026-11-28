@@ -19,7 +19,7 @@ import streamlit as st
 
 from src.chains.rag import costruisci_catena, impronta_istruzioni
 from src.citazioni import accorcia_citazioni
-from src.config import ACCORCIA_CITAZIONI, ENTE_PREDEFINITO, MODEL_NAME
+from src.config import ACCORCIA_CITAZIONI, ENTE_PREDEFINITO, MODEL_NAME, ORDINE_C_LR
 from src.database.enti import elenco_enti
 from src.database.interrogazioni_bandi import (
     data_di_oggi,
@@ -127,18 +127,63 @@ ESEMPI_PER_RIGA = 4
 USA_POSTGRES = os.getenv("USA_POSTGRES", "1") == "1"
 
 
+def recupero_e_riordino() -> tuple:
+    """(recupero, riordino) per la catena, secondo Postgres e l'ordine c-LR.
+
+    - Postgres acceso: RecuperoPostgres, senza riordino. Fino alla fermata 5
+      del 19e l'interruttore ORDINE_C_LR qui non ha effetto (l'archivio
+      Postgres del motore non c'è ancora): sulla demo, che usa Postgres,
+      l'app resta quella di prima anche a interruttore acceso.
+    - Postgres spento, interruttore acceso: motore in memoria su Chroma, con
+      il file dei contesti, e riordino (carica_motore).
+    - Postgres spento, interruttore spento: (None, None), e la catena si
+      costruisce il suo RecuperoIbrido come prima; niente del motore si
+      carica.
+    """
+    if USA_POSTGRES:
+        return RecuperoPostgres(), None
+    if ORDINE_C_LR:
+        from src.motore import carica_motore
+
+        return carica_motore()
+    return None, None
+
+
 @st.cache_resource(show_spinner="Caricamento del recupero documentale...")
 def carica_recupero():
-    """Un solo recupero, condiviso da tutti gli enti: i documenti sono gli stessi."""
-    return RecuperoPostgres()
+    """Un solo recupero, condiviso da tutti gli enti: i documenti sono gli stessi.
+
+    In cache: con l'ordine c-LR i due modelli si caricano una volta sola.
+    """
+    return recupero_e_riordino()
+
+
+def avviso_ordine() -> str:
+    """La riga che l'app registra all'avvio sull'ordine dei frammenti."""
+    if not ORDINE_C_LR:
+        return "ordine c-LR spento: recupero di prima"
+    if USA_POSTGRES:
+        return (
+            "ordine c-LR acceso ma senza effetto: con Postgres resta il recupero "
+            "di prima fino alla fermata 5 del 19e"
+        )
+    return "ordine c-LR acceso: motore in memoria su Chroma e riordino"
+
+
+@st.cache_resource(show_spinner=False)
+def registra_avvio() -> None:
+    """Una volta per processo: l'avviso sull'ordine dei frammenti nel registro."""
+    if ORDINE_C_LR and USA_POSTGRES:
+        LOG.warning(avviso_ordine())
+    else:
+        LOG.info(avviso_ordine())
 
 
 @st.cache_resource(show_spinner="Costruzione della catena per l'ente...")
 def carica_catena(codice_ente: str):
     """Una catena per ente, costruita una volta sola."""
-    if USA_POSTGRES:
-        return costruisci_catena(codice_ente, recupero=carica_recupero())
-    return costruisci_catena(codice_ente)
+    recupero, riordino = carica_recupero()
+    return costruisci_catena(codice_ente, recupero=recupero, riordino=riordino)
 
 
 # Un'etichetta di bando in un testo del pannello: "D1.2", anche dentro
@@ -572,6 +617,7 @@ def riga_versione() -> str:
 
 
 def main() -> None:
+    registra_avvio()
     st.title("Assistente per la programmazione territoriale")
     st.caption(
         "Risponde solo sulla base dei documenti e dei dati in archivio, "

@@ -62,9 +62,10 @@ SPOSTAMENTI_VICINI: tuple[int, ...] = ()
 # Ordine c-LR (fermata 1 del 19e, docs/piano-fermata-1.md): motore in memoria
 # (src/motore.py: ricerca esatta, BM25 con il contesto davanti, fusione) più
 # il riordinatore su CANDIDATI_RIORDINO candidati. Un solo interruttore
-# (decisione 3 del 28/11/2026). Spento: l'app di oggi, riga per riga. Nella
-# sotto-fermata 1.1 il motore non è ancora collegato: il valore non cambia
-# niente.
+# (decisione 3 del 28/11/2026). Spento: l'app di oggi, riga per riga, e
+# niente del motore si carica. Acceso (sotto-fermata 1.4): costruisci_catena
+# e carica_recupero di app/app.py usano motore e riordino su Chroma. Con
+# Postgres acceso (la demo) l'interruttore non ha effetto fino alla fermata 5.
 ORDINE_C_LR = False
 CANDIDATI_RIORDINO = 30
 # Riordinatore misurato nel 19d (osiria L12) e revisioni fissate dei due

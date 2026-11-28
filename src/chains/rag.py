@@ -16,7 +16,12 @@ from src.chains.router import (
     esegui_interrogazioni,
     formatta_dati,
 )
-from src.config import MODEL_NAME, SPOSTAMENTI_VICINI
+from src.config import (
+    CANDIDATI_RIORDINO,
+    MODEL_NAME,
+    ORDINE_C_LR,
+    SPOSTAMENTI_VICINI,
+)
 from src.database.enti import profilo_ente
 from src.database.interrogazioni_bandi import data_di_oggi
 from src.database.repertorio import esegui
@@ -47,6 +52,24 @@ def recupera(recupero, domanda: str, k: int = K_DEFAULT) -> list:
     scripts/diagnostica/prova_recupero.py, per misurare lo stesso percorso.
     """
     return recupero.cerca(normalizza_domanda(domanda), k=k)
+
+
+def recupera_riordinati(
+    recupero, riordino, contesti: dict, domanda: str, k: int = K_DEFAULT
+) -> list:
+    """Il percorso c-LR misurato (condizione A del 19d): candidati, riordino, primi k.
+
+    Chiede CANDIDATI_RIORDINO candidati con recupera (quindi ad avvolgi,
+    con la domanda normalizzata), poi li riordina fuori da avvolgi, sulla
+    domanda normalizzata, con i contesti del motore davanti al testo;
+    restituisce i primi k, con il voto del riordinatore come punteggio e
+    "riordino #n" in fondo alle origini (docs/piano-fermata-1.md, sezione
+    2). recupera non cambia: la usa lo script di misura.
+    """
+    candidati = recupera(recupero, domanda, k=CANDIDATI_RIORDINO)
+    return riordino.riordina_candidati(
+        normalizza_domanda(domanda), candidati, contesti, k
+    )
 
 
 ISTRUZIONI = """Sei un assistente tecnico per la programmazione territoriale \
@@ -344,19 +367,47 @@ def con_popolazione(esiti: list, codice_ente: str) -> list:
     return [*esiti, (BLOCCO_POPOLAZIONE, risultato)]
 
 
-def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None, router=None):
+def costruisci_catena(
+    codice_ente: str,
+    k: int = K_DEFAULT,
+    recupero=None,
+    router=None,
+    riordino=None,
+):
     """Assembla la chain LCEL: router, recupero ibrido, generazione.
 
     router: facoltativo, qualunque oggetto con invoke(entrata) -> testo,
     come la catena di costruisci_router. Senza, si usa quello dell'app.
     Lo passa l'insieme di prova (scripts/diagnostica/prova_insieme.py),
     che chiama il router tre volte per domanda.
+
+    Ordine c-LR (ORDINE_C_LR in src/config.py, fermata 1 del 19e):
+    - spento: come prima, riga per riga; `riordino` non si guarda e niente
+      del motore si carica (né modelli né file dei contesti);
+    - acceso, senza `recupero`: motore su Chroma e riordino da carica_motore;
+    - acceso, con `recupero` e `riordino`: quelli (l'app li tiene in cache,
+      così i modelli si caricano una volta); `recupero` è il motore, da cui
+      vengono i contesti;
+    - acceso, con `recupero` e senza `riordino`: come spento. È il caso di
+      Postgres fino alla fermata 5, dove l'interruttore non ha effetto.
     """
     conn = connetti()
     try:
         profilo = profilo_ente(conn, codice_ente)
     finally:
         conn.close()
+
+    contesti = None
+    if not ORDINE_C_LR:
+        riordino = None
+    elif recupero is None:
+        from src.motore import carica_motore
+
+        recupero, riordino = carica_motore()
+    if riordino is not None:
+        # i contesti restano nel motore: servono solo al riordino e non
+        # entrano in nessun documento (decisione 2 del 25/11/2026)
+        contesti = recupero.contesti
 
     if recupero is None:
         recupero = RecuperoIbrido()
@@ -383,10 +434,17 @@ def costruisci_catena(codice_ente: str, k: int = K_DEFAULT, recupero=None, route
         dati = formatta_dati(esiti) or "(nessun dato numerico richiesto)"
 
         if decisione.get("documenti", True):
+            if riordino is None:
+                trovati = recupera(recupero, domanda, k=k)
+            else:
+                trovati = recupera_riordinati(
+                    recupero, riordino, contesti, domanda, k=k
+                )
             # Frammenti vicini degli avvisi (passo 19e, rimedio 1): spenti se
-            # il recupero non sa dare un frammento (Postgres, oggi)
+            # il recupero non sa dare un frammento (Postgres, oggi); con
+            # l'ordine c-LR vengono dopo il riordino
             risultati = con_vicini(
-                recupera(recupero, domanda, k=k),
+                trovati,
                 recupero.frammento,
                 SPOSTAMENTI_VICINI,
             )
