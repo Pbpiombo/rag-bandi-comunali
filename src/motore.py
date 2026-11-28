@@ -366,12 +366,9 @@ class ArchivioChroma:
     contesto vale solo se l'impronta del testo coincide con quella del
     frammento e se il frammento è di un avviso (contesti_validi); le righe
     che non tornano sono in `scarti` dopo frammenti(), e nel registro. Se il
-    file manca, frammenti() si ferma con ErroreContesti.
-
-    `contesti` serve solo ai test (tests/test_motore.py, test della 1.1):
-    con i contesti dati da fuori il file non si legge e le impronte non si
-    controllano. Il codice dell'app non lo passa mai: l'archivio dell'app lo
-    costruisce carica_motore, sempre dal file.
+    file manca, frammenti() si ferma con ErroreContesti. I contesti non si
+    possono passare da fuori: l'archivio li legge sempre dal file, con il
+    controllo delle impronte.
     L'archivio non scrive mai nel Chroma.
     """
 
@@ -379,12 +376,10 @@ class ArchivioChroma:
         self,
         cartella: Path,
         collezione: str = COLLECTION_NAME,
-        contesti: Contesti | None = None,
         file_contesti: Path | None = None,
     ) -> None:
         self.cartella = Path(cartella)
         self.collezione = collezione
-        self.contesti = None if contesti is None else dict(contesti)
         self.file_contesti = Path(file_contesti or FILE_CONTESTI)
         self.scarti: ScartiContesti | None = None
 
@@ -402,8 +397,6 @@ class ArchivioChroma:
         return dati
 
     def frammenti(self) -> Frammenti:
-        if self.contesti is not None:
-            return frammenti_da_get(self._leggi(), self.contesti)
         righe = leggi_righe_contesti(self.file_contesti)
         senza = frammenti_da_get(self._leggi())
         contesti, self.scarti = contesti_validi(righe, senza.testi, senza.metadati)
@@ -652,7 +645,7 @@ def carica_motore(
     """Motore su Chroma e riordino, per la catena a interruttore acceso (1.4).
 
     L'archivio si costruisce sempre dal file dei contesti, con il controllo
-    delle impronte (ArchivioChroma senza `contesti`). Si chiama una volta:
+    delle impronte (ArchivioChroma). Si chiama una volta:
     l'app lo tiene in cache (carica_recupero), così i due modelli si
     caricano una volta sola. Nel registro: righe del file scartate, versioni
     e revisioni, tempi.

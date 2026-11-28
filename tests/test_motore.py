@@ -63,14 +63,25 @@ def test_frammenti_dal_get_di_chroma_escono_ordinati_per_id():
     assert np.array_equal(frammenti.matrice, dati["embeddings"][[1, 2, 0]])
 
 
-def test_archivio_chroma_ordina_quello_che_legge(monkeypatch):
+def test_archivio_chroma_ordina_quello_che_legge(monkeypatch, tmp_path):
     disordinati = {
         "ids": ["z", "m"],
         "documents": ["tz", "tm"],
-        "metadatas": [meta("f", 2), meta("f", 1)],
+        "metadatas": [meta("f", 2, sha256="x"), meta("f", 1, sha256="x")],
         "embeddings": [unitario(1, 0), unitario(0, 1)],
     }
-    archivio = mo.ArchivioChroma("non-si-apre", contesti={("f", 1): "contesto"})
+    # file dei contesti finto: la riga di z è scritta su un testo che z non
+    # ha, quindi non vale
+    percorso = tmp_path / "contesti_avvisi.jsonl"
+    righe = [
+        riga_contesto("f", 1, "tm", "contesto"),
+        riga_contesto("f", 2, "tz, versione vecchia", "contesto vecchio"),
+    ]
+    percorso.write_text(
+        "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in righe),
+        encoding="utf-8",
+    )
+    archivio = mo.ArchivioChroma("non-si-apre", file_contesti=percorso)
     monkeypatch.setattr(archivio, "_leggi", lambda: disordinati)
     frammenti = archivio.frammenti()
     assert frammenti.ids == ("m", "z")
