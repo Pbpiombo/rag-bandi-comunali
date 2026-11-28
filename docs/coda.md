@@ -4914,6 +4914,28 @@ omonima.
   `contesti` dati da fuori, e allora non legge il file né lo controlla
   (serve ai test e agli script della 1.2). L'app dovrà costruirlo senza,
   così passa dal controllo delle impronte.
+- (28/11/2026) Sotto-fermata 1.4, fatta, in attesa del via: motore
+  collegato all'app dietro `ORDINE_C_LR`, che resta `False`.
+  `recupera_riordinati` in `src/chains/rag.py` (30 candidati da `recupera`,
+  riordino fuori da `avvolgi`, poi i vicini); `carica_motore` in
+  `src/motore.py`; `recupero_e_riordino` e `registra_avvio` in
+  `app/app.py`. R2 rispettata senza differenze (22 su 22, due esecuzioni
+  del codice di prima e una del nuovo); acceso, 49 su 49 attraverso la
+  catena, scarto dei voti 0,0. 12 test nuovi in
+  `tests/test_catena_c_lr.py`. Zero giri di correzione.
+- (28/11/2026) **Con Postgres acceso, cioè sulla demo, l'interruttore non
+  ha effetto fino alla fermata 5**: `carica_recupero` dà
+  `RecuperoPostgres` senza riordino, e l'app lo scrive nel registro
+  all'avvio.
+- (28/11/2026) Il parametro `contesti` di `ArchivioChroma` resta, solo per
+  i test: lo usa `test_archivio_chroma_ordina_quello_che_legge` (1.1), e
+  toglierlo cambierebbe un test esistente. L'app non lo passa:
+  `carica_motore` costruisce l'archivio dal file, e un test lo controlla.
+  Se si vuole toglierlo, serve il via per cambiare quel test.
+- (28/11/2026) Memoria del processo in locale, da guardare prima della
+  fermata 5: acceso 1463 MB in uso dopo il caricamento e 1701 MB dopo il
+  primo riordino, contro 1312-1316 MB a interruttore spento (dettaglio in
+  `piano-fermata-1.md`, sotto-fermata 1.4).
 
 ## Parcheggio
 

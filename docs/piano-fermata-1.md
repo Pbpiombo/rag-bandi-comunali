@@ -555,6 +555,67 @@ sessione e aperto solo in copia.
 - **Punto di arresto**: tabelle, uscite di ruff e pytest; proposta del
   commit.
 
+**Stato (28/11/2026): fatta, in attesa del via. Zero giri di correzione.**
+- `src/chains/rag.py`: `recupera_riordinati` (nuova, accanto a `recupera`,
+  che non cambia): `recupera` con `CANDIDATI_RIORDINO` candidati, riordino
+  fuori da `avvolgi` sulla domanda normalizzata, primi k. In `prepara`: a
+  interruttore acceso e con un riordino, `recupera_riordinati`, altrimenti
+  `recupera` come prima; `con_vicini` sempre dopo (vicini spenti).
+  `costruisci_catena` ha il parametro `riordino`: a interruttore spento
+  non si guarda e niente del motore si carica; acceso senza recupero,
+  motore e riordino da `carica_motore`; acceso con recupero e senza
+  riordino (Postgres), come spento.
+- `app/app.py`: `recupero_e_riordino` (Postgres: `RecuperoPostgres` senza
+  riordino; Chroma e interruttore acceso: `carica_motore`; Chroma e
+  spento: niente, la catena si fa il suo `RecuperoIbrido` come prima),
+  chiamata da `carica_recupero`, in cache: i modelli si caricano una
+  volta. `registra_avvio` scrive nel registro, una volta per processo,
+  `avviso_ordine`: con Postgres acceso e interruttore acceso è un avviso
+  "senza effetto fino alla fermata 5".
+- **Con Postgres acceso, cioè sulla demo, l'interruttore non ha effetto
+  fino alla fermata 5**: l'archivio Postgres del motore non c'è ancora.
+- `src/motore.py`: `carica_motore` (archivio sempre dal file dei
+  contesti, i due modelli, versioni nel registro). Il parametro
+  `contesti` di `ArchivioChroma` resta, ma solo per i test: lo usa il test
+  della 1.1 `test_archivio_chroma_ordina_quello_che_legge`, e toglierlo
+  vorrebbe dire cambiare un test esistente. Nessun codice dell'app lo
+  passa; un test nuovo controlla che `carica_motore` legga il file.
+- `src/config.py`: solo il commento dell'interruttore; `ORDINE_C_LR`
+  resta `False`.
+- Test nuovi: 12 in `tests/test_catena_c_lr.py` (punto 6 nella catena in
+  due casi, uno per strada di arrivo del frammento; punto 8; interruttore
+  spento senza motore; import senza modelli; tre casi dell'app;
+  `carica_motore` dal file), ciascuno visto fallire con una variante
+  senza il pezzo che protegge (14 varianti; quella dell'import verificata
+  a mano, perché il test gira in un processo a parte). Il primo disegno
+  del test del punto 6 non cadeva con la variante "contesto nel testo dei
+  documenti del motore": il frammento arrivava dalla ricerca per
+  significato, che ha i suoi documenti; corretto il test prima della
+  misura, non il codice.
+
+Misure, script in `..\dati-grezzi\prova\19e\fermata-1\catena\`, Chroma vero
+solo in copia, impronte dei 6 file uguali prima e dopo ogni esecuzione;
+script di misura `216d67cc8abc`.
+- R2 (`r2_spento.py`, `confronta_r2.py`, registri accanto): codice di
+  prima esportato con `git archive HEAD` ed eseguito due volte, poi il
+  codice nuovo; 22 domande, router fisso, modello finto, data fissata al
+  24/11/2026. Contesto, documenti, origini, recupero e dati identici 22 su
+  22 in tutte e tre le esecuzioni: nessuna differenza, nemmeno tra le due
+  del codice di prima. A interruttore spento `src.motore` non è importato.
+- Interruttore acceso attraverso la catena (`catena_acceso.py`): sulle 49
+  a mano del controllo i documenti dati al modello sono i primi 10 di A
+  del riferimento, nello stesso ordine, 49 su 49. Scarto massimo dei voti
+  contro `identita.json`: 0,0 (tolleranza locale: zero alla sesta cifra).
+- R3: i test del punto 6.
+- Da annotare, senza veto: riordino mediana 6,08 s, media 6,23 s per
+  domanda; avvio della catena acceso 25,7 s (motore, file dei contesti e
+  due modelli), spento 24,4-28,2 s (`RecuperoIbrido`, tre esecuzioni di
+  R2). Memoria del processo (`memoria.log`): acceso 1463 MB in uso e 2170
+  MB privati dopo `carica_motore`, 1701 e 2496 MB dopo il primo riordino;
+  spento, a confronto, 1312 e 2027 MB dopo `RecuperoIbrido`, 1316 e 2028
+  dopo una ricerca. Da guardare prima della fermata 5, per i limiti di
+  memoria dell'app online.
+
 ### 1.5 Chiusura
 
 Documenti: `piano-19e.md`, `coda.md` (il doppione della sezione 3 come voce),

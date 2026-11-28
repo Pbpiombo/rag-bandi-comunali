@@ -1124,3 +1124,11 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
   veloce 49 su 49 in A e in B, scarto dei voti 0,0; Chroma vero non
   scritto. 14 test nuovi. Dettaglio in `piano-fermata-1.md`, sotto-fermata
   1.3, e in `coda.md`, "Fermata 1 del 19e".
+- (28/11/2026) Fermata 1 del 19e, sotto-fermata 1.4: motore e riordino
+  collegati all'app dietro `ORDINE_C_LR` (resta spento). A interruttore
+  spento la catena è identica a prima (R2: 22 su 22, nessuna differenza)
+  e niente del motore si carica; acceso, i documenti dati al modello sono
+  i primi 10 di A del riferimento, 49 su 49, scarto dei voti 0,0. Con
+  Postgres acceso (la demo) l'interruttore non ha effetto fino alla
+  fermata 5. 12 test nuovi. Dettaglio in `piano-fermata-1.md`,
+  sotto-fermata 1.4, e in `coda.md`, "Fermata 1 del 19e".
