@@ -4751,6 +4751,54 @@ impronta del file.
   "dato sbagliato" nuovo nel "dopo"; il numero delle risposte "giuste e
   precise" prima e dopo si riporta senza soglia. L'esito del verificatore
   si riporta accanto, non sostituisce la lettura.
+- (28/11/2026) Foglio bloccato il 28/11/2026: 20 domande, scritte a mano
+  da chi mantiene il progetto. Impronta sha256 di
+  `..\dati-grezzi\prova\19e\domande-spese\domande_spese.xlsx`:
+  `21a6ae5ab8d4c7383b535721f8f1592ac1033ba7e49ac4751a235e65378e58a2`.
+  Copia di sola lettura nella stessa cartella,
+  `domande_spese_bloccato_2026-11-28_21a6ae5a.xlsx`, con la stessa
+  impronta. Al momento del blocco il file risultava aperto in un altro
+  programma (c'era il file di blocco `~$domande_spese.xlsx`): l'impronta
+  è quella dei byte su disco, letti in condivisione senza scrivere; il
+  foglio va chiuso senza salvare, altrimenti l'impronta cambia e
+  `registra_risposte.py` rifiuta il lancio. Controlli di forma, sulla
+  copia: tre schede; 20 righe compilate (righe 2-21, nessuna vuota),
+  numerate da 1 a 20; id_bando e titolo uguali all'assegnazione del foglio
+  vuoto (regola del 27/11/2026 qui sopra) in 20 righe su 20; "chi chiede"
+  sempre tra i valori ammessi; nessuna riga con una nota (quindi nessun
+  "la so").
+- (28/11/2026) Caratteristiche dell'insieme, dichiarate da chi mantiene il
+  progetto. Le domande sono casi plausibili scritti immedesimandosi in chi
+  chiede, non casi reali raccolti. Tutte nominano il bando in modo
+  esplicito: misurano il caso "bando noto, domanda di dettaglio", non
+  quello delle parole comuni. Poche sono vaghe o mal poste, meno delle 5
+  chieste dal leggimi, e non se ne aggiungono perché il file è già stato
+  letto. Circa un quarto riguarda chi può accedere o a quali condizioni
+  più che le spese in senso stretto: nella lettura va tenuto distinto.
+  Molte chiedono se un progetto concreto rientra nel bando. Chi chiede:
+  dichiarati 7 comune, 7 associazione, 6 privato, nessuna impresa; nel
+  foglio bloccato risultano 8 comune (righe 4, 5, 6, 8, 9, 13, 14, 17),
+  7 associazione (3, 7, 10, 12, 16, 18, 20), 5 privato (1, 2, 11, 15,
+  19), nessuna impresa. Vale il foglio; la colonna non arriva all'app.
+- (28/11/2026) Aggiunta alla regola di lettura, scritta dopo il blocco del
+  foglio e prima che esista una sola risposta, "prima" o "dopo", decisa da
+  chi mantiene il progetto. Motivo: molte domande chiedono se un progetto
+  concreto rientra nel bando, e l'avviso spesso non nomina quel caso. Due
+  categorie in più, accanto alle cinque della regola del 27/11/2026:
+  "non c'è in modo esplicito, ma riporta la regola più vicina con la
+  fonte" (la risposta dice cosa l'avviso non nomina, cita le voci ammesse
+  più vicine con fonte e pagina, e lascia la conclusione all'ente o
+  all'utente); "conclude senza fonte" (la risposta afferma che il caso è
+  ammesso o escluso quando l'avviso non lo dice). "Conclude senza fonte"
+  si conta come difetto. Esito, aggiornato: nessun "dato sbagliato" nuovo
+  e nessuna "conclude senza fonte" nuova nel "dopo"; il numero delle
+  risposte "giuste e precise" prima e dopo si riporta senza soglia.
+- (28/11/2026) Requisito di prodotto, deciso da chi mantiene il progetto:
+  davanti a un caso che l'avviso non nomina, l'app si avvicina con le
+  citazioni e mai con le conclusioni. Riguarda `ISTRUZIONI`, che in questo
+  giro non si toccano: da valutare dopo la fermata 5 del 19e, con le venti
+  risposte come prova e con una regressione contro la baseline
+  (`docs/piano-insieme-prova.md`).
 
 ## Parcheggio
 

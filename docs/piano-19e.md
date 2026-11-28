@@ -634,6 +634,14 @@ rilascio 2 della sezione 6. Ordine complessivo del resto del 19e:
    "Prima" con la catena dell'app collegata a Postgres, data fissata al
    25/11/2026; dettaglio in `coda.md`, "Venti domande sulle spese
    (27/11/2026)".
+   (28/11/2026) Foglio bloccato: 20 domande, impronta `21a6ae5a…78e58a2`,
+   copia di sola lettura accanto. Regola di lettura aggiornata prima di
+   qualunque risposta, con due categorie in più ("non c'è in modo
+   esplicito, ma riporta la regola più vicina con la fonte" e "conclude
+   senza fonte", che è un difetto). Resta da fare: il lancio del "prima"
+   da parte di chi mantiene il progetto (`--versione prima --recupero
+   postgres --data 2026-11-25`, tetto 1,50 $; stima 0,73-0,87 $), sul
+   commit dei documenti di oggi e con la cartella di lavoro pulita.
 3. **Fermata 1: motore della misura in `src/`.** BM25 e prodotto
    scalare esatto in memoria, contesto davanti al testo nella ricerca per
    parole, riordinatore osiria L12 su 30 candidati, k=10; letto dal
@@ -679,6 +687,10 @@ rilascio 2 della sezione 6. Ordine complessivo del resto del 19e:
    `app/app.py`, da aggiungere allo script come `--recupero app`) e la
    data fissata al 25/11/2026, come il "prima". Chiave e lettura: `coda.md`,
    "Venti domande sulle spese (27/11/2026)".
+   (28/11/2026) Sulle venti domande sulle spese la regola di chiusura ha
+   una condizione in più: nessuna risposta "conclude senza fonte" nuova nel
+   "dopo" (regola di lettura aggiornata il 28/11/2026, stessa voce di
+   `coda.md`).
 8. **Tappa 6b** e **tappa 7**, come nella sezione 3.
 
 ### Correzione b: le domande delle pagine di domande frequenti

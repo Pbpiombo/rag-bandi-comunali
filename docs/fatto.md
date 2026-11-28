@@ -1062,3 +1062,25 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
   arbitrato sui disaccordi) e la regola di lettura. Impronta del foglio
   vuoto `4e96dcf4…98658`. Dettaglio in `coda.md`, "Venti
   domande sulle spese (27/11/2026)".
+
+## Fatti il 28 novembre 2026
+
+- (28/11/2026) Foglio delle venti domande sulle spese bloccato (fermata 2
+  del 19e): 20 domande scritte a mano, impronta sha256
+  `21a6ae5ab8d4c7383b535721f8f1592ac1033ba7e49ac4751a235e65378e58a2`,
+  copia di sola lettura `domande_spese_bloccato_2026-11-28_21a6ae5a.xlsx`
+  nella stessa cartella. Controlli di forma passati: 20 righe compilate,
+  id_bando uguali all'assegnazione, "chi chiede" tra i valori ammessi,
+  nessuna nota. Caratteristiche dell'insieme dichiarate da chi mantiene il
+  progetto: casi plausibili e non raccolti; bando sempre nominato ("bando
+  noto, domanda di dettaglio"); meno di 5 domande vaghe; circa un quarto
+  su chi può accedere, da tenere distinto nella lettura; molte su un
+  progetto concreto. Chi chiede, nel foglio: 8 comune, 7 associazione,
+  5 privato, nessuna impresa (dichiarati 7, 7 e 6). Regola di lettura
+  aggiornata prima di qualunque risposta: due categorie in più, "non c'è
+  in modo esplicito, ma riporta la regola più vicina con la fonte" e
+  "conclude senza fonte", quest'ultima contata come difetto, con la
+  condizione nuova nell'esito (nessuna "conclude senza fonte" nuova nel
+  "dopo"). Stima del "prima" con `registra_risposte.py --stima`:
+  0,036-0,043 $ a domanda, 0,73-0,87 $ in tutto. Dettaglio in `coda.md`,
+  "Venti domande sulle spese (27/11/2026)".
