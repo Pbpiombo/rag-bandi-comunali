@@ -1096,3 +1096,15 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
   0,73-0,87 $. Letto solo `meta.json`; le risposte si leggono nella
   fermata 5. Dettaglio in `coda.md`, "Venti domande sulle spese
   (27/11/2026)".
+- (28/11/2026) Fermata 1 del 19e, sotto-fermata 1.0: riferimenti completi.
+  Taratura rifatta con lo script congelato: 189 righe su 189 uguali per
+  k=10 e k=15, 189 ordini di B su 189 uguali al 24/11, trovati A / B a
+  k=10 fogli 76 / 83 e a mano 69 / 78. `ordini_riferimento.json`, 336
+  ordini, sha256 `f6c03849…bd3420a9`. Dettaglio in `piano-fermata-1.md`,
+  sotto-fermata 1.0, e in `coda.md`, "Fermata 1 del 19e".
+- (28/11/2026) Fermata 1 del 19e, sotto-fermata 1.1: `src/motore.py`
+  (archivio, motore in memoria, riordino), non collegato all'app; costanti
+  in `src/config.py` con l'interruttore `ORDINE_C_LR` spento; 15 test
+  nuovi in `tests/test_motore.py`, ciascuno visto fallire senza il suo
+  pezzo. Doppione con lo script di misura annotato in `coda.md`,
+  "Fermata 1 del 19e".

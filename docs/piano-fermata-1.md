@@ -346,6 +346,34 @@ test della sezione 7, punto 6.
 - **Punto di arresto**: tabella; impronta del file dei riferimenti.
 - Tempo macchina: circa 35 minuti.
 
+**Stato (28/11/2026): chiusa.** Script
+`..\dati-grezzi\prova\19e\fermata-1\riferimenti\riferimenti_taratura.py`,
+copia di `prova_zero.py` con una sola differenza nel calcolo
+(`LATO = mr.TARATURA`), più l'unione con gli ordini della prova zero.
+Registro `riferimenti_taratura.log` nella stessa cartella.
+
+| serie | righe uguali k=10 | righe uguali k=15 | ordini di B uguali al 24/11 | trovati A / B, k=10 | trovati A / B, k=15 |
+|---|---|---|---|---|---|
+| fogli | 97 su 97 | 97 su 97 | 97 su 97 | 76 / 83 | 77 / 85 |
+| a mano | 92 su 92 | 92 su 92 | 92 su 92 | 69 / 78 | 74 / 80 |
+
+- Nessuna riga diversa; numeri uguali a quelli della tabella qui sopra.
+- Candidati tra i 30: fogli A 77 e B 87, a mano A 76 e B 83.
+- `ordini_riferimento.json` (cartella `riferimenti`): 336 ordini, le
+  quattro serie (controllo dalla prova zero, identici a
+  `ordini_prova_zero.json`; taratura da questa esecuzione), sha256
+  `f6c038498092a9a1246132c515801114522fcc3a8238055371b28815bd3420a9`.
+  I 336 ordini di B sono uguali a `ordini_c-LR_24-11.json`. In A gli
+  ordini hanno 30 posti in 335 casi e 29 in uno; in B meno di 30 quando
+  il bando ha meno candidati.
+- Tempi: 2639 s in tutto (fogli 1441 s, a mano 1099 s). Mediana del
+  riordino: fogli A 7,20 s e B 7,09 s; a mano A 5,91 s e B 5,80 s. I
+  fogli della taratura stanno sopra la forchetta 5,3-6,2 s della 1.2,
+  che resta senza veto.
+- Chroma vero: impronte dei 6 file uguali prima e dopo.
+- Da sapere: Python avvisa di una sequenza `\p` non valida nella
+  docstring dello script (solo testo, nessun effetto sul calcolo).
+
 ### 1.1 Motore e riordino in `src/`, non collegati
 
 - **Cosa cambia**: `src/motore.py` (nuovo: `Frammenti`, `ArchivioChroma`,
@@ -359,6 +387,24 @@ test della sezione 7, punto 6.
   nuovi; ruff con 11 segnalazioni.
 - **Come si torna indietro**: si toglie il modulo; niente lo importa.
 - **Punto di arresto**: elenco dei test, uscita di ruff e pytest.
+
+**Stato (28/11/2026): fatta, in attesa del via.** `src/motore.py`
+(`Frammenti`, `matrice_di`, `frammenti_da_get`, `ArchivioChroma`,
+`testo_con_contesto`, `RicercaEsatta`, `Motore`, `riordina`, `Riordino`,
+`carica_embeddings`, `carica_riordinatore`, `versioni`); `src/config.py`
+(`ORDINE_C_LR = False`, `CANDIDATI_RIORDINO = 30`, `MODELLO_RIORDINO`,
+`REVISIONE_RIORDINO`, `REVISIONE_EMBEDDING`); `tests/test_motore.py`, 15
+test, ciascuno visto fallire con almeno una variante del motore senza il
+pezzo che protegge (19 varianti). Scelte da sapere:
+- `Motore` eredita da `RecuperoIbrido` come `RecuperoMisura`: `cerca`,
+  `_lessicale`, `titoli` e `frammento` non sono copiati ma sono gli stessi
+  dell'app;
+- `ArchivioChroma` riceve i contesti da fuori: la lettura del file è
+  della 1.3;
+- `Riordino` non cambia la domanda: in A la normalizza chi chiama
+  (`recupera_riordinati`, 1.4), in B arriva ripulita, come nella misura.
+Test della sezione 7 rimandati: il punto 6 nella parte della catena e il
+punto 8 alla 1.4; il punto 9 alla 1.3 (file dei contesti).
 
 ### 1.2 Identità del codice, sugli stessi ingressi della misura
 
@@ -566,6 +612,28 @@ ingressi della misura prima di cambiare archivio.
 8. **Costo del "dopo"** delle venti domande sulle spese: stima da alzare
    dopo il "prima" a 0,976 $ (fuori da questa fermata, ma la stima va
    rifatta prima del lancio).
+
+## Decisioni del 28/11/2026
+
+Prese da chi mantiene il progetto sulle voci della sezione 10, prima della
+sotto-fermata 1.0.
+
+1. Copia e non spostamento: lo script di misura resta congelato e fa da
+   riferimento; il doppione si annota in coda.
+2. Contesti: strada 2, file a parte `data/db/contesti_avvisi.jsonl`, fuori
+   dal repository con una riga in `.gitignore`; online tabella o colonna si
+   decide alla fermata 5.
+3. Un solo interruttore, `ORDINE_C_LR`.
+4. Gli ordini di A rigenerati il 28/11/2026 dallo script congelato sono il
+   riferimento di R1.
+5. Revisioni dei due modelli fissate nel motore.
+6. Regola R2 con due esecuzioni del codice di prima.
+7. Ricarica dell'intera tabella dal Chroma alla fermata 5: si decide
+   allora; l'interfaccia dell'archivio lo prevede da subito.
+8. La stima del costo del "dopo" si rifà prima del lancio.
+9. Regola in più per R1: se dopo due giri di correzione l'identità non è
+   al 100%, ci si ferma e si porta l'elenco delle differenze a chi mantiene
+   il progetto. La regola non si allenta senza una sua decisione.
 
 ## 11. Una soluzione migliore
 

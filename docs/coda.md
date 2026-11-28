@@ -4840,6 +4840,46 @@ dopo" (insieme generato) e "Ricerca per nome e parole comuni
 - (28/11/2026) Le domande generate non sostituiscono quelle raccolte da
   persone.
 
+## Fermata 1 del 19e: motore in `src/` (28/11/2026)
+
+Piano in `docs/piano-fermata-1.md`, decisioni del 28/11/2026 nella sezione
+omonima.
+
+- (28/11/2026) Sotto-fermata 1.0 chiusa: lo script di misura congelato
+  (impronta `216d67cc8abc`, uguale prima e dopo) rifà la taratura con
+  189 righe su 189 uguali ai CSV salvati, a k=10 e a k=15, e 189 ordini
+  di B su 189 uguali al 24/11. Trovati A / B a k=10: fogli 76 / 83, a mano
+  69 / 78, come atteso. `ordini_riferimento.json` (336 ordini, quattro
+  serie, in `..\dati-grezzi\prova\19e\fermata-1\riferimenti\`), sha256
+  `f6c038498092a9a1246132c515801114522fcc3a8238055371b28815bd3420a9`, è
+  il riferimento di R1 (decisione 4).
+- (28/11/2026) Sotto-fermata 1.1: `src/motore.py`, non importato da
+  nessuno. Contiene `Frammenti` (sempre ordinati per id, vettori in
+  float32, con `to_numpy()` per i vettori di Postgres), `ArchivioChroma`
+  (sola lettura, contesti dati da fuori fino alla 1.3), `RicercaEsatta`
+  (prodotto scalare in float64, pari merito per id), `Motore` (BM25 con il
+  contesto davanti, `cerca` di `RecuperoIbrido` ereditata,
+  `cerca_nel_bando`), `Riordino` con `riordina` (coppie con il contesto
+  davanti, ultima colonna dei voti, pari merito nell'ordine di prima,
+  origine "riordino #n"), caricamento dei due modelli alle revisioni
+  fissate (decisione 5), `versioni()` per il registro. I documenti
+  restituiti hanno il testo pulito e i metadati del frammento, mai il
+  contesto. In `src/config.py`: `ORDINE_C_LR = False`,
+  `CANDIDATI_RIORDINO = 30`, modello e revisioni.
+- (28/11/2026) Doppione da togliere (decisione 1): `testo_con_contesto`,
+  `controlla_normalizzati`, `StoreEsatto` (in `src/` è `RicercaEsatta`),
+  la costruzione del BM25 e `cerca_nel_bando` di `RecuperoMisura`,
+  `riordina`, l'ordine per id di `esporta_frammenti` stanno sia in
+  `scripts/diagnostica/misura_recupero_avvisi.py` sia in `src/motore.py`.
+  Lo script resta il riferimento finché valgono gli ordini del 19d; il
+  doppione si toglie, se si vuole, dopo la fermata 5 o al taglio a
+  livelli.
+- (28/11/2026) Test: `tests/test_motore.py`, 15 test (punti 1-5 e 7 della
+  sezione 7 del piano, la parte del punto 6 sul motore, le revisioni dei
+  modelli). Ognuno visto fallire con almeno una di 19 varianti del motore
+  senza il pezzo che protegge. Restano alla 1.4 il punto 6 nella catena e
+  il punto 8; alla 1.3 il punto 9.
+
 ## Parcheggio
 
 Idee che non interrompono il lavoro in corso (nuova, 21/11/2026). Regola:
