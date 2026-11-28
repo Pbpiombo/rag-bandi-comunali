@@ -59,6 +59,22 @@ SOGLIA_CHUNK = 150
 # chunk_num): oggi Chroma si', Postgres no (query rimandata al passo 19e).
 SPOSTAMENTI_VICINI: tuple[int, ...] = ()
 
+# Ordine c-LR (fermata 1 del 19e, docs/piano-fermata-1.md): motore in memoria
+# (src/motore.py: ricerca esatta, BM25 con il contesto davanti, fusione) più
+# il riordinatore su CANDIDATI_RIORDINO candidati. Un solo interruttore
+# (decisione 3 del 28/11/2026). Spento: l'app di oggi, riga per riga. Nella
+# sotto-fermata 1.1 il motore non è ancora collegato: il valore non cambia
+# niente.
+ORDINE_C_LR = False
+CANDIDATI_RIORDINO = 30
+# Riordinatore misurato nel 19d (osiria L12) e revisioni fissate dei due
+# modelli (decisione 5 del 28/11/2026): quelle in locale il 28/11/2026, le
+# stesse con cui sono state fatte le misure. Una revisione nuova
+# cambierebbe vettori o voti senza che nessuno se ne accorga.
+MODELLO_RIORDINO = "osiria/minilm-l12-h384-italian-cross-encoder"
+REVISIONE_RIORDINO = "93b6993d59559da31b64bcc7bbb74ac1f7cda4b8"
+REVISIONE_EMBEDDING = "e8f8c211226b894fcb81acc59f3b34ba3efd5f42"
+
 # Citazioni ripetute accorciate alla sola etichetta (src/citazioni.py).
 # Agisce solo sul testo mostrato; verificatore e bandi citati ricevono
 # sempre il testo intero. Misurato il 25/11/2026 su 226 risposte salvate
