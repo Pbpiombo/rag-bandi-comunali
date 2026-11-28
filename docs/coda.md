@@ -4879,6 +4879,17 @@ omonima.
   modelli). Ognuno visto fallire con almeno una di 19 varianti del motore
   senza il pezzo che protegge. Restano alla 1.4 il punto 6 nella catena e
   il punto 8; alla 1.3 il punto 9.
+- (28/11/2026) Sotto-fermata 1.2 chiusa: R1 rispettata. Script
+  `..\dati-grezzi\prova\19e\fermata-1\identita.py` (motore da v0 e dai
+  835 contesti della misura; A con `avvolgi`, `recupera` a 30 e riordino
+  sulla domanda normalizzata; B con `cerca_nel_bando` e la domanda
+  ripulita della misura). Ordini identici al riferimento: controllo
+  fogli 98/98, controllo a mano 49/49, taratura fogli 97/97, taratura a
+  mano 92/92, in A e in B; in più le righe della misura rifatte sugli
+  ordini del motore sono uguali ai CSV salvati, 336 su 336 a k=10 e a
+  k=15. Nessuna differenza: zero giri di correzione, `src/motore.py` e i
+  test non toccati. Uscita `identita.json` (sha256 `ec4025ac…bbcfb`),
+  registri `identita.log` e `identita_veloce.log`.
 
 ## Parcheggio
 

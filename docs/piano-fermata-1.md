@@ -426,6 +426,39 @@ punto 8 alla 1.4; il punto 9 alla 1.3 (file dei contesti).
   sulle 49 a mano del controllo (circa 10 minuti) per i giri di
   correzione.
 
+**Stato (28/11/2026): chiusa, R1 rispettata.** Script
+`..\dati-grezzi\prova\19e\fermata-1\identita.py` (sha256 `43378cd3…6581017e`),
+registri `identita_veloce.log` e `identita.log`, uscita `identita.json`
+(sha256 `ec4025ac…bbcfb`) con ordini, voti e candidati del motore. A:
+`avvolgi(motore)`, `recupera` con 30 candidati e la domanda com'è scritta,
+riordino sulla domanda normalizzata (`recupera_riordinati` costruita nello
+script). B: `cerca_nel_bando` e riordino con la domanda ripulita come nella
+misura (titolo da `frammenti_della_copia`). Modelli solo in locale, alle
+revisioni fissate.
+
+| serie | ordini A uguali | ordini B uguali | righe della misura uguali k=10 / k=15 | trovati A / B, k=10 | mediana del riordino A / B |
+|---|---|---|---|---|---|
+| controllo, fogli | 98 su 98 | 98 su 98 | 98 / 98 | 71 / 77 | 5,96 / 5,87 s |
+| controllo, a mano | 49 su 49 | 49 su 49 | 49 / 49 | 38 / 42 | 5,85 / 5,77 s |
+| taratura, fogli | 97 su 97 | 97 su 97 | 97 / 97 | 76 / 83 | 6,01 / 6,01 s |
+| taratura, a mano | 92 su 92 | 92 su 92 | 92 / 92 | 69 / 78 | 5,96 / 5,87 s |
+
+- 336 su 336 in A e 336 su 336 in B, compreso il caso di A con 29 posti
+  (taratura, fogli, riga 31: `recupera` dà 29 candidati, come nel
+  riferimento).
+- Modalità veloce, prima delle serie intere: 49 su 49 in A e in B, righe
+  della misura 49 su 49 a k=10 e k=15; 686 s in tutto.
+- Nessuna differenza: zero giri di correzione, `src/motore.py` e
+  `tests/test_motore.py` non toccati.
+- Controllo in più, non chiesto da R1: le righe della misura
+  (`riga_misura` dello script) rifatte sugli ordini del motore sono uguali
+  ai CSV salvati del 19d in tutte le colonne, a k=10 e a k=15.
+- Tempi: 4091 s in tutto (fogli 1162 e 1167 s, a mano 570 e 1110 s);
+  caricamento di motore e modelli 24,5 s. Mediane del riordino dentro la
+  forchetta 5,3-6,2 s.
+- Impronta dello script di misura `216d67cc8abc` all'inizio e alla fine;
+  Chroma vero mai aperto, impronte dei 6 file uguali prima e dopo.
+
 ### 1.3 Archivio locale: Chroma più il file dei contesti
 
 - **Cosa cambia**: `scripts/ingestione/esporta_contesti.py` (nuovo),

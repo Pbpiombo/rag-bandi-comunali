@@ -1108,3 +1108,10 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
   nuovi in `tests/test_motore.py`, ciascuno visto fallire senza il suo
   pezzo. Doppione con lo script di misura annotato in `coda.md`,
   "Fermata 1 del 19e".
+- (28/11/2026) Fermata 1 del 19e, sotto-fermata 1.2: identità del codice
+  sugli stessi ingressi della misura. Il motore di `src/motore.py` dà gli
+  stessi ordini interi del riferimento: 336 su 336 in A e 336 su 336 in B,
+  compreso il caso di A con 29 posti; trovati a k=10 come attesi. Nessuna
+  differenza, nessun giro di correzione, `src/motore.py` non toccato.
+  Dettaglio in `piano-fermata-1.md`, sotto-fermata 1.2, e in `coda.md`,
+  "Fermata 1 del 19e".
