@@ -4936,6 +4936,59 @@ omonima.
   fermata 5: acceso 1463 MB in uso dopo il caricamento e 1701 MB dopo il
   primo riordino, contro 1312-1316 MB a interruttore spento (dettaglio in
   `piano-fermata-1.md`, sotto-fermata 1.4).
+- (28/11/2026) Sotto-fermata 1.5, chiusura: fermata 1 chiusa,
+  `ORDINE_C_LR` spento. Con il via di chi mantiene il progetto il
+  parametro `contesti` di `ArchivioChroma` è stato tolto: l'archivio legge
+  i contesti sempre dal file. Il test della 1.1
+  `test_archivio_chroma_ordina_quello_che_legge` ora usa un file dei
+  contesti finto, con una riga dall'impronta sbagliata che non deve
+  valere. Superano le due voci sopra ("Da sapere per la 1.4" e "Il
+  parametro `contesti` di `ArchivioChroma` resta"). Modalità veloce rifatta
+  attraverso la catena: 49 su 49, scarto dei voti 0,0.
+- (28/11/2026) **Doppione tra lo script di misura e `src/motore.py`, circa
+  120 righe** (precisa la voce "Doppione da togliere" sopra): copiati, non
+  spostati, `testo_con_contesto`, `controlla_normalizzati`, `StoreEsatto`
+  (`RicercaEsatta`), la costruzione del BM25 e `cerca_nel_bando` di
+  `RecuperoMisura`, `riordina`, `testo_per_riordino` (dentro
+  `Riordino.coppie`), l'ordine per id di `esporta_frammenti`. **Quando si
+  toglie**: non prima della fermata 5 chiusa, perché fino ad allora lo
+  script congelato (impronta `216d67cc8abc`) è l'oracolo dell'identità
+  online; poi al taglio a livelli (passo 24), quando gli ordini del 19d non
+  sono più il riferimento, o prima se chi mantiene il progetto lo decide.
+  Come: lo script importa da `src/motore.py` con gli stessi nomi; si
+  aggiornano tutti gli importatori (nel repository
+  `tests/test_misura_recupero_avvisi.py`, `tests/test_misura_contesto.py`;
+  fuori, `..\dati-grezzi\prova\19e\rifai_ordini.py` e `vicini.py`,
+  `..\dati-grezzi\prova\19d\contesto\mancati_controllo.py` e
+  `mancati_tutte.py`, gli script della fermata 1); si rifà la prova zero con lo script nuovo e
+  si annota l'impronta nuova.
+- (28/11/2026) Proposta sul test dell'import
+  (`test_importare_motore_e_catena_non_carica_modelli` in
+  `tests/test_catena_c_lr.py`): gira in un processo a parte, quindi la sua
+  variante della 1.4 è stata vista fallire solo a mano. Proposta: un
+  secondo controllo nello stesso test, con lo stesso codice di conteggio,
+  che importa `sentence_transformers` e si aspetta di vederlo nell'elenco.
+  Così ogni esecuzione dimostra che il rilevatore vede un import pesante,
+  e il test non può passare perché il conteggio è rotto. Cambia un test
+  esistente: serve il via.
+- (28/11/2026) **Memoria in locale con l'interruttore acceso, da
+  confrontare online alla fermata 5**: 1463 MB in uso e 2170 MB privati
+  dopo `carica_motore`, 1701 e 2496 MB dopo il primo riordino; spento 1312
+  e 2027 MB (`..\dati-grezzi\prova\19e\fermata-1\catena\memoria.log`, PC,
+  Python 3.13.12, torch 2.14.0). Alla fermata 5 si rifà la stessa misura
+  sull'app online (dopo il caricamento dei due modelli e dopo il primo
+  riordino) e la si confronta con questa e con il limite di Streamlit
+  Cloud, prima degli ordini. Da sapere: lo script che ha scritto
+  `memoria.log` non è salvato, e `catena_acceso.py` registra la memoria
+  come 0 (la chiamata a `GetProcessMemoryInfo` non funziona così come è
+  scritta): per la fermata 5 serve uno script di misura della memoria
+  salvato e provato.
+- (28/11/2026) Impronte intere del Chroma vero: gli script della fermata 1
+  fuori dal repository le scrivono nel registro all'inizio e alla fine;
+  riferimento di oggi in
+  `..\dati-grezzi\prova\19e\fermata-1\impronte_chroma_2026-11-28.txt`, da
+  usare nelle prossime fermate. Un nuovo caricamento del Chroma le cambia
+  di proposito: lo dice il registro, non ferma lo script.
 
 ## Parcheggio
 

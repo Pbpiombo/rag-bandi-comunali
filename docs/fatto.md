@@ -1132,3 +1132,12 @@ baseline viene dopo il passo 19: "Decisioni prese" (19/11/2026).
   Postgres acceso (la demo) l'interruttore non ha effetto fino alla
   fermata 5. 12 test nuovi. Dettaglio in `piano-fermata-1.md`,
   sotto-fermata 1.4, e in `coda.md`, "Fermata 1 del 19e".
+- (28/11/2026) **Fermata 1 del 19e chiusa** (sotto-fermata 1.5): il motore
+  della misura c-LR sta in `src/motore.py` ed è collegato all'app dietro
+  `ORDINE_C_LR`, spento. Identità: 336 ordini su 336 in A e in B sulle
+  quattro serie, 49 su 49 dall'archivio Chroma più il file dei contesti e
+  attraverso la catena; interruttore spento identico al codice di prima.
+  Pulizia finale: `ArchivioChroma` legge i contesti solo dal file;
+  impronte intere del Chroma nei registri degli script di misura. Cinque
+  giri contro i 4,5-6 stimati, nessun giro di correzione. Dettaglio in
+  `piano-fermata-1.md`, sotto-fermata 1.5.

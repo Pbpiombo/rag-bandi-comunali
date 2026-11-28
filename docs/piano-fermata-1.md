@@ -20,6 +20,9 @@ e `controllo_contesto_app.py`.
 
 Le decisioni che il piano chiede sono raccolte in fondo (sezione 10).
 
+**Stato finale (28/11/2026): fermata chiusa**, interruttore spento; tabella
+delle identità e giri usati nella sotto-fermata 1.5 (sezione 6).
+
 ## 1. Prova zero (28/11/2026)
 
 Domanda: lo script di misura, così com'è oggi (impronta `216d67cc8abc`),
@@ -621,6 +624,78 @@ script di misura `216d67cc8abc`.
 Documenti: `piano-19e.md`, `coda.md` (il doppione della sezione 3 come voce),
 `fatto.md`, roadmap. L'interruttore resta spento fino alla fermata 3
 (vicini) e alla misura della fermata 4; il README cambia nella fermata 5.
+
+**Stato (28/11/2026): fermata 1 chiusa, in attesa del via per il commit.**
+`ORDINE_C_LR` resta `False` su `main`; il README non cambia fino alla
+fermata 5.
+
+Pulizia prima della chiusura, con il via esplicito di chi mantiene il
+progetto:
+- `ArchivioChroma` non accetta più i contesti da fuori: li legge sempre dal
+  file, con il controllo delle impronte. Nessun codice dell'app e nessuno
+  script fuori dal repository passava il parametro; lo usava solo
+  `test_archivio_chroma_ordina_quello_che_legge`, che ora costruisce
+  l'archivio con un file dei contesti finto (una riga valida e una scritta
+  su un testo che il frammento non ha più) e controlla in più che la riga
+  sbagliata non valga. Visto fallire con due varianti: senza il controllo
+  delle impronte e senza l'ordine per id. Il numero dei test non cambia.
+- Gli script fuori dal repository della 1.2, della 1.3 e della 1.4
+  (`identita.py`, `archivio\identita_archivio.py`,
+  `catena\catena_acceso.py`, `catena\r2_spento.py`) scrivono nel registro
+  le sei impronte intere del Chroma vero all'inizio e alla fine, e il
+  confronto con il riferimento
+  `..\dati-grezzi\prova\19e\fermata-1\impronte_chroma_2026-11-28.txt`
+  (aiuto comune in `impronte_chroma.py`, accanto). Prima scrivevano solo
+  "uguali": le impronte dei giri di oggi prima di questo non sono state
+  salvate, quindi il riferimento vale da oggi.
+- Modalità veloce rifatta attraverso la catena (49 a mano del controllo,
+  interruttore acceso, Chroma in copia): 49 su 49, scarto massimo dei voti
+  0,0; impronte all'inizio e alla fine uguali al riferimento. Riordino
+  mediana 6,46 s, avvio 28,9 s. Registro e uscita
+  `catena\catena_acceso_pulizia.log` e `.json`; i file della 1.4 restano
+  con il loro nome.
+
+**Tabella delle identità** (tutte le misure senza modello di linguaggio,
+Chroma vero mai scritto):
+
+| misura | serie | A | B | voti contro la 1.2 |
+|---|---|---|---|---|
+| 1.0 e prova zero: script congelato contro i CSV del 19d | le quattro serie | 336 righe su 336 (k=10 e k=15) | 336 righe su 336; ordini uguali al 24/11, 336 su 336 | — |
+| 1.2: motore sugli ingressi della misura | le quattro serie | 336 ordini su 336 | 336 ordini su 336 | primo riferimento |
+| 1.3: motore dall'archivio Chroma più il file | 49 a mano del controllo | 49 su 49 | 49 su 49 | scarto 0,0 |
+| 1.4: catena dell'app, interruttore acceso | 49 a mano del controllo | 49 su 49 (documenti dati al modello) | — | scarto 0,0 |
+| 1.4: catena dell'app, interruttore spento (R2) | 22 domande del 24/11 | 22 su 22, anche tra le due esecuzioni del codice di prima | — | — |
+| 1.5: catena, dopo la pulizia | 49 a mano del controllo | 49 su 49 | — | scarto 0,0 |
+
+**Giri usati contro quelli stimati** (sezione 8; un giro è una sessione di
+lavoro chiusa con il suo punto di arresto, contati dai commit del
+28/11/2026):
+
+| sotto-fermata | stimati | usati | giri di correzione |
+|---|---|---|---|
+| piano e prova zero | non nella stima | 1 | 0 |
+| 1.0 e 1.1 | 1,5-2 | 1 (insieme) | 0 |
+| 1.2 | 1 | 1 | 0 |
+| 1.3 | 0,5-1 | 1 | 0 (la misura rifatta una volta dopo `ruff format`, stessi esiti) |
+| 1.4 | 1-1,5 | 1 | 0 (il test del punto 6 corretto prima della misura) |
+| 1.5, con la pulizia | 0,5 | 1 (insieme alla proposta della fermata 2) | 0 |
+| totale | 4,5-6 | 5, più 1 per il piano | 0 |
+
+Il rischio "alto" della 1.2 e della 1.4 non si è presentato: nessuna
+differenza da inseguire. Cosa ha contato, a giudizio di chi scrive: la
+copia invece dello spostamento (lo script congelato come oracolo), gli
+ordini interi rigenerati prima di scrivere il motore, e l'identità a
+gradini.
+
+Da sapere, senza veto:
+- `catena_acceso.py` scrive la memoria del processo come 0 (anche nella
+  1.4): la chiamata a `GetProcessMemoryInfo` non funziona così come è
+  scritta. I numeri di memoria della 1.4 vengono da `catena\memoria.log`,
+  scritto da uno script non salvato. Per la fermata 5 la misura della
+  memoria va rifatta con uno script salvato (voce in `coda.md`).
+- Le mediane del riordino di oggi (6,08 s nella 1.4, 6,46 s dopo la
+  pulizia) stanno sopra la forchetta 5,3-6,2 s della 1.2; sullo stesso PC,
+  senza effetti sugli ordini.
 
 ## 7. I test
 

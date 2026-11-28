@@ -662,6 +662,18 @@ rilascio 2 della sezione 6. Ordine complessivo del resto del 19e:
    sei sotto-fermate, dalla 1.0 alla 1.5; contesti in un file a parte
    invece che nel campo del Chroma (strada 2, da decidere); decisioni in
    attesa nella sezione 10 di quel piano.
+   (28/11/2026) **Fermata 1 fatta.** Motore in memoria e riordino in
+   `src/motore.py`, collegati all'app dietro `ORDINE_C_LR`, che resta
+   spento; contesti nel file `data/db/contesti_avvisi.jsonl` (strada 2,
+   decisa il 28/11), il Chroma vero mai scritto, quindi la sotto-fermata
+   della correzione d non è servita. Identità: 336 ordini su 336 in A e in
+   B sulle quattro serie (codice sugli ingressi della misura), 49 su 49
+   dall'archivio Chroma e attraverso la catena; interruttore spento
+   identico al codice di prima, 22 su 22. Con Postgres acceso (la demo)
+   l'interruttore non ha effetto fino alla fermata 5. Cinque giri contro
+   i 4,5-6 stimati, nessun giro di correzione. Dettaglio in
+   `docs/piano-fermata-1.md`, sotto-fermata 1.5. Piano della fermata 2 in
+   `docs/piano-fermata-2.md`.
 4. **Fermata 2: filtro per bando** (solo bando trovato per nome, con
    frammenti). Regola di chiusura della tappa 2: zero filtri su un bando
    sbagliato, sulle decisioni del router salvate e sul lancio del solo

@@ -2,7 +2,7 @@
 
 I documenti scritti prima del 18/11/2026 citano sezioni di questa roadmap che oggi stanno in docs/coda.md con il loro numero originale (Difetti del 14/11, Dopo la demo, Prossimi passi, In coda, priorità del consulente pilota, indicazioni del revisore tecnico) e in docs/fatto.md.
 
-Stato al 25 novembre 2026. Da aggiornare alla fine di ogni passo.
+Stato al 28 novembre 2026. Da aggiornare alla fine di ogni passo.
 
 Qui stanno solo stato, principi, ordine dei passi e decisioni prese. Il
 lavoro chiuso è in `docs/fatto.md`; le voci in attesa, con il loro numero
@@ -17,7 +17,11 @@ originale, in `docs/coda.md`.
   metà di controllo.
 - **Il 19e è in corso dal 25/11/2026**, secondo `docs/piano-19e.md`,
   intero e senza perimetro ridotto (decisioni del 25/11/2026 nel piano).
-  Fatta la tappa 6a. Obiettivo: un'app che il consulente pilota possa
+  Fatte la tappa 6a, la prova di memoria e, il 28/11/2026, la fermata 1
+  del rilascio 2: motore della misura in `src/motore.py`, collegato
+  all'app dietro `ORDINE_C_LR`, spento (`docs/piano-fermata-1.md`).
+  Prossima: la fermata 2, filtro per bando (`docs/piano-fermata-2.md`,
+  proposta). Obiettivo: un'app che il consulente pilota possa
   provare tra gennaio e febbraio 2027, con buone fonti e buona qualità di
   risposta. La chiamata della prima settimana di dicembre serve a
   raccogliere informazioni (cosa chiede, da quali fonti), non a mostrare
@@ -73,7 +77,7 @@ precedente, del 23/11, è in `docs/fatto.md`, "Spostato dalla roadmap il
 19e secondo `docs/piano-19e.md` (tappa 6a, fatta il 25/11; prova di
 memoria su Streamlit e torch solo per processore, fatte il 25/11 e il
 27/11, `docs/prova-memoria.md`; rilascio 2 in cinque
-fermate; tappe 6b e 7); 20; 25 (insieme di domande nuovo); 24 (taglio a
+fermate, la prima fatta il 28/11; tappe 6b e 7); 20; 25 (insieme di domande nuovo); 24 (taglio a
 livelli); le altre fonti (C, in sequenza, non in parallelo, con la
 scansione regolare e il passo 23); 22; 21. Il passo 21 si fa comunque
 prima di dare il link della demo a chiunque oltre al consulente pilota.
